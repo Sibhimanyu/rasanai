@@ -4,6 +4,7 @@
 // nothing here judges taste, and a well-formed brief never turns into "ready" without current review evidence.
 import { canonicalDigest } from "./contracts.mjs";
 import { CREATIVE_ERROR_CODES } from "./creative-policy.mjs";
+import { normalizeMotif, checkSequence, SEQUENCE_ERROR_CODES } from "./sequence-contract.mjs";
 
 export const CREATIVE_SCHEMA_VERSION = 1;
 export const CREATIVE_MODES = ["proposal", "story", "look", "build"];
@@ -143,6 +144,9 @@ export function validateCreativeBrief(doc, context = {}) {
     const phase = phaseOf(ctx.stage, mode);
     const ec = validateEventCommitments(doc, { phase, treatment: ctx.treatment, absences: ctx.absences, pins: isObj(ctx.expectedPins) ? ctx.expectedPins : pins, currentDigests: ctx.currentDigests });
     errors.push(...ec.errors); warnings.push(...ec.warnings); missing.push(...ec.missing);
+    // Sequence addendum (additive): treatment motifs and event motif_ids; nothing is added when neither exists
+    const mv = validateMotifBindings(doc, { treatment: ctx.treatment, score: ctx.score, phase });
+    errors.push(...mv.errors); warnings.push(...mv.warnings);
   }
 
   // Currentness against what is actually approved right now.
@@ -178,7 +182,7 @@ const bytes = (v) => Buffer.byteLength(JSON.stringify(v), "utf8");
 
 // The part of the brief one worker needs. Mandatory facts are never cut, whatever the byte budget; optional
 // history goes by reference. -> {mandatory, references, omittedOptional}
-export function creativeSlice(doc, { role = "", beatIds = [], shotIds = [], maxInlineBytes = 16000 } = {}) {
+export function creativeSlice(doc, { role = "", beatIds = [], shotIds = [], maxInlineBytes = 16000, treatment = null } = {}) {
   const d = isObj(doc) ? doc : {};
   const beats = new Set(arr(beatIds)), shots = new Set(arr(shotIds));
   const scoped = beats.size > 0 || shots.size > 0;
@@ -195,6 +199,11 @@ export function creativeSlice(doc, { role = "", beatIds = [], shotIds = [], maxI
     payoff: d.payoff ?? null,
     approved_targets: Object.fromEntries(PIN_STAGES.filter((s) => isObj(d.pins) && isObj(d.pins[s])).map((s) => [s, { artifact_ref: d.pins[s].artifact_ref, artifact_digest: d.pins[s].artifact_digest }])),
   };
+  // Sequence addendum: only the motifs this slice's events use (by event motif_ids, or the motif's own event_ids); no key at all when there are none
+  const eventIds = new Set(events.map((e) => e.id));
+  const wantMotifs = new Set(events.flatMap((e) => arr(creativeExt(e) && creativeExt(e).motif_ids).map(String)));
+  const motifs = treatmentMotifs(treatment).filter((m) => !scoped || wantMotifs.has(m.id) || arr(m.event_ids).some((i) => eventIds.has(i)));
+  if (motifs.length) mandatory.motifs = motifs;
   const used = events.flatMap((e) => arr(e.proof_refs));
   const optional = [
     ["opening", d.opening],
@@ -410,6 +419,7 @@ export function validateEventCommitments(doc, { phase = "proposal", treatment = 
     if (x.requirement !== undefined && !EVENT_REQUIREMENTS.includes(x.requirement)) errors.push(err("bad_enum", `${p}.requirement`, `requirement must be one of ${EVENT_REQUIREMENTS.join(", ")}`));
     if (x.state !== undefined && !EVENT_STATES.includes(x.state)) errors.push(err("bad_enum", `${p}.state`, `state must be one of ${EVENT_STATES.join(", ")}`));
     arr(x.audience_reads).forEach((r, j) => { if (!isObj(r) || !ID_RE.test(str(r.id)) || !validWindow(r.window_s)) errors.push(err("bad_interval", `${p}.audience_reads[${j}]`, "an audience read needs an id and window_s [start,end] with 0 <= start < end in score seconds")); });
+    if (x.motif_ids !== undefined && !(Array.isArray(x.motif_ids) && x.motif_ids.every((m) => ID_RE.test(str(m))))) errors.push(err("bad_type", `${p}.motif_ids`, "motif_ids must be an array of motif ids declared on the treatment"));
     if (x.interval_s !== undefined && !validWindow(x.interval_s)) errors.push(err("bad_interval", `${p}.interval_s`, "interval_s must be [start,end] with 0 <= start < end"));
     // state transitions cite digests and receipts; the enum alone is a claim
     const ev = isObj(x.evidence) ? x.evidence : null, dg = ev ? str(ev.artifact_digest) : "";
@@ -436,4 +446,38 @@ export function validateEventCommitments(doc, { phase = "proposal", treatment = 
     else if (!basis) warnings.push(err(COMMITMENT_ERROR_CODES.absence, "extensions.creative_thinking.commitment_basis", "no signature events: declare commitment_basis (alternative commitments, approval source, review method)"));
   }
   return { errors, warnings, missing, reconciliation: rec };
+}
+
+// ======================================================================================================
+// Sequence addendum (Connected Sequence Craft, workstream A). Motif direction lives ONCE, on the selected treatment:
+// treatment.extensions.creative_thinking.motifs[]; events refer to it by event.extensions.creative_thinking.motif_ids.
+// signature_events stays the only event collection; no required-event array is added; treatmentCommitments is untouched.
+// Records are normalized and checked by sequence-contract.mjs (normalization grants no consent and mutates nothing).
+// Consumers: validateCreativeBrief (above), creativeSlice (above), creative-handoff.mjs (projection), creative-completion.mjs.
+// ======================================================================================================
+export function treatmentMotifs(treatment, score = null) {
+  const x = creativeExt(treatment), rows = x ? (Array.isArray(x.motifs) ? x.motifs : isObj(x.motifs) ? Object.entries(x.motifs).filter(([, m]) => isObj(m)).map(([id, m]) => ({ id, ...m })) : []) : [];
+  const seen = new Set(), out = [];
+  for (const m of rows) { if (!isObj(m)) continue; const n = normalizeMotif(m, score); if (!n.id || seen.has(n.id)) continue; seen.add(n.id); out.push(n); }
+  return out;
+}
+
+// -> {errors:[{code,path,message}], warnings}. Without a treatment it can only warn that event motif_ids are unresolved (it never invents motifs).
+// A motif-free film (no motifs, no motif_ids) returns nothing: absence is valid. Stage-time strictness stays with the caller (errors only at build, as event gaps do).
+export function validateMotifBindings(doc, { treatment = null, score = null, phase = "build" } = {}) {
+  const errors = [], warnings = [], events = arr(doc && doc.signature_events).filter(isObj);
+  const withIds = events.filter((e) => arr(creativeExt(e) && creativeExt(e).motif_ids).length);
+  const motifs = treatmentMotifs(treatment, score);
+  if (!motifs.length) {
+    if (withIds.length) warnings.push(err(SEQUENCE_ERROR_CODES.unresolved_ref, "signature_events.extensions.creative_thinking.motif_ids", `events ${withIds.map((e) => e.id).join(", ")} name motifs but no treatment motifs were supplied to resolve them`));
+    return { errors, warnings };
+  }
+  const r = checkSequence({ motifs, events, score });
+  const mine = (i) => /^(motifs\[|signature_events\[\d+\]\.extensions\.creative_thinking\.motif_ids)/.test(i.path) || i.path.startsWith("motifs.");
+  // before the storyboard binds intervals, completeness gaps are warnings; identity, authored-role and reference faults are always errors
+  const FIRM = new Set([SEQUENCE_ERROR_CODES.static_continuous, SEQUENCE_ERROR_CODES.role_not_authored, SEQUENCE_ERROR_CODES.unresolved_ref, SEQUENCE_ERROR_CODES.relation_missing]);
+  const early = (PHASE_RANK[phase] ?? PHASE_RANK.build) < PHASE_RANK.storyboard;
+  for (const e of r.errors.filter(mine)) (early && !FIRM.has(e.code) ? warnings : errors).push(e);
+  for (const w of r.warnings.filter(mine)) if (w.code !== SEQUENCE_ERROR_CODES.unpinned && w.code !== SEQUENCE_ERROR_CODES.notAssessable) warnings.push(w);
+  return { errors, warnings };
 }

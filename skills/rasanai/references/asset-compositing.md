@@ -32,3 +32,7 @@ Identity across transformations, crop correspondence, edge quality, source resol
 ## Deferred cases
 
 AST-01 to AST-10 (source quality, unseen view, crop correspondence, uninspected alpha, private content, spend/transmission, flat collage, contact/occlusion, macro resolution, post-approval change) plus REF/CRF observation. Specs only; not run.
+
+## Sequence addendum: optics support (implemented_unvalidated)
+
+Each planned subject and crop carries `layer_id` (defaults to the subject id; the id optics names in `layers.select`) and each subject `mask:{inspected, sha256}` (true only when the asset mask or alpha record says inspected). Optics `mask_source` can then report `available` for an inspected asset mask and stays `uncertain` otherwise. Source-layer identity is kept through crop/mask/occlusion.

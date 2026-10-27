@@ -91,3 +91,5 @@ The canonical homes of the detail this guide points at (read the one the current
 | the score: every field, the format, the seam pass, the shape vocabulary, lyric-video scoring; the argument it copies | `references/score.md`, `references/intent.md`, `agents/structure-critic.md` |
 | motion.md fields, tween classes, rules, banned patterns, waivers | `references/motion-md-contract.md` |
 | the selected medium's contract and bindings (the contract owns behaviour, the score owns time); conditional, a run with a selected medium only | `references/medium-direction.md`, `references/medium-examples.md` |
+| music direction and layered sound: sound direction, music shortlist and selection, arrangement, layered effects, the mix bus, source rights | `references/sound-direction.md`, `references/music-selection.md`, `references/music-arrangement.md`, `references/sfx-layering.md`, `references/mix-bus.md`, `references/audio-sources-rights.md` |
+| connected sequences the animators carry (handoff state, optics, product actions) | `references/sequence-contracts.md`, `references/motion-handoffs.md`, `references/optical-treatments.md`, `references/product-choreography.md` |

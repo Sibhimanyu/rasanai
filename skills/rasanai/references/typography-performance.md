@@ -55,3 +55,9 @@ Times are score seconds only. IDs match `ID_RE` from composition-anchors.mjs and
 ## Limits
 
 Kerning/shaping beyond the browser (`shaping: browser-dom`) is unverified. `fontIdentity` reads the font file to hash it when `path` is given; nothing else touches the disk. Injection of `rasan-type.js` is proposed, not wired (see the W13/W14 report).
+
+## Sequence addendum: protected reads and distortion (implemented_unvalidated)
+
+- `protectedReadsOf(roles)` lists every protected group's read intervals as `{id:"read:<group>:<n>", ref, interval, basis:"score"}` for optics `protectedReads`, attention `protected_read` and handoff holds.
+- An op marked `distorts:true` (crop, warp, oversized scale) that overlaps a protected read is `material_deviation` unless that read carries `allow:"distort"`. Outside the read, expressive type may crop or distort freely.
+- Runtime: `RasanType.inRead(t, reads)` (pure) and `RasanType.holdRead(tl, target, {reads, at, duration, t0})` clear fragment distortion inside a read; place it after the effect tweens.

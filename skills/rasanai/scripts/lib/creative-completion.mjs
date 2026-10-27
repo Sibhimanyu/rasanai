@@ -14,6 +14,7 @@
 // Missing temporal evidence blocks a reviewed-ready claim, never disclosure: `draft` stays an allowed label for any playable output.
 // Legacy runs (creative_policy_revision absent or 1, no required commitments): the result is exactly creativeReadiness's, plus labels.
 import { creativeReadiness, creativeExt, reconcileCommitments, treatmentCommitments } from "./creative-contract.mjs";
+import { checkSequence } from "./sequence-contract.mjs";
 
 const arr = (x) => (Array.isArray(x) ? x : []);
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
@@ -35,6 +36,7 @@ export const COMPLETION_CODES = Object.freeze({
   timebase: "temporal_timebase_mismatch", interval: "temporal_interval_invalid", commitment_open: "commitment_not_fulfilled",
   retell_missing: "semantic_retell_missing", retell_order: "semantic_retell_not_blind", no_vision: "reviewer_cannot_see",
   formal_thin: "formal_read_incomplete", human_missing: "human_decision_missing", human_stale: "human_decision_stale", concept: "concept_wrong",
+  sequence_invalid: "sequence_record_invalid", sequence_stale: "sequence_record_stale", playback_review: "playback_review_required",
 });
 
 // ---- required commitments (what the Final must account for) ----------------------------------------------------------------------------
@@ -92,6 +94,28 @@ export function checkCommitmentResults(review, { output = {}, required = [] } = 
   for (const row of rows) if (!ids.has(str(row.commitment_id))) results.push({ commitment_id: str(row.commitment_id), result: COMMITMENT_RESULTS.includes(row.result) ? row.result : "not_assessable", assessed: false, extra: true, problems: [] });
   for (const x of results) problems.push(...x.problems);
   return { results, problems };
+}
+
+// ---- connected sequence (Addendum 1) ------------------------------------------------------------------------------------------------------
+// contract.sequence = { motifs, handoffs, optics, product, attention, events?, score?, capabilities?, current? } (the records sequence-contract.mjs defines).
+// Static record checks (checkSequence) can only LOWER the state; they never stand in for watching connected motion. Every handoff, optic, product and attention
+// record owes review.sequence_results[{record_id, method, artifact_digest, interval:{start_s,end_s}, observed}] from a temporal method on THIS output, else the
+// record is a playback_review_required reason and `ready` is withheld (a draft stays disclosable). Owed only when the run is revision >= 2 and carries records.
+export function checkSequenceResults(review, { output = {}, owed = [] } = {}) {
+  const rows = arr(review && review.sequence_results).filter(isObj), od = hex(output.digest), dur = Number(output.duration_s), results = [];
+  for (const o of owed) {
+    const row = rows.filter((x) => str(x.record_id) === o.record_id).pop(), ps = [];
+    if (!row) ps.push(rs(COMPLETION_CODES.playback_review, `${o.record_id} (${o.record_kind}): no playback observation; ${o.reason}`, { record_id: o.record_id }));
+    else {
+      if (!TEMPORAL_METHODS.includes(str(row.method))) ps.push(rs(COMPLETION_CODES.temporal_method, `${o.record_id}: method "${str(row.method) || "none"}" cannot establish connected motion; use ${TEMPORAL_METHODS.join(" | ")}`, { record_id: o.record_id }));
+      if (!od || hex(row.artifact_digest) !== od) ps.push(rs(COMPLETION_CODES.temporal_stale, `${o.record_id}: observation is not tied to the current output digest`, { record_id: o.record_id }));
+      const iv = isObj(row.interval) ? row.interval : {}, a = Number(iv.start_s), b = Number(iv.end_s);
+      if (!(Number.isFinite(a) && Number.isFinite(b) && a >= 0 && b > a) || (Number.isFinite(dur) && dur > 0 && b > dur + 0.05)) ps.push(rs(COMPLETION_CODES.interval, `${o.record_id}: interval needs 0 <= start_s < end_s within the output (score time)`, { record_id: o.record_id }));
+      if (str(row.observed).length < 20) ps.push(rs(COMPLETION_CODES.temporal_missing, `${o.record_id}: say what was observed (20+ characters)`, { record_id: o.record_id }));
+    }
+    results.push({ record_id: o.record_id, record_kind: o.record_kind, assessed: ps.length === 0, problems: ps });
+  }
+  return { results, problems: results.flatMap((r) => r.problems) };
 }
 
 // The semantic layer: the retell comes first, from observation, then is compared. Observed tool reads show access, not comprehension.
@@ -194,6 +218,25 @@ export function assessCompletion({ approvals = {}, contract = {}, output = {}, r
   } else if (isObj(review) && Array.isArray(review.commitment_results) && review.commitment_results.length) {
     evidence.temporal = { state: "not_required", note: "no required commitments for this run; observations are kept as information" };
   }
+  // connected sequence records (additive; revision >= 2 with supplied records only, so legacy results are untouched)
+  const seq = isObj(contract.sequence) ? contract.sequence : null;
+  if (seq && Number(brief && brief.creative_policy_revision) >= 2) {
+    const chk = checkSequence({ ...seq, events: seq.events || arr(brief && brief.signature_events) });
+    const total = chk.playback_review_required.length;
+    if (total || chk.errors.length) {
+      const stale = chk.errors.filter((e) => e.code === "stale_input" || e.code === "sequence_unresolved_ref");
+      evidence.sequence = { state: "pending", records: total, static_errors: chk.errors.length, digest: chk.digest };
+      for (const e of chk.errors) reasons.push(rs(stale.includes(e) ? COMPLETION_CODES.sequence_stale : COMPLETION_CODES.sequence_invalid, `${e.path}: ${e.message}`, { record_code: e.code }));
+      if (stale.length) state = worst(state, "not_reviewed");
+      if (chk.errors.length > stale.length) state = worst(state, "revise");
+      const pr = checkSequenceResults(review, { output: out, owed: chk.playback_review_required });
+      const open = pr.results.filter((r) => !r.assessed);
+      reasons.push(...pr.problems);
+      if (open.length) { state = worst(state, "not_reviewed"); evidence.sequence.unreviewed = open.map((r) => r.record_id); }
+      else if (!chk.errors.length) evidence.sequence.state = "ok";
+      if (state !== "ready" && base.state === "ready") reasons.push(rs("ready_withheld", "a ready label needs a current playback observation for every connected-motion record and no sequence record faults"));
+    }
+  }
   limitations.push(...arr(review && review.limitations).map(str).filter(Boolean));
 
   // bounded repair: review-round limits stay respected; at the limit a draft and the remaining issue go to the user's Final
@@ -202,7 +245,7 @@ export function assessCompletion({ approvals = {}, contract = {}, output = {}, r
   if (state === "revise" && limit > 0 && round >= limit) { state = "needs_user"; reasons.push(rs("budget_exhausted", `round ${round} of ${limit}: report the draft and the remaining issue through the existing Final controls`)); }
   if (conceptWrong && state === "revise") state = "needs_user";
   if (evidence.human.state === "stale") reasons.push(rs(COMPLETION_CODES.human_stale, "the user's last Final decision covers an earlier output"));
-  return done(state, { open, conceptWrong, missingTemporal: ["missing", "stale"].includes(evidence.temporal.state), stage: "story", commitments });
+  return done(state, { open, conceptWrong, missingTemporal: ["missing", "stale"].includes(evidence.temporal.state) || (evidence.sequence && evidence.sequence.unreviewed && evidence.sequence.unreviewed.length > 0), stage: "story", commitments });
 }
 
 // What a Final writer may SAY about its output, from the assessment alone (never a stronger word than the assessment allows).

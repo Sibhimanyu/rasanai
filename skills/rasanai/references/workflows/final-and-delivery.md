@@ -37,3 +37,5 @@ The canonical homes of the detail this guide points at (read the one the current
 | the delivery finish: film-wide motion blur and one grade | `references/finish.md`, `scripts/finish.mjs` |
 | the blind A/B before a fix round is accepted, and the retrospective that keeps Claude's own notes after a film | `agents/ab-juror.md`, `agents/retrospective.md`, `scripts/crew.mjs` (`ab`), `scripts/lessons.mjs` |
 | the delivery folder (mp4, poster, srt, credits, build.sh, NOTE.md) and the voice-against-script check | `references/deliver.md`, `scripts/lib/deliver.mjs` |
+| the mix bus, gain automation and what a mix receipt lets the Final reuse; sound edits and what they invalidate | `references/mix-bus.md`, `references/sound-revisions.md`, `references/audio-sources-rights.md` |
+| sequence records the Final still owes a playback observation for | `references/sequence-contracts.md`, `references/temporal-review.md` |

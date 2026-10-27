@@ -16,6 +16,7 @@ struct LookStage: View {
     @State private var showMix = false
     @State private var showRefine = false
     @State private var showMotion = false
+    @State private var soundDraft: SoundDirection?
     @State private var mixLook = ""
     @State private var mixStory = ""
     @FocusState private var keysFocused: Bool
@@ -59,6 +60,7 @@ struct LookStage: View {
                 Task { await model.send(step: step, type: "choose", value: .string(current.id), note: note) }
             }
         }
+        .onChange(of: payload["sound"]) { _, _ in soundDraft = nil }
         .onChange(of: items.map(\.id)) { _, ids in
             if let selection, !ids.contains(selection) { self.selection = nil }
         }
@@ -177,10 +179,8 @@ struct LookStage: View {
             Rectangle().fill(Workspace.hairline).frame(height: 1)
             DisclosureGroup("Refine direction", isExpanded: $showRefine) { controls(current).padding(.top, 10) }
                 .font(.system(size: 13, weight: .medium))
-            if current.music != nil || current.video != nil || !current.beats.isEmpty {
-                DisclosureGroup("Motion and sound", isExpanded: $showMotion) { motionAndSound(current).padding(.top, 10) }
-                    .font(.system(size: 13, weight: .medium))
-            }
+            DisclosureGroup("Motion and sound", isExpanded: $showMotion) { motionAndSound(current).padding(.top, 10) }
+                .font(.system(size: 13, weight: .medium))
             motionExtras
         }
         .padding(Workspace.panelPadding)
@@ -224,8 +224,26 @@ struct LookStage: View {
         }
     }
 
+    /// Saved choices: this step's `sound` record, else what the brief carried; unset reads as Recommend for me.
+    private var soundValue: SoundDirection {
+        soundDraft ?? SoundDirection(json: payload["sound"]) ?? SoundDirection(json: model.payload("brief")["fields"]["sound"]) ?? SoundDirection()
+    }
+
+    /// ONE `sound-direction` action: the choices (SoundDirection.json), plus `revision_request` for a shortlist quick revision.
+    private func sendSound(_ sound: SoundDirection, revision: (kind: String, candidate: String)? = nil) {
+        guard canAct else { return }
+        soundDraft = sound
+        var value = sound.json.object
+        if let revision { value["revision_request"] = .object(["kind": .string(revision.kind), "candidate": .string(revision.candidate)]) }
+        Task { await model.send(step: step, type: "sound-direction", value: .object(value)) }
+    }
+
     @ViewBuilder private func motionAndSound(_ current: LookItem) -> some View {
         VStack(alignment: .leading, spacing: 10) {
+            SoundDirectionSection(sound: soundValue, enabled: canAct) { sendSound($0) }
+            SoundCandidatesView(candidates: SoundCandidate.parse(payload["sound"]), enabled: canAct) { kind, id in
+                sendSound(soundValue, revision: (kind, id))
+            }
             if current.video != nil {
                 Label("The picture above plays this look's motion preview.", systemImage: "play.rectangle")
                     .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

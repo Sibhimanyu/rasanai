@@ -13,6 +13,7 @@ A shot is a time-dependent argument: a visible cause, an action, a consequence a
 | `composition` | the neighbour inventory: `focal_subject`, `scale`, `framing`, `ground`, `density`, `action_register`, `adjacent_relation`, `anchor_ids`, `text_roles`, `representation_level`, `repeat_reason?` (anchor ids and text roles come from `composition-anchors.mjs` / `text-performance.mjs`) |
 | `transition_out.cut_function` | what the cut does: `cause`, `contrast`, `ellipsis`, `viewpoint`, `evidence`, `rhythmic_punctuation`, `separation` (alongside the existing `relation`) |
 | panel `event_id`, `phase`, `score_revision` | which event and phase a panel shows, and the score revision it was drawn against |
+| attention fields on a read (addendum 1) | `order`; `target_ref {kind: object\|region\|text_group, id, digest?}` (bound to something the plan has); `interval` (score seconds `{start_s,end_s}` or `[a,b]`, used when there is no `source_interval`); `intended_understanding`; `transfer_change` (what moves emphasis on: scale, contrast, focus, position, overlap, motion or stillness, chosen by direction; text or `{kind, note}`); `competing[]` (`{ref, treatment}`); `protected_read {required, min_s_basis}` |
 
 A revision 1 board has none of these and is normalized, validated, digested and approved exactly as before.
 
@@ -25,6 +26,14 @@ A revision 1 board has none of these and is normalized, validated, digested and 
 - `stale_input`, kind `out_of_bounds`: outside `0..score total`.
 
 Reads may overlap when independent channels cooperate; the Director records why in `competing_reads[].why_followable`.
+
+### Attention sequence (ordered reads, addendum 1)
+
+Additive on the same `reads[]`; a read with none of the fields above normalizes, digests and judges exactly as before. `normalizeReads(reads, score, {targets, target_digests})` also reports, for attention reads only: `target_missing`, `target_unresolved` (target or `competing[].ref` not in `opts.targets`) and `stale_target` (the read's `target_ref.digest` differs from `target_digests`), all as problems in `validateShot` and listed by `staleReads`; and `order_duplicate`, `order_time` (order contradicts score time) and `protected_overlap` (another target overlaps a required read without a declared `competing[]` treatment), as warnings. `readsDigest` includes the new fields only when a read has them, so a changed order, target, understanding or transfer reopens review as `reads_changed`.
+
+- Protected reads: primary copy and product evidence set `protected_read.required`. `protectedReads(shot, intervals)` returns them as `{id, ref, interval}` for optics (`optical-treatments.planOptics protected_reads`) and typography; expressive type may crop or distort outside those intervals only. How long a read needs follows its content and context (`min_s_basis` or `minimum_read_basis`); there is no default hold, and with no basis the read is listed under `unassessed`, not guessed.
+- `evaluateTemporal` adds `protected-read-short`, `attention-understanding-unstated` and `attention-transfer-unstated`, and an `attention` summary with `playback_review_required: true`. Nothing mandates one focal point or constant movement; stillness is a valid `transfer_change`.
+- Limits: these checks find conflicting timing, missing targets and stale bindings. They cannot prove that anyone understood the sequence or that it works visually; see `references/temporal-review.md` (attention in playback). Status implemented_unvalidated.
 
 ## Judging (findings, never rewrites)
 

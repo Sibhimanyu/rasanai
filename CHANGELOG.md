@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+Implemented from the two Heresay addenda to the v3 overhaul (Connected Sequence Craft; Music Direction and Layered Sound). Source-level only: checked with syntax and import loads and the skill-map link check, but not built, rendered or listened to. No film-quality or audio improvement is claimed, and the reported music dropout is not repaired.
+
+- **Connected sequences.** Evolving motifs with one owner per continuous action, motion handoffs that continue the outgoing movement's velocity, coordinated optics (focus, soft material, motion blur) with honest capability states, product choreography that only uses the current dark Studio UI, ordered attention on timed reads, and type and layout that protect reads. A Final is not marked ready without a playback review.
+- **Sound choices.** Voiceover, pace, feeling, effects and music source, with "Recommend for me" for each, in a compact section on the Brief and Look screens (Studio). Minimal effects now keep their signature moves instead of acting like none.
+- **Music and effects.** A ranked three-track shortlist with per-use rights and audition evidence (nothing is marked listened without evidence), AI generation off without consent and after the licensed catalog, user-only exclusions instead of fixed ones, layered effects with a lead and a tail, and phrase arrangement that never invents a beat grid.
+- **Mix guardrails (dropout not repaired).** The music dropout around ordinary effects has no established cause: source ruled out five candidates and four need a measurement. The changes are protective only: one dB convention, ordinary effects never duck the music, the music bed has carve disabled, one plan feeds preview and export, and receipts record the renderer and audio attributes. `audio/automation.json` now has a writer.
+- **Revisions.** Sound and sequence state join a film's dependency identity, so a change re-does only what it touches (a gain or EQ change rebuilds no pictures).
+- Known gaps: five of the 54 deferred cases have no covering code, about 15 audio cases need listening or a render, and a few exports have no caller yet (`seamReport`, `checkStudioCapture`).
+
 ## 1.30.0 (2026-10-27): Creative overhaul v3: policy revision 2, concepts, temporal storyboards, continuity
 
 Implemented from the v3 creative overhaul handoff (Heresay briefs, 15 parts). Source-level only: checked with syntax and import loads, the skill-routing test, seven script suites and the Studio prompt parity test, but not rendered or tried on a real film, so no film-quality improvement is claimed. The film-pipeline, ffmpeg and Chrome test modules were not run.

@@ -187,21 +187,33 @@ export function evaluateTemporal(shots, ctx = {}) {
       if (!w) { unassessed.push({ shot_id: id, read_id: r.id, why: "no numeric window to judge" }); continue; }
       if (w.stale) { push({ id: "read-stale", severity: "major", shot_id: id, read_id: r.id, message: `${id}/${r.id}: the read window belongs to an older score; re-map it (nothing is re-timed for you)` }); continue; }
       // reading-time heuristic with its stated assumption: min_s comes from minimum_read_basis or the shot's copy; absent either, the read is not assessed
-      const b = isObj(r.minimum_read_basis) ? r.minimum_read_basis : {};
+      // addendum 1: a protected read (primary copy, product evidence) may state its own basis in protected_read.min_s_basis; reading time follows that content and context, never a default
+      const mb = isObj(r.minimum_read_basis) ? r.minimum_read_basis : {};
+      const pr = isObj(r.protected_read) && r.protected_read.required === true ? r.protected_read : null;
+      const pb = pr && isObj(pr.min_s_basis) && num(pr.min_s_basis.min_s) != null ? pr.min_s_basis : null;
+      const b = num(mb.min_s) == null && pb ? pb : mb;
       const need = num(b.min_s);
       const have = (w.end - w.start) / 1e6;
-      if (need == null) { unassessed.push({ shot_id: id, read_id: r.id, why: "minimum_read_basis has no min_s; heuristics are not guessed" }); continue; }
-      if (need > have + 1e-6) push({ id: "read-window-short", severity: have < need * 0.7 ? "major" : "minor", shot_id: id, read_id: r.id, needed_s: need, have_s: Math.round(have * 1e3) / 1e3, assumption: T(b.assumption) || "stated minimum_read_basis",
+      if (need == null) { unassessed.push({ shot_id: id, read_id: r.id, why: pr ? "protected read has no min_s basis (minimum_read_basis or protected_read.min_s_basis); a hold length is not guessed" : "minimum_read_basis has no min_s; heuristics are not guessed" }); continue; }
+      if (need > have + 1e-6) push({ id: b === pb ? "protected-read-short" : "read-window-short", severity: have < need * 0.7 ? "major" : "minor", shot_id: id, read_id: r.id, needed_s: need, have_s: Math.round(have * 1e3) / 1e3, assumption: T(b.assumption) || "stated minimum_read_basis",
         message: `${id}/${r.id}: this read needs about ${need} s (${T(b.assumption) || "stated basis"}) and has ${Math.round(have * 100) / 100} s; ask for fewer messages, different staging (another channel, an earlier set-up) or more time, or record why it is enough. Do not just speed the action up` });
     }
     // overlapping reads are legitimate when independent channels cooperate; the Director must say why the viewer can follow both
     for (let a = 0; a < wins.length; a++) for (let b = a + 1; b < wins.length; b++) {
       const x = wins[a], y = wins[b];
       if (!x.w || !y.w || !(x.w.start < y.w.end && y.w.start < x.w.end)) continue;
-      const declared = [...arr(x.r.competing_reads), ...arr(y.r.competing_reads)].some((c) => c && (c.id === x.r.id || c.id === y.r.id) && T(c.why_followable || c.why));
-      const sameTarget = T(x.r.attention_target) && T(x.r.attention_target) === T(y.r.attention_target);
+      const tid = (r) => T(r.target_ref && r.target_ref.id);
+      const declared = [...arr(x.r.competing_reads), ...arr(y.r.competing_reads)].some((c) => c && (c.id === x.r.id || c.id === y.r.id) && T(c.why_followable || c.why))
+        || arr(x.r.competing).some((c) => c && tid(y.r) && c.ref === tid(y.r) && T(c.treatment)) || arr(y.r.competing).some((c) => c && tid(x.r) && c.ref === tid(x.r) && T(c.treatment));
+      const sameTarget = (T(x.r.attention_target) && T(x.r.attention_target) === T(y.r.attention_target)) || (tid(x.r) && tid(x.r) === tid(y.r));
       if (!declared) push({ id: "reads-overlap-unexplained", severity: sameTarget ? "major" : "minor", shot_id: id, read_ids: [x.r.id, y.r.id], message: `${id}: reads ${x.r.id} and ${y.r.id} overlap${sameTarget ? " on the same attention target" : ""}; say in competing_reads why the viewer can follow both (a different channel: picture vs sound, face vs text) or stage them in sequence` });
     }
+    // addendum 1: ordered attention. Findings state what is missing from the authored sequence; they never say a viewer understood or that it looks right.
+    const ordered = R.filter((r) => isObj(r) && (r.target_ref || r.transfer_change || r.intended_understanding || r.order != null)).sort((p, q) => (num(p.order, 1e9)) - (num(q.order, 1e9)));
+    ordered.forEach((r, k) => {
+      if (!T(r.intended_understanding)) push({ id: "attention-understanding-unstated", severity: "minor", shot_id: id, read_id: r.id, message: `${id}/${r.id}: no intended_understanding (what the viewer should take from this read); a playback reviewer has nothing to compare with` });
+      if (k < ordered.length - 1 && !(isObj(r.transfer_change) ? T(r.transfer_change.kind || r.transfer_change.note) : T(r.transfer_change))) push({ id: "attention-transfer-unstated", severity: "minor", shot_id: id, read_id: r.id, message: `${id}/${r.id}: the next read follows, but no transfer_change says what moves the emphasis (scale, contrast, focus, position, overlap, motion or stillness: the direction's choice; stillness is valid)` });
+    });
     // cause before reaction (TMP-04): the consequence may not begin before the action that causes it, unless anticipation is motivated by the concept
     const bd = isObj(sh.bindings) ? sh.bindings : null;
     if (bd && bd.action && bd.consequence && num(bd.action.start_s) != null && num(bd.consequence.start_s) != null && bd.consequence.start_s < bd.action.start_s) {
@@ -231,7 +243,8 @@ export function evaluateTemporal(shots, ctx = {}) {
   const last = S[S.length - 1];
   const lastReads = arr(last && last.reads);
   const ending = last ? { shot_id: T(last.shot_id), resolves: !!T(last.editorial && last.editorial.ends_by), has_reads: lastReads.length > 0, rule: "no universal minimum or maximum ending duration or type size; the window must fit the ending's own reads" } : null;
-  return { active: true, findings, inventory: compositionInventory(S), ending, unassessed };
+  const attn = S.reduce((n, sh) => n + arr(sh && sh.reads).filter((r) => isObj(r) && (r.target_ref || r.transfer_change || r.order != null)).length, 0);
+  return { active: true, findings, inventory: compositionInventory(S), ending, unassessed, ...(attn ? { attention: { reads: attn, playback_review_required: true, cannot_prove: "These findings cover timing, missing targets and stale bindings only; they do not show comprehension or aesthetic success. Assess the attention sequence in later playback." } } : {}) };
 }
 
 // Opt-in style checks. Each needs `evidence` (why this style wants it); without evidence the option is ignored. They are `style` severity: never a gate.

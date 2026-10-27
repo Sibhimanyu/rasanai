@@ -1,0 +1,27 @@
+{
+ "version": 1,
+ "entries": [],
+ "about": "Listening and finished-mix evidence for catalog assets. EMPTY on purpose: no catalog track has been auditioned, so there is no auditioned or approved_in_finished_mix entry and every catalog row stays metadata_reviewed with listened:false. A row may claim `listened:true` or a higher evidence_state only when an entry below matches the row's asset id AND version. Repeated filenames are not evidence. Read by scripts/lib/catalog-evidence.mjs (evidenceFor, validateEvidenceEntry); nothing writes this file in code yet, entries are added by a person or by an approved listening step.",
+ "entry_shape": {
+  "asset_id": "catalog track id (e.g. fma-ketsa-flushed) or sfx id",
+  "version": "which bytes were judged: the row's sha256 (preferred) or a catalog version label. An entry for another version is stale, never proof.",
+  "state": "metadata_reviewed | auditioned | approved_in_finished_mix",
+  "reviewer": "who: a person's name or id, or the model id for a model-assisted review",
+  "reviewer_kind": "human | model",
+  "method": "listened_full | listened_sections | listened_in_context (required for auditioned and above); measured_only and tagged are metadata, they cannot raise the state",
+  "context": {
+   "purpose": "what the listening was for (e.g. speech-friendly bed, shortlist audition)",
+   "film": "project or run id (required for approved_in_finished_mix)",
+   "mix_receipt": "mix-receipt id or digest of the finished mix it was judged in (required for approved_in_finished_mix)",
+   "section": "optional: the part of the track heard, in seconds",
+   "monitoring": "optional: speakers or headphones"
+  },
+  "at": "ISO 8601 timestamp",
+  "notes": "optional: what was heard"
+ },
+ "rules": [
+  "metadata_reviewed < auditioned < approved_in_finished_mix; the rank never counts as a score.",
+  "stems.verified:true on a catalog row also needs an entry here for that version.",
+  "Do not backfill entries from tags, measurements or earlier runs; an unlistened asset stays unlistened."
+ ]
+}

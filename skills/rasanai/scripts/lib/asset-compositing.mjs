@@ -71,7 +71,11 @@ export function planAssetCompositing({ subjects = [], assets = [], anchors = nul
     if (!REPRESENTATIONS.includes(rep)) bad(E.stale_input, id, `representation "${rep}" is not one of ${REPRESENTATIONS.join(", ")}`, "uncertain");
     const finish = s.finish || "flat";
     if (!FINISHES.includes(finish)) bad(E.stale_input, id, `finish "${finish}" is not one of ${FINISHES.join(", ")}`, "uncertain");
-    const entry = { id, purpose: s.purpose || null, representation: rep, finish, asset_id: s.asset_id ?? null, region_id: s.region_id ?? null, anchor_id: s.anchor_id ?? null, state: "available", reasons: [] };
+    // layer_id (additive): the hybrid shot layer this subject becomes; it is the id SQ-OPTICS ops name in layers.select (defaults to the subject id).
+    // mask (additive): the inspected-mask fact optics reads for mask_source; inspected only when the asset's mask (or alpha) says so, never inferred.
+    const ma = a && isObj(a.mask) ? a.mask : null;
+    const entry = { id, layer_id: s.layer_id != null ? String(s.layer_id) : id, purpose: s.purpose || null, representation: rep, finish, asset_id: s.asset_id ?? null, region_id: s.region_id ?? null, anchor_id: s.anchor_id ?? null,
+      mask: { inspected: !!((ma && ma.inspected === true) || (a && a.has_alpha === true && a.alpha_inspected === true)), sha256: ma ? (ma.sha256 ?? null) : null }, state: "available", reasons: [] };
     const sub = (st, reason) => { entry.state = worse(entry.state, st); entry.reasons.push(reason); state = worse(state, st); };
     checkRef(id, "region", s.region_id); checkRef(id, "anchor", s.anchor_id);
     if (s.editorial_interpretation) entry.editorial_interpretation = true;   // internal contract mark: must not read as product internals / anatomy / diagram fact
@@ -138,7 +142,7 @@ export function planAssetCompositing({ subjects = [], assets = [], anchors = nul
     const sub = subjectById.get(String(c.subject_id));
     const assetId = c.asset_id ?? (sub ? sub.asset_id : null);
     const a = A.get(String(assetId));
-    const entry = { id, subject_id: c.subject_id ?? null, asset_id: assetId ?? null, rect: c.rect ?? null, region_id: c.region_id ?? null, representation: c.representation || "closeup", fit: c.fit || "cover", out: c.out ?? null, state: "available", reasons: [] };
+    const entry = { id, layer_id: c.layer_id != null ? String(c.layer_id) : (sub ? sub.layer_id : id), subject_id: c.subject_id ?? null, asset_id: assetId ?? null, rect: c.rect ?? null, region_id: c.region_id ?? null, representation: c.representation || "closeup", fit: c.fit || "cover", out: c.out ?? null, state: "available", reasons: [] };
     const cs = (st, reason) => { entry.state = worse(entry.state, st); entry.reasons.push(reason); state = worse(state, st); };
     if (!sub) cs("uncertain", `crop names unknown subject "${c.subject_id}"`);
     if (!FITS.includes(entry.fit)) { cs("unavailable", `fit "${entry.fit}" is not allowed (${FITS.join(", ")}); stretch is never planned`); errors.push(err(E.capability_unavailable, id, "stretch is not a supported fit")); }

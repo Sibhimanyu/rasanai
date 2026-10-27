@@ -84,6 +84,28 @@
     return { x: l, y: tp, w: ok ? r - l : undefined, h: ok ? bt - tp : undefined, right: r, bottom: bt };
   }
 
+  // ADDITIVE (sequence addendum): carried elements. Both are pure functions of score time t and of the same anchors/regions, so a handoff
+  // references the one coordinate system (frame fractions) and nothing new is bound.
+  // anchoredRect: a box placed relative to an anchor, { w, h } fractions, pivot {x,y} in 0..1 of the box (default centre), offset { dx, dy }.
+  function anchoredRect(plan, anchorId, t, o) {
+    o = o || {};
+    need(isNum(o.w) && isNum(o.h), "anchoredRect needs w and h (fractions of the frame)");
+    var a = anchorAt(plan, anchorId, t), pv = o.pivot || { x: 0.5, y: 0.5 };
+    var x = a.x + (o.dx || 0) - o.w * (isNum(pv.x) ? pv.x : 0.5), y = a.y + (o.dy || 0) - o.h * (isNum(pv.y) ? pv.y : 0.5);
+    return { x: x, y: y, w: o.w, h: o.h, right: x + o.w, bottom: y + o.h };
+  }
+  // carriedRectAt: rect of an element that leaves region `fromId` as it stands at fromAt and arrives in region `toId` as it stands at toAt.
+  // Before fromAt it sits on the outgoing region at t, after toAt on the incoming one (each still moves with its own anchors). ease from EASES.
+  function carriedRectAt(plan, fromId, toId, fromAt, toAt, t, ease) {
+    need(isNum(fromAt) && isNum(toAt) && toAt >= fromAt, "carriedRectAt needs fromAt <= toAt (score seconds)");
+    if (t <= fromAt) return rectAt(plan, fromId, t);
+    if (t >= toAt) return rectAt(plan, toId, t);
+    var a = rectAt(plan, fromId, fromAt), b = rectAt(plan, toId, toAt), ez = EASES[ease] || EASES.linear, p = ez((t - fromAt) / (toAt - fromAt)), out = {};
+    ["x", "y", "w", "h"].forEach(function (k) { out[k] = a[k] + (b[k] - a[k]) * p; });
+    out.right = out.x + out.w; out.bottom = out.y + out.h;
+    return out;
+  }
+
   function px(frame, plan) {
     if (frame && frame.nodeType === 1) return { w: frame.clientWidth, h: frame.clientHeight };
     if (frame && isNum(frame.w) && isNum(frame.h)) return frame;
@@ -125,5 +147,5 @@
     return proxy;
   }
 
-  return { version: VERSION, EASES: EASES, knownEase: knownEase, anchorAt: anchorAt, rectAt: rectAt, bind: bind };
+  return { version: VERSION, EASES: EASES, knownEase: knownEase, anchorAt: anchorAt, rectAt: rectAt, anchoredRect: anchoredRect, carriedRectAt: carriedRectAt, bind: bind };
 });

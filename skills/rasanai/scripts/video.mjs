@@ -29,6 +29,7 @@ import { installLook, installDirection, directionSection, upsertMarked, DIRECTIO
 import { readDesignMd, toTokensJson } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { mixRevisionOf, busPlanForRun, writeBusPlan, renderBoundary } from "./lib/mix-bus.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
@@ -232,15 +233,26 @@ if (cmd === "init") {
     const p = path.join(dir, file);
     const meta = fs.existsSync(p) ? readJSON(p) : {};
     const voiced = Array.isArray(meta.voices) && meta.voices.length > 0;
-    meta.bgm = { ...(meta.bgm || {}), path: rel.split(path.sep).join("/"), volume: mastered ? (voiced ? 0.2 : 1.0) : voiced ? 0.12 : 0.9, query: "locked by RasanAI", duration_s: dur };
+    let volume = mastered ? (voiced ? 0.2 : 1.0) : voiced ? 0.12 : 0.9;
+    const bgmExtra = {};
+    // revision 2: the bed level is the bus plan's value, converted at the one boundary (renderBoundary "hyperframes"), and the plan is written to audio/automation.json so the
+    // mix receipt has its writer. audio_meta carries one static level and no lane, so no voice reduction is added here: the legacy level already is the under-voice level.
+    if (runR && mixRevisionOf(runR) >= 2) {
+      const plan = busPlanForRun(runR, { music: { volume }, voice_spans: [], film_s: dur });
+      const bed = renderBoundary(plan, "hyperframes").elements.find((e) => e.role === "music");
+      if (bed && Number.isFinite(bed["data-volume"]) && bed["data-volume"] > 0) { volume = bed["data-volume"]; bgmExtra.bus_plan_digest = plan.digest; busWrite = busWrite || writeBusPlan(runR, plan); }
+    }
+    meta.bgm = { ...(meta.bgm || {}), path: rel.split(path.sep).join("/"), volume, ...bgmExtra, query: "locked by RasanAI", duration_s: dur };
     delete meta.bgm_pending;
     fs.writeFileSync(p, JSON.stringify(meta, null, 2) + "\n");
     return file;
   };
+  const runR = args.run && args.run !== true ? path.resolve(String(args.run)) : path.basename(path.dirname(dir)) === "videos" ? path.dirname(path.dirname(dir)) : null;
+  let busWrite = null;
   const patched = [patch("audio_meta.json")];
   if (fs.existsSync(path.join(dir, "audio_engine_meta.json"))) patched.push(patch("audio_engine_meta.json"));
   if (downgrades.length) console.error("downgrade: " + downgrades.join("; "));
-  console.log(JSON.stringify({ ok: true, music: rel, duration_s: dur, lufs: Number.isFinite(lufs) ? lufs : null, mastered, patched }, null, 2));
+  console.log(JSON.stringify({ ok: true, music: rel, duration_s: dur, lufs: Number.isFinite(lufs) ? lufs : null, mastered, patched, ...(busWrite ? { bus_plan: busWrite } : {}) }, null, 2));
 } else if (cmd === "carriers") {
   // mount every carrier (an object that crosses a cut: compositions/carriers/<name>.html, root timed by its own
   // data-start / data-duration in film seconds) as its own track in index.html, so it is one object on one tween

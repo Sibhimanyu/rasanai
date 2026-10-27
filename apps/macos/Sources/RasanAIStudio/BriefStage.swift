@@ -95,7 +95,12 @@ struct BriefStage: View {
             sentenceBlock
             VStack(alignment: .leading, spacing: 16) {
                 StageSectionTitle("Details")
-                detailsGrid.padding(Workspace.panelPadding).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
+                VStack(alignment: .leading, spacing: 18) {
+                    detailsGrid
+                    Rectangle().fill(Workspace.hairline).frame(height: 1)
+                    SoundDirectionSection(sound: soundValue, enabled: canAct, showsVoiceover: false) { setSound($0) }
+                }
+                .padding(Workspace.panelPadding).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
                 if usesFormatPicker, let catalog { formatSection(catalog) }
             }
         }
@@ -123,7 +128,7 @@ struct BriefStage: View {
             fieldMenu("Length", key: "length_s", fallback: .number(45), options: lengthOptions, display: { "\(Int($0.number ?? 45))-second" })
             fieldMenu("Shape", key: "aspect", fallback: .string("16:9"), options: shapeOptions, display: { Self.aspectLabel($0.string ?? "16:9") })
             fieldMenu("Destination", key: "destination", fallback: .string("the website"), options: destinationOptions, display: { Self.soften($0.string ?? "the website") })
-            fieldMenu("Voiceover", key: "narration", fallback: .bool(true), options: narrationOptions, display: { Self.narrationText($0) })
+            fieldMenu("Voiceover", key: "narration", fallback: .string("recommend"), options: narrationOptions, display: { Self.narrationText($0) })
             if let brand = fields["brand_name"]?.string, !brand.isEmpty {
                 fieldMenu("Brand", key: "use_brand", fallback: .bool(true), options: brandOptions(brand),
                           display: { $0.bool == false ? "A new look" : "\(brand)'s own colours and type" })
@@ -214,7 +219,7 @@ struct BriefStage: View {
              options: destinationOptions,
              display: { Self.soften($0.string ?? "the website") })
         word(", ")
-        menu("Narration", key: "narration", fallback: .bool(true),
+        menu("Narration", key: "narration", fallback: .string("recommend"),
              options: narrationOptions, display: { Self.narrationText($0) })
         if let brand = fields["brand_name"]?.string, !brand.isEmpty {
             word(", ")
@@ -360,16 +365,44 @@ struct BriefStage: View {
 
     private var narrationOptions: [BriefOption] {
         let given = choices["narration"].array
-        if given.isEmpty { return [.bool(true), .bool(false)].map { BriefOption(value: $0, label: Self.narrationText($0)) } }
-        return given.map { item in
+        var all: [BriefOption] = given.isEmpty ? [.bool(true), .bool(false)].map { BriefOption(value: $0, label: Self.narrationText($0)) } : given.map { item in
             if case .object(let o) = item, let value = o["value"] { return BriefOption(value: value, label: o["label"]?.string ?? Self.narrationText(value)) }
             return BriefOption(value: item, label: Self.narrationText(item))
         }
+        // The third state: the director recommends and shows why (never silently "with").
+        if !all.contains(where: { $0.value == .string("recommend") }) { all.append(BriefOption(value: .string("recommend"), label: Self.narrationText(.string("recommend")))) }
+        return all
+    }
+
+    /// The saved sound choices (`fields.sound`), with the single Voiceover field's value mirrored in.
+    private var soundValue: SoundDirection {
+        var sound = SoundDirection(json: fields["sound"] ?? .null) ?? SoundDirection()
+        switch fields["narration"] {
+        case .some(.bool(true)): sound.voiceover = .with
+        case .some(.bool(false)): sound.voiceover = .without
+        case .some(.string("recommend")): sound.voiceover = .recommend
+        default: break
+        }
+        return sound
+    }
+
+    private func setSound(_ sound: SoundDirection) {
+        var next = fields
+        next["sound"] = sound.json
+        if sound.voiceover != soundValue.voiceover { next["narration"] = sound.voiceover.narration }
+        draft = next
     }
 
     private func set(_ key: String, _ value: JSONValue) {
         var next = fields
         next[key] = value
+        // The Voiceover field is the one voiceover control; keep the sound record in step with it.
+        if key == "narration" {
+            var sound = soundValue
+            if value == .string("recommend") { sound.recommend(SoundDirection.Key.voiceover) }
+            else if let on = value.bool { sound.choose(voiceover: on ? .with : .without) }
+            next["sound"] = sound.json
+        }
         draft = next
     }
 
@@ -449,7 +482,7 @@ struct BriefStage: View {
         value["subject"] = .string(subject)
         // What the sentence shows by default is what gets sent (the director sees the same words the person read).
         for (key, fallback) in [("length_s", JSONValue.number(45)), ("kind", .string("launch film")), ("aspect", .string("16:9")),
-                                ("destination", .string("the website")), ("narration", .bool(true))] where value[key] == nil || value[key] == .null {
+                                ("destination", .string("the website")), ("narration", .string("recommend"))] where value[key] == nil || value[key] == .null {
             value[key] = fallback
         }
         if let format, let option = formatOption {
@@ -476,6 +509,7 @@ struct BriefStage: View {
     }
     static func narrationText(_ value: JSONValue) -> String {
         if let b = value.bool { return b ? "with voiceover" : "without voiceover" }
+        if value.string?.lowercased() == "recommend" { return "recommend for me" }
         let text = value.string ?? "with voiceover"
         let lower = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         // A bare "none"/"off" would read "with none".

@@ -30,6 +30,8 @@
  *   RasanMotion.edges(keys, { lead, trail })  keys [{t, x, w}]: an indicator (tab pill, toggle, segmented control) as two
  *     edges on two springs. The edge on the side of travel uses the stiffer `lead` (default z 1, w 28), the other the softer
  *     `trail` (z 1, w 16), so the pill stretches ahead and catches up. -> { left(t), right(t), center(t), width(t) }.
+ *   RasanMotion.continueFrom({ t0, x0, v0, to, z, w })  a value that continues from the outgoing state {x0, v0} at t0 toward `to` on a closed-form
+ *     spring (pure f(t), seek-safe, f.velocity(t)); RasanMotion.stateAt(fn, t) -> {x, v}. For declared continuous seams (references/motion-handoffs.md).
  *   RasanMotion.frameTime(t, fps)  the time of the frame itself, floor(t * fps + 1e-6) / fps. Counters, clocks and typed
  *     digits must read THIS, not t: finish.mjs blends sub-frames for motion blur, and a counter read at a sub-time smears
  *     into a double image. When the page sets window.__rasanFrameTime (seconds, finish.mjs does this per sub-frame) that wins.
@@ -593,10 +595,37 @@
       width: function (t) { return right(t) - left(t); },
     };
   }
+  // Boundary-condition support (Addendum 1, motion handoffs). A value that CONTINUES from a known state {x0, v0} at t0 toward `to`
+  // on a closed-form damped spring (z damping ratio, w rad/s): no state, no history, a pure function of t, so any frame can be
+  // sought in any order and an interrupted render restarts anywhere. Before t0 it holds x0. w <= 0 coasts at v0 (no pull).
+  // f(t) -> value, f.velocity(t) -> units/s (v0 at t0, so the incoming side starts with the outgoing side's speed: no ease reset,
+  // no stop). Plan the inputs with scripts/lib/motion-handoff.mjs planHandoff (carried states come from the declared seam).
+  function continueFrom(o) {
+    o = o || {};
+    need(isFinite(+o.x0), "continueFrom needs x0 (the outgoing value at the boundary)");
+    var t0 = +o.t0 || 0, x0 = +o.x0, v0 = isFinite(+o.v0) ? +o.v0 : 0, to = o.to == null || !isFinite(+o.to) ? null : +o.to;
+    var z = o.z == null ? 1 : Math.max(0, +o.z), w = o.w == null ? 18 : +o.w;
+    var tgt = to === null ? x0 : to, A = x0 - tgt; // no target (to == null): coast at v0, no pull
+    function e(q) { // [deviation, rate] from the target, q seconds after t0
+      if (w <= 0 || to === null) return null;
+      var a = z * w, ex;
+      if (z < 1 - 1e-9) { var wd = w * Math.sqrt(1 - z * z); ex = Math.exp(-a * q); var c = Math.cos(wd * q), s = Math.sin(wd * q); return [ex * (A * c + ((v0 + a * A) / wd) * s), ex * (v0 * c - ((a * v0 + w * w * A) / wd) * s)]; }
+      if (z <= 1 + 1e-9) { ex = Math.exp(-w * q); return [ex * (A + (v0 + w * A) * q), ex * (v0 - w * (v0 + w * A) * q)]; }
+      var qq = Math.sqrt(z * z - 1), r1 = -w * (z - qq), r2 = -w * (z + qq), c1 = (v0 - r2 * A) / (r1 - r2), c2 = A - c1, e1 = Math.exp(r1 * q), e2 = Math.exp(r2 * q);
+      return [c1 * e1 + c2 * e2, c1 * r1 * e1 + c2 * r2 * e2];
+    }
+    function f(t) { var q = +t - t0; if (q <= 0) return x0; var d = e(q); return d ? tgt + d[0] : x0 + v0 * q; }
+    f.velocity = function (t) { var q = +t - t0; if (q <= 0) return v0; var d = e(q); return d ? d[1] : v0; };
+    f.t0 = t0; f.x0 = x0; f.v0 = v0; f.to = to;
+    return f;
+  }
+  // the state {x, v} of any value function that has .velocity (springTrack, continueFrom, edges.left ...) at time t: what a seam hands over
+  function stateAt(fn, t) { need(typeof fn === "function", "stateAt needs a function of time"); return { x: fn(t), v: typeof fn.velocity === "function" ? fn.velocity(t) : (fn(t + 1e-4) - fn(t - 1e-4)) / 2e-4 }; }
+
   function frameTime(t, fps) {
     if (typeof root.__rasanFrameTime === "number") return root.__rasanFrameTime;
     return Math.floor(t * fps + 1e-6) / fps;
   }
 
-  return { version: VERSION, springTrack: springTrack, edges: edges, frameTime: frameTime, kit: kit, ease: ease, curves: CURVES, measured: MEASURED, measuredFrames: MEASURED_FRAMES, contract: contract, spring: spring, bezier: bez, mix: mix, oklab: toOklab, fromOklab: fromOklab };
+  return { version: VERSION, springTrack: springTrack, continueFrom: continueFrom, stateAt: stateAt, edges: edges, frameTime: frameTime, kit: kit, ease: ease, curves: CURVES, measured: MEASURED, measuredFrames: MEASURED_FRAMES, contract: contract, spring: spring, bezier: bez, mix: mix, oklab: toOklab, fromOklab: fromOklab };
 });

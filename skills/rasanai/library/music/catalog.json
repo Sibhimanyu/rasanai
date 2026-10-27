@@ -55,7 +55,34 @@
    "content_id_risk": "low",
    "notes": "Warm lo-fi, wide, mid-bright",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:holiznacc0/ocean-memory",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-holiznacc0-ocean-memory",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-holiznacc0-currents-we-used-to-know",
@@ -86,7 +113,34 @@
    "content_id_risk": "low",
    "notes": "Early strong section, long",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:holiznacc0/currents-we-used-to-know",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-holiznacc0-currents-we-used-to-know",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-holiznacc0-the-last-long-day",
@@ -116,7 +170,35 @@
    "content_id_risk": "low",
    "notes": "Soft open: premium/organic films",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:holiznacc0/the-last-long-day",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-holiznacc0-the-last-long-day",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-holiznacc0-serial",
@@ -146,7 +228,38 @@
    "content_id_risk": "low",
    "notes": "Heavy sub, tight",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:holiznacc0/serial-1",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "high",
+   "vocals": null,
+   "instrumentation": [
+    "sub bass"
+   ],
+   "estimated": [
+    "families",
+    "energy",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-holiznacc0-serial",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-holiznacc0-wolf",
@@ -177,7 +290,38 @@
    "content_id_risk": "low",
    "notes": "Big low end, dynamic",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:holiznacc0/wolf-1",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "high",
+   "vocals": null,
+   "instrumentation": [
+    "heavy low end"
+   ],
+   "estimated": [
+    "families",
+    "energy",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-holiznacc0-wolf",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-holiznacc0-its-a-trap",
@@ -207,7 +351,34 @@
    "content_id_risk": "low",
    "notes": "Strong from bar 1; only for films up to 60 s",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:holiznacc0/its-a-trap-1",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-holiznacc0-its-a-trap",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-loyalty-freak-music-coexistenz",
@@ -238,7 +409,36 @@
    "content_id_risk": "low",
    "notes": "Chill, steady",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Loyalty_Freak_Music/Loyalty_Freak_Music_-_TO_CHILL_AND_STAY_AWAKE_-_01_Coexistenz",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic",
+    "spacious_ambient"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-loyalty-freak-music-coexistenz",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-loyalty-freak-music-love-train",
@@ -268,7 +468,34 @@
    "content_id_risk": "low",
    "notes": "Upbeat; check it is not too cute",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Loyalty_Freak_Music/Loyalty_Freak_Music_-_POSITIVE_ATTITUDE__-_03_Love_Train",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-loyalty-freak-music-love-train",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-loyalty-freak-music-traveling-in-your-mind",
@@ -299,7 +526,34 @@
    "content_id_risk": "low",
    "notes": "Late strong section: use backtimed",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Loyalty_Freak_Music/Loyalty_Freak_Music_-_TO_CHILL_AND_STAY_AWAKE_-_05_Traveling_in_your_mind",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "spacious_ambient"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-loyalty-freak-music-traveling-in-your-mind",
+    "terms_version": "CC0 1.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": true,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)"
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-bright-dawns",
@@ -330,7 +584,37 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "Library-grade downtempo",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/bright-dawns",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-bright-dawns",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-flushed",
@@ -360,7 +644,37 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/flushed",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-flushed",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-devolution",
@@ -390,7 +704,37 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/devolution",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-devolution",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-pythagoras",
@@ -420,7 +764,37 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "Strong section is late; long films",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/pythagoras",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-pythagoras",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-a-rose-in-the-concrete",
@@ -450,7 +824,41 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "Retro house",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/a-rose-in-the-concrete",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": [
+    "house beat"
+   ],
+   "estimated": [
+    "families",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-a-rose-in-the-concrete",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-confidence",
@@ -481,7 +889,40 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "Lo-fi hip-hop",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/confidence-1",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": [
+    "hip-hop beat"
+   ],
+   "estimated": [
+    "families",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-confidence",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-owned-the-day",
@@ -512,7 +953,37 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/owned-the-day",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-owned-the-day",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-sum-of-the-all",
@@ -543,7 +1014,37 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/sum-of-the-all",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-sum-of-the-all",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-delights",
@@ -573,7 +1074,37 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/delights",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-delights",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-all-this-time",
@@ -604,7 +1135,38 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "Most dynamic Ketsa (crest 15)",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/all-this-time",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic",
+    "cinematic_development"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-all-this-time",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-ketsa-lots-of-sun",
@@ -634,7 +1196,37 @@
    "content_id_risk": "registered: keep the credit in the description",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Ketsa/lots-of-sun",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-ketsa-lots-of-sun",
+    "terms_version": "CC BY 4.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-broke-for-free-only-instrumental",
@@ -665,7 +1257,37 @@
    "content_id_risk": "low",
    "notes": "Classic YouTube-era bed",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Broke_For_Free/Broke_For_Free_-_Directionless_EP_-_06_Only_Instrumental",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-broke-for-free-only-instrumental",
+    "terms_version": "CC BY 3.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-broke-for-free-living-in-reverse",
@@ -695,7 +1317,41 @@
    "content_id_risk": "low",
    "notes": "Retro house",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Broke_For_Free/Broke_For_Free_-_Slam_Funk_-_08_Living_In_Reverse",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": [
+    "house beat"
+   ],
+   "estimated": [
+    "families",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-broke-for-free-living-in-reverse",
+    "terms_version": "CC BY 3.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-broke-for-free-hella",
@@ -725,7 +1381,39 @@
    "content_id_risk": "low",
    "notes": "Flat (LRA 2.1): steady carpet",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Broke_For_Free/Broke_For_Free_-_Slam_Funk_-_05_Hella",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": "medium",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-broke-for-free-hella",
+    "terms_version": "CC BY 3.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-broke-for-free-mells-parade",
@@ -755,7 +1443,37 @@
    "content_id_risk": "low",
    "notes": "Very dynamic",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Broke_For_Free/Broke_For_Free_-_Directionless_EP_-_05_Mells_Parade",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-broke-for-free-mells-parade",
+    "terms_version": "CC BY 3.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-broke-for-free-my-always-mood",
@@ -786,7 +1504,37 @@
    "content_id_risk": "low",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Broke_For_Free/Broke_For_Free_-_Directionless_EP_-_02_My_Always_Mood",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-broke-for-free-my-always-mood",
+    "terms_version": "CC BY 3.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-broke-for-free-caught-in-the-beat",
@@ -817,7 +1565,37 @@
    "content_id_risk": "low",
    "notes": "Brightest that passes (presence -10.3)",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Broke_For_Free/Broke_For_Free_-_Slam_Funk_-_04_Caught_In_The_Beat",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-broke-for-free-caught-in-the-beat",
+    "terms_version": "CC BY 3.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "fma-tours-enthusiast",
@@ -848,7 +1626,37 @@
    "content_id_risk": "low",
    "notes": "Famous free-music bed, very recognisable",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "fma:Tours/Tours_-_Enthusiast",
+   "acquisition": "fetch_on_demand_sha256_checked",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:fma-tours-enthusiast",
+    "terms_version": "CC BY 3.0 @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": true,
+    "upload_to_provider": null,
+    "serve_preview": true,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "credit line required in the film description"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-1167",
@@ -879,7 +1687,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Rhythmic tech underscore, closest to the references' band profile",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:1167",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "medium",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-1167",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-1168",
@@ -910,7 +1749,41 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Electronic, strong pulse",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:1168",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "high",
+   "vocals": null,
+   "instrumentation": [
+    "electronic"
+   ],
+   "estimated": [
+    "families",
+    "energy",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-1168",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-1170",
@@ -941,7 +1814,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Chill steady groove, strong from 9 s",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:1170",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-1170",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-933",
@@ -972,7 +1876,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Mixed quiet: sits under VO",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:933",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-933",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-1023",
@@ -1003,7 +1938,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Atmospheric, hopeful",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:1023",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "spacious_ambient"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-1023",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-1156",
@@ -1034,7 +2000,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Bright groove for feature ladders",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:1156",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "playful_rhythmic"
+   ],
+   "energy": "medium",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-1156",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-1210",
@@ -1065,7 +2062,41 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Real stop ending; listen for vocal chops (150 felt double-time)",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:1210",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": "possible",
+   "instrumentation": [
+    "vocal chops"
+   ],
+   "estimated": [
+    "families",
+    "vocals",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-1210",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-720",
@@ -1096,7 +2127,41 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Bass-led, very dynamic",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:720",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "high",
+   "vocals": null,
+   "instrumentation": [
+    "bass-led"
+   ],
+   "estimated": [
+    "families",
+    "energy",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-720",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-726",
@@ -1127,7 +2192,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Strong pulse",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:726",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "spacious_ambient"
+   ],
+   "energy": "high",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-726",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-727",
@@ -1158,7 +2254,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Neutral, clear pulse",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:727",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "playful_rhythmic"
+   ],
+   "energy": "medium",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-727",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-732",
@@ -1189,7 +2316,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Hypnotic",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:732",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "medium",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-732",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-744",
@@ -1220,7 +2378,42 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Deep house carpet (flat)",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:744",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": "medium",
+   "vocals": null,
+   "instrumentation": [
+    "house beat"
+   ],
+   "estimated": [
+    "families",
+    "energy",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-744",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-745",
@@ -1251,7 +2444,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Real stop ending",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:745",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-745",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-763",
@@ -1282,7 +2506,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:763",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-763",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-766",
@@ -1313,7 +2567,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Steady tech lo-fi",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:766",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": "medium",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-766",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-767",
@@ -1344,7 +2629,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Strong from 0 s",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:767",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-767",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-175",
@@ -1375,7 +2690,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Chillout, real stop",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:175",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-175",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-132",
@@ -1406,7 +2752,41 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Late-night electronica",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:132",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": [
+    "electronic"
+   ],
+   "estimated": [
+    "families",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-132",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-130",
@@ -1437,7 +2817,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:130",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-130",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-123",
@@ -1468,7 +2879,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Very loud master (squashed, flat)",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:123",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-123",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-131",
@@ -1499,7 +2941,41 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Retro synthwave, confident",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:131",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": [
+    "synthesizers"
+   ],
+   "estimated": [
+    "families",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-131",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-159",
@@ -1530,7 +3006,41 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Retro synthpop",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:159",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": [
+    "synthesizers"
+   ],
+   "estimated": [
+    "families",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-159",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-107",
@@ -1561,7 +3071,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Long: 90-120 s films",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:107",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-107",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-111",
@@ -1592,7 +3132,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Most dynamic (crest 18)",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:111",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-111",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-143",
@@ -1623,7 +3193,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Chill city",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:143",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-143",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-149",
@@ -1655,7 +3256,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:149",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "warm_acoustic",
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-149",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-154",
@@ -1686,7 +3318,42 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Breakbeat (flat)",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:154",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "bold_percussion"
+   ],
+   "energy": "high",
+   "vocals": null,
+   "instrumentation": [
+    "breakbeat drums"
+   ],
+   "estimated": [
+    "families",
+    "energy",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-154",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-116",
@@ -1717,7 +3384,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Investigative",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:116",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-116",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-145",
@@ -1748,7 +3445,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Weak pulse, borderline width",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:145",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "spacious_ambient"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-145",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-102",
@@ -1779,7 +3507,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Soft tech",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:102",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": "low",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-102",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-69",
@@ -1810,7 +3569,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Corporate risk: listen",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:69",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-69",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-90",
@@ -1841,7 +3630,38 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "EDM-pop, loud",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:90",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "playful_rhythmic"
+   ],
+   "energy": "high",
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families",
+    "energy"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-90",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-99",
@@ -1872,7 +3692,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:99",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "warm_acoustic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-99",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-634",
@@ -1903,7 +3753,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Long tech underscore",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:634",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-634",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-555",
@@ -1934,7 +3814,41 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Retro synthpop",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:555",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic",
+    "playful_rhythmic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": [
+    "synthesizers"
+   ],
+   "estimated": [
+    "families",
+    "instrumentation"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-555",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-623",
@@ -1965,7 +3879,37 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Source true peak +3.2 dB: re-limit",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:623",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-623",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   },
   {
    "id": "mixkit-134",
@@ -1996,7 +3940,95 @@
    "restrictions": "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only",
    "notes": "Bottom of the list (dark, squashed, flat)",
    "checked_on": "2026-10-12",
-   "listened": false
+   "listened": false,
+   "source_id": "mixkit:134",
+   "acquisition": "fetch_on_pick_from_upstream",
+   "families": [
+    "restrained_electronic"
+   ],
+   "energy": null,
+   "vocals": null,
+   "instrumentation": null,
+   "estimated": [
+    "families"
+   ],
+   "stems": {
+    "available": false,
+    "verified": false,
+    "files": []
+   },
+   "rights": {
+    "ref": "rights:mixkit-134",
+    "terms_version": "Mixkit Stock Music Free License @ 2026-10-12",
+    "sync_into_film": true,
+    "bundle_in_app": false,
+    "upload_to_provider": false,
+    "serve_preview": false,
+    "checked_on": "2026-10-12",
+    "basis": "licence-level terms from this row's licence/host fields; per-film consent is a separate rights event (crew/rights.jsonl, asset_id = this id)",
+    "conditions": [
+     "No broadcast TV/radio, no games, no remixes, no registering the track with rights-management services; items marked Restricted are personal only"
+    ]
+   },
+   "evidence_state": "metadata_reviewed"
   }
- ]
+ ],
+ "families_v2": [
+  "restrained_electronic",
+  "warm_acoustic",
+  "playful_rhythmic",
+  "spacious_ambient",
+  "bold_percussion",
+  "cinematic_development"
+ ],
+ "family_map": {
+  "note": "style tag -> addendum family: an ESTIMATE from names, not from listening. Source of truth: scripts/lib/catalog-evidence.mjs STYLE_TO_FAMILY (plus breakbeat note refinement).",
+  "editorial": [
+   "restrained_electronic"
+  ],
+  "dark-tech": [
+   "restrained_electronic"
+  ],
+  "playful": [
+   "playful_rhythmic"
+  ],
+  "cinematic": [
+   "cinematic_development"
+  ],
+  "raw": [
+   "bold_percussion"
+  ],
+  "retro": [
+   "restrained_electronic",
+   "playful_rhythmic"
+  ],
+  "organic": [
+   "warm_acoustic"
+  ],
+  "lo-fi": [
+   "warm_acoustic"
+  ],
+  "ambient-pop": [
+   "spacious_ambient"
+  ],
+  "indie-electronic": [
+   "restrained_electronic"
+  ],
+  "chill": [
+   "spacious_ambient"
+  ],
+  "reel": [
+   "playful_rhythmic"
+  ]
+ },
+ "evidence": {
+  "schema": 1,
+  "states": [
+   "metadata_reviewed",
+   "auditioned",
+   "approved_in_finished_mix"
+  ],
+  "store": "evidence.json",
+  "note": "Every row is metadata_reviewed. No row is auditioned: listened stays false until evidence.json holds a valid entry for the row's sha256."
+ }
 }

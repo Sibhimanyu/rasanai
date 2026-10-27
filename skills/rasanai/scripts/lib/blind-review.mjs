@@ -111,3 +111,28 @@ export function compareRetell({ retell = {}, intent = {}, order = {} } = {}) {
   const written = order.retell_at != null && order.intent_read_at != null ? Number(order.retell_at) <= Number(order.intent_read_at) : retell.before_intent === true;
   return { text: String(retell.text || "").trim(), before_intent: written === true, match: ["yes", "partly", "no"].includes(retell.match) ? retell.match : null, compared_with: intent && intent.id ? intent.id : null };
 }
+
+// ---- ordered attention, assessed in playback (addendum 1, CSC-19..21; references/temporal-review.md) -------------------------------------------------
+// The attention packet is built like the retell packet: it holds the output identity and the intervals to WATCH, in order, and withholds intended_understanding, transfer_change
+// and the builder's notes. The reviewer says what the eye met and what it took, THEN compareAttention sets that beside the authored reads. Nothing here runs a model or plays media,
+// and an automated check can never supply the observation: `playback_review_required` stays true until a reviewer's observations are recorded with a temporal method.
+// Consumers: the film critic (agents/critic.md "Temporal review"), rubrics.temporalRubricFor({attention:true}); a dispatcher in crew.mjs is a proposed patch (ENG-INT-1).
+export function attentionPacket({ output = {}, reads = [] } = {}) {
+  const ivs = (Array.isArray(reads) ? reads : []).filter((r) => r && r.start_s != null && r.end_s != null && Number.isFinite(Number(r.start_s)) && Number.isFinite(Number(r.end_s)))
+    .map((r) => ({ id: r.id ?? null, order: r.order ?? null, start_s: Number(r.start_s), end_s: Number(r.end_s) })).sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || a.start_s - b.start_s);
+  return { kind: "attention_packet", playback_review_required: true, output: { digest: output.digest || null, duration_s: output.duration_s ?? null, fps: output.fps ?? null }, watch_intervals: ivs,
+    ask: "Watch each interval in playback (not stills). For each: what did the eye meet first, what moved it on, and what could a first-time viewer take from it? Say what you could not read.",
+    withheld: ["intended_understanding", "transfer_change", "competing treatments", "builder notes"], methods_accepted: ["temporal_playback", "dense_sequence", "frame_strip"], limits: "Stills, contact sheets and automated timing checks are not evidence of attention or comprehension." };
+}
+// observed: [{ read_id, first_met, understood, method, interval?, readable (bool|null) }] written by the reviewer; reads: authored reads (storyboard shape). -> per-read comparison, never an automatic pass.
+export function compareAttention({ observed = [], reads = [] } = {}) {
+  const by = new Map((Array.isArray(observed) ? observed : []).filter((o) => o && o.read_id).map((o) => [String(o.read_id), o]));
+  const ok = new Set(["temporal_playback", "dense_sequence", "frame_strip"]);
+  const results = (Array.isArray(reads) ? reads : []).map((r) => {
+    const o = by.get(String(r.id));
+    if (!o || !ok.has(o.method)) return { read_id: r.id, result: "not_assessable", why: o ? "the observation did not use a temporal method" : "no playback observation recorded" };
+    const tgt = String((r.target_ref && r.target_ref.id) || r.attention_target || "").toLowerCase(), met = String(o.first_met || "").toLowerCase();
+    return { read_id: r.id, result: !met ? "not_assessable" : tgt && met.includes(tgt) ? "matched" : "different", first_met: o.first_met || null, understood: o.understood || null, readable: o.readable ?? null, method: o.method, compared_with: r.intended_understanding || null, note: "recorded for the Director and the user; a mismatch is a finding with a time, not a verdict" };
+  });
+  return { playback_review_required: !results.length || results.some((x) => x.result === "not_assessable"), results, limits: "A match on the first thing met is not proof of comprehension; the reviewer's understood text is compared with the intended understanding by a person or an independent reviewer." };
+}

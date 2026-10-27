@@ -116,5 +116,23 @@
     });
   }
 
-  return { version: VERSION, scriptInfo: scriptInfo, outlineFill: outlineFill, maskReveal: maskReveal, reorder: reorder };
+  // ADDITIVE (sequence addendum): protected read. reads = [{ start, end }] in score seconds, `t0` = score time at timeline time `at` (default 0).
+  // inRead is pure. holdRead is a proxy tween over [at, at + duration] whose setter, while the score time is inside a read, clears the distortions
+  // this file and RasanShape.split put on the fragments (transform, clip-path, opacity, text fill/stroke) so the whole phrase stands legible.
+  // Place it AFTER the effect tweens of the same target in the timeline (the later setter wins at equal time). Outside a read it does nothing.
+  function inRead(t, reads) {
+    for (var i = 0; i < (reads || []).length; i++) if (t >= reads[i].start && t <= reads[i].end) return i;
+    return -1;
+  }
+  function holdRead(tl, target, o) {
+    o = o || {};
+    need(isFinite(o.duration) && o.duration > 0, "holdRead needs a duration");
+    var els = frags(target), t0 = o.t0 || 0, reads = o.reads || [];
+    return drive(tl, o.at, o.duration, function (p) {
+      if (inRead(t0 + p * o.duration, reads) < 0) return;
+      els.forEach(function (e) { e.style.transform = ""; e.style.clipPath = ""; e.style.webkitClipPath = ""; e.style.opacity = ""; e.style.webkitTextFillColor = ""; e.style.webkitTextStroke = ""; });
+    });
+  }
+
+  return { version: VERSION, scriptInfo: scriptInfo, outlineFill: outlineFill, maskReveal: maskReveal, reorder: reorder, inRead: inRead, holdRead: holdRead };
 });

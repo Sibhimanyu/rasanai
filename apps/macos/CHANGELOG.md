@@ -2,6 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Sound direction on Brief and Look.** A compact Sound section for voiceover, pace, feeling, effects and music source, each with "Recommend for me", plus four starting points and a three-track music shortlist on Look with quick revisions. Choices are saved with the brief and passed to the director. Not built or tried in the app yet.
+- The Voiceover menu gains "Recommend for me" and defaults to it. The Look "Motion and sound" section now always shows.
+- **Bundles the next RasanAI skill:** connected sequences, music selection and layered effects (see the skill changelog). The reported music dropout is not repaired.
+
 ## 0.25.0 (build 66) — 2026-10-27
 
 - **Bundles RasanAI 1.30.0:** the creative overhaul. Stories are checked for real differences between options, creative commitments are tracked per film (a quiet or formal film is valid), storyboards carry timed reads, and a continuous action has one owner so work is split by action instead of by scene. A Final is only marked ready when its commitments have current evidence; a draft is always allowed.

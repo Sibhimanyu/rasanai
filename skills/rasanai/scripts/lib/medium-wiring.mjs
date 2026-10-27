@@ -338,8 +338,10 @@ export const runtimeFilesFor = (contract, extra = []) => [...new Set([...(RUNTIM
 // v3 (INT-ENGINE-A): the shared helper runtimes. COMMON_RUNTIME = the text-performance (W13) and anchor/layout (W14) helpers every v3 scene may call; SPATIAL_RUNTIME = the
 // existing runtime files a W15 spatial op needs (the 3D stage installs its own assets/three). runtimeFilesFor adds them only when the caller says the scene uses them
 // (opts.common / opts.spatial), so a legacy call (no opts) returns exactly what it returned before. Consumer: video.mjs inject (INT-ENGINE-B) and crew.mjs mediumContext.
-export const COMMON_RUNTIME = ["rasan-type.js", "rasan-layout.js"];
-export const SPATIAL_RUNTIME = ["rasan-sim.js", "rasan-camera.js", "rasan-shape.js"];
+// Addendum 1 (sequence, revision >= 2 callers only): rasan-motion.js (RasanMotion.continueFrom: handoff boundary conditions), rasan-ui.js (product choreography: reveal / isolate / follow / hold) and
+// rasan-optics.js (RasanOptics.apply: the one writer of layer filters and masks) join the shared helpers. They are plain runtime files that already exist; a scene calls only what its beat plan names.
+export const COMMON_RUNTIME = ["rasan-type.js", "rasan-layout.js", "rasan-motion.js", "rasan-ui.js", "rasan-optics.js"];
+export const SPATIAL_RUNTIME = ["rasan-sim.js", "rasan-camera.js", "rasan-shape.js", "rasan-optics.js"]; // optics composes with the camera's depth of field (one filter writer per element); runtimeFilesFor keeps a name once
 // true when creative/plans/index.json (written by packets.writeScenePlans at scene-packet compile) holds a planned spatial operation: the spatial runtime files (RasanSim/Camera/Shape) are then injected
 export const spatialPlanned = (run) => { const ix = run ? rj(P(run, "creative", "plans", "index.json")) : null; return !!(ix && ix.spatial === true); };
 export const runtimeFilesWith = (contract, { common = false, spatial = false, extra = [] } = {}) => runtimeFilesFor(contract, [...(common ? COMMON_RUNTIME : []), ...(spatial ? SPATIAL_RUNTIME : []), ...arr(extra)]);

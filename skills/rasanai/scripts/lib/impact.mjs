@@ -49,7 +49,9 @@ export function impact(changedStage, ids = [], options = {}) {
 // impact() above answers "which STAGES go stale". These answer "which individual outputs": a local edit invalidates only what READS the changed identity.
 // Identity keys are "<kind>:<id>" (id optional: "policy" alone is the whole policy). Nothing is stored here: the caller (the lead's resume / stale-result path,
 // lib/job-control.mjs staleByIdentity, lib/jobs.mjs commit/accept current_identity_digest) passes digests in and gets a verdict out. Additive: impact() is unchanged.
-export const IDENTITY_KINDS = Object.freeze(["brief", "story", "look", "policy", "event", "object", "score", "font", "shaping", "anchor", "material", "camera", "asset", "copy"]);
+export const IDENTITY_KINDS = Object.freeze(["brief", "story", "look", "policy", "event", "object", "score", "font", "shaping", "anchor", "material", "camera", "asset", "copy",
+  // Addenda 1+2 (additive): sound and sequence identities. A key with a colon ("cue:c1") is always accepted; these names let a plain object part ({ cue: { c1: ... } }) expand.
+  "sound_choice", "music_shortlist", "effects_policy", "mix_plan", "renderer", "cue", "music", "voice", "motif", "handoff", "optics", "product", "attention"]);
 
 // parts: { event:{ id: value|digest }, object:{...}, policy:{ field: value }, font:{...}, ... } or a flat { "event:e1": value }. -> { "kind:id": sha256 } (values are digested, never copied)
 export function identityMap(parts = {}) {
@@ -115,4 +117,90 @@ export function changeScopeImpact(scope, ids = [], options = {}) {
   if (!s) return { ok: false, error: `unknown change scope ${JSON.stringify(scope)} (known: ${Object.keys(CHANGE_SCOPES).join(", ")})` };
   const base = impact(s.stage, ids, { proposition: scope === "new_story" || scope === "event_substitution", timing: scope === "timing_adjustment", bounded: scope === "material_change", fixed: scope === "material_change" ? ["story", "copy", "events"] : undefined, downstream_started: options.downstream_started });
   return { ok: true, scope, ...s, stage_impact: base, local: scope !== "new_story", full_rebuild: scope === "new_story" };
+}
+
+// ---- Addendum 2 (W3 AUD-REV): sound identity and scoped audio invalidation ---------------------------------------------------------------------------
+// The same machinery as above (identityMap / diffIdentity / affectedClosure), fed the sound inputs, so "softer effects" re-does the effects and the mix, never the picture,
+// and a gain change re-does the mix and its review only. Pure: nothing is stored or applied. Callers: lib/sound-controls.mjs (note scope), lib/incremental-render.mjs
+// (audioPlan.sound_scope), lib/voice-cache.mjs (voiceRevisionImpact); the lead's resume path may pass the same maps to staleByIdentity.
+const isO = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
+const A = (x) => (Array.isArray(x) ? x : []);
+const LEVEL_FIELDS = ["gain_db", "gain", "level", "level_db", "volume", "pan"];
+const dropLevel = (c) => Object.fromEntries(Object.entries(c).filter(([k]) => !LEVEL_FIELDS.includes(k)));
+const pickLevel = (c) => Object.fromEntries(Object.entries(c).filter(([k]) => LEVEL_FIELDS.includes(k)));
+
+// parts (every one optional; an absent part contributes no key, so an old project's map is simply smaller):
+//   choices:{choices:{voiceover,pace,feeling,effects,music_source,user_track}} (lib/sound-choices.mjs record, or its inner `choices`)
+//   shortlist:{revision, selected}   effects_policy:{budget_scale, allow_prominent,...}   bus_plan:{buses, reductions, music_automation, aggregate} (lib/mix-bus.mjs busPlan)
+//   processor:{renderer, version, filter_graph_digest}   cues:[{id,...}]   music:{id, file_digest, section, stems_verified}   voice:{segments:[{segment_id,key,file_digest}]}
+// -> parts for identityMap(). A cue's LEVEL fields live under mix_plan (a gain change is a mix change), the rest under cue (its source and timing).
+export function soundIdentityParts({ choices = null, shortlist = null, effects_policy = null, bus_plan = null, processor = null, cues = null, music = null, voice = null } = {}) {
+  const out = {};
+  if (isO(choices)) out.sound_choice = isO(choices.choices) ? choices.choices : choices;
+  if (isO(shortlist)) out.music_shortlist = { revision: shortlist.revision ?? null, selected: shortlist.selected ?? null };
+  if (isO(effects_policy)) out.effects_policy = effects_policy;
+  if (isO(bus_plan)) {
+    const mix = { reductions: A(bus_plan.reductions), automation: A(bus_plan.music_automation), aggregate: bus_plan.aggregate ?? null };
+    for (const [b, v] of Object.entries(isO(bus_plan.buses) ? bus_plan.buses : {})) mix[`bus.${b}`] = v;
+    out.mix_plan = { ...(isO(out.mix_plan) ? out.mix_plan : {}), ...mix };
+  }
+  if (isO(processor)) out.renderer = { [String(processor.renderer || "unknown")]: { version: processor.version ?? null, filter_graph_digest: processor.filter_graph_digest ?? null } };
+  if (Array.isArray(cues)) {
+    out.cue = {}; const lv = {};
+    for (const c of cues.filter((x) => isO(x) && x.id != null)) { out.cue[String(c.id)] = dropLevel(c); lv[`cue.${c.id}`] = pickLevel(c); }
+    out.mix_plan = { ...(out.mix_plan || {}), ...lv };
+  }
+  if (isO(music)) out.music = { track: { id: music.id ?? null, file_digest: music.file_digest ?? null }, section: music.section ?? null, stems: music.stems_verified === true };
+  if (isO(voice)) out.voice = Object.fromEntries(A(voice.segments).filter((s) => isO(s) && s.segment_id != null).map((s) => [String(s.segment_id), { key: s.key ?? null, file_digest: s.file_digest ?? null }]));
+  return out;
+}
+
+const VISUAL_READS = ["brief", "story", "look", "policy", "event", "object", "font", "shaping", "anchor", "material", "camera", "asset", "copy", "score"];
+// the audio consumers and exactly which identities each reads. opts.music_led: a track the film is edited to also moves cue/motion relations; narrated: voice consumers exist.
+export function soundConsumers({ music_led = false, narrated = true } = {}) {
+  const c = [
+    { id: "music_selection", kind: "implementation", reads: ["sound_choice:music_source", "sound_choice:feeling", "sound_choice:pace", "sound_choice:user_track", "music_shortlist"] },
+    { id: "music_edit", kind: "implementation", reads: ["music:track", "music:section"], after: ["music_selection"] },
+    { id: "cue_layers", kind: "implementation", reads: ["sound_choice:effects", "effects_policy", "cue"] },
+    { id: "cue_preparation", kind: "implementation", reads: ["cue", "effects_policy", "event", "score"], after: ["cue_layers"] },
+    { id: "cue_motion_relations", kind: "implementation", reads: ["score", "event", ...(music_led ? ["music:track", "music:section"] : [])] },
+    ...(narrated ? [
+      { id: "voice_timing", kind: "implementation", reads: ["voice", "sound_choice:voiceover"] },
+      { id: "ducking", kind: "implementation", reads: ["voice", "mix_plan:reductions", "mix_plan:aggregate", "sound_choice:voiceover"], after: ["voice_timing"] },
+    ] : []),
+    { id: "mix", kind: "output", reads: ["mix_plan", "renderer", "cue", "music", "voice", "score", "sound_choice:voiceover", "effects_policy"], after: ["cue_preparation", "music_edit", ...(narrated ? ["ducking"] : [])] },
+    { id: "audio_review", kind: "review", reads: [], after: ["mix"] },
+    { id: "visual_renders", kind: "output", reads: VISUAL_READS },
+  ];
+  return c;
+}
+
+// The audio scopes a sound note can have: the identity keys each one moves. Consumers come from soundConsumers, so the table never drifts from what a consumer reads.
+export const AUDIO_SCOPES = Object.freeze({
+  gain_eq:        { changes: ["mix_plan:bus"], timing: false, needs_user: false, source_decision: false, label: "gain / EQ / bus level" },
+  effects_policy: { changes: ["effects_policy", "sound_choice:effects"], timing: false, needs_user: false, source_decision: false, label: "effects amount or policy" },
+  cue_source:     { changes: ["cue:source"], timing: false, needs_user: false, source_decision: false, label: "a cue's source sound" },
+  music_section:  { changes: ["music:section"], timing: false, needs_user: false, source_decision: false, label: "a different part of the same track", reevaluate_edit: true },
+  music_track:    { changes: ["music:track", "music:section", "sound_choice:music_source"], timing: false, needs_user: true, source_decision: true, label: "a different track", reevaluate_edit: true },
+  timing_edit:    { changes: ["score"], timing: true, needs_user: false, source_decision: false, label: "timing or track edit points" },
+  voiceover:      { changes: ["voice", "sound_choice:voiceover", "score"], timing: true, needs_user: true, source_decision: false, label: "voiceover added, removed or re-voiced", script_truth_kept: true },
+  ending:         { changes: ["music:section"], timing: false, needs_user: false, source_decision: false, label: "how the sound ends" },
+});
+
+// before / after: identityMap results (soundIdentityParts through identityMap). -> { changes, closure, visuals_rebuilt, stale, keep, needs_user }
+export function soundChangeImpact({ before = {}, after = {}, music_led = false, narrated = true } = {}) {
+  const d = diffIdentity(before, after);
+  const changes = [...d.changed, ...d.added, ...d.removed];
+  const cl = affectedClosure({ consumers: soundConsumers({ music_led, narrated }), changes });
+  const source = changes.filter((k) => k === "sound_choice:music_source" || k === "music:track" || k === "music_shortlist:selected");
+  return { changes: d, closure: cl, stale: cl.stale, keep: cl.keep, visuals_rebuilt: cl.stale.includes("visual_renders"), needs_user: source.length ? { why: "a different music source or track is a source/style decision, not a mix tweak", keys: source } : null, reevaluate_edit: music_led && changes.some((k) => k.startsWith("music:")) };
+}
+
+// scope name -> what it touches, from the table above + the consumers. ids: stable ids touched (echoed). -> { ok, scope, ...entry, invalidates:[consumer ids], keeps:[...], visuals_rebuilt, stage_impact }
+export function audioScopeImpact(scope, ids = [], { music_led = false, narrated = true } = {}) {
+  const s = AUDIO_SCOPES[scope];
+  if (!s) return { ok: false, error: `unknown audio scope ${JSON.stringify(scope)} (known: ${Object.keys(AUDIO_SCOPES).join(", ")})` };
+  const cl = affectedClosure({ consumers: soundConsumers({ music_led, narrated }), changes: s.changes });
+  const needsUser = s.needs_user || (scope === "music_section" && music_led);
+  return { ok: true, scope, ...s, needs_user: needsUser, invalidates: cl.stale, keeps: cl.keep, visuals_rebuilt: cl.stale.includes("visual_renders"), reasons: cl.reasons, stage_impact: impact(s.timing ? "storyboard" : "final", ids, s.timing ? { timing: true } : {}), preview: true };
 }

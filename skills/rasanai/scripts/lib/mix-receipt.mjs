@@ -8,6 +8,8 @@
 //   stemSet(files), tailsPreserved(clips, o)
 //   mixInputs(o), mixDigests(inputs), receipt(o), receiptMatches(r, current), cachedMixName(base, ext, digests), reuseDecision(o)
 //   currentInputs(run), readReceipt(run, kind), writeReceipt(run, r)
+//   additive identity (opt-in, absent = legacy digest): source/section, stem identity (genuine stem vs stereo file), processor {renderer, version, filter_graph_digest},
+//   index.html audio attributes (audioAttributes, audioAttributesDigest), the bus-plan automation record (automationRecord, automationPath)
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -136,24 +138,37 @@ export function tailsPreserved(clips, { film_s = null, tol_s = 0.02 } = {}) {
 // ---- A9: the receipt --------------------------------------------------------------------------------------------------------------------------------
 const fileDigest = (f) => { try { return crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex"); } catch { return null; } };
 // o: { score, score_revision, cues_digest, direction_digest, contract_digest, stems: {name: path|{file, digest}}, automation: {...}, profile, run }
-export function mixInputs({ score = null, score_revision = null, cues_digest = null, direction_digest = null, contract_digest = null, stems = {}, automation = {}, profile = HOUSE_PROFILE_ID, run = null } = {}) {
+export function mixInputs({ score = null, score_revision = null, cues_digest = null, direction_digest = null, contract_digest = null, stems = {}, automation = {}, profile = HOUSE_PROFILE_ID, run = null, source = null, stem_identity = null, processor = null, html_audio = null } = {}) {
   const st = {};
   for (const [k, v] of Object.entries(isObj(stems) ? stems : {})) {
     const d = isObj(v) ? v.digest || (v.file && fileDigest(run ? path.resolve(run, v.file) : v.file)) : v && fileDigest(run ? path.resolve(String(run), String(v)) : String(v));
     st[k] = d || null; // an unreadable stem is null, which never equals a real digest
   }
   const P = resolveProfile(profile);
-  return { score: score_revision || (score ? scoreRevision(score) : null), cues: cues_digest, direction: direction_digest, contract: contract_digest, stems: st, automation: canonicalDigest(automation), profile: canonicalDigest({ id: P.id, l: P.integrated_lufs, p: P.true_peak_limit_db }) };
+  const out = { score: score_revision || (score ? scoreRevision(score) : null), cues: cues_digest, direction: direction_digest, contract: contract_digest, stems: st, automation: canonicalDigest(automation), profile: canonicalDigest({ id: P.id, l: P.integrated_lufs, p: P.true_peak_limit_db }) };
+  // additive: a key exists only when its input was given, so a legacy input set keeps its old digest byte for byte
+  if (isObj(source) && Object.keys(source).length) out.source = canonicalDigest(source); // {id, file_digest, section}: which track and which part of it
+  if (isObj(stem_identity) && Object.keys(stem_identity).length) out.stem_identity = canonicalDigest(Object.fromEntries(Object.entries(stem_identity).map(([k, v]) => [k, v === "stem" || v === true ? "stem" : "stereo_file"]))); // never passes a stereo file off as a stem
+  if (isObj(processor) && Object.keys(processor).length) out.processor = canonicalDigest({ renderer: T(processor.renderer) || null, version: T(processor.version) || null, filter_graph_digest: T(processor.filter_graph_digest) || null });
+  if (T(html_audio)) out.html_audio = T(html_audio);
+  return out;
 }
+const NEW_KEYS = ["source", "stem_identity", "processor", "html_audio"];
 export function mixDigests(inputs) {
   const stems = Object.fromEntries(Object.entries(inputs.stems || {}).sort(([a], [b]) => a.localeCompare(b)));
   const parts = { score: inputs.score, cues: inputs.cues, direction: inputs.direction, contract: inputs.contract, stems, automation: inputs.automation, profile: inputs.profile };
+  for (const k of NEW_KEYS) if (inputs[k] != null) parts[k] = inputs[k];
   return { ...parts, mix: canonicalDigest(parts) };
 }
 // kind: "preview" | "delivery". The receipt names exactly what the mix was made from.
-export function receipt({ kind = "preview", inputs, profile = HOUSE_PROFILE_ID, output = {}, measures = null, created_at = null } = {}) {
+// processor_detail (optional): the readable identity behind the processor digest, {renderer, version, ffmpeg_version, filter_graph_digest}; audio_file: the chosen audio file (output.file stays the mix)
+export function receipt({ kind = "preview", inputs, profile = HOUSE_PROFILE_ID, output = {}, measures = null, created_at = null, processor_detail = null, audio_file = null } = {}) {
   const P = resolveProfile(profile), digests = mixDigests(inputs);
+  const extra = {};
+  if (isObj(processor_detail)) extra.processor = { renderer: T(processor_detail.renderer) || null, version: T(processor_detail.version) || null, ffmpeg_version: T(processor_detail.ffmpeg_version) || null, filter_graph_digest: T(processor_detail.filter_graph_digest) || null };
+  if (T(audio_file)) extra.audio_file = T(audio_file);
   return {
+    ...extra,
     schema_version: SCHEMA_VERSION, kind: kind === "delivery" ? "delivery" : "preview",
     digests, profile: { id: P.id, integrated_lufs: P.integrated_lufs, true_peak_limit_db: P.true_peak_limit_db, custom: !!P.custom },
     output: { file: T(output.file) || null, file_digest: T(output.file_digest) || null },
@@ -165,7 +180,7 @@ export function receiptMatches(r, current) {
   if (!isObj(r) || !isObj(r.digests)) return { reusable: false, stale: ["receipt"], reason: "no receipt: the mix cannot be shown to match its inputs" };
   const now = mixDigests(current), then = r.digests;
   const stale = [];
-  for (const k of ["score", "cues", "direction", "contract", "automation", "profile"]) if ((then[k] ?? null) !== (now[k] ?? null)) stale.push(k);
+  for (const k of ["score", "cues", "direction", "contract", "automation", "profile", ...NEW_KEYS]) if ((then[k] ?? null) !== (now[k] ?? null)) stale.push(k);
   const names = new Set([...Object.keys(then.stems || {}), ...Object.keys(now.stems || {})]);
   for (const n of names) if (((then.stems || {})[n] ?? null) !== ((now.stems || {})[n] ?? null) || ((now.stems || {})[n] ?? null) === null) stale.push(`stem:${n}`);
   return { reusable: !stale.length, stale, reason: stale.length ? `changed since the mix was made: ${stale.join(", ")}` : "every input digest matches" };
@@ -194,15 +209,33 @@ export function writeReceipt(run, r) {
   fs.renameSync(tmp, f);
   return { ok: true, file: path.relative(String(run), f) };
 }
+// ---- the single automation path and the index.html audio attributes ----------------------------------------------------------------------------------
+// audio/automation.json is the ONE place the bus plan lands (written by ENG-INT-2 from L/mix-bus.mjs busPlan via automationRecord); audio/mix-state.json (mute/solo audition) is never read here.
+export const automationPath = (run) => path.join(String(run), "audio", "automation.json");
+export const automationRecord = (plan) => ({ version: 1, kind: "bus-plan", plan_digest: plan.digest, units: plan.units, mix_policy_revision: plan.mix_policy_revision ?? null, ordinary_sfx_duck: plan.ordinary_sfx_duck === true, aggregate: plan.aggregate, reductions: plan.reductions, music_automation: plan.music_automation, buses: plan.buses });
+// html: index.html text -> every <audio>/<hf-audio-group> with the attributes that decide level, grouping and carving. Text scan, no DOM, no render.
+const AUDIO_ATTRS = ["id", "src", "data-start", "data-duration", "data-media-start", "data-volume", "data-track-index", "data-automation", "data-fx-carve", "data-fx-chain", "data-audio-group", "data-role"];
+export function audioAttributes(html) {
+  const out = [];
+  for (const m of String(html || "").matchAll(/<(audio|hf-audio-group)\b([^>]*)>/gi)) {
+    const rec = { tag: m[1].toLowerCase() };
+    for (const a of AUDIO_ATTRS) { const q = new RegExp(`(?:^|\\s)${a}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(m[2]); rec[a] = q ? (q[1] ?? q[2]) : null; }
+    out.push(rec);
+  }
+  return out.sort((a, b) => String(a.id || a.src).localeCompare(String(b.id || b.src)));
+}
+export const audioAttributesDigest = (html) => canonicalDigest(audioAttributes(html));
 // what the run's mix inputs are NOW (score revision, cue digest, direction, contract, the contract's stems, the ducking automation file when present)
-export function currentInputs(run, { profile = HOUSE_PROFILE_ID } = {}) {
+// o.processor {renderer, version, filter_graph_digest} and o.html_audio (true: digest the audio attributes of <run>/index.html) are opt-in, so a caller that asks for neither gets the legacy inputs
+export function currentInputs(run, { profile = HOUSE_PROFILE_ID, processor = null, html_audio = false, source = null, stem_identity = null } = {}) {
   const R = String(run);
   const score = rjson(path.join(R, "motion", "score.json"));
   const cues = rjson(path.join(R, "motion", "cues.json"));
   const dir = rjson(path.join(R, "audio", "direction.json"));
   const con = rjson(path.join(R, "audio", "contract.json")) || rjson(path.join(R, "storyboard", "audio.json"));
-  const auto = rjson(path.join(R, "audio", "automation.json")) || {};
+  const auto = rjson(automationPath(R)) || {};
   const stems = { ...(isObj(con && con.stems) ? con.stems : {}) };
   if (con && con.file && !Object.keys(stems).length) stems.music = con.file; // a legacy contract: the one file it names
-  return mixInputs({ score, cues_digest: cues && cues.digest || null, direction_digest: dir ? canonicalDigest(dir) : null, contract_digest: con ? con.digest || canonicalDigest(con) : null, stems, automation: auto, profile, run: R });
+  return mixInputs({ score, cues_digest: cues && cues.digest || null, direction_digest: dir ? canonicalDigest(dir) : null, contract_digest: con ? con.digest || canonicalDigest(con) : null, stems, automation: auto, profile, run: R, source, stem_identity, processor, html_audio: html_audio ? htmlAudioDigest(R) : null });
 }
+function htmlAudioDigest(R) { try { return audioAttributesDigest(fs.readFileSync(path.join(R, "index.html"), "utf8")); } catch { return null; } }

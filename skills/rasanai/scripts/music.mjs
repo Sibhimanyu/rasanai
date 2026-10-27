@@ -12,6 +12,13 @@
 //        [--track <file or folder with stems> [--library artlist|epidemic|epidemic-connect|musicbed|...] [--declared "<where it is licensed>"] [--more]]
 //        [--sources user,ai,catalog,heygen,ccmixter,openverse,procedural] [--no-ai] [--pick <catalog id>] [--no-preview]
 //        [--procedural [--identity <file>] [--seed <n>]] [--silent-by-choice "<reason>"]
+//        [--sound <sound-choices.json>] [--constraints '<json | file: {hard:{exclude_terms,...}, preferences:{...}}>'] [--recent "id,id"] [--allow-generation]
+//   --sound: the film's sound choices (default: <run>/audio/sound-choices.json when it exists; none = the legacy behaviour, unchanged). Feeling, perceived energy (pace as
+//   energy, never as BPM), narration space and music source shape the intents and the ranking; `music_source: none` makes no music and is never replaced; `user_track` is used first.
+//   --constraints: HARD exclusions (the user's own) kept apart from ranking preferences. With neither flag the global cliche/instrument lists below apply exactly as before.
+//   --allow-generation: the film's explicit consent to generated music (a key in the environment alone is not consent); the licensed/local catalog is tried first.
+//   A shortlist (up to three genuinely different candidates with reasons and evidence state) is added to the JSON as `shortlist` and written to <run>/music/shortlist.json
+//   whenever --sound, --constraints or a sound-choices file is present. node music.mjs revise --run <run> --text "warmer" [--track-id <id>] [--save-preference] re-ranks that file (no network, no audio).
 //   procedural = an original score synthesised offline to the film's events (scripts/original-score.mjs, references/procedural-music.md): an explicit choice (--procedural,
 //   or "procedural" in --sources: it comes right after the user's own track) and the offline fallback when nothing else was usable. The user's own track always wins;
 //   --silent-by-choice makes no music at all.
@@ -45,15 +52,17 @@ import { noteDowngrade } from "./lib/downgrade.mjs";
 import { loadManifest, presentManifest, hitTimes as manifestHits } from "./lib/film-events.mjs";
 import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits } from "./lib/audio.mjs";
 import { resolveIdentity, renderScore, identityPlan, sidecarPath, readSidecar } from "./lib/procedural-score.mjs";
-import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText } from "./lib/music-lib.mjs";
+import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText, styleExclusions } from "./lib/music-lib.mjs";
+import { readSoundChoices, resolveSound } from "./lib/sound-choices.mjs";
+import { normalizeConstraints, rankCandidates, pickThree, reviseShortlist, candidateFromOption, buildShortlistRecord, previewPlan } from "./lib/music-shortlist.mjs";
 
 const args = parseArgs();
-const mode = ["gate", "chain", "credits", "verify"].includes(args._[0]) ? args._[0] : "run";
+const mode = ["gate", "chain", "credits", "verify", "revise"].includes(args._[0]) ? args._[0] : "run";
 const ws = process.cwd();
 const rel = (p) => path.relative(ws, p) || p;
 
 if (mode === "chain") {
-  console.log(JSON.stringify(sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null }), null, 2));
+  console.log(JSON.stringify(sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], generationConsent: !!args["allow-generation"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null }), null, 2));
   process.exit(0);
 }
 if (mode === "gate") {
@@ -104,6 +113,20 @@ if (mode === "credits") {
   process.exit(0);
 }
 
+if (mode === "revise") {
+  // re-rank the stored shortlist from a request: no network, no audio, no provider; a like stays session-scoped unless --save-preference
+  if (!args.run) die("--run required");
+  const f = path.resolve(String(args.run), "music", "shortlist.json");
+  if (!fs.existsSync(f)) die(`no ${rel(f)}: run the music step with --sound or --constraints first`);
+  const prev = JSON.parse(fs.readFileSync(f, "utf8"));
+  const rv = reviseShortlist({ ...prev, candidates: prev.candidates || [], rank_opts: prev.rank_opts || {} }, { text: args.text && args.text !== true ? String(args.text) : "", action: args.action && args.action !== true ? String(args.action) : undefined, track_id: args["track-id"] && args["track-id"] !== true ? String(args["track-id"]) : undefined, save_preference: !!args["save-preference"] });
+  const picks = rv.rerank ? rv.rerank.picks : null;
+  const next = { ...prev, ...buildShortlistRecord({ picks, ranked: rv.rerank, selected: rv.selected, revision: rv.revision, constraints: rv.constraints, film_s: prev.film_s, sound_digest: prev.sound_digest, prev_revision: prev.revision }), candidates: prev.candidates, rank_opts: prev.rank_opts, liked: rv.liked };
+  fs.writeFileSync(f, JSON.stringify(next, null, 2) + "\n");
+  console.log(JSON.stringify({ revision: rv.revision, actions: rv.actions, note: rv.note, selected: rv.selected, liked: rv.liked, section_request: rv.section_request, saved_preferences: rv.saved_preferences, needs_consent: rv.needs_consent, generation: rv.generation, shortlist: { options: picks ? picks.options.map((o) => ({ id: o.id, title: o.title, score: o.score, picked_for: o.picked_for, reasons: o.reasons.slice(0, 6), evidence_state: o.evidence_state })) : [], note: picks ? picks.note : null }, file: rel(f) }, null, 2));
+  process.exit(0);
+}
+
 track("Finding music long enough for the film", "Music candidates ready");
 if (!args.run) die("--run required");
 const film = Number(args.film) || null;
@@ -112,8 +135,31 @@ const count = Math.max(2, Math.min(4, Number(args.count) || 3));
 const dir = path.resolve(String(args.run), "music");
 fs.mkdirSync(dir, { recursive: true });
 const notes = [];
-const narrated = !!args.narrated;
-const chain = sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null });
+// the film's sound choices (audio/sound-choices.json or --sound): absent = the legacy behaviour, byte for byte
+let SOUND = null;
+try {
+  let raw = null;
+  if (args.sound && args.sound !== true) raw = JSON.parse(fs.readFileSync(path.resolve(String(args.sound)), "utf8"));
+  else { const r = readSoundChoices(path.resolve(String(args.run))); if (r.ok) raw = r.record; }
+  if (raw) {
+    const rs = resolveSound({ choices: raw, format: args.format || undefined, narrated: args.narrated ? true : undefined, film_s: film });
+    if (rs.legacy) notes.push("--sound held no usable choices: the legacy behaviour applies"); else SOUND = rs;
+  }
+} catch (e) { notes.push(`sound choices unreadable (${String(e.message).slice(0, 80)}): the legacy behaviour applies`); }
+const SR = SOUND ? SOUND.resolved : null;
+// hard constraints (the user's own) are separate from ranking preferences; with neither a direction nor constraints the global lists apply as before
+let CONSTRAINTS = null;
+if (args.constraints && args.constraints !== true) {
+  try { const v = String(args.constraints); CONSTRAINTS = normalizeConstraints(/^\s*\{/.test(v) ? JSON.parse(v) : JSON.parse(fs.readFileSync(path.resolve(v), "utf8"))); }
+  catch (e) { notes.push(`--constraints unreadable (${String(e.message).slice(0, 80)}): ignored`); }
+}
+const narrated = args.narrated ? true : SR ? SR.voice_role === "carrier" : false;
+const DIRECTION = SR ? { feeling: SR.feeling, vocals_ok: SR.music_role === "led" && SR.voice_role !== "carrier", narrated } : null;
+const EXCL = styleExclusions({ direction: DIRECTION, constraints: CONSTRAINTS });
+// music_source: none is a decision, never silently replaced; user_track is used first when no --track was given
+const trackArg = args.track || (SR && SR.user_track && SR.user_track.file && fs.existsSync(path.resolve(String(SR.user_track.file))) ? SR.user_track.file : null);
+if (SR && SR.music_source === "user_track" && !trackArg) notes.push("you chose your own track, but no file was given or found (--track <file>): the options below are alternatives, not a replacement for it");
+const chain = sourceChain(process.env, { user: !!trackArg, noAi: !!args["no-ai"], generationConsent: !!args["allow-generation"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null });
 const on = (id) => (chain.find((c) => c.id === id) || {}).on;
 const scoreFile = path.resolve(String(args.run), "motion", "score.json");
 const { arc, derived: arcDerived } = readArc(args.arc || (fs.existsSync(scoreFile) ? scoreFile : null), film || 30);
@@ -121,8 +167,8 @@ if (arcDerived && film) notes.push("no music_arc given (--arc or motion/score.js
 
 // ---------------------------------------------------------------- intents
 
-// Words that pull stock libraries toward the "happy corporate" cliché (research R4 §2.3)
-const BANNED = /\b(corporate|inspirational|inspiring|uplifting|motivational|positive|happy|success|business|presentation|ukulele|whistl\w*|glockenspiel|background music|epic trailer)\b/gi;
+// Words that pull stock libraries toward the "happy corporate" cliché (research R4 §2.3); per direction, not universal, once a sound direction exists
+const BANNED = EXCL.banned_re; // the legacy list unless a sound direction or the user's constraints are present (music-lib styleExclusions)
 const FAMILIES = [
   { id: "editorial", match: /swiss|editorial|minimal|grid|international|clean|mono|bauhaus|type/i, text: "dry minimal electronic, clean kick, sine bass, one synth arpeggio, tight staccato", bpm: "105-120", ov: ["electronic", "minimal"] },
   { id: "dark-tech", match: /dark|neon|terminal|cyber|code|hacker|glitch|developer|night/i, text: "dark synth electronic, analog bass, glitch percussion, filtered pad", bpm: "110-128", ov: ["synth", "electronic"] },
@@ -147,10 +193,14 @@ function deriveIntents() {
   const ranked = FAMILIES.map((f) => ({ f, hit: (words.match(new RegExp(f.match.source, "gi")) || []).length })).sort((a, b) => b.hit - a.hit);
   const picks = [];
   for (const r of ranked) if (r.hit && picks.length < 2) picks.push(r.f);
-  const fallback = { launch: ["editorial", "dark-tech", "organic"], explainer: ["organic", "editorial", "cinematic"], reel: ["retro", "raw", "dark-tech"], kinetic: ["editorial", "dark-tech", "raw"], brand: ["cinematic", "organic", "retro"], premium: ["cinematic", "editorial", "organic"] }[String(args.format || "launch")] || ["editorial", "organic", "cinematic"];
+  const FEEL = { calm: ["organic", "cinematic", "editorial"], warm: ["organic", "editorial", "playful"], playful: ["playful", "editorial", "retro"], bold: ["raw", "dark-tech", "retro"], dramatic: ["cinematic", "dark-tech", "raw"] };
+  const fallback = SR && FEEL[SR.feeling && SR.feeling.value] || { launch: ["editorial", "dark-tech", "organic"], explainer: ["organic", "editorial", "cinematic"], reel: ["retro", "raw", "dark-tech"], kinetic: ["editorial", "dark-tech", "raw"], brand: ["cinematic", "organic", "retro"], premium: ["cinematic", "editorial", "organic"] }[String(args.format || "launch")] || ["editorial", "organic", "cinematic"];
   for (const id of fallback) if (picks.length < count && !picks.some((p) => p.id === id)) picks.push(FAMILIES.find((f) => f.id === id));
-  const voice = args.narrated ? ", sits under a voice" : "";
-  return picks.slice(0, count).map((f) => ({ family: f, intent: `${f.text}, ${fmt.bpm || f.bpm} BPM, no vocals${voice}, ${fmt.structure}` }));
+  const voice = narrated ? ", sits under a voice" : "";
+  // with a direction: pace is perceived energy and density (never a tempo), and "no vocals" is stated only where a bed needs it
+  const mood = SR ? `${SR.energy.perceived} perceived energy, ${SR.energy.rhythmic_density} rhythm, ${SR.energy.development.replace(/_/g, " ")}` : "";
+  const vocals = SR && SR.music_role === "led" && SR.voice_role !== "carrier" ? "instrumental" : "no vocals";
+  return picks.slice(0, count).map((f) => ({ family: f, intent: SR ? `${f.text}, ${fmt.bpm || f.bpm} BPM, ${mood}, ${vocals}${voice}, ${fmt.structure}` : `${f.text}, ${fmt.bpm || f.bpm} BPM, no vocals${voice}, ${fmt.structure}` }));
 }
 
 let intents;
@@ -159,7 +209,7 @@ if (args.intents) {
   intents = String(args.intents).split("|").map((s) => s.trim()).filter(Boolean).slice(0, 4).map((s, i) => {
     let clean = s.replace(BANNED, "").replace(/\s{2,}/g, " ");
     for (let k = 0; k < 3; k++) clean = clean.replace(/^[,\s]+|[,\s]+$/g, "").replace(/^(with|and|of|in)\b\s*/i, "").replace(/\s*\b(with|and|of|in)$/i, "");
-    if (clean !== s) notes.push(`dropped cliché words from "${s}" (they pull libraries toward stock "happy corporate" tracks)`);
+    if (clean !== s) notes.push(`dropped ${EXCL.source === "legacy_default" ? "cliché" : "excluded"} words from "${s}" (${EXCL.source === "legacy_default" ? 'they pull libraries toward stock "happy corporate" tracks' : "stock-library markers or the exclusions you set"})`);
     if (clean.split(/[\s,]+/).filter((w) => w.length > 2).length < 3) {
       const d = derived[i % derived.length];
       notes.push(`"${s}" had too little left to search with: used "${d.intent}" instead`);
@@ -244,16 +294,16 @@ const rangeOf = (it) => { const hp = hitPick(it); return hp ? [hp.bpm * 0.92, hp
 // 0. the user's own track (a file, or a folder with the full mix and stems), with the licence notes of their library
 let libraryNote = null;
 async function fromUser() {
-  const p = path.resolve(String(args.track));
+  const p = path.resolve(String(trackArg));
   if (!fs.existsSync(p)) {
-    notes.push(`--track ${args.track} does not exist`);
+    notes.push(`--track ${trackArg} does not exist`);
     return;
   }
   const lib = args.library || "other";
   libraryNote = licenceNote(lib);
   const t = findUserTrack(p);
   if (!t) {
-    notes.push(`no audio file found in ${args.track}`);
+    notes.push(`no audio file found in ${trackArg}`);
     return;
   }
   const base = path.basename(t.mix).replace(/\.[^.]+$/, "");
@@ -339,15 +389,18 @@ async function fromHeygen() {
 
 // 1. AI generation to the film's arc: ElevenLabs Music first, Stable Audio second, the user's own key only.
 // One take per mood; every take is analysed, retimed to the exact BPM when it is within 3%, and fitted like any track.
+// buildPrompt's additive inputs: none without a direction/constraints (the legacy text); with one, the film's own words instead of "SaaS launch film" / "not cinematic"
+const FORMAT_SUBJECT = { launch: "launch film", explainer: "explainer film", reel: "reel", kinetic: "kinetic-type film", brand: "brand film", premium: "premium brand film" };
+const promptExtras = () => (SR || CONSTRAINTS ? { subject: FORMAT_SUBJECT[String(args.format || "launch")] || "film", tone: SR ? [SR.feeling && SR.feeling.value !== "unset" && SR.feeling.value !== "custom" ? SR.feeling.value : null, `${SR.energy.perceived} energy`].filter(Boolean).join(", ") : "", exclusions: EXCL } : {});
 async function aiElevenLabs(it, bpm, key) {
-  const p = buildPrompt({ film, bpm, family: it.family, arc, narrated });
-  const body = { composition_plan: elevenPlan(p, it.family), model_id: "music_v1" };
+  const p = buildPrompt({ film, bpm, family: it.family, arc, narrated, ...promptExtras() });
+  const body = { composition_plan: elevenPlan(p, it.family, SR || CONSTRAINTS ? EXCL : null), model_id: "music_v1" };
   const res = await fetch(`${process.env.RASANAI_ELEVENLABS_API_BASE || "https://api.elevenlabs.io"}/v1/music?output_format=mp3_44100_128`, { method: "POST", headers: { "xi-api-key": key, "content-type": "application/json", "user-agent": UA }, body: JSON.stringify(body), signal: AbortSignal.timeout(600000) });
   if (!res.ok) throw new Error(`ElevenLabs HTTP ${res.status} ${(await res.text()).slice(0, 160)}`);
   return { bytes: Buffer.from(await res.arrayBuffer()), ext: "mp3", prompt: p.text, vendor: "elevenlabs/music_v1", request: { sections: p.sections.map((s) => [s.name, s.duration_ms]) } };
 }
 async function aiStable(it, bpm, key) {
-  const p = buildPrompt({ film, bpm, family: it.family, arc, narrated });
+  const p = buildPrompt({ film, bpm, family: it.family, arc, narrated, ...promptExtras() });
   const form = new FormData();
   form.set("prompt", p.text.slice(0, 900));
   form.set("duration", String(Math.min(190, Math.ceil(p.sections.reduce((a, s) => a + s.duration_ms, 0) / 1000))));
@@ -402,6 +455,8 @@ async function fromProcedural() {
 // 2. the curated catalog: CC0 / CC BY files fetched on demand (checksummed), Mixkit only when the user picks it
 const suggestions = [];
 const FAM_ALIAS = { editorial: ["editorial", "chill", "indie-electronic"], "dark-tech": ["dark-tech"], playful: ["playful", "indie-electronic"], cinematic: ["cinematic", "ambient-pop", "organic"], raw: ["raw", "dark-tech", "reel"], retro: ["retro"], organic: ["organic", "lo-fi", "ambient-pop"] };
+const recentUse = args.recent && args.recent !== true ? String(args.recent).split(",").map((x) => x.trim()).filter(Boolean) : [];
+const shortlistOpts = () => ({ resolved: SR, brief_style: `${args.style || ""} ${args.story || ""}`.trim(), film_s: film, narrated, recent_use: recentUse, constraints: CONSTRAINTS });
 async function fromCatalog() {
   let cat;
   try {
@@ -422,11 +477,32 @@ async function fromCatalog() {
     const dest = path.join(dir, `${t.id}.mp3`);
     try {
       if (!fs.existsSync(dest) || (t.sha256 && crypto.createHash("sha256").update(fs.readFileSync(dest)).digest("hex") !== t.sha256)) await download(t.mirror_ok && t.mirror ? t.mirror : t.url, dest, { sha256: t.sha256 || null });
-      found.push({ id: t.id, title: `${t.title} (${t.artist})`, bare_title: t.title, file: dest, source: `Curated catalog: ${t.source}`, kind: "catalog", prior: t.source === "mixkit" ? "mixkit" : "catalog", origin: "catalog", license: t.licence, licence_url: t.licence_url, requires_credit: t.requires_credit, credit: t.credit, attribution: t.credit, artist: t.artist, url: t.page, sha256: t.sha256 || null, commercial_ok: t.commercial_ok, ads_ok: t.ads_ok, content_id_risk: t.content_id_risk, restrictions: t.restrictions || null, intent: it, listened: !!t.listened, caveat: t.listened ? null : "catalog track not yet auditioned by a person: listen before you commit" });
+      found.push({ id: t.id, title: `${t.title} (${t.artist})`, bare_title: t.title, file: dest, source: `Curated catalog: ${t.source}`, kind: "catalog", prior: t.source === "mixkit" ? "mixkit" : "catalog", origin: "catalog", license: t.licence, licence_url: t.licence_url, requires_credit: t.requires_credit, credit: t.credit, attribution: t.credit, artist: t.artist, url: t.page, sha256: t.sha256 || null, commercial_ok: t.commercial_ok, ads_ok: t.ads_ok, content_id_risk: t.content_id_risk, restrictions: t.restrictions || null, intent: it, row: t, listened: !!t.listened, caveat: t.listened ? null : "catalog track not yet auditioned by a person: listen before you commit" });
     } catch (e) {
       notes.push(`${t.id} download failed: ${e.message}`);
     }
   };
+  // with a sound direction or constraints the whole catalog is ranked on fit (feeling, perceived energy, narration space, rights, evidence, recent reuse) and up to
+  // `count` genuinely different tracks are taken; nothing is downloaded for a track that is not picked. Without either, the long-standing per-intent pick below runs unchanged.
+  if (SR || CONSTRAINTS) {
+    const rk = rankCandidates(cat.tracks, shortlistOpts());
+    const picks = pickThree(rk.ranked.filter((r) => (cat.tracks.find((t) => t.id === r.id) || {}).fetch === "auto"), { max: Math.min(3, count) });
+    for (const r of picks.options) {
+      const t = cat.tracks.find((x) => x.id === r.id);
+      if (t && !seen.has(t.id)) await take(t, intents.find((it) => (FAM_ALIAS[it.family.id] || []).some((f) => t.family.includes(f))) || intents[0]);
+    }
+    if (picks.note) notes.push(`catalog: ${picks.note}`);
+    for (const r of rk.ranked) {
+      const x = cat.tracks.find((q) => q.id === r.id);
+      if (x && x.fetch === "on-pick" && suggestions.length < 2 && !found.some((f) => f.id === x.id)) suggestions.push({ id: x.id, title: x.title, artist: x.artist, mood: r.families[0] || null, bpm: x.bpm, duration: x.duration, ending: x.ending, license: x.licence, page: x.page, note: x.notes, needs_pick: true, how: `Mixkit tracks are fetched only when you pick one: node music.mjs --run <run> --film ${film || "<s>"} --pick ${x.id} (or download it yourself from ${x.page})` });
+    }
+    if (args.pick && !found.some((f) => f.id === args.pick)) {
+      const t = cat.tracks.find((x) => x.id === args.pick);
+      if (t && t.fetch === "on-pick") await take(t, intents.find((it) => (FAM_ALIAS[it.family.id] || []).some((f) => t.family.includes(f))) || intents[0]);
+      else if (!t) notes.push(`--pick ${args.pick}: not in the catalog`);
+    }
+    return;
+  }
   for (const it of intents) {
     const fams = FAM_ALIAS[it.family.id] || [it.family.id];
     const ranked = pickFromCatalog(cat, { families: fams, film, bpmRange: rangeOf(it), count: 12 }).filter((t) => !seen.has(t.id));
@@ -524,6 +600,7 @@ const retime = (f, A) => {
   const r = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-i", f.file, "-filter:a", `atempo=${ratio.toFixed(5)}`, out], { encoding: "utf8" });
   return r.status === 0 ? { out, from: A.bpm, to: f.targetBpm, ratio: Math.round(ratio * 10000) / 10000 } : null;
 };
+const analysisCache = new Map(); // id -> analyzeTrack output, for the shortlist (never serialized into the options)
 const analyzeOne = (f) => {
   const family = f.intent.family.id;
   const o = { id: f.id, title: f.title, mood: family, duration: null, file: rel(f.file), preview: null, source: f.source, origin: f.origin, license: f.license, attribution: f.attribution, url: f.url };
@@ -550,6 +627,7 @@ const analyzeOne = (f) => {
       o.retimed = { from_bpm: Math.round(rt.from * 10) / 10, to_bpm: rt.to, ratio: rt.ratio };
       A = analyzeTrack(f.file, { quick: true });
     }
+    analysisCache.set(f.id, A);
     o.duration = Math.round(A.duration);
     o.bpm = A.bpm;
     o.summary = summarize(A);
@@ -603,10 +681,11 @@ const analyzeOne = (f) => {
   return o;
 };
 
-const silentByChoice = !!args["silent-by-choice"];
-if (silentByChoice) notes.push(`--silent-by-choice${args["silent-by-choice"] !== true ? ` (${args["silent-by-choice"]})` : ""}: no music is looked for or made`);
+const silentByChoice = !!args["silent-by-choice"] || !!(SR && SR.music_source === "none");
+if (args["silent-by-choice"]) notes.push(`--silent-by-choice${args["silent-by-choice"] !== true ? ` (${args["silent-by-choice"]})` : ""}: no music is looked for or made`);
+else if (silentByChoice) notes.push("music source is None in the sound choices: no music is looked for or made, and nothing replaces it");
 const usableCount = () => options.filter((o) => o.usable).length;
-const mineFirst = () => !!args.track && !args.more && options.some((o) => o.usable && o.origin === "user");
+const mineFirst = () => !!trackArg && !args.more && options.some((o) => o.usable && o.origin === "user");
 const runSource = async (name, fn) => {
   if (!on(name) || usableCount() >= count || mineFirst()) return;
   if (silentByChoice) return;
@@ -617,11 +696,11 @@ const runSource = async (name, fn) => {
 await runSource("user", fromUser);
 const procChain = chain.find((c) => c.id === "procedural");
 if (procChain.explicit) await runSource("procedural", fromProcedural);
-await runSource("ai", fromAI);
-await runSource("catalog", fromCatalog);
-await runSource("heygen", fromHeygen);
-await runSource("ccmixter", fromCcmixter);
-await runSource("openverse", fromOpenverse);
+// the chain is the one source of order: user, then the licensed/local catalog, then generation (only with the film's consent, unless a --sources list pins ai first), then the rest
+const HANDLERS = { ai: fromAI, catalog: fromCatalog, heygen: fromHeygen, ccmixter: fromCcmixter, openverse: fromOpenverse };
+for (const c of chain) if (HANDLERS[c.id]) await runSource(c.id, HANDLERS[c.id]);
+const aiLane = chain.find((c) => c.id === "ai");
+if (aiLane && !aiLane.on && aiLane.vendors && aiLane.vendors.length && !aiLane.consent && !args["no-ai"] && !silentByChoice) notes.push("generated music is off: a key was found but this film has no generation consent (--allow-generation). The licensed and local library was used.");
 if (procChain.fallback && usableCount() === 0 && !mineFirst()) await runSource("procedural", fromProcedural);
 
 // licence ledger: everything a credit or an audit needs
@@ -663,7 +742,17 @@ let hitsReport = null;
     notes.push(`tempo ${hp.bpm} BPM chosen from ${hp.hits} picture hits (worst ${hp.max_err_ms} ms off a beat): <run>/music/hits.json`);
   } else if (!args["no-hit-tempo"]) notes.push(`tempo from the style's range: ${HITS.length} picture hit time(s) known, 3 are needed (--hits, --events, the score's hits/events/seams, or a music_arc)`);
 }
-const result = { options: shown, ...(hitsReport ? { hits: { bpm: hitsReport.bpm, max_err_ms: hitsReport.max_err_ms, file: rel(path.join(dir, "hits.json")) } } : {}), suggestions, recommended: best ? best.id : null, intents: intents.map((i) => i.intent), film_s: film, min_length_s: Math.round(minLen), arc: { ...arc, derived: arcDerived }, chain: chain.map((c) => ({ id: c.id, on: c.on, why: c.why })), licenses: rel(ledgerFile), credits: rel(path.join(dir, "CREDITS.txt")), description: rel(path.join(dir, "description.txt")), notes };
+// the shortlist: up to three genuinely different playable candidates with reasons and evidence state (only with a sound direction or constraints; otherwise the output is as before)
+let shortlist = null;
+if ((SR || CONSTRAINTS) && !silentByChoice) {
+  const cands = options.map((o) => { const f = found.find((x) => x.id === o.id) || {}; const c = candidateFromOption(o, f.row || null, analysisCache.get(o.id) || null); if (f.kind === "ai") c.origin = "ai"; return c; });
+  const ranked = rankCandidates(cands, shortlistOpts());
+  const picks = pickThree(ranked, { max: Math.min(3, count) });
+  const record = buildShortlistRecord({ picks, ranked, revision: 1, constraints: ranked.constraints, film_s: film, sound_digest: SOUND ? SOUND.digest : null });
+  shortlist = { ...record, preview_plan: previewPlan(picks.options, { passage: arcDerived ? null : { start_s: arc.drop_at, end_s: arc.payoff_at } }), file: rel(path.join(dir, "shortlist.json")) };
+  fs.writeFileSync(path.join(dir, "shortlist.json"), JSON.stringify({ ...record, candidates: cands.map((c) => ({ ...c, analysis: undefined })), rank_opts: shortlistOpts(), liked: [] }, null, 2) + "\n");
+}
+const result = { options: shown, ...(shortlist ? { shortlist } : {}), ...(hitsReport ? { hits: { bpm: hitsReport.bpm, max_err_ms: hitsReport.max_err_ms, file: rel(path.join(dir, "hits.json")) } } : {}), suggestions, recommended: best ? best.id : null, intents: intents.map((i) => i.intent), film_s: film, min_length_s: Math.round(minLen), arc: { ...arc, derived: arcDerived }, chain: chain.map((c) => ({ id: c.id, on: c.on, why: c.why })), ...(SR ? { sound: { digest: SOUND.digest, music_source: SR.music_source, energy: SR.energy, feeling: SR.feeling.value, narrated } } : {}), licenses: rel(ledgerFile), credits: rel(path.join(dir, "CREDITS.txt")), description: rel(path.join(dir, "description.txt")), notes };
 if (libraryNote) result.library_note = libraryNote;
 if (!film) notes.push("pass --film <seconds> so each track is fitted to the film and gets a preview of the edit");
 if (!shown.length) result.unavailable = `No music could be fetched (${notes.join("; ") || "no source answered"}). Check the network, or give your own track (--track <file>) or pick "No music". Signed in to HeyGen (\`npx hyperframes auth status\`) adds its catalog.`;
