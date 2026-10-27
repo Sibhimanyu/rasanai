@@ -31,6 +31,7 @@ import { readTime, wordCount } from "./lib/reading.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
 import { decodeGrey, findCuts } from "./lib/carry.mjs";
 import { sfxMode, sfxLimit, sfxOver } from "./lib/audio.mjs";
+import { readOpticsPlans, opticsOwns } from "./lib/optical-treatments.mjs";
 
 const args = parseArgs();
 track("Checking for generic AI-video tells", "Slop check done");
@@ -173,7 +174,10 @@ if (scenes && scenes.length >= 3) {
   const glowText = (own.match(/text-shadow\s*:[^;"}]*?\b0\s+0\s+(\d+)px[^;"}]*/gi) || []).filter((m) => Number((m.match(/0\s+0\s+(\d+)px/) || [])[1]) >= 8);
   const glowBox = (own.match(/(?:box-shadow\s*:|drop-shadow\()\s*0(?:px)?\s+0(?:px)?\s+(\d+)px[^;"})]*/gi) || []).filter((m) => Number((m.match(/0(?:px)?\s+0(?:px)?\s+(\d+)px/) || [])[1]) >= 16);
   if (!neon) spend("glow", glowText.length + glowBox.length, "glowing text-shadows / box glows", "Glow on every element is the most-named AI video tell; once on the hero, with a reason, it is light (Sovra, Google's rim glow).", "Keep glow for the hero moment(s) the budget names; take it off everything else and get emphasis from size, weight, colour or position.");
-  const blurIn = [...own.matchAll(/\.(?:from|fromTo)\(\s*[^,]+,\s*\{([^}]*)\}/g)].filter((m) => /filter\s*:\s*["'`]?blur\(\s*[1-9]/.test(m[1])).length;
+  // Optics scoping (Addendum 1 B): on a rev>=2 run, a blur tween whose target a declared optical operation owns (creative/plans/*.json `optics`) is a focus or soft-material
+  // treatment written by RasanOptics, not a blur-in entrance, so it is not counted against the blur-in budget. No optics plan (every legacy run): counted exactly as before.
+  const opticsPlans = (() => { try { const rv = runDir ? JSON.parse(fs.readFileSync(path.join(runDir, "crew", "plan.json"), "utf8")).creative_policy_revision : 0; return Number(rv) >= 2 ? readOpticsPlans(runDir) : []; } catch { return []; } })();
+  const blurIn = [...own.matchAll(/\.(?:from|fromTo)\(\s*([^,]+),\s*\{([^}]*)\}/g)].filter((m) => /filter\s*:\s*["'`]?blur\(\s*[1-9]/.test(m[2]) && !(opticsPlans.length && opticsOwns(opticsPlans, m[1], ["focus_blur", "soft_material"]))).length;
   spend("blur-in", blurIn, "blur-in entrances", "Every word blurring in is the uniform AI entrance; one blur-in on the hero line is a choice (Sovra's words).", "Keep blur-in for the budgeted hero line(s); give the rest entrances by their nature (mask, cut-in, build).");
   const particleWords = /particle|bokeh|sparkle|starfield|galaxy|floating-?dots/i.test(own), dots = (own.match(/border-radius\s*:\s*50%/g) || []).length > 40;
   if ((particleWords || dots) && !/space|orbital|point-cloud|star/.test(style) && !budgetFor(budget, "particles").length && !mediumSharpAll) add("particles-unbudgeted", "warn", "particles / bokeh / sparkles", "Ambient particles everywhere are filler viewers read as AI video; a dot field or burst that IS the story's carrier, once, is a technique.", `Budget it on the hero moment with a reason ({"effect": "particles", ...}, at most ${lim}), or replace with one motivated element from the story.`);

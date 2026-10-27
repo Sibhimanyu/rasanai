@@ -24,6 +24,10 @@ Push `render` with `video` (the draft), `poster`, `scenes: [{id, title, start, t
 
 Before you push the Final run `node $SKILL_DIR/scripts/crew.mjs creative gate --run "$RUN" --stage final`. `ready` means a current independent review of the render exists. Anything else (`not_reviewed`, `revise`, `needs_user`, `blocked`) is said plainly in the Final's `context` ("creative review: not assessed"), never as "checks passed". The film critic writes `creative/reviews/final-r<N>.json`; a ship verdict needs a ready result from images it opened. Factual, permission and mechanical failures are never waived; an aesthetic waiver needs the user's own consumed action and the reviewed artifact digest. The user's Final choice and the previous final are unchanged.
 
+### Revision 2 (v3)
+
+`crew.mjs creative gate` also reconciles the treatment's commitments, the intentional-absence basis and the current artifact digests; a required commitment left open is `blocked`, never a pass. A reviewed-ready claim needs temporal evidence tied to this exact output, as set out in [temporal-review.md](../temporal-review.md) and [event-commitments.md](../event-commitments.md); without it the render stays an honestly labelled draft.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):
@@ -33,3 +37,5 @@ The canonical homes of the detail this guide points at (read the one the current
 | the delivery finish: film-wide motion blur and one grade | `references/finish.md`, `scripts/finish.mjs` |
 | the blind A/B before a fix round is accepted, and the retrospective that keeps Claude's own notes after a film | `agents/ab-juror.md`, `agents/retrospective.md`, `scripts/crew.mjs` (`ab`), `scripts/lessons.mjs` |
 | the delivery folder (mp4, poster, srt, credits, build.sh, NOTE.md) and the voice-against-script check | `references/deliver.md`, `scripts/lib/deliver.mjs` |
+| the mix bus, gain automation and what a mix receipt lets the Final reuse; sound edits and what they invalidate | `references/mix-bus.md`, `references/sound-revisions.md`, `references/audio-sources-rights.md` |
+| sequence records the Final still owes a playback observation for | `references/sequence-contracts.md`, `references/temporal-review.md` |

@@ -90,3 +90,19 @@ export function requestChange(c, { component_id, scene_id, reason }) {
   if (!T(reason)) return { ok: false, error: "a change request needs a reason" };
   return { ok: true, request: { schema_version: SCHEMA_VERSION, component_id, requested_by_scene: scene_id || null, owner: k.owner, reason: T(reason), status: "open", affects_scenes: sceneUsers(c, component_id) } };
 }
+
+// ---- V3 additive (W06): which seams are TEMPORAL (one action continues across them) and which only share a static asset or an analogy ----------------
+// lib/continuity-plan.mjs reads these to decide that two shots must share one accountable owner. A visual analogy and a deliberate discontinuity never
+// force one owner; a shared font, logo or palette is never a link at all (it is a read-only shared asset). Legacy validateContinuity behaviour is unchanged.
+export const TEMPORAL_CONTINUITY_TYPES = ["same_object", "causal_handoff", "temporal_continuation"];
+export const isTemporalLink = (l) => !!l && TEMPORAL_CONTINUITY_TYPES.includes(l.type);
+// -> [{id, from, to, type, object_id, temporal}] with endpoints normalised to ids; a link with a missing endpoint is dropped (validateContinuity reports it)
+export function continuityEdges(c) {
+  return arr(c && c.links).map((l) => ({ id: T(l.id) || `${endpoint(l.from)}->${endpoint(l.to)}`, from: endpoint(l.from), to: endpoint(l.to), type: l.type, object_id: T(l.object_id) || null, temporal: isTemporalLink(l) })).filter((e) => e.from && e.to);
+}
+
+// ---- SQ-MOTIF additive: a motif is either ONE continuous identity (one accountable owner through a temporal action) or RECURRING (separate appearances sharing a visual language; never an ownership group) ----
+// planContinuity (continuity-plan.mjs) consumes these. Anything that is not exactly "continuous" is recurring, so a repeated palette, logo, font or shape can never force one owner for the film.
+export const MOTIF_RELATIONS = ["continuous", "recurring"];
+export const motifRelation = (m) => (m && T(m.relation).toLowerCase() === "continuous" ? "continuous" : "recurring");
+export const motifForcesOwner = (m) => motifRelation(m) === "continuous";

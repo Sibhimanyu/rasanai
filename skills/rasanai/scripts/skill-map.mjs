@@ -8,7 +8,8 @@
 //           names: any route in library/formats.json (product-launch-video, music-to-video, reel, presenter, motion-graphics, ...),
 //                  revision, or an alias: product, direct (product-launch-video, direct), long, deep (same, deep path),
 //                  footage (reel), lyrics, song (music-to-video), single-unit, cartoon, evidence
-//        scene routes also list references/creative-quality.md (story, look, styleframes, animatic) and references/creative-examples-teaching.md (story) for a plan with creative_policy_revision 1
+//        scene routes also list references/creative-quality.md (story, look, styleframes, animatic) and references/creative-examples-teaching.md (story) for a plan with creative_policy_revision 1 (or 2)
+//        revision 2 plans (--run <dir> with crew/plan.json creative_policy_revision >= 2): also creative-policy, budget-context (brief); concept-development, event-commitments (story); typography-performance, composition-transitions, medium-performance (look); temporal-storyboard, continuity-ownership, procedural-space, asset-compositing (styleframes); the same plus budget-context (animatic); temporal-review (final)
 //        medium guides (scene routes only, and only with --run <dir> whose creative/medium-selection.json or design/<label>/medium.json exists, i.e. a medium was shortlisted or selected):
 //           look -> references/medium-direction.md; styleframes + animatic -> medium-direction.md and references/medium-examples.md (examples: only for a stated communication problem). Never in the static map, never for footage/lyric/presenter/caption routes.
 //        --run <dir> [--project <dir>]: also opens references/motion-studio.md where it applies (story: reference-motion.json or a linked
@@ -75,6 +76,18 @@ export const CREATIVE_DEEPER = {
   styleframes: ["references/creative-quality.md"],
   animatic: ["references/creative-quality.md"],
 };
+
+// v3 (a plan with creative_policy_revision 2): the new reference docs, per phase, scene routes only and only with --run <dir> whose crew/plan.json says revision >= 2. Never in the static map
+// (so revision 1 and no-run lists are unchanged), never for footage, lyric, presenter or caption routes. Every file is also linked from the matching guide in references/workflows/.
+export const CREATIVE_V3_DEEPER = {
+  brief: ["references/creative-policy.md", "references/budget-context.md"],
+  story: ["references/creative-policy.md", "references/concept-development.md", "references/event-commitments.md"],
+  look: ["references/event-commitments.md", "references/typography-performance.md", "references/composition-transitions.md", "references/medium-performance.md", "references/sequence-contracts.md", "references/motif-roles.md", "references/optical-treatments.md", "references/sound-direction.md"],
+  styleframes: ["references/temporal-storyboard.md", "references/continuity-ownership.md", "references/procedural-space.md", "references/asset-compositing.md", "references/sequence-contracts.md", "references/motion-handoffs.md", "references/product-choreography.md"],
+  animatic: ["references/continuity-ownership.md", "references/budget-context.md", "references/typography-performance.md", "references/composition-transitions.md", "references/procedural-space.md", "references/asset-compositing.md", "references/medium-performance.md", "references/sequence-contracts.md", "references/motif-roles.md", "references/motion-handoffs.md", "references/optical-treatments.md", "references/product-choreography.md", "references/sound-direction.md", "references/audio-sources-rights.md", "references/mix-bus.md", "references/music-selection.md", "references/music-arrangement.md", "references/sfx-layering.md", "references/sound-revisions.md"],
+  final: ["references/temporal-review.md", "references/event-commitments.md"],
+};
+export const policyRevisionInRun = (run) => { try { const p = JSON.parse(fs.readFileSync(path.join(run, "crew", "plan.json"), "utf8")); const r = Number(p && p.creative_policy_revision); return Number.isFinite(r) ? r : 0; } catch { return 0; } };
 
 // Medium guides (Style Intelligence Part 2): conditional, per phase, only for a run that has a shortlisted/selected medium. crew.mjs briefs roles with the same condition; the roles that do not make or judge the medium never read them.
 export const MEDIUM_DIRECTION = "references/medium-direction.md";
@@ -233,6 +246,8 @@ export function resolveRoute(name, { variant = null, run = null, project = null 
   for (const ph of motionStudioPhases(route, { run, project })) if (phases[ph]) phases[ph].deeper = uniq([...phases[ph].deeper, MOTION_STUDIO]);
   // medium guides: scene routes with a shortlisted/selected medium in this run only (never the static map)
   if (def.kind === "scene" && mediumInRun(run)) for (const [ph, refs] of Object.entries(MEDIUM_DEEPER)) if (phases[ph]) phases[ph].deeper = uniq([...phases[ph].deeper, ...refs]);
+  // v3: revision 2 plans open the new reference docs with their phase (scene routes only)
+  if (def.kind === "scene" && policyRevisionInRun(run) >= 2) for (const [ph, refs] of Object.entries(CREATIVE_V3_DEEPER)) if (phases[ph]) phases[ph].deeper = uniq([...phases[ph].deeper, ...refs]);
   const initial = uniq([
     ...MANDATORY.map(gpath),
     ...(def.skipBrief ? [] : [gpath("brief-and-research")]),
@@ -279,6 +294,7 @@ export function checkMap(skillDir = SKILL_DIR) {
   for (const [id, p] of Object.entries(GUIDES)) if (!fs.existsSync(path.join(skillDir, p))) E(`guide ${id}: ${p} is missing`);
   if (!fs.existsSync(path.join(skillDir, "SKILL.md"))) E("SKILL.md is missing");
   for (const f of [MEDIUM_DIRECTION, MEDIUM_EXAMPLES]) if (!fs.existsSync(path.join(skillDir, f))) E(`${f} is missing`);
+  for (const f of Object.values(CREATIVE_V3_DEEPER).flat()) if (!fs.existsSync(path.join(skillDir, f))) E(`${f} is missing`);
   if (!fs.existsSync(path.join(skillDir, MOTION_STUDIO))) E(`${MOTION_STUDIO} is missing`);
   for (const name of Object.keys(ROUTES)) {
     const r = resolveRoute(name);

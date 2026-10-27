@@ -3,6 +3,8 @@
 // grants no approval. Structure (validate), currentness (pins), evidence and review are kept apart on purpose:
 // nothing here judges taste, and a well-formed brief never turns into "ready" without current review evidence.
 import { canonicalDigest } from "./contracts.mjs";
+import { CREATIVE_ERROR_CODES } from "./creative-policy.mjs";
+import { normalizeMotif, checkSequence, SEQUENCE_ERROR_CODES } from "./sequence-contract.mjs";
 
 export const CREATIVE_SCHEMA_VERSION = 1;
 export const CREATIVE_MODES = ["proposal", "story", "look", "build"];
@@ -137,6 +139,16 @@ export function validateCreativeBrief(doc, context = {}) {
   }
   if (!filled(doc.decision_authority)) errors.push(err("missing_field", "decision_authority", "decision_authority must state that stage approvals stay with the user"));
 
+  // Event commitments (additive; only for creative_policy_revision >= 2, so revision 1 briefs validate exactly as before).
+  if (doc.creative_policy_revision >= 2 && Array.isArray(doc.signature_events)) {
+    const phase = phaseOf(ctx.stage, mode);
+    const ec = validateEventCommitments(doc, { phase, treatment: ctx.treatment, absences: ctx.absences, pins: isObj(ctx.expectedPins) ? ctx.expectedPins : pins, currentDigests: ctx.currentDigests });
+    errors.push(...ec.errors); warnings.push(...ec.warnings); missing.push(...ec.missing);
+    // Sequence addendum (additive): treatment motifs and event motif_ids; nothing is added when neither exists
+    const mv = validateMotifBindings(doc, { treatment: ctx.treatment, score: ctx.score, phase });
+    errors.push(...mv.errors); warnings.push(...mv.warnings);
+  }
+
   // Currentness against what is actually approved right now.
   if (pins && isObj(ctx.expectedPins)) {
     const cur = creativePinsCurrent(doc, ctx.expectedPins);
@@ -170,7 +182,7 @@ const bytes = (v) => Buffer.byteLength(JSON.stringify(v), "utf8");
 
 // The part of the brief one worker needs. Mandatory facts are never cut, whatever the byte budget; optional
 // history goes by reference. -> {mandatory, references, omittedOptional}
-export function creativeSlice(doc, { role = "", beatIds = [], shotIds = [], maxInlineBytes = 16000 } = {}) {
+export function creativeSlice(doc, { role = "", beatIds = [], shotIds = [], maxInlineBytes = 16000, treatment = null } = {}) {
   const d = isObj(doc) ? doc : {};
   const beats = new Set(arr(beatIds)), shots = new Set(arr(shotIds));
   const scoped = beats.size > 0 || shots.size > 0;
@@ -187,6 +199,11 @@ export function creativeSlice(doc, { role = "", beatIds = [], shotIds = [], maxI
     payoff: d.payoff ?? null,
     approved_targets: Object.fromEntries(PIN_STAGES.filter((s) => isObj(d.pins) && isObj(d.pins[s])).map((s) => [s, { artifact_ref: d.pins[s].artifact_ref, artifact_digest: d.pins[s].artifact_digest }])),
   };
+  // Sequence addendum: only the motifs this slice's events use (by event motif_ids, or the motif's own event_ids); no key at all when there are none
+  const eventIds = new Set(events.map((e) => e.id));
+  const wantMotifs = new Set(events.flatMap((e) => arr(creativeExt(e) && creativeExt(e).motif_ids).map(String)));
+  const motifs = treatmentMotifs(treatment).filter((m) => !scoped || wantMotifs.has(m.id) || arr(m.event_ids).some((i) => eventIds.has(i)));
+  if (motifs.length) mandatory.motifs = motifs;
   const used = events.flatMap((e) => arr(e.proof_refs));
   const optional = [
     ["opening", d.opening],
@@ -221,9 +238,9 @@ const waiverOk = (w, digests) => isObj(w) && w.kind === "aesthetic" && filled(w.
 // Distinguishes structure, currentness, evidence and review; schema-valid with no visual evidence is never a pass.
 // review: the creative/reviews/<stage>-rN.json envelope (+ optional numeric `round`).
 // -> {state:'ready'|'revise'|'blocked'|'needs_user'|'not_reviewed', reasons:[{code,message}]}
-export function creativeReadiness({ brief, stage, review, expectedPins, expectedArtifactDigests, waiver = null } = {}) {
+export function creativeReadiness({ brief, stage, review, expectedPins, expectedArtifactDigests, waiver = null, treatment = null, absences = null, currentDigests = null } = {}) {
   const reasons = [];
-  const structure = validateCreativeBrief(brief, { stage, expectedPins });
+  const structure = validateCreativeBrief(brief, { stage, expectedPins, treatment, absences, currentDigests });
   if (!structure.ok) {
     for (const e of structure.errors) reasons.push(rs(e.code, `${e.path}: ${e.message}`));
     return { state: "blocked", reasons };
@@ -273,4 +290,194 @@ export function creativeReadiness({ brief, stage, review, expectedPins, expected
   if (waiver) reasons.push(rs("waiver_rejected", "waiver needs kind 'aesthetic', a source_action_id and the reviewed artifact digest"));
   if (review.result === "needs_user" || round >= limit) { reasons.push(rs("budget_exhausted", `round ${round} of ${limit}: surface the evidence through the existing review controls`)); return { state: "needs_user", reasons }; }
   return { state: "revise", reasons };
+}
+
+// ======================================================================================================
+// Event commitments (V3 W04). Additive and opt-in: every check below runs only for creative_policy_revision >= 2
+// (or when a caller invokes the helper directly). `signature_events` stays the ONLY event collection; extension data
+// (event.extensions.creative_thinking) and treatment commitments refer to its IDs. Truth comes from the selected treatment,
+// the event records and the approval pins the caller passes: no keyword guessing, no approval is created or consumed here.
+// Consumers: validateCreativeBrief (above), creativeReadiness (above), creative-handoff.mjs (packets, handoff check, review
+// packet) and, once the lead wires it, crew.mjs creativeTraceProblems (see references/event-commitments.md).
+// ======================================================================================================
+export const COMMITMENT_PHASES = ["proposal", "story", "look", "storyboard", "build"];
+export const EVENT_REQUIREMENTS = ["required", "supporting"];
+export const EVENT_STATES = ["proposed", "bound", "implemented", "reviewed", "unavailable"];
+// Same strings as W01's CREATIVE_ERROR_CODES (creative-policy.mjs), now imported from it.
+export const COMMITMENT_ERROR_CODES = Object.freeze({
+  unbound: CREATIVE_ERROR_CODES.required_commitment_unbound, absence: CREATIVE_ERROR_CODES.intentional_absence_unresolved, owner: CREATIVE_ERROR_CODES.owner_missing, stale: CREATIVE_ERROR_CODES.stale_input,
+  deviation: CREATIVE_ERROR_CODES.material_deviation, notAssessable: CREATIVE_ERROR_CODES.not_assessable, approval: CREATIVE_ERROR_CODES.approval_missing,
+});
+const PHASE_RANK = Object.fromEntries(COMMITMENT_PHASES.map((p, i) => [p, i]));
+export const phaseOf = (stage, mode) => (COMMITMENT_PHASES.includes(stage) ? stage : stage === "final" ? "build" : COMMITMENT_PHASES.includes(mode) ? mode : "proposal");
+
+export const creativeExt = (x) => (isObj(x) && isObj(x.extensions) && isObj(x.extensions.creative_thinking) ? x.extensions.creative_thinking : null);
+const nonEmpty = (x) => (Array.isArray(x) ? x.length > 0 : isObj(x) ? Object.keys(x).length > 0 : filled(x));
+const validWindow = (w) => Array.isArray(w) && w.length === 2 && w.every((n) => typeof n === "number" && Number.isFinite(n)) && w[0] >= 0 && w[1] > w[0];
+
+// The treatment's declared commitments, normalised. Read from treatment.extensions.creative_thinking.commitments (and a plain
+// treatment.commitments alias). A commitment: {id, requirement?, kind?, label?, beat_ids?, event_id?, state?|deferred?, phase?}.
+// W02 normalizeCreativeThinking keeps `commitments` as an object or an array (default {}): accept the array, {items|list|commitments: [...]}, {required: [...], supporting: [...]} and an id -> record map
+function commitmentRows(v) {
+  if (Array.isArray(v)) return v;
+  if (!isObj(v)) return [];
+  for (const k of ["items", "list", "commitments"]) if (Array.isArray(v[k])) return v[k];
+  if (Array.isArray(v.required) || Array.isArray(v.supporting)) return [...arr(v.required).map((c) => (isObj(c) ? { requirement: "required", ...c } : c)), ...arr(v.supporting).map((c) => (isObj(c) ? { requirement: "supporting", ...c } : c))];
+  return Object.entries(v).filter(([, c]) => isObj(c)).map(([id, c]) => ({ id, ...c }));
+}
+export function treatmentCommitments(treatment) {
+  const t = isObj(treatment) ? treatment : {}, x = creativeExt(t), seen = new Set(), out = [];
+  for (const c of [...commitmentRows(x && x.commitments), ...commitmentRows(t.commitments)]) {
+    if (!isObj(c) || !ID_RE.test(str(c.id)) || seen.has(c.id)) continue;
+    seen.add(c.id);
+    out.push({ id: c.id, requirement: c.requirement === "supporting" ? "supporting" : "required", kind: str(c.kind) || "event", label: str(c.label || c.what), beat_ids: arr(c.beat_ids).map(String), event_id: filled(c.event_id) ? c.event_id : null, deferred: c.deferred === true || c.state === "deferred", bind_phase: COMMITMENT_PHASES.includes(c.phase) ? c.phase : "story", treatment_id: str(t.id || t.label) || null });
+  }
+  return out;
+}
+
+// What an event still lacks for the phase. Required events only; a supporting event owes just structure (checked elsewhere).
+// -> [{field, phase, message}]
+export function eventBindingGaps(event, phase) {
+  const e = isObj(event) ? event : {}, x = creativeExt(e) || {}, rank = PHASE_RANK[phase] ?? 0, gaps = [];
+  if (x.requirement === "supporting") return gaps;
+  const need = (ph, field, ok, message) => { if (rank >= PHASE_RANK[ph] && !ok) gaps.push({ field, phase: ph, message }); };
+  need("story", "narrative_purpose", filled(x.narrative_purpose), "say what the audience should understand from this event");
+  need("look", "medium_commitments", nonEmpty(x.medium_commitments) || filled(x.capability_state), "bind the chosen medium's commitments or capability limit");
+  need("storyboard", "binding", arr(e.shot_ids).length > 0 || arr(e.beat_ids).length > 0 && validWindow(x.interval_s), "bind shot ids, or beat ids with an interval_s on the score timebase");
+  need("storyboard", "audience_reads", arr(x.audience_reads).length > 0, "list the ordered audience reads");
+  need("storyboard", "object_ids", arr(x.object_ids).length > 0, "name the object identities that must stay recognisable");
+  need("storyboard", "continuity_owner", filled(x.continuity_owner), "name the one accountable continuity owner");
+  need("storyboard", "scope", filled(x.scope), "state the scope (for example one-continuous-shot)");
+  need("storyboard", "review_plan", isObj(x.review_plan) && filled(x.review_plan.method), "state how and where this will be reviewed");
+  need("build", "state", ["bound", "implemented", "reviewed"].includes(x.state), "state must have reached bound before build");
+  return gaps;
+}
+
+// Is an intentional-absence basis resolved? Needs: an approval source that matches a current pin, at least one alternative
+// commitment (what must survive, how it is reviewed) and no deferred event ids left. -> {resolved, problems:[{code,message}]}
+export function resolveIntentionalAbsence(basis, pins) {
+  const problems = [], b = isObj(basis) ? basis : null;
+  if (!b) return { resolved: false, problems: [{ code: COMMITMENT_ERROR_CODES.absence, message: "no commitment_basis declared" }] };
+  const alts = arr(b.commitments).filter(isObj);
+  if (!alts.length) problems.push({ code: COMMITMENT_ERROR_CODES.absence, message: "commitment_basis names no alternative commitment (what must survive instead)" });
+  alts.forEach((a, i) => { if (!filled(a.id) || !filled(a.must_preserve) || !filled(a.review_method)) problems.push({ code: COMMITMENT_ERROR_CODES.absence, message: `commitment_basis.commitments[${i}] needs id, must_preserve and review_method` }); });
+  if (arr(b.unresolved_event_ids).length) problems.push({ code: COMMITMENT_ERROR_CODES.absence, message: `commitment_basis still defers events ${arr(b.unresolved_event_ids).join(", ")}: a deferred event is not an intentional absence` });
+  const src = b.approval_source;
+  const wantDigest = digestOf(src), wantAction = isObj(src) ? str(src.source_action_id) : "";
+  const live = isObj(pins) ? Object.values(pins).map((p) => (typeof p === "string" ? { artifact_digest: p } : p)).filter(isObj) : [];
+  const matched = (wantDigest || wantAction) && live.some((p) => (wantDigest && str(p.artifact_digest || p.sha256 || p.digest) === wantDigest) || (wantAction && str(p.source_action_id) === wantAction));
+  if (!src) problems.push({ code: COMMITMENT_ERROR_CODES.approval, message: "commitment_basis has no approval_source: an unapproved quiet-film claim is a proposal" });
+  else if (!matched) problems.push({ code: COMMITMENT_ERROR_CODES.approval, message: "commitment_basis approval_source matches no current approval pin" });
+  return { resolved: problems.length === 0, problems };
+}
+
+// -> {bound, unresolved, intentionally_absent, incompatible} (commitment IDs), plus additive `details`, `problems` and `quiet_film`.
+// events: the brief's signature_events (the only event collection). absences: [commitment_basis]; pins: current approval pins.
+// Optional `phase` also holds bound events to that phase's binding requirements (an incomplete event is unresolved).
+export function reconcileCommitments({ treatment = null, events = [], absences = [], pins = null, phase = null } = {}) {
+  const evs = arr(events).filter((e) => isObj(e) && filled(e.id)), cs = treatmentCommitments(treatment);
+  const bases = arr(absences).filter(isObj);
+  const out = { bound: [], unresolved: [], intentionally_absent: [], incompatible: [], details: {}, problems: [], quiet_film: null };
+  const resolvedBases = bases.map((b) => ({ b, r: resolveIntentionalAbsence(b, pins) }));
+  const problem = (code, c, responsible_phase, message) => out.problems.push({ code, commitment_id: c.id, treatment_id: c.treatment_id, beat_ids: c.beat_ids, responsible_phase, message });
+  for (const c of cs) {
+    const hits = evs.filter((e) => e.id === c.event_id || arr(creativeExt(e) && creativeExt(e).commitment_ids).includes(c.id) || (!c.event_id && e.id === c.id));
+    const covering = resolvedBases.filter(({ b }) => arr(b.commitment_ids).includes(c.id));
+    const absent = covering.find(({ r }) => r.resolved);
+    const where = `${c.treatment_id ? `treatment ${c.treatment_id}` : "the selected treatment"}${c.beat_ids.length ? `, beat ${c.beat_ids.join("/")}` : ""}`;
+    const d = out.details[c.id] = { requirement: c.requirement, event_ids: hits.map((e) => e.id), absence: absent ? "resolved" : covering.length ? "unresolved" : null };
+    if (hits.length && absent) { out.incompatible.push(c.id); d.reason = "both bound to an event and declared intentionally absent"; problem("incompatible_commitment", c, "storyboard", `${c.id} (${where}) is bound to ${d.event_ids.join(", ")} and also declared intentionally absent: pick one`); continue; }
+    if (hits.length) {
+      const bad = hits.filter((e) => creativeExt(e) && (creativeExt(e).state === "unavailable" || (c.requirement === "required" && creativeExt(e).requirement === "supporting") || (c.beat_ids.length && arr(e.beat_ids).length && !arr(e.beat_ids).some((x) => c.beat_ids.includes(String(x))))));
+      if (bad.length === hits.length) { out.incompatible.push(c.id); d.reason = "bound event is unavailable, downgraded to supporting, or sits on different beats than promised"; problem("incompatible_commitment", c, "storyboard", `${c.id} (${where}): event ${bad.map((e) => e.id).join(", ")} does not fit the promise (unavailable, downgraded or moved beats); return through the stage revision`); continue; }
+      const gaps = phase && c.requirement === "required" ? hits.flatMap((e) => eventBindingGaps(e, phase).map((g) => ({ ...g, event_id: e.id }))) : [];
+      if (gaps.length) { out.unresolved.push(c.id); d.reason = "binding_incomplete"; d.gaps = gaps.map((g) => `${g.event_id}.${g.field}`); const g0 = gaps[0]; problem(COMMITMENT_ERROR_CODES.unbound, c, g0.phase, `${c.id} (${where}): event ${g0.event_id} lacks ${gaps.map((g) => g.field).join(", ")} for ${phase}; ${g0.phase} binds it`); continue; }
+      out.bound.push(c.id); continue;
+    }
+    if (absent) { out.intentionally_absent.push(c.id); continue; }
+    out.unresolved.push(c.id);
+    if (covering.length) { d.reason = "absence_unresolved"; for (const { r } of covering) for (const p of r.problems) problem(COMMITMENT_ERROR_CODES.absence, c, "story", `${c.id} (${where}): ${p.message}`); }
+    else { d.reason = c.deferred ? "deferred" : "no_event"; problem(COMMITMENT_ERROR_CODES.unbound, c, c.bind_phase, `${c.id} (${where}) has no signature event and no approved intentional absence${c.deferred ? " (marked deferred)" : ""}; ${c.bind_phase} binds it`); }
+  }
+  // film level: a quiet film is only quiet when nothing required is still open and the alternative basis is resolved
+  const open = out.unresolved.filter((id) => out.details[id].requirement === "required");
+  const anyBasis = resolvedBases.length > 0, basisOk = resolvedBases.some(({ r }) => r.resolved);
+  out.quiet_film = { empty_events: evs.length === 0, basis_declared: anyBasis, basis_resolved: basisOk, passes_as_quiet: evs.length === 0 && !open.length && basisOk };
+  return out;
+}
+
+// Structural check of the event extension fields and commitment truth for one brief. Structure only: it never sets or accepts
+// `reviewed` as proof. -> {errors:[{code,path,message}], warnings, missing, reconciliation}
+export function validateEventCommitments(doc, { phase = "proposal", treatment = null, absences = null, pins = null, currentDigests = null } = {}) {
+  const errors = [], warnings = [], missing = [], rank = PHASE_RANK[phase] ?? 0;
+  const events = arr(doc && doc.signature_events).filter(isObj);
+  const digests = currentDigests ? new Set(arr(currentDigests).map((d) => (isObj(d) ? d.sha256 || d.artifact_digest : d))) : null;
+  const owners = new Map();
+  events.forEach((e, i) => {
+    const x = creativeExt(e); if (!x) { if (rank >= PHASE_RANK.storyboard) warnings.push({ code: "no_event_extension", path: `signature_events[${i}].extensions`, message: `event ${e.id} carries no creative_thinking extension (requirement, state, scope, review_plan)` }); return; }
+    const p = `signature_events[${i}].extensions.creative_thinking`;
+    if (x.requirement !== undefined && !EVENT_REQUIREMENTS.includes(x.requirement)) errors.push(err("bad_enum", `${p}.requirement`, `requirement must be one of ${EVENT_REQUIREMENTS.join(", ")}`));
+    if (x.state !== undefined && !EVENT_STATES.includes(x.state)) errors.push(err("bad_enum", `${p}.state`, `state must be one of ${EVENT_STATES.join(", ")}`));
+    arr(x.audience_reads).forEach((r, j) => { if (!isObj(r) || !ID_RE.test(str(r.id)) || !validWindow(r.window_s)) errors.push(err("bad_interval", `${p}.audience_reads[${j}]`, "an audience read needs an id and window_s [start,end] with 0 <= start < end in score seconds")); });
+    if (x.motif_ids !== undefined && !(Array.isArray(x.motif_ids) && x.motif_ids.every((m) => ID_RE.test(str(m))))) errors.push(err("bad_type", `${p}.motif_ids`, "motif_ids must be an array of motif ids declared on the treatment"));
+    if (x.interval_s !== undefined && !validWindow(x.interval_s)) errors.push(err("bad_interval", `${p}.interval_s`, "interval_s must be [start,end] with 0 <= start < end"));
+    // state transitions cite digests and receipts; the enum alone is a claim
+    const ev = isObj(x.evidence) ? x.evidence : null, dg = ev ? str(ev.artifact_digest) : "";
+    if (x.state === "implemented" && !(ev && HEX64.test(dg) && arr(ev.produced_artifact_refs).length)) errors.push(err("state_unevidenced", `${p}.state`, `event ${e.id} says implemented without evidence {artifact_digest, produced_artifact_refs}; the state is a claim until receipts exist`));
+    if (x.state === "reviewed" && !(ev && HEX64.test(dg) && filled(ev.review_ref) && arr(ev.observed_refs).length)) errors.push(err("state_unevidenced", `${p}.state`, `event ${e.id} says reviewed without {artifact_digest, review_ref, observed_refs}; an agent-written reviewed enum is a claim, not verified completion`));
+    if ((x.state === "implemented" || x.state === "reviewed") && digests && HEX64.test(dg) && !digests.has(dg)) errors.push(err(COMMITMENT_ERROR_CODES.stale, `${p}.evidence.artifact_digest`, `event ${e.id}: evidence cites an artifact that is not current`));
+    if (filled(x.continuity_owner) && x.requirement !== "supporting") { const prev = owners.get(x.continuity_owner); owners.set(x.continuity_owner, [...(prev || []), e.id]); }
+    for (const g of eventBindingGaps(e, phase)) {
+      (rank >= PHASE_RANK.build || g.field === "narrative_purpose" ? errors : warnings).push(err(g.field === "continuity_owner" ? COMMITMENT_ERROR_CODES.owner : COMMITMENT_ERROR_CODES.unbound, `${p}.${g.field}`, `event ${e.id}: ${g.message} (${g.phase} phase)`));
+      if (rank >= PHASE_RANK.build) missing.push(`${p}.${g.field}`);
+    }
+  });
+  const bx = creativeExt(doc), basis = isObj(bx) && isObj(bx.commitment_basis) ? bx.commitment_basis : null;
+  const rec = reconcileCommitments({ treatment, events, absences: absences || (basis ? [basis] : []), pins, phase });
+  for (const pr of rec.problems) {
+    const hard = rank >= PHASE_RANK[pr.responsible_phase] && rank >= PHASE_RANK.story && rec.details[pr.commitment_id].requirement === "required";
+    (hard ? errors : warnings).push(err(pr.code, `commitments.${pr.commitment_id}`, pr.message));
+    if (hard) missing.push(`commitments.${pr.commitment_id}`);
+  }
+  // the empty-event distinction: valid when deliberate, never when a promise is merely deferred
+  if (!events.length && rank >= PHASE_RANK.look && !rec.problems.some((x) => x.code === COMMITMENT_ERROR_CODES.unbound)) {
+    if (basis) { const r = resolveIntentionalAbsence(basis, pins); if (!r.resolved && rank >= PHASE_RANK.build) for (const pr of r.problems) errors.push(err(pr.code, "extensions.creative_thinking.commitment_basis", pr.message)); else if (!r.resolved) for (const pr of r.problems) warnings.push(err(pr.code, "extensions.creative_thinking.commitment_basis", pr.message)); }
+    else if (!filled(doc.signature_events_reason) && rank >= PHASE_RANK.build) errors.push(err(COMMITMENT_ERROR_CODES.absence, "extensions.creative_thinking.commitment_basis", "no signature events and no commitment_basis: say what must survive instead (an editorial film is valid; an unexplained empty list is not)"));
+    else if (!basis) warnings.push(err(COMMITMENT_ERROR_CODES.absence, "extensions.creative_thinking.commitment_basis", "no signature events: declare commitment_basis (alternative commitments, approval source, review method)"));
+  }
+  return { errors, warnings, missing, reconciliation: rec };
+}
+
+// ======================================================================================================
+// Sequence addendum (Connected Sequence Craft, workstream A). Motif direction lives ONCE, on the selected treatment:
+// treatment.extensions.creative_thinking.motifs[]; events refer to it by event.extensions.creative_thinking.motif_ids.
+// signature_events stays the only event collection; no required-event array is added; treatmentCommitments is untouched.
+// Records are normalized and checked by sequence-contract.mjs (normalization grants no consent and mutates nothing).
+// Consumers: validateCreativeBrief (above), creativeSlice (above), creative-handoff.mjs (projection), creative-completion.mjs.
+// ======================================================================================================
+export function treatmentMotifs(treatment, score = null) {
+  const x = creativeExt(treatment), rows = x ? (Array.isArray(x.motifs) ? x.motifs : isObj(x.motifs) ? Object.entries(x.motifs).filter(([, m]) => isObj(m)).map(([id, m]) => ({ id, ...m })) : []) : [];
+  const seen = new Set(), out = [];
+  for (const m of rows) { if (!isObj(m)) continue; const n = normalizeMotif(m, score); if (!n.id || seen.has(n.id)) continue; seen.add(n.id); out.push(n); }
+  return out;
+}
+
+// -> {errors:[{code,path,message}], warnings}. Without a treatment it can only warn that event motif_ids are unresolved (it never invents motifs).
+// A motif-free film (no motifs, no motif_ids) returns nothing: absence is valid. Stage-time strictness stays with the caller (errors only at build, as event gaps do).
+export function validateMotifBindings(doc, { treatment = null, score = null, phase = "build" } = {}) {
+  const errors = [], warnings = [], events = arr(doc && doc.signature_events).filter(isObj);
+  const withIds = events.filter((e) => arr(creativeExt(e) && creativeExt(e).motif_ids).length);
+  const motifs = treatmentMotifs(treatment, score);
+  if (!motifs.length) {
+    if (withIds.length) warnings.push(err(SEQUENCE_ERROR_CODES.unresolved_ref, "signature_events.extensions.creative_thinking.motif_ids", `events ${withIds.map((e) => e.id).join(", ")} name motifs but no treatment motifs were supplied to resolve them`));
+    return { errors, warnings };
+  }
+  const r = checkSequence({ motifs, events, score });
+  const mine = (i) => /^(motifs\[|signature_events\[\d+\]\.extensions\.creative_thinking\.motif_ids)/.test(i.path) || i.path.startsWith("motifs.");
+  // before the storyboard binds intervals, completeness gaps are warnings; identity, authored-role and reference faults are always errors
+  const FIRM = new Set([SEQUENCE_ERROR_CODES.static_continuous, SEQUENCE_ERROR_CODES.role_not_authored, SEQUENCE_ERROR_CODES.unresolved_ref, SEQUENCE_ERROR_CODES.relation_missing]);
+  const early = (PHASE_RANK[phase] ?? PHASE_RANK.build) < PHASE_RANK.storyboard;
+  for (const e of r.errors.filter(mine)) (early && !FIRM.has(e.code) ? warnings : errors).push(e);
+  for (const w of r.warnings.filter(mine)) if (w.code !== SEQUENCE_ERROR_CODES.unpinned && w.code !== SEQUENCE_ERROR_CODES.notAssessable) warnings.push(w);
+  return { errors, warnings };
 }

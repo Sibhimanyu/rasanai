@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
+import { commitmentGate, spendDisclosure } from "./budget.mjs";
 import { tryAcquireManaged, acquireManaged, slotStatus, slotCount, freeMemBytes } from "./slot.mjs";
 
 export const POOLS = Object.freeze({
@@ -205,3 +206,35 @@ export function queueSnapshot() {
   return { schema_version: 1, pools: out, free_mb: Math.round(freeMemBytes() / 2 ** 20), cpus: os.cpus().length, at: new Date().toISOString() };
 }
 export const newJobId = () => "job-" + crypto.randomBytes(6).toString("hex");
+
+// ======================================================================================================================================
+// Creative admission and retry discipline (v3 W10). Additive; the pools, caps and bundles above are unchanged. Pure of model/provider calls.
+// Producer: crew.mjs dispatch (lead wires; proposal in the W10 report). A scheduler admits only dependency-ready jobs with budget; it never invents a slot.
+// ======================================================================================================================================
+// A failed tool is a CAPABILITY failure (broken or missing tool, sandbox, permission) or an INSUFFICIENT-SPEND failure (allowance); they are never conflated.
+const CAP_RE = /\b(ENOENT|EACCES|EPERM|not found|command not found|not installed|unsupported|sandbox|permission denied|capability|unavailable)\b/i;
+const SPEND_RE = /\b(budget_unavailable|budget_exhausted|spend limit|allowance|quota|usage limit)\b/i;
+export function classifyFailure(f = {}) {
+  const text = [f.reason_code, f.code, f.message, f.detail].filter(Boolean).join(" ");
+  if (SPEND_RE.test(text)) return { kind: "insufficient_spend", code: "budget_exhausted" };
+  if (CAP_RE.test(text) || f.capability === false) return { kind: "capability", code: "capability_unavailable" };
+  return { kind: "unknown", code: null };
+}
+// BUD-05: an identical failure (same tool, same normalized message) is diagnosed before any new retry or worker. history: [{ tool, message|code, at? }]
+// -> { retry, action, repeats, signature }. Default: no new workers for an identical failure; one diagnosis step; then report a limitation.
+const sig = (f) => `${f.tool || "?"}::${String(f.code || f.message || "").toLowerCase().replace(/\d+/g, "#").replace(/\s+/g, " ").slice(0, 160)}`;
+export function retryDecision(history = [], failure = {}, { max_identical = 1 } = {}) {
+  const s = sig(failure), repeats = (Array.isArray(history) ? history : []).filter((h) => sig(h) === s).length;
+  const cls = classifyFailure(failure);
+  if (cls.kind === "insufficient_spend") return { retry: false, action: "stop and report budget_exhausted: preserve outputs, state the draft/limitation; no retry loop, no extra worker", repeats, signature: s, code: cls.code };
+  if (repeats >= max_identical) return { retry: false, action: "diagnose the blocker (read the error, check the tool and inputs) before any new retry or worker; report a limitation if it stays", repeats, signature: s, code: cls.code, new_workers: false };
+  return { retry: true, action: "one retry after reading the error; record the signature", repeats, signature: s, code: cls.code, new_workers: false };
+}
+// creativeAdmission(run, { needs, commitment?: {request, state}, budget?: {need, auth}, jobs? }) -> { ok, state, reason_code, detail, source }
+// Order: commitment gate (progressive approval), spend/authorization disclosure, then the existing preAdmission (pause, throttle, unknown pool). Slots are never touched here.
+export function creativeAdmission(run, { needs = [], commitment = null, budget = null } = {}) {
+  if (commitment) { const g = commitmentGate(commitment.request, commitment.state); if (!g.admit) return { ok: false, state: "queued", reason_code: g.code, detail: g.defer.join("; "), source: "commitment" }; }
+  if (budget) { const d = spendDisclosure(budget.need, budget.auth); if (!d.admit) return { ok: false, state: "resource_blocked", reason_code: d.issues[0].code, detail: d.issues.map((i) => i.what).join("; "), source: "spend" }; }
+  const p = preAdmission(run, needs);
+  return p.ok ? { ok: true, state: "admitted", reason_code: "admitted", detail: "", source: "pools" } : { ...p, source: "pools" };
+}

@@ -4,8 +4,20 @@ Desktop releases are separate from RasanAI skill releases.
 
 ## Unreleased
 
+<<<<<<< HEAD
 - The crew stage speech cards are back to appearing at varied spots around the character and drifting away, now as clean glass cards that never overlap each other or cover the face.
 - The crew stage stops animating while the Studio window is hidden or covered, which should stop the window from briefly going blank.
+=======
+- **Sound direction on Brief and Look.** A compact Sound section for voiceover, pace, feeling, effects and music source, each with "Recommend for me", plus four starting points and a three-track music shortlist on Look with quick revisions. Choices are saved with the brief and passed to the director. Not built or tried in the app yet.
+- The Voiceover menu gains "Recommend for me" and defaults to it. The Look "Motion and sound" section now always shows.
+- **Bundles the next RasanAI skill:** connected sequences, music selection and layered effects (see the skill changelog). The reported music dropout is not repaired.
+
+## 0.25.0 (build 66) — 2026-10-27
+
+- **Bundles RasanAI 1.30.0:** the creative overhaul. Stories are checked for real differences between options, creative commitments are tracked per film (a quiet or formal film is valid), storyboards carry timed reads, and a continuous action has one owner so work is split by action instead of by scene. A Final is only marked ready when its commitments have current evidence; a draft is always allowed.
+- **Director wording updated:** "at least one spectacle moment" becomes "a moment people will replay where the story earns one" (Show off and the Maximal default stay), Fast research may use local references and one bounded idea pass, and a model you pin is never swapped for a cheaper one.
+- No screens, settings or approvals changed. This is engine and prompt work, checked with syntax and import loads, the skill-routing test, seven script suites and the prompt parity test, but not tried on a real film.
+>>>>>>> origin/master
 
 ## 0.24.3 (build 65) — 2026-10-26
 

@@ -57,6 +57,10 @@ Every film's look is a complete design system: the chosen `design/<label>/DESIGN
 - Only the representative beat is drawn before the Look is chosen. **Prepared is not approved:** a brand-derived or series look is staged as a confirm (`console.mjs push --step look --status awaiting`), never closed `--status done` by you; on a new-policy plan the production gate refuses storyboard work until the user's consumed Look choice exists (`design.mjs choose-system` writes files and grants nothing). After the choice run `crew.mjs creative revise --run "$RUN" --mode look`.
 - Known gap: `design.mjs look-payload` shows exactly three systems, so a one-look confirm (brand, series, lean) is pushed by hand with the fields the old flow used and status `awaiting`; how the native Look card shows that is unverified.
 
+### Revision 2 (v3)
+
+The Look is cut from the selected medium or a custom direction; its state is selected, custom-supported, needs-direction or capability-blocked, and the alternative count follows only an explicit user direction (brand ownership, the direct path and Fast never collapse it). Read what the Look must deliver in [typography-performance.md](../typography-performance.md) (type as a performer), [composition-transitions.md](../composition-transitions.md) (shared anchors, transitions derived from them) and [medium-performance.md](../medium-performance.md) (the medium's defining behaviour and its evidence; unproven behaviour is disclosed before it becomes a promise). `crew.mjs creative look-identity --label <L>` prints the identity digest a Look board is pinned to; `crew.mjs creative performance --label <L>` the behaviour states.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):
@@ -70,3 +74,5 @@ The canonical homes of the detail this guide points at (read the one the current
 | data-viz honesty, the scale dive and RasanSim, one style rule per film, the end-clip handoff, metaphors for explainers only (conflicts with product-first) | `references/dataviz.md`, `references/scale-dive.md`, `references/style-rule.md`, `references/end-clip-handoff.md`, `references/metaphor-bank.md`, `runtime/rasan-sim.js` (RasanSim: cursor-driven physics, pre-simulated and seek-safe; `video.mjs inject` installs `assets/rasan-sim/`) |
 | the motion-language terms and their contracts | `taxonomy/dimensions/motion-language.json`, `references/personalities.md` |
 | a visual medium (pixel, paper, line, vector, cel, isometric...) shortlisted or selected for this film: the concept, the medium contract, what stays literal evidence. Conditional: read only when the run has `creative/medium-selection.json` or `design/<label>/medium.json`; `skill-map.mjs route <route> --phase look --run <dir>` lists it | `references/medium-direction.md` |
+| the user's sound choices (narration, music, effects, ambience, silence, presets) recorded with the Look, and what a choice binds | `references/sound-direction.md`, `scripts/lib/sound-choices.mjs` |
+| optical treatments (lens, depth, light as record-backed looks that survive a handoff) | `references/optical-treatments.md`, `scripts/lib/optical-treatments.mjs`, `runtime/rasan-optics.js` |

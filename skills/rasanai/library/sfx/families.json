@@ -1,0 +1,303 @@
+{
+ "version": 1,
+ "generated": "2026-10-27",
+ "status": "implemented_unvalidated",
+ "about": "Coherent SFX sound families for the 190-file library, grouped by pack character, plus a job x intensity coverage table. Built from metadata only (index.json category, kind, duration, measurements and pack names): NO file here has been listened to, so job, intensity and family are estimates and a family is a grouping hypothesis, not a proven match. One family per film is the default; compatible_with names a cross-family pairing that is only a hypothesis until auditioned.",
+ "jobs": [
+  "interface_action",
+  "movement",
+  "material_contact",
+  "accent_impact",
+  "development_transition",
+  "environmental_bed"
+ ],
+ "intensities": [
+  "light",
+  "medium",
+  "prominent"
+ ],
+ "families": [
+  {
+   "id": "ui_soft",
+   "name": "Soft interface",
+   "packs": [
+    "uisfx-glass",
+    "uisfx-minimal",
+    "uisfx-soft",
+    "uisfx-studio"
+   ],
+   "character": "quiet, rounded UI cues (glass, minimal, soft, studio): one pack per film keeps one identity; the four share the same 21-cue set and a low top end",
+   "compatible_with": [],
+   "files": 84,
+   "estimated": true
+  },
+  {
+   "id": "ui_cinematic_scifi",
+   "name": "Cinematic and sci-fi interface",
+   "packs": [
+    "uisfx-cinematic",
+    "uisfx-scifi"
+   ],
+   "character": "heavier and more synthetic UI cues with the same 21-cue set; sits with synth_motion",
+   "compatible_with": [
+    "synth_motion"
+   ],
+   "files": 42,
+   "estimated": true
+  },
+  {
+   "id": "synth_motion",
+   "name": "Synthesised motion and impacts",
+   "packs": [
+    "atomcut-motion-essentials",
+    "atomcut-impacts-risers"
+   ],
+   "character": "synthesised whooshes, risers, glitches, impacts and stingers from one author: the movement and transition vocabulary the other packs lack",
+   "compatible_with": [
+    "ui_cinematic_scifi"
+   ],
+   "files": 28,
+   "estimated": true
+  },
+  {
+   "id": "kenney_material",
+   "name": "Kenney interface and material impacts",
+   "packs": [
+    "kenney-interface-sounds",
+    "kenney-impact-sounds"
+   ],
+   "character": "short, dry, recorded-feeling clicks and material contacts (plate, wood, metal, glass, bell) from one author",
+   "compatible_with": [
+    "ui_soft"
+   ],
+   "files": 36,
+   "estimated": true
+  }
+ ],
+ "coverage": {
+  "ui_soft": {
+   "interface_action": {
+    "light": 48,
+    "medium": 28,
+    "prominent": 0
+   },
+   "movement": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   },
+   "material_contact": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   },
+   "accent_impact": {
+    "light": 0,
+    "medium": 8,
+    "prominent": 0
+   },
+   "development_transition": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   },
+   "environmental_bed": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   }
+  },
+  "ui_cinematic_scifi": {
+   "interface_action": {
+    "light": 24,
+    "medium": 14,
+    "prominent": 0
+   },
+   "movement": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   },
+   "material_contact": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   },
+   "accent_impact": {
+    "light": 0,
+    "medium": 4,
+    "prominent": 0
+   },
+   "development_transition": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   },
+   "environmental_bed": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   }
+  },
+  "synth_motion": {
+   "interface_action": {
+    "light": 3,
+    "medium": 0,
+    "prominent": 0
+   },
+   "movement": {
+    "light": 0,
+    "medium": 5,
+    "prominent": 0
+   },
+   "material_contact": {
+    "light": 0,
+    "medium": 2,
+    "prominent": 0
+   },
+   "accent_impact": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 8
+   },
+   "development_transition": {
+    "light": 0,
+    "medium": 7,
+    "prominent": 3
+   },
+   "environmental_bed": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   }
+  },
+  "kenney_material": {
+   "interface_action": {
+    "light": 11,
+    "medium": 6,
+    "prominent": 0
+   },
+   "movement": {
+    "light": 0,
+    "medium": 1,
+    "prominent": 0
+   },
+   "material_contact": {
+    "light": 5,
+    "medium": 6,
+    "prominent": 1
+   },
+   "accent_impact": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 6
+   },
+   "development_transition": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   },
+   "environmental_bed": {
+    "light": 0,
+    "medium": 0,
+    "prominent": 0
+   }
+  }
+ },
+ "coverage_total": {
+  "interface_action": {
+   "light": 86,
+   "medium": 48,
+   "prominent": 0
+  },
+  "movement": {
+   "light": 0,
+   "medium": 6,
+   "prominent": 0
+  },
+  "material_contact": {
+   "light": 5,
+   "medium": 8,
+   "prominent": 1
+  },
+  "accent_impact": {
+   "light": 0,
+   "medium": 12,
+   "prominent": 14
+  },
+  "development_transition": {
+   "light": 0,
+   "medium": 7,
+   "prominent": 3
+  },
+  "environmental_bed": {
+   "light": 0,
+   "medium": 0,
+   "prominent": 0
+  }
+ },
+ "gaps": {
+  "environmental_bed": "No file in the library is an environmental bed or ambience (kinds are only hit|swell, longest file 3.03 s). The job is empty for every family. Nothing is invented: a bed needs a new source decision (R/audio-sources-rights.md), not a silent substitute.",
+  "missing_cells": [
+   "ui_soft: no interface_action / prominent",
+   "ui_soft: no movement / light",
+   "ui_soft: no movement / medium",
+   "ui_soft: no movement / prominent",
+   "ui_soft: no material_contact / light",
+   "ui_soft: no material_contact / medium",
+   "ui_soft: no material_contact / prominent",
+   "ui_soft: no accent_impact / light",
+   "ui_soft: no accent_impact / prominent",
+   "ui_soft: no development_transition / light",
+   "ui_soft: no development_transition / medium",
+   "ui_soft: no development_transition / prominent",
+   "ui_soft: no environmental_bed / light",
+   "ui_soft: no environmental_bed / medium",
+   "ui_soft: no environmental_bed / prominent",
+   "ui_cinematic_scifi: no interface_action / prominent",
+   "ui_cinematic_scifi: no movement / light",
+   "ui_cinematic_scifi: no movement / medium",
+   "ui_cinematic_scifi: no movement / prominent",
+   "ui_cinematic_scifi: no material_contact / light",
+   "ui_cinematic_scifi: no material_contact / medium",
+   "ui_cinematic_scifi: no material_contact / prominent",
+   "ui_cinematic_scifi: no accent_impact / light",
+   "ui_cinematic_scifi: no accent_impact / prominent",
+   "ui_cinematic_scifi: no development_transition / light",
+   "ui_cinematic_scifi: no development_transition / medium",
+   "ui_cinematic_scifi: no development_transition / prominent",
+   "ui_cinematic_scifi: no environmental_bed / light",
+   "ui_cinematic_scifi: no environmental_bed / medium",
+   "ui_cinematic_scifi: no environmental_bed / prominent",
+   "synth_motion: no interface_action / medium",
+   "synth_motion: no interface_action / prominent",
+   "synth_motion: no movement / light",
+   "synth_motion: no movement / prominent",
+   "synth_motion: no material_contact / light",
+   "synth_motion: no material_contact / prominent",
+   "synth_motion: no accent_impact / light",
+   "synth_motion: no accent_impact / medium",
+   "synth_motion: no development_transition / light",
+   "synth_motion: no environmental_bed / light",
+   "synth_motion: no environmental_bed / medium",
+   "synth_motion: no environmental_bed / prominent",
+   "kenney_material: no interface_action / prominent",
+   "kenney_material: no movement / light",
+   "kenney_material: no movement / prominent",
+   "kenney_material: no accent_impact / light",
+   "kenney_material: no accent_impact / medium",
+   "kenney_material: no development_transition / light",
+   "kenney_material: no development_transition / medium",
+   "kenney_material: no development_transition / prominent",
+   "kenney_material: no environmental_bed / light",
+   "kenney_material: no environmental_bed / medium",
+   "kenney_material: no environmental_bed / prominent"
+  ],
+  "other": [
+   "No intensity ladder inside most families: UI packs are mostly light/medium; prominent variants exist mainly in synth_motion and kenney_material.",
+   "development_transition (risers, glitches) exists only in synth_motion; no family besides it has movement or transition sounds except kenney scroll (1 file).",
+   "kenney intensity comes from the file name tokens (light/medium/heavy); the others from category and duration, which is weak.",
+   "Kenney files keep a peak near -0.5 dBFS while the other packs are normalised to about -3 dBFS: do not treat peak_dbfs as a loudness class."
+  ]
+ }
+}

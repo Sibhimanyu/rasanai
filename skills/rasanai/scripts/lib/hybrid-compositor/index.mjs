@@ -2,6 +2,7 @@
 // put foreground in front. Node + ffmpeg only: ffmpeg decodes/encodes raw RGB, the warp is exact per-pixel inverse homography.
 //   composite({base, content, track, matte?, out, ...}) -> {frames, fps, width, height, out}
 //   readTrack(file|obj), quadAt(track, t_s), homography(src, dst), validateSources(doc, opts)   (C1 reader/validator)
+//   compositingFields(layer) -> additive asset-compositing fields of a shot layer (W16; planned by lib/asset-compositing.mjs), {} for a legacy layer
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -160,6 +161,25 @@ export function warpFrame(dst, src, matte, W, H, CW, CH, q, feather = 1) {
   }
 }
 
+// ---- W16 additive layer fields. Optional on a shot layer; a layer without them is legacy and unchanged.
+//   crop {x,y,w,h} fractions of the source, region_id / anchor_id (shared W14 IDs), mask_sha256, fit "cover"|"contain", plan_digest (asset-compositing digest)
+export const COMPOSITING_LAYER_KEYS = ["crop", "region_id", "anchor_id", "mask_sha256", "fit", "plan_digest"];
+export function compositingFields(layer) {
+  const o = {};
+  if (!layer || typeof layer !== "object") return o;
+  for (const k of COMPOSITING_LAYER_KEYS) if (layer[k] !== undefined && layer[k] !== null) o[k] = layer[k];
+  return o;
+}
+function compositingProblems(l) {
+  const p = [], c = l.crop;
+  if (c !== undefined) {
+    if (!c || ![c.x, c.y, c.w, c.h].every((v) => typeof v === "number" && Number.isFinite(v)) || c.w <= 0 || c.h <= 0 || c.x < 0 || c.y < 0 || c.x + c.w > 1 + 1e-9 || c.y + c.h > 1 + 1e-9) p.push(`layer ${l.layer_id}: crop must be {x,y,w,h} fractions inside the source`);
+  }
+  if (l.fit !== undefined && !["cover", "contain"].includes(l.fit)) p.push(`layer ${l.layer_id}: fit must be cover or contain (stretch is never allowed)`);
+  if (l.mask_sha256 !== undefined && !/^[0-9a-f]{64}$/.test(String(l.mask_sha256))) p.push(`layer ${l.layer_id}: mask_sha256 is not a sha256`);
+  return p;
+}
+
 // ---- C1 reader/validator. doc = parsed sources.json. opts: {root (film dir), sceneIds:Set|null, probe:(abs)=>{duration_s}|null}
 export function validateSources(doc, opts = {}) {
   const errors = [], warnings = [];
@@ -190,6 +210,7 @@ export function validateSources(doc, opts = {}) {
     if (!a) { errors.push(`layer ${l.layer_id}: asset_id ${l.asset_id} does not resolve`); continue; }
     if (a.rights === "inspiration-only") errors.push(`layer ${l.layer_id}: inspiration-only asset cannot be a render source`);
     if (!["background", "foreground", "matte", "screen-content"].includes(l.render_role)) errors.push(`layer ${l.layer_id}: bad render_role`);
+    errors.push(...compositingProblems(l));
     if (opts.probe && a._abs) {
       const p = opts.probe(a._abs);
       if (p?.duration_s != null && l.in_s + l.duration_s > p.duration_s + 1e-6) errors.push(`layer ${l.layer_id}: in_s+duration_s exceeds asset duration ${p.duration_s}`);

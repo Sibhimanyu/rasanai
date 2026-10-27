@@ -6,8 +6,13 @@
 //   cache:      lineKey(o), segmentRecord(o), planRegeneration(o)         key = text + voice + model/version + locale + settings + glossary
 //   continuity: reconcileReplacement(o)                                  a replaced line keeps its neighbours' pauses and the music automation
 //   check:      transcriptCheck(o)                                       heard words vs the script, reported WITH uncertainty
+//   reuse:      verifyCachedSegment(seg, o), voiceRevisionImpact(o)     Addendum 2: a cached line is reused on its key AND its file hash (never its name); a voiceover change names what it re-does
 //   voice:      voiceAuthorization(voice)                                never clone by default; a cloned voice needs a recorded authorization
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
 import { canonicalDigest, SCHEMA_VERSION } from "./contracts.mjs";
+import { audioScopeImpact } from "./impact.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -233,4 +238,31 @@ export function transcriptCheck({ lines = [], heard = [], names = [], glossary =
     lines: rows, names: nm,
     review: rows.filter((r) => r.material.length).map((r) => r.n),
   };
+}
+
+// ---- Addendum 2 (W3 AUD-REV): reuse is proved, not assumed -------------------------------------------------------------------------------------------
+// A planRegeneration "reuse" row says the TEXT/VOICE key is unchanged. Before the file is used, the file itself must still be the one recorded: present, and (when a digest was
+// recorded) hashing to it. A matching filename alone is never accepted. seg: segmentRecord; o: { run, hash:true }.
+// -> { state: "verified"|"unverified"|"missing"|"changed", usable, why }  (unverified = the segment carries no file_digest: usable only as a scratch preview, never as delivery evidence)
+export function verifyCachedSegment(seg, { run = ".", hash = true } = {}) {
+  if (!isObj(seg) || !T(seg.file)) return { state: "missing", usable: false, why: "the segment names no audio file" };
+  const f = path.isAbsolute(seg.file) ? seg.file : path.resolve(String(run), seg.file);
+  let buf = null; try { buf = fs.readFileSync(f); } catch { return { state: "missing", usable: false, why: `${seg.file} is not on disk` }; }
+  if (!T(seg.file_digest)) return { state: "unverified", usable: false, why: "no recorded file digest: the file is not shown to be the one that was generated" };
+  if (!hash) return { state: "unverified", usable: false, why: "hash check skipped" };
+  const got = crypto.createHash("sha256").update(buf).digest("hex");
+  return got === T(seg.file_digest).replace(/^sha256:/, "") ? { state: "verified", usable: true, why: "the file hashes to the recorded digest" } : { state: "changed", usable: false, why: "the file differs from the recorded digest" };
+}
+
+// What a voiceover change re-does. Script truth is preserved in every case: this never edits copy. o: { plan (planRegeneration result), removed (voiceover turned off), narrated_after,
+// receipt, current_inputs, reuseDecision (lib/mix-receipt.mjs) }. -> { script_truth_kept:true, regenerate, timing_dependents, rechecks:[dependency names], scope, invalidates, mix_reusable, ... }
+export function voiceRevisionImpact({ plan = null, removed = false, narrated_after = true, music_led = false, receipt = null, current_inputs = null, reuseDecision = null } = {}) {
+  const regen = arr(plan && plan.regenerate), dependents = arr(plan && plan.timing_dependents);
+  const touched = removed ? [] : regen.length === 0 ? [] : dependents;
+  if (!removed && !regen.length) return { script_truth_kept: true, regenerate: [], timing_dependents: [], rechecks: [], scope: null, invalidates: [], visuals_rebuilt: false, mix_reusable: true, note: "every line is reused: nothing in sound or timing moves" };
+  const sc = audioScopeImpact("voiceover", touched, { music_led, narrated: removed ? false : narrated_after !== false });
+  const rechecks = removed ? ["duration of the shots that were paced by the voice", "reading time of on-screen text", "music level and ducking (no speech left to duck for)"] : ["duration of the shots owning regenerated lines", "reading time", "ducking envelopes", ...arr(plan && plan.neighbours).length ? ["level and pace against neighbouring lines"] : []];
+  // the mix receipt decides whether the old mix is reusable; here it cannot be, because a voice identity key moved, but the question is asked of the receipt, never of a filename
+  const reuse = receipt && typeof reuseDecision === "function" ? reuseDecision({ receipt, current: current_inputs }) : null;
+  return { script_truth_kept: true, copy_untouched: true, regenerate: regen, timing_dependents: dependents, rechecks, scope: "voiceover", invalidates: sc.invalidates, keeps: sc.keeps, visuals_rebuilt: sc.visuals_rebuilt, needs_user: removed ? true : sc.needs_user, mix_reusable: !!(reuse && reuse.reuse === true), mix_reuse_detail: reuse, note: removed ? "removing the voiceover keeps the script text as the approved copy and re-derives durations, reading time and ducking; the person confirms because it changes how the film plays" : "only the regenerated lines and the things that depend on their length are re-done" };
 }

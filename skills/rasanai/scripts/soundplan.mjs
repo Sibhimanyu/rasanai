@@ -32,7 +32,9 @@ import { eventsFromScore } from "./lib/timing.mjs";
 import { cutBeatReport, editBoundaries, fitGuard, labelEstimates, trackChangeImpact, trackRecord } from "./lib/music-fit.mjs";
 import { bindToCopy, planRegeneration, transcriptCheck, validateGlossary, voiceAuthorization } from "./lib/voice-cache.mjs";
 import { PROFILES, cachedMixName, currentInputs, duckEnvelope, evaluateMeasures, measureRecord, readReceipt, receipt, reuseDecision, writeReceipt } from "./lib/mix-receipt.mjs";
+import { mixRevisionOf } from "./lib/mix-bus.mjs";
 import { controlPayload, setMuteSolo, soundNoteRevision } from "./lib/sound-controls.mjs";
+import { readSoundChoices, soundChoicesPath } from "./lib/sound-choices.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -48,7 +50,13 @@ const wj = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.wr
 if (cmd === "direction") {
   const r = runDir();
   let d = null;
-  if (str("set")) d = rj(str("set")); else if (str("compile")) d = directionFor(jarg("compile") || {});
+  if (str("set")) d = rj(str("set"));
+  else if (str("compile")) {
+    // revision 2: the user's recorded sound choices bind the roles (directionFor stamps mix_policy_revision 2). No record, or a legacy one: compiled exactly as before.
+    const o = jarg("compile") || {}, sc = readSoundChoices(r);
+    if (o.sound === undefined && o.sound_choices === undefined && sc && !sc.legacy && sc.record && !sc.record.legacy) o.sound = sc.record;
+    d = directionFor(o);
+  }
   if (d) { const w = writeDirection(r, d); out(w, w.ok ? 0 : 2); }
   const cur = readDirection(r);
   out({ ok: cur.ok, legacy: cur.legacy, direction: cur.direction, validation: cur.validation || (cur.direction ? validateDirection(cur.direction) : null), sfx: sfxExpectation(cur.direction), note: cur.note }, 0);
@@ -63,7 +71,10 @@ if (cmd === "direction") {
   out({ ok: !doc.issues.some((i) => i.severity === "error"), cues: doc.cues.length, issues: doc.issues, score_revision: doc.score_revision });
 } else if (cmd === "contract") {
   const r = runDir();
-  if (str("build")) { const c = buildContract(jarg("build") || {}); out({ ...writeAudioContract(r, c), contract: c }); }
+  if (str("build")) {
+    const o = jarg("build") || {};
+    if (o.sound === undefined) { const cur = readDirection(r).direction; if (cur && cur.sound) o.sound = cur.sound; } // the contract carries the direction's sound block (absent for legacy)
+    const c = buildContract(o); out({ ...writeAudioContract(r, c), contract: c }); }
   const c = readAudioContract(r);
   out({ contract: c, storyboard_shape: contractForStoryboard(c), legacy: c.legacy });
 } else if (cmd === "music-fit") {
@@ -79,10 +90,25 @@ if (cmd === "direction") {
   const r = runDir(), f = AD(r, "music-track.json");
   const cur = rj(f);
   if (str("set")) { const rec = trackRecord(jarg("set") || {}); wj(f, rec); out({ ok: true, file: "audio/music-track.json", record: rec }); }
+  if (str("pick")) {
+    // the user picked a candidate of music/shortlist.json: the record carries the chosen section, the rights ref and the per-use rights of THAT entry (never invented)
+    const sl = rj(path.join(r, "music", "shortlist.json"));
+    const e = sl && (sl.options || []).find((o) => o && o.id === str("pick"));
+    if (!e) out({ ok: false, error: `no shortlist entry "${str("pick")}" in music/shortlist.json` }, 2);
+    const sel = sl.selected && sl.selected.id === e.id ? sl.selected : null;
+    const sec = e.chosen_section || (sel && sel.section) || null;
+    const rec = trackRecord({ id: e.id, source: e.source === "user" ? "user" : e.source === "ai" ? "ai" : "catalog", file: e.file_identity && e.file_identity.file, file_digest: e.file_identity && e.file_identity.sha256, music_led: !!(cur && cur.music_led), section: sec ? { t0: sec.t0, t1: sec.t1, label: sec.label, reason: sec.reason } : undefined, evidence_state: e.evidence_state, rights_ref: e.rights && e.rights.ref, rights_by_use: e.rights && e.rights.by_use, stems: e.stems, shortlist_revision: sl.revision });
+    wj(f, rec);
+    out({ ok: true, file: "audio/music-track.json", record: rec });
+  }
   if (str("change")) {
     const after = trackRecord(jarg("change") || {});
     const con = readAudioContract(r);
-    out({ ok: true, ...trackChangeImpact({ before: cur, after, shot_ids: str("shots") ? str("shots").split(",") : [], music_led: !!con.music_led || !!(cur && cur.music_led) }), next_record: after });
+    const ti = trackChangeImpact({ before: cur, after, shot_ids: str("shots") ? str("shots").split(",") : [], music_led: !!con.music_led || !!(cur && cur.music_led) });
+    // revision 2: the arrangement on file belongs to the old track; a different track means the edit is re-evaluated (sound.mjs fit rewrites audio/arrangement.json), visuals are not rebuilt
+    const pa = rj(AD(r, "arrangement.json"));
+    const arrImpact = pa ? (pa.track_id && after.id && pa.track_id !== after.id ? { edit_reevaluation: true, gain_only: false, rebuild_visuals: false, why: "the track changed: re-fit the music edit (sound.mjs fit --run), then timing is proposed through the impact below" } : { edit_reevaluation: false, gain_only: true, rebuild_visuals: false, why: "same track id: at most a gain lane changed" }) : null;
+    out({ ok: true, ...ti, ...(arrImpact ? { arrangement_impact: arrImpact } : {}), next_record: after });
   }
   out({ track: cur });
 } else if (cmd === "voice") {
@@ -119,17 +145,27 @@ if (cmd === "direction") {
   const r = args.receipt || args.reuse ? runDir() : null;
   const kind = str("kind") === "delivery" ? "delivery" : "preview";
   if (args.receipt) {
-    const inputs = currentInputs(r, { profile: str("profile") || "rasanai-house" });
+    // revision 2 (a bus plan or extended identity is present): the receipt also records the processor identity and the index.html audio attributes
+    const proc = jarg("processor"), ext = mixRevisionOf(r) >= 2 || !!proc;
+    const inputs = currentInputs(r, { profile: str("profile") || "rasanai-house", ...(ext ? { processor: proc || {}, html_audio: true } : {}) });
     const m = jarg("measures");
-    const rc = receipt({ kind, inputs, profile: str("profile") || "rasanai-house", output: str("output") ? { file: str("output") } : {}, measures: m });
+    const rc = receipt({ kind, inputs, profile: str("profile") || "rasanai-house", output: str("output") ? { file: str("output") } : {}, measures: m, processor_detail: proc || null });
     const w = writeReceipt(r, rc);
     out({ ...w, digests: rc.digests, cached_name: cachedMixName("mix", "wav", rc.digests) });
   }
   if (args.reuse) {
     const rc = readReceipt(r, kind);
-    out(reuseDecision({ receipt: rc, current: currentInputs(r, { profile: rc && rc.profile && rc.profile.id || "rasanai-house" }), file: str("file") }));
+    const hasExt = !!(rc && rc.digests && ["processor", "html_audio"].some((k) => rc.digests[k] != null)); // compare like with like: the extended keys only when the receipt carries them
+    out(reuseDecision({ receipt: rc, current: currentInputs(r, { profile: rc && rc.profile && rc.profile.id || "rasanai-house", ...(hasExt ? { processor: jarg("processor") || (rc.processor || {}), html_audio: rc.digests.html_audio != null } : {}) }), file: str("file") }));
   }
   die("mix wants --profiles | --evaluate <measures.json> | --duck <spans.json> | --receipt | --reuse");
+} else if (cmd === "music-args") {
+  // the argv tail the music step is run with: the film's sound choices, and --allow-generation ONLY when the user gave explicit generation consent
+  // (audio/generation-consent.json {consented:true}, written by the Look action when the user says so; a key in the environment or a recommendation is never consent)
+  const r = runDir(), sc = readSoundChoices(r), consent = rj(AD(r, "generation-consent.json"));
+  const a = sc.legacy ? [] : ["--sound", soundChoicesPath(r)];
+  if (consent && consent.consented === true) a.push("--allow-generation");
+  out({ args: a, sound: !sc.legacy, generation_consent: !!(consent && consent.consented === true) });
 } else if (cmd === "controls") {
   out(controlPayload(runDir()));
 } else if (cmd === "note") {
@@ -140,5 +176,5 @@ if (cmd === "direction") {
   const res = setMuteSolo(runDir(), { stem: need("stem", "vo|music|sfx|ambience"), muted: args.mute === undefined ? undefined : flag("mute"), solo: args.solo === undefined ? undefined : flag("solo") });
   out(res, res.ok ? 0 : 1);
 } else {
-  die("usage: soundplan.mjs direction|cues|contract|music-fit|track|voice|voice-check|mix|controls|note|mute (see the header)");
+  die("usage: soundplan.mjs direction|cues|contract|music-fit|track|music-args|voice|voice-check|mix|controls|note|mute (see the header)");
 }

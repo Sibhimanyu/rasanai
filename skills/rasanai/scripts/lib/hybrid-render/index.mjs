@@ -16,6 +16,7 @@ import { emitRevision, newRevisionId } from "../revision-events.mjs";
 import { recordPerf } from "../perf-evidence.mjs";
 import { publishDeliveredPointer } from "../publish-txn.mjs";
 import { readReceipt, currentInputs, reuseDecision } from "../mix-receipt.mjs";
+import { finalCompletion } from "../final-label.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = path.resolve(HERE, "..", "..");
@@ -221,7 +222,7 @@ async function renderFilmBody({ args, mode, log = (s) => process.stderr.write(s 
   for (const p of plan) recordPerf(P.run, { kind: "node", node_id: `render_fragment:${p.scene_id}`, resource_class: "video_render", duration_s: p.render_ms != null ? p.render_ms / 1000 : null, active_s: null, queue_wait_s: null, temperature: cold ? "cold" : "warm", outcome: "ok", cache: todo.some((t) => t.scene_id === p.scene_id) ? "rebuilt" : "hit", causes: [] });
   recordPerf(P.run, { kind: "render", mode, render_s: sumMs / 1000, encode_s: (Date.now() - ta) / 1000, peak_rss_mb: null, frames: totalFrames, note: "peak memory is not observable from here; the supervisor (lib/resource-pools.mjs) records it for managed processes" });
   return {
-    ok: true, mode, out: outFile, frames: totalFrames, duration_s: Number(durationS.toFixed(6)), fps, size: `${final.width}x${final.height}`, audio: audio ? path.relative(P.run, audio) : null,
+    ok: true, mode, out: outFile, completion: mode === "delivery" ? (finalCompletion(P.run, outFile) || undefined) : undefined, frames: totalFrames, duration_s: Number(durationS.toFixed(6)), fps, size: `${final.width}x${final.height}`, audio: audio ? path.relative(P.run, audio) : null,
     scenes: clips.map((c) => ({ scene_id: c.scene_id, action: todo.some((t) => t.scene_id === c.scene_id) ? "rendered" : "reused", frames: c.frames, render_ms: c.render_ms ?? null, miss_reason: c.miss_reason, key: c.scene_key || c.key, ...(c.comp ? { comp_key: c.key, comp_action: compTodo.some((t) => t.scene_id === c.scene_id) ? "composited" : "reused" } : {}) })),
     comps_rendered: compTodo.map((c) => c.scene_id), comps_reused: comps.filter((c) => !compTodo.includes(c)).map((c) => c.scene_id),
     scenes_rendered: todo.map((p) => p.scene_id), scenes_reused: plan.filter((p) => !todo.includes(p)).map((p) => p.scene_id),

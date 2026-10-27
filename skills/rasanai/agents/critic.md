@@ -106,6 +106,18 @@ When the run has `creative/brief.json`, add these to every lens, from rendered e
 
 Repairs are local: name the failed shot or event and fix that, with its `verify` line. Do not send the story desk back for a local defect, and do not ask for a global regrade or restyle to fix one shot. A fix must keep the listed strengths.
 
+## Temporal review (new creative policy, film lens)
+
+Read `references/temporal-review.md`. Observe first, compare second:
+
+1. **Retell before intent.** Watch the defining intervals (temporal playback, a dense frame sequence or a 24 fps strip; a contact sheet or four stills only point you at where to look). Write `retell` (what happened, what a first-time viewer can infer) before you open the approved commitments, and mark `before_intent: true` only when that is true.
+2. **Then compare, per required commitment**, in `commitment_results[]`: `{ commitment_id, result: fulfilled|partially_fulfilled|missing|materially_changed|stale|not_assessable, artifact_digest (the output you watched), interval {start_s, end_s} (score time), method, observed (what you saw), involves_text, text_role: reading_copy|visual_texture }`. A still cannot show pacing, acting or sync: `not_assessable`, never a pass. File extensions, declared scene types and movement metrics prove nothing about intent.
+3. **Formal passages** (typography, pattern, abstract or graphic sequences) are judged on `formal: { hierarchy, invariant, transformation, contrast, resolution }`, not on a literal story retell. Text as image is an artistic subject: do not ask for it to be removed to prove the picture works.
+4. **Quiet is allowed.** A deliberate quiet film can be fulfilled with no raised motion ratio; a retained character across shots is not repetition by itself.
+5. **Say what you cannot do.** No image or playback capability: report it in `limitations` and set `reviewer.vision: false`; the Director routes the review to an authorized reviewer or the user. Never claim machine originality detection.
+6. **Repair scope.** A local execution failure gets a local fix with a `verify` line. If the concept itself is wrong, set `repair_scope: "concept"` and stop polishing; the Director takes it to the existing stage with consent.
+7. **Ordered attention** (shots with `order`/`target_ref` reads): review it in playback, not from stills or from a clean `reads.mjs`/`evaluateTemporal` result, which only flag timing conflicts, missing targets and stale bindings. Use `blind-review.attentionPacket`: say what the eye met first, what moved it on and what you could read, then compare with the authored reads (`compareAttention`). Check the protected reads were readable for as long as their content needed. No playback: `not_assessable`, never a pass.
+
 ## Reads: four scored questions (subjective)
 
 For every scene with `reads[]` (or any dramatic scene), open `review/reads/<scene>-sheet.png` and the strip beside it (`node "$SKILL_DIR/scripts/reads.mjs" sheet --run "$RUN" --scene <id> --file <composition|draft>`; no render means say so in a `high` finding, never pass it). Look at the renders, not at the score. Score each 0 (no), 1 (partly), 2 (yes), and give the evidence you can see and a timestamp for each:

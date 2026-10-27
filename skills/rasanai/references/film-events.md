@@ -77,3 +77,7 @@ A source that is not there is recorded as `{"path": null, "sha256": null, "statu
 The Motion Director authors score events as valid references: `t` in scene seconds inside the scene, a unique `id` when something points at it, `sound` when it has a cue, `word` when it lands on a spoken word, a scene `id` or `n` everywhere (`agents/motion-director.md`).
 
 Tests: `node scripts/tests/run-one.mjs events` (fixtures in `scripts/tests/fixtures/events/` are synthetic: a made-up 30 s film).
+
+## Not the same thing as an event commitment
+
+`events.json` is the derived timing manifest. The creative brief's `signature_events` (creative/brief.json) are the approved, canonical event commitments, and nothing in the manifest creates, replaces or satisfies one. A manifest hit with the same id is traceability of time only. Which commitments are bound, open, intentionally absent or incompatible is decided from the selected treatment, the brief's events and the approval pins: see `event-commitments.md`.

@@ -9,9 +9,12 @@
 //
 //   directionFor(o), validateDirection(d), readDirection(run), writeDirection(run, d), silenceWindows(d, events), sfxExpectation(d)
 //   deliverableState(o), buildContract(o), readAudioContract(run), writeAudioContract(run, c), contractForStoryboard(c)
+//   Addendum 2 (additive): directionFor accepts o.sound / o.sound_choices (lib/sound-choices.mjs), stamps mix_policy_revision 2 and a `sound` block ONLY
+//   for new work that carries them; soundDirectionOf(d), rolesFromResolved(resolved). No sound input = byte-identical output.
 import fs from "node:fs";
 import path from "node:path";
 import { canonicalDigest, SCHEMA_VERSION } from "./contracts.mjs";
+import { resolveSound, normalizeChoices, validateChoices } from "./sound-choices.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -35,7 +38,9 @@ export const MAX_PALETTE = 6;
 // ---- A1: compile the brief --------------------------------------------------------------------------------------------------------------
 // o: { narrated, music_led, music, sfx, ambience, silent, silent_reason, palette[], motif, silence_windows[], communication_kind, look_motif_refs[], film_s }
 // Defaults are labelled (defaults_applied) so a reader can tell a decision from a fallback. Nothing here asks for an effect on every visual hit.
-export function directionFor(o = {}) {
+export function directionFor(o0 = {}) {
+  const snd = soundInput(o0);
+  const o = snd ? mergeSound(o0, snd) : o0;
   const narrated = !!o.narrated;
   const silent = !!o.silent;
   const defaults = [];
@@ -46,7 +51,7 @@ export function directionFor(o = {}) {
   const ambience = silent ? "none" : pick(o.ambience, AMBIENCE_ROLES, "none", "ambience");
   const palette = arr(o.palette).map(T).filter(Boolean).slice(0, MAX_PALETTE);
   const motif = isObj(o.motif) && T(o.motif.description) ? { id: T(o.motif.id) || "motif", description: T(o.motif.description), recurs_at: arr(o.motif.recurs_at).map(String), look_ref: T(o.motif.look_ref) || null } : null;
-  return {
+  const out = {
     schema_version: SCHEMA_VERSION,
     revision: Math.max(1, Math.floor(num(o.revision, 1))),
     communication_kind: T(o.communication_kind) || null,
@@ -67,7 +72,44 @@ export function directionFor(o = {}) {
     defaults_applied: defaults,
     film_s: num(o.film_s),
   };
+  if (snd) { out.mix_policy_revision = 2; out.sound = soundBlock(snd); }
+  return out;
 }
+
+// ---- Addendum 2: the user's sound choices ---------------------------------------------------------------------------------------------------
+// The existing role resolution used by lib/sound-choices.mjs, as directionFor opts. Pure.
+export function rolesFromResolved(r) {
+  if (!isObj(r)) return {};
+  return { voice: r.voice_role, music: r.music_role === "led" ? undefined : r.music_role, music_led: r.music_role === "led", sfx: r.sfx_role, ambience: r.ambience_role, narrated: r.voice_role === "carrier", silent: !!r.silent };
+}
+// o.sound / o.sound_choices: a record or raw choices. Legacy (no record) resolves to nothing: no stamp, no change.
+function soundInput(o) {
+  const raw = o && (o.sound || o.sound_choices);
+  if (!isObj(raw)) return null;
+  const rec = normalizeChoices(raw);
+  if (rec.legacy) return null;
+  const res = resolveSound({ choices: rec, brief: o.brief, direction: null, contract: o.contract, format: o.format, narrated: typeof o.narrated === "boolean" ? o.narrated : undefined, film_s: o.film_s });
+  if (res.legacy || !res.resolved) return null;
+  return { rec, res };
+}
+// explicit choices bind; a recommended or preset value only fills what the caller left unsaid
+function mergeSound(o, { rec, res }) {
+  const ex = new Set(rec.explicit), r = res.resolved, f = rolesFromResolved(r), m = { ...o };
+  if (r.silent) { m.silent = true; m.silent_reason = T(o.silent_reason) || "silent by the user's sound choices"; return m; }
+  if (ex.has("voiceover") || T(o.voice) === "") m.voice = f.voice;
+  if (ex.has("voiceover") || o.narrated === undefined) m.narrated = f.narrated;
+  if (ex.has("music_source") || (o.music === undefined && !o.music_led)) { m.music = f.music; m.music_led = f.music_led; }
+  if (ex.has("effects") || T(o.sfx) === "") m.sfx = f.sfx;
+  if (T(o.ambience) === "") m.ambience = f.ambience;
+  return m;
+}
+const soundBlock = ({ rec, res }) => ({
+  digest: res.digest, revision: rec.revision || 0, preset: rec.preset, explicit: res.explicit, choices: rec.choices,
+  resolved: { voice_role: res.resolved.voice_role, music_role: res.resolved.music_role, sfx_role: res.resolved.sfx_role, ambience_role: res.resolved.ambience_role, energy: res.resolved.energy, music_source: res.resolved.music_source, effects: { choice: res.resolved.effects.choice, visible_text: res.resolved.effects.visible_text } },
+  conflicts: res.conflicts.map((c) => c.id), // the full entries come from resolveSound; the record keeps only that they exist
+});
+// the sound block of a direction (or null for a legacy / pre-sound one)
+export const soundDirectionOf = (d) => (isObj(d) && isObj(d.sound) ? d.sound : null);
 function silenceWindow(w, i) {
   const x = isObj(w) ? w : {};
   return {
@@ -92,6 +134,15 @@ export function validateDirection(d) {
     if (!T(w.why)) errors.push(`silence window ${w.id}: say why (emotional silence is a choice; dead air is an accident)`);
     const timed = w.start_s != null && w.end_s != null && w.end_s > w.start_s;
     if (!timed && !w.around_event) errors.push(`silence window ${w.id}: needs start_s/end_s or around_event`);
+  }
+  if (d.mix_policy_revision !== undefined && ![1, 2].includes(d.mix_policy_revision)) errors.push(`mix_policy_revision ${JSON.stringify(d.mix_policy_revision)} is not one of 1, 2`);
+  if (d.sound !== undefined) {
+    if (!isObj(d.sound)) errors.push("sound must be an object");
+    else {
+      if (d.sound.choices !== undefined) { const sv = validateChoices({ choices: d.sound.choices, explicit: d.sound.explicit }); for (const e of sv.errors) errors.push(`sound: ${e}`); for (const w of sv.warnings) warnings.push(`sound: ${w}`); }
+      const rs = d.sound.resolved && d.sound.resolved.sfx_role;
+      if (rs && r.sfx && r.sfx.role && rs !== r.sfx.role && arr(d.sound.explicit).includes("effects")) warnings.push(`sound: the user's Effects choice resolves to ${rs} but roles.sfx.role is ${r.sfx.role}: the user's choice is binding, recompile`);
+    }
   }
   if (d.deliverable && d.deliverable.state === "silent_by_choice" && !T(d.deliverable.reason)) errors.push("a silent deliverable needs a reason (it is a decision, recorded; not a failure)");
   if (r.sfx && r.sfx.every_visual_hit === true) warnings.push("every_visual_hit is on: not every visual hit should have an effect");
@@ -158,7 +209,7 @@ export function writeDirection(run, d) {
 
 // ---- the audio contract -------------------------------------------------------------------------------------------------------------------
 // o: { kind, music: {file, track_id, music_led, sections:[{shot_id,start_s,end_s}], digest, rights_ref}, vo: [{shot_id, segment_id, file, start_s, end_s}], stems: {vo, music, sfx, ambience: path},
-//      direction_digest }
+//      direction_digest, sound: direction.sound block or a resolveSound() result (optional; carried into the contract with its digest) }
 // The flat fields (kind, file, music_led, sections, vo) are the Plan 05 shape, so storyboard.mjs reconcile/makeSnapshot read it unchanged.
 export function buildContract(o = {}) {
   const kind = ["selected", "scratch", "none"].includes(o.kind) ? o.kind : "none";
@@ -174,8 +225,17 @@ export function buildContract(o = {}) {
     scratch: kind === "scratch",
     label: kind === "scratch" ? "scratch audio: timings provisional, the final voice is not approved by this" : kind === "none" ? "silent preview: no audio" : "selected audio",
   };
-  c.digest = canonicalDigest({ kind: c.kind, music: c.music, vo: c.vo.map((v) => [v.shot_id, v.segment_id, v.start_s, v.end_s]), stems: c.stems });
+  const sn = contractSound(o.sound);
+  if (sn) { c.sound = sn; c.mix_policy_revision = 2; } // Final controls read this; absent for legacy / pre-sound contracts
+  c.digest = canonicalDigest({ kind: c.kind, music: c.music, vo: c.vo.map((v) => [v.shot_id, v.segment_id, v.start_s, v.end_s]), stems: c.stems, ...(sn ? { sound_digest: sn.digest } : {}) });
   return c;
+}
+// accepts a direction.sound block or a resolveSound() result; anything else adds nothing
+function contractSound(x) {
+  if (!isObj(x) || !x.digest || !isObj(x.resolved)) return null;
+  const r = x.resolved;
+  const res = r.effects && r.voice_role ? { voice_role: r.voice_role, music_role: r.music_role, sfx_role: r.sfx_role, ambience_role: r.ambience_role, energy: r.energy, music_source: r.music_source, effects: { choice: r.effects.choice, visible_text: r.effects.visible_text } } : r;
+  return { digest: x.digest, revision: num(x.revision, 0), preset: x.preset || null, explicit: arr(x.explicit), resolved: res, conflicts: arr(x.conflicts).map((c) => (isObj(c) ? c.id : c)) };
 }
 // reads the new contract, else Plan 05's storyboard/audio.json (flagged legacy), else silence. Never throws.
 export function readAudioContract(run) {

@@ -56,9 +56,20 @@ const logLine = (run, id, attempt, text) => { try { fs.mkdirSync(path.join(jobsD
 const hist = (rec, ev, extra = {}) => { rec.history = [...(rec.history || []).slice(-39), { at: nowIso(), ev, attempt: rec.attempt, generation: rec.generation, ...extra }]; };
 
 // a stable id for the same operation: the same node on the same inputs under the same approval is the SAME job (a re-plan or a retry never duplicates it)
-export const jobIdFor = ({ node_id, input_digest, approval_digest = null }) => "j-" + canonicalDigest({ n: node_id, i: input_digest, a: approval_digest }).slice(0, 14);
+// V3 (W06): an optional `identity_digest` (continuity identity: object/event/score digests of the job's group, lib/continuity-plan.mjs) joins the id ONLY when given, so a legacy id is byte-identical.
+export const jobIdFor = ({ node_id, input_digest, approval_digest = null, identity_digest = null }) => "j-" + canonicalDigest(identity_digest ? { n: node_id, i: input_digest, a: approval_digest, c: identity_digest } : { n: node_id, i: input_digest, a: approval_digest }).slice(0, 14);
 
-// spec: { node_id, kind, role, job_type, input_digest, approval_digest, local (a local process the supervisor may kill), max_retries, resource_class, est }
+// spec: { node_id, kind, role, job_type, input_digest, approval_digest, local (a local process the supervisor may kill), max_retries, resource_class, est,
+//         continuity?: { group_id, owner, depends_on:[job_id|node_id], identity_digest, event_ids, object_ids, shots } }  (V3, additive; `spec.group_id` / `spec.depends_on` / `spec.identity_digest` are accepted as shorthand)
+// Edges are DATA the planner (lib/continuity-plan.mjs planContinuity) produced; jobs.mjs never dispatches: dependencyState() only reports whether a job's edges are met.
+const sarr = (x) => (Array.isArray(x) ? x.map(String) : []);
+function continuityField(spec) {
+  const c = spec.continuity && typeof spec.continuity === "object" ? spec.continuity : {};
+  const group_id = c.group_id ?? spec.group_id ?? null, owner = c.owner ?? spec.owner ?? null, identity_digest = c.identity_digest ?? spec.identity_digest ?? null;
+  const depends_on = sarr(c.depends_on ?? spec.depends_on);
+  if (!group_id && !owner && !identity_digest && !depends_on.length && !spec.continuity) return null;
+  return { group_id: group_id && String(group_id), owner: owner && String(owner), identity_digest: identity_digest || null, depends_on, event_ids: sarr(c.event_ids), object_ids: sarr(c.object_ids), shots: sarr(c.shots) };
+}
 export function createJob(run, spec) {
   if (!spec || !spec.node_id || !spec.input_digest) throw new Error("a job needs node_id and input_digest");
   const jt = spec.job_type || "pure_artifact";
@@ -70,6 +81,7 @@ export function createJob(run, spec) {
     const rec = { schema_version: JOB_SCHEMA, job_id: id, node_id: spec.node_id, kind: spec.kind || null, role: spec.role || null, key: spec.key || null, approvals: Array.isArray(spec.approvals) ? spec.approvals : [], digest_basis: spec.digest_basis || null, job_type: jt, resource_class: spec.resource_class || null, local: spec.local !== false,
       input_digest: spec.input_digest, approval_digest: spec.approval_digest || null, state: "pending", attempt: 0, generation: 0, lease: null, checkpoint: null, outputs: [], provider: null,
       retries: { count: 0, max: Number.isInteger(spec.max_retries) ? spec.max_retries : MAX_RETRIES, next_after: null }, cancel: { requested: false, reason: null }, est: spec.est || null, created_at: nowIso(), history: [] };
+    const cont = continuityField(spec); if (cont) rec.continuity = cont; // V3: absent on a legacy job
     hist(rec, "created");
     writeAtomic(jobFile(run, id), JSON.stringify(rec, null, 2) + "\n");
     return { created: true, job: rec };
@@ -142,7 +154,7 @@ function rejectStaged(run, id, lease, staged, reason, rec) {
 
 // the lead's acceptance. outputs: [{ staged: <path inside staged_dir>, publish_to: <path relative to the run> }]
 // current_input_digest: what the inputs digest to NOW (the lead computes it); a mismatch means an upstream revision landed while the worker ran.
-export function commit(run, id, lease, { staged_dir, outputs = [], current_input_digest, current_approval_digest, provider = null } = {}) {
+export function commit(run, id, lease, { staged_dir, outputs = [], current_input_digest, current_approval_digest, current_identity_digest, provider = null } = {}) {
   // hashing a large render is slow and the lock must stay short (runlock reclaims a lock after 10 s): the staged files are private to this attempt, so they are measured BEFORE the lock
   const manifest = [], problems = [];
   for (const o of outputs) {
@@ -159,6 +171,7 @@ export function commit(run, id, lease, { staged_dir, outputs = [], current_input
     if (!ACTIVE.has(rec.state)) return reject(`not_running:${rec.state}`);
     if (rec.cancel.requested) return reject("cancelled");
     if (current_input_digest !== undefined && current_input_digest !== rec.input_digest) return reject("input_changed", { expected: rec.input_digest, now: current_input_digest });
+    if (current_identity_digest !== undefined && rec.continuity && rec.continuity.identity_digest && current_identity_digest !== rec.continuity.identity_digest) return reject("identity_changed", { expected: rec.continuity.identity_digest, now: current_identity_digest }); // V3: a result built on an old object/event/score identity is stale even if the filename matches
     if (rec.approval_digest && current_approval_digest !== undefined && current_approval_digest !== rec.approval_digest) return reject("approval_superseded");
     if (problems.length) return reject(problems[0][0], { path: problems[0][1] });
     // ownership holds (we own the lock and the generation cannot move now): publish by atomic rename (copy + rename only across volumes)
@@ -192,7 +205,7 @@ export function commit(run, id, lease, { staged_dir, outputs = [], current_input
 
 // Acceptance for AGENT work. An agent writes its files where the crew expects them (it cannot stage a whole run), so the fence is at the lead's acceptance: crew.mjs check calls this
 // with the generation and token the Director was given at claim time. A superseded, cancelled or input-stale attempt is refused (and logged); the accepted files are recorded by digest.
-export function accept(run, id, lease, { current_input_digest, current_approval_digest, outputs = [] } = {}) {
+export function accept(run, id, lease, { current_input_digest, current_approval_digest, current_identity_digest, outputs = [] } = {}) {
   const manifest = [];
   for (const rel of outputs) { const abs = inside(run, rel); if (abs && fs.existsSync(abs) && fs.statSync(abs).isFile()) manifest.push({ path: rel, digest: sha256File(abs), size: fs.statSync(abs).size }); else manifest.push({ path: rel, digest: null, size: null, missing: true }); }
   return withStrictLock(run, () => {
@@ -203,6 +216,7 @@ export function accept(run, id, lease, { current_input_digest, current_approval_
     if (!ACTIVE.has(rec.state)) return refuse(`not_running:${rec.state}`);
     if (rec.cancel.requested) return refuse("cancelled");
     if (current_input_digest !== undefined && current_input_digest !== rec.input_digest) return refuse("input_changed", { expected: rec.input_digest, now: current_input_digest });
+    if (current_identity_digest !== undefined && rec.continuity && rec.continuity.identity_digest && current_identity_digest !== rec.continuity.identity_digest) return refuse("identity_changed", { expected: rec.continuity.identity_digest, now: current_identity_digest });
     if (rec.approval_digest && current_approval_digest !== undefined && current_approval_digest !== rec.approval_digest) return refuse("approval_superseded");
     const missing = manifest.filter((m) => m.missing).map((m) => m.path);
     if (missing.length) return refuse("output_missing", { missing }); // Plan 11 R1: a listed output that is not on disk is not a success
@@ -303,13 +317,14 @@ export function supersede(run, id, reason = "superseded") {
 }
 // ids: node ids and/or input digests now invalid. Cancels (and fences) the LOCAL attempts; a provider job on a shared queue is only marked.
 // -> { cancelled:[{job_id, stop_pid}], provider_marked:[{job_id, client_id}] }
-export function cancelObsolete(run, { node_ids = [], stale_inputs = [], reason = "an upstream revision invalidated this work" } = {}) {
-  const nodes = new Set(node_ids), digs = new Set(stale_inputs);
+// V3: `stale_groups` ([continuity group ids]) cancels only the jobs of those groups, so a late shared asset invalidates its dependents and nothing else.
+export function cancelObsolete(run, { node_ids = [], stale_inputs = [], stale_groups = [], reason = "an upstream revision invalidated this work" } = {}) {
+  const nodes = new Set(node_ids), digs = new Set(stale_inputs), grps = new Set(stale_groups.map(String));
   return withStrictLock(run, () => {
     const out = { cancelled: [], provider_marked: [] };
     for (const rec of listJobs(run)) {
       if (["completed", "failed", "cancelled"].includes(rec.state)) continue;
-      if (!nodes.has(rec.node_id) && !digs.has(rec.input_digest)) continue;
+      if (!nodes.has(rec.node_id) && !digs.has(rec.input_digest) && !(rec.continuity && rec.continuity.group_id && grps.has(rec.continuity.group_id))) continue;
       const old = rec.lease;
       rec.cancel = { requested: true, reason, at: nowIso() }; rec.generation += 1; rec.lease = null;
       if (rec.provider && rec.provider.submitted) {
@@ -402,6 +417,39 @@ export function jobsSummary(run) {
   const by = {}, rows = listJobs(run);
   for (const r of rows) by[r.state] = (by[r.state] || 0) + 1;
   return { schema_version: JOB_SCHEMA, total: rows.length, by_state: by, unknown_outcome: rows.filter((r) => r.state === "unknown_outcome").map((r) => ({ job_id: r.job_id, client_id: r.provider && r.provider.client_id })), retrying: rows.filter((r) => r.state === "retry_wait").map((r) => ({ job_id: r.job_id, next_after: r.retries.next_after })) };
+}
+
+// ---- continuity edges (V3, W06) -----------------------------------------------------------------------------------------------------
+// Are the upstream jobs this job depends on (continuity.depends_on, job_id or node_id) completed and CURRENT? Read-only; the caller (the crew scheduler) decides what to start.
+// -> { ready, waiting_on:[{ref, state}], missing:[ref], stale:[ref] }. `current` ({ <job_id|node_id>: input_digest }) marks a completed upstream whose input moved as stale.
+export function dependencyState(run, id, { current = {} } = {}) {
+  const rec = readJob(run, id);
+  if (!rec) return { ready: false, waiting_on: [], missing: [String(id)], stale: [], reason: "no_such_job" };
+  const rows = listJobs(run), waiting_on = [], missing = [], stale = [];
+  for (const ref of sarr(rec.continuity && rec.continuity.depends_on)) {
+    const ups = rows.filter((r) => r.job_id === ref || r.node_id === ref);
+    if (!ups.length) { missing.push(ref); continue; }
+    const done = ups.filter((r) => r.state === "completed");
+    if (!done.length) { waiting_on.push({ ref, state: ups[0].state }); continue; }
+    const cur = current[ref];
+    if (cur !== undefined && !done.some((r) => r.input_digest === cur)) stale.push(ref);
+  }
+  return { ready: !waiting_on.length && !missing.length && !stale.length, waiting_on, missing, stale };
+}
+// Jobs whose recorded continuity identity no longer equals the group's current one (identities: { <group_id>: identity_digest }). Resume uses it to rerun only these, never every scene.
+export function staleByIdentity(run, identities = {}) {
+  return listJobs(run).filter((r) => r.continuity && r.continuity.group_id && identities[r.continuity.group_id] !== undefined && r.continuity.identity_digest && r.continuity.identity_digest !== identities[r.continuity.group_id])
+    .map((r) => ({ job_id: r.job_id, node_id: r.node_id, group_id: r.continuity.group_id, state: r.state, recorded: r.continuity.identity_digest, now: identities[r.continuity.group_id] }));
+}
+// Per continuity group: how many of its jobs are in each state (a group is done only when every job is completed). Feeds the planner's `ready` decision and runStatus-style views.
+export function groupProgress(run) {
+  const by = {};
+  for (const r of listJobs(run)) {
+    const g = r.continuity && r.continuity.group_id; if (!g) continue;
+    const e = (by[g] ||= { group_id: g, owner: r.continuity.owner || null, jobs: 0, by_state: {} });
+    e.jobs += 1; e.by_state[r.state] = (e.by_state[r.state] || 0) + 1;
+  }
+  return Object.values(by).map((e) => ({ ...e, done: e.jobs > 0 && e.by_state.completed === e.jobs, active: (e.by_state.leased || 0) + (e.by_state.running || 0) > 0 }));
 }
 
 // ---- budget reservations (P9) ------------------------------------------------------------------------------------------------------

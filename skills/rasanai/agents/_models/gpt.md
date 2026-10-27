@@ -30,7 +30,7 @@ A receipt story, scene of 5 s, 1920x1080. Weak (what a literal reading ships): a
 
 ### Self-critique before you hand back
 
-After your last render, review your own work against the critic's rubric (`agents/critic.md`: ambition, scale, motivated holds, one spectacle beat, grounding in the research, the contract) and write the verdict into your note in 3 lines: what is weakest, what you changed because of it, and the one moment you would put on a reel. If the hero is under 50% of the frame height, any hold has no reason, any content is a placeholder, or there is no spectacle beat, you are not finished: fix it and render again. Do this pass even when every check is green.
+After your last render, review your own work against the critic's rubric (`agents/critic.md`: ambition, scale, motivated holds, an earned standout beat, grounding in the research, the contract) and write the verdict into your note in 3 lines: what is weakest, what you changed because of it, and the one moment you would put on a reel. If the hero is under 50% of the frame height, any hold has no reason, any content is a placeholder, or the story supports a standout beat and there is none, you are not finished: fix it and render again. Do this pass even when every check is green.
 
 ## frame-designer
 

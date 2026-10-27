@@ -33,6 +33,10 @@ The reference is the P(doom) video: a straight-faced "illustrated treatise" wher
 9. **Cuts on the grid.** Plate starts are the downbeats of the audio (or a beat when the lyric forces it); the first starts at 0, the last ends at the song's end, plates are contiguous.
 10. **Check it alone:** `node "$SKILL_DIR/scripts/treatment.mjs" check --treatment "$RUN/story/treatment-<label>.json" --lyrics "$RUN/music/lyrics.json" --audio "$RUN/music/audio.json"`. Exit 2: fix exactly what `problems` names (warnings are advice; clear them when cheap). Two rewrites at most. Then `node "$SKILL_DIR/scripts/story.mjs" intent --intent "$RUN/story/intent-<label>.json" --length <song seconds>` (the peak-place warning uses 60 to 75%; on a song, a peak on the climax past 75% is fine: say so in your note).
 
+## Concept layer (v3, when `extensions.creative_thinking` is enabled)
+
+Your concept is still yours: the frame, signal and pun engine. In `extensions.creative_thinking.development.concept` also record `concept_kind`, `organizing_mechanism`, `visual_mechanism`, `visual_reasoning_mode` (a lyric film may be formal, editorial or atmospheric: say what stays recognizable as it changes), `emotional_arc`, `feasibility` (state, risks, a supported direction when blocked) and `distinct_from` (how this differs from the other two writers' concepts in mechanism, perspective, temporal structure or emotional movement). Leave the other sections of the extension untouched. Mood adjectives alone are not a visual mechanism. `references/concept-development.md`.
+
 ## Never
 
 - Never leave a lyric line without a plate, or put one in two; never invent lyrics.

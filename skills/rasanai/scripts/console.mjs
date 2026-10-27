@@ -57,6 +57,9 @@ import { briefFormat, loadFormats, SCOPES as FORMAT_SCOPES } from "./lib/formats
 import { noteDowngrade, readDowngrades, downgradeFeed, SEVERITIES } from "./lib/downgrade.mjs";
 import { LAYERS, NOTE_LAYERS, snapshot, drift, relock } from "./lib/locks.mjs";
 import { noteToRevision } from "./lib/editorial.mjs"; // Plan 05 E6: a viewer note on the animatic is anchored and read as an editorial request
+import { readSoundChoices, writeSoundChoices, normalizeChoices, setChoice, applyPreset, resolveSound } from "./lib/sound-choices.mjs"; // Addendum 2: the Look sound action
+import { identityMap, soundIdentityParts, soundChangeImpact } from "./lib/impact.mjs";
+import { readDirection } from "./lib/audio-direction.mjs";
 import { soundNoteRevision, setMuteSolo } from "./lib/sound-controls.mjs"; // Plan 07 A6: a Studio sound note becomes a versioned targeted revision (no per-cue approval)
 import { handleMotionEditAction, restoreAsNewVersion } from "./lib/editor-patch/index.mjs"; // Plan 06 V8: Studio element edits go through the one edit authority (motion/edits.jsonl)
 import { atomicWrite, appendJsonl } from "./lib/recovery.mjs"; // Plan 11 R1: durable replace and torn-tail-safe appends for the console files
@@ -210,7 +213,7 @@ function validateAction(a, getSession = null) {
 // references/remote.md, "Contract v2": what another app may send, checked against the session as it is now. Mutates `v` only to normalize
 // the shapes an app may use for the same thing (a nested brief {fields, format}, a frame comment's {frame, text}) into Studio's.
 const EXTERNAL_SOURCES = new Set(["squeak", "squeak-phone"]);
-const BRIEF_FIELD_TYPES = { length_s: "number", kind: "string", subject: "string", aspect: "string", destination: "string", narration: "text", brand_name: "string", use_brand: "boolean" };
+const BRIEF_FIELD_TYPES = { length_s: "number", kind: "string", subject: "string", aspect: "string", destination: "string", narration: "text", brand_name: "string", use_brand: "boolean", sound: "object" };
 const ASPECTS = ["16:9", "9:16", "1:1"];
 const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
 const isText = (x, max = 4000) => typeof x === "string" && x.length <= max;
@@ -385,6 +388,67 @@ function soundHook(s, action) {
   return true;
 }
 
+// Addendum 2: the Look sound action. `sound-direction` value (any of): {key, value} | {choices:{key:value,...}} (setChoice: each becomes explicit, "recommend"/"unset" releases it),
+// {preset:<id>} (applyPreset: never touches an explicit choice), {revision_request:{kind: keep|more_like_this|warmer|less_corporate|less_percussion|calmer_section, track_id?}}
+// (music.mjs revise: re-ranks the stored shortlist, no network, no audio, no provider), {generation_consent: true|false} (the user's own consent record, audio/generation-consent.json;
+// nothing is generated or spent here). The result is echoed on the look step as `sound` (choices, explicit, preset, revision, source, candidates, conflicts, recommendations, impact).
+// Never touches approvals; best effort, a failure is shown in the feed. Only a user action creates audio/sound-choices.json (an old project is not given one by a read).
+const REVISE_ACTION = { keep: "keep", more_like_this: "more_like", warmer: "warmer", less_corporate: "less_corporate", less_percussion: "less_percussion", calmer_section: "calmer_section" };
+const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
+function soundIdentity(rec) {
+  const sl = readJ(path.join(RUN, "music", "shortlist.json"));
+  return identityMap(soundIdentityParts({ choices: rec && !rec.legacy ? rec : null, shortlist: sl ? { revision: sl.revision, selected: sl.selected } : null }));
+}
+export function lookSoundPayload(extra = {}) {
+  const sc = readSoundChoices(RUN);
+  if (sc.legacy) return null;
+  const rec = sc.record, dir = readDirection(RUN).direction, brief = readJSON(path.join(RUN, "creative", "brief.json"), null);
+  const res = resolveSound({ choices: rec, brief: brief || undefined, direction: dir });
+  const sl = readJ(path.join(RUN, "music", "shortlist.json"));
+  const candidates = (sl && Array.isArray(sl.options) ? sl.options : []).slice(0, 3).map((o) => ({ id: o.id, title: o.title || o.id, reason: Array.isArray(o.reasons) && o.reasons[0] ? String(o.reasons[0]) : "", family: Array.isArray(o.families) && o.families[0] ? o.families[0] : "", evidence_state: o.evidence_state || "metadata_reviewed", rights_note: o.rights && o.rights.by_use ? (o.rights.by_use.sync_into_film === false ? "not cleared to sync into the film" : o.rights.by_use.sync_into_film === true ? "cleared to sync into the film" : "sync rights not stated") : "rights not stated" }));
+  return { choices: rec.choices, explicit: rec.explicit, preset: rec.preset, revision: rec.revision || 0, source: rec.source, candidates, conflicts: res.conflicts || [], recommendations: res.recommendations || [], ...extra };
+}
+function soundDirectionHook(s, action) {
+  if (!action || (action.kind !== "sound-direction" && action.type !== "sound-direction")) return false;
+  try {
+    const v = action.value && typeof action.value === "object" ? action.value : {};
+    const cur = readSoundChoices(RUN);
+    let rec = cur.legacy ? normalizeChoices({}) : cur.record; // no record yet: the user's first choice starts one
+    const before = soundIdentity(cur.legacy ? null : cur.record);
+    const notes = [];
+    if (v.preset && !(isObj(v.choices) && Array.isArray(v.explicit))) { const a = applyPreset(rec, String(v.preset)); if (a.error) notes.push(a.error); else { rec = a.record; if (a.kept_explicit.length) notes.push(`kept your choices: ${a.kept_explicit.join(", ")}`); } }
+    // Studio sends its whole SoundDirection ({choices, explicit, preset, revision, source}): `explicit` is then the authority on what the person decided (a preset's values are not theirs), so the record is taken as sent
+    const whole = isObj(v.choices) && Array.isArray(v.explicit);
+    if (whole) rec = normalizeChoices({ choices: v.choices, explicit: v.explicit, preset: v.preset, source: ["user", "preset", "recommend"].includes(String(v.source)) ? v.source : "user" });
+    const pairs = whole ? [] : v.choices && typeof v.choices === "object" ? Object.entries(v.choices) : v.key ? [[String(v.key), v.value]] : [];
+    for (const [k, x] of pairs) rec = setChoice(rec, k, x);
+    let w = null;
+    if (v.preset || pairs.length || whole) { w = writeSoundChoices(RUN, rec); if (!w.ok) notes.push(`not saved: ${(w.errors || []).join("; ")}`); }
+    if (v.revision_request && typeof v.revision_request === "object") {
+      const act = REVISE_ACTION[String(v.revision_request.kind)];
+      if (!act) notes.push(`unknown revision ${JSON.stringify(v.revision_request.kind)} (${Object.keys(REVISE_ACTION).join(", ")})`);
+      else {
+        const argv = [path.join(path.dirname(fileURLToPath(import.meta.url)), "music.mjs"), "revise", "--run", RUN, "--action", act];
+        const rid = typeof v.revision_request.track_id === "string" && v.revision_request.track_id ? v.revision_request.track_id : typeof v.revision_request.candidate === "string" ? v.revision_request.candidate : ""; // Studio names it `candidate`
+        if (rid) argv.push("--track-id", rid);
+        try { execFileSync(process.execPath, argv, { stdio: ["ignore", "pipe", "pipe"], timeout: 60000 }); } catch (e) { notes.push(`music revision not applied: ${String((e.stderr || e.message) || "").trim().split("\n").pop().slice(0, 160)}`); }
+      }
+    }
+    if (typeof v.generation_consent === "boolean") {
+      fs.mkdirSync(path.join(RUN, "audio"), { recursive: true });
+      fs.writeFileSync(path.join(RUN, "audio", "generation-consent.json"), JSON.stringify({ consented: v.generation_consent, by: "user", at: new Date().toISOString(), note: "the user's own answer; a key in the environment or a recommendation is never consent" }, null, 2) + "\n");
+    }
+    const after = readSoundChoices(RUN), dir = readDirection(RUN).direction;
+    const afterMap = soundIdentity(after.legacy ? null : after.record);
+    const res = after.legacy ? null : resolveSound({ choices: after.record, direction: dir });
+    const impact = soundChangeImpact({ before, after: afterMap, music_led: !!(dir && dir.roles && dir.roles.music && dir.roles.music.role === "led"), narrated: !(res && res.resolved) || res.resolved.voice_role === "carrier" });
+    const payload = lookSoundPayload({ impact: { changes: impact.changes, stale: impact.stale, keep: impact.keep, visuals_rebuilt: impact.visuals_rebuilt, needs_user: impact.needs_user }, ...(notes.length ? { notes } : {}) });
+    if (payload && isObj(s.steps) && isObj(s.steps.look)) s.steps.look = { ...s.steps.look, sound: payload };
+    activity(s, notes.length ? `Sound direction: ${notes.join("; ")}` : `Sound direction updated${w && w.ok ? ` (revision ${w.revision})` : ""}${impact.visuals_rebuilt ? "; pictures would be rebuilt" : "; pictures are kept"}`, notes.length && !(w && w.ok) ? "warn" : "info", null);
+  } catch (e) { activity(s, `Sound direction not recorded: ${e.message}`, "warn", null); }
+  return true;
+}
+
 // Plan 10 U3/U6: `revision-request` (the person's words + where they pointed + the revision they were watching) is read once by lib/revision-intent.mjs into a scoped, pinned
 // request in <run>/revisions/requests.jsonl; an ambiguous one shows ONE interpretation and waits for `revision-confirm` ({idempotency_key, accept}). The current approval stays valid
 // meanwhile. Studio and the browser console send the same payload (docs/plans/PLAN10_NATIVE_DIRECTING.md). Best effort: a failure is shown in the feed, not thrown.
@@ -451,6 +515,11 @@ function applyAction(s, action) {
   storyboardHooks(s, action);
   if (motionEditHook(s, action)) return;
   if (soundHook(s, action)) return;
+  if (soundDirectionHook(s, action)) return;
+  // Addendum 2: a Brief submit may carry the user's sound choices (fields.sound); they are recorded as theirs (explicit where decided). Best effort, never blocks the answer.
+  if (action.step === "brief" && action.type === "submit" && isObj(action.value) && isObj(action.value.sound)) {
+    try { const rec = normalizeChoices(action.value.sound); if (!rec.legacy) { const w = writeSoundChoices(RUN, rec); if (!w.ok) activity(s, `Sound choices not saved: ${(w.errors || []).join("; ")}`, "warn", null); } } catch (e) { activity(s, `Sound choices not saved: ${e.message}`, "warn", null); }
+  }
   if (revisionHook(s, action)) return;
   const typoReply = typographyNoteHook(s, action);
   if (jobControlHook(s, action)) return;
@@ -697,6 +766,28 @@ if (cmd === "push") {
     if (ph && ph.fresh) next.proxy = ph.proxy;
     else if (ph) spawnProxy(args.step, ph.video);
   }
+  // V3 W09 (policy revision >= 2 only; revision 1 and legacy runs are untouched): the render/final push states what the output truly is. The assessment rides in the existing note slot
+  // and in creative_completion; the approve action, step order and controls are unchanged. Guarded: a missing helper never blocks a push.
+  if (["render", "final"].includes(args.step) && ["awaiting", "done"].includes(next.status)) {
+    try {
+      const CR = await import("./lib/creative-run.mjs");
+      const plan = CR.readPlan(RUN);
+      if (plan && Number(plan.creative_policy_revision) >= 2) {
+        const CC = await import("./lib/creative-completion.mjs");
+        const vf = newestVideo(next) ? payloadFile(newestVideo(next)) : null;
+        const brief = readJSON(path.join(RUN, "creative", "brief.json"), null);
+        const rv = CR.latestReview(RUN, "final");
+        const review = rv && rv.doc ? CR.normalizeReviewPaths(rv.doc, RUN) : null;
+        const pins = CR.approvalPins(RUN);
+        const digest = vf ? crypto.createHash("sha256").update(fs.readFileSync(vf)).digest("hex") : null;
+        const a = CC.assessCompletion({ approvals: { pins: Object.fromEntries(Object.entries(pins || {}).map(([k, v]) => [k, v && v.artifact_digest ? v.artifact_digest : v])) }, contract: { brief, stage: "final", ...(typeof CR.sequenceRecordsFor === "function" ? (() => { const q = CR.sequenceRecordsFor(RUN); return q ? { sequence: q } : {}; })() : {}) }, output: { digest, exists: !!vf, playable: !!vf, duration_s: Number(next.duration) || undefined }, review: review ? { ...review, round: Number.isInteger(review.round) ? review.round : rv.n } : null });
+        next.creative_completion = { state: a.state, allowed_labels: a.allowedLabels, reasons: (a.reasons || []).slice(0, 4), next_decisions: a.nextDecisions || [] };
+        if (!next.note) next.note = CC.completionStatusLine(a);
+      }
+    } catch (e) { /* completion is advisory at push time; crew.mjs creative gate is the gate */ }
+  }
+  // Addendum 2: the Look carries the user's sound direction (Studio's LookStage reads it, falling back to brief.fields.sound). A project with no sound record gets nothing.
+  if (args.step === "look" && !next.sound) { try { const sp = lookSoundPayload(); if (sp) next.sound = sp; } catch { /* the Look is unchanged */ } }
   s.steps[args.step] = next;
   // closing a call locks what it approved (lib/locks.mjs); an identical re-push keeps the old lock
   if (next.status === "done") for (const [layer, L] of Object.entries(LAYERS)) {

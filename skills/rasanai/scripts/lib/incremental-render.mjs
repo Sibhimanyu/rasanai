@@ -18,6 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { boundaryTime } from "./render-keys.mjs";
+import { audioScopeImpact } from "./impact.mjs";
 
 export const RENDER_PATHS = Object.freeze(["verified_fragment", "scene_host", "group_host", "continuity_group", "full_film"]);
 const SEVERITY = Object.fromEntries(RENDER_PATHS.map((p, i) => [p, i]));
@@ -131,10 +132,24 @@ export function audioPlan(o = {}) {
   const kinds = new Set(arr(o.changed_node_kinds));
   const soundChanged = kinds.has("sound-mix") || kinds.has("voice") || kinds.has("music") || kinds.has("mix");
   const visualOnly = o.timing_changed === false && !soundChanged; // unknown (null/undefined) is NOT visual-only
-  // the authority for reuse is the mix receipt's input digests (score revision, cues, direction, contract, stems), never a file name or the kind of edit
-  const reuse = o.receipt && typeof o.reuseDecision === "function" ? o.reuseDecision({ receipt: o.receipt, current: o.current_inputs }) : null;
+  // Addendum 2: an audition-only flag (mute/solo, audio/mix-state.json) is never a mix input. If the caller's inputs carry one, the mix is NOT reused on its strength and the leak is named.
+  const cur = o.current_inputs && typeof o.current_inputs === "object" ? o.current_inputs : null;
+  const leak = cur ? Object.keys(cur).filter((k) => /^(mix[_-]?state|audition|solo|muted?)$/i.test(k)) : [];
+  // the authority for reuse is the mix receipt's input digests (score revision, cues, direction, contract, stems, and for new work the selected source/section, stem identity, bus-plan digest and processor), never a file name or the kind of edit
+  // `file` (optional) is the candidate cached path: reuseDecision then also refuses a file the receipt did not make. A receipt without the extended keys is a LEGACY receipt: it is read as before.
+  const reuse = o.receipt && typeof o.reuseDecision === "function" && !leak.length ? o.reuseDecision({ receipt: o.receipt, current: o.current_inputs, ...(o.file ? { file: o.file } : {}) }) : null;
   const reuseMix = !!(reuse && reuse.reuse === true);
-  return { visual_only: visualOnly, timing_changed: o.timing_changed ?? null, reuse_existing_mix: reuseMix, reuse_detail: reuse, remix: reuseMix ? [] : ["music edit points", "voice/sfx cue times", "ducking envelopes", "mix receipt"], note: reuseMix ? "the mix receipt still matches its inputs: the audio timeline stays continuous and is reused, not remixed" : reuse ? `the mix is not reused: ${reuse.reason}` : "no mix receipt to compare with: the mix cannot be shown to match, so it is rebuilt from its inputs (only the cues that depend on the change are remapped)" };
+  const base = { visual_only: visualOnly, timing_changed: o.timing_changed ?? null, reuse_existing_mix: reuseMix, reuse_detail: reuse, remix: reuseMix ? [] : ["music edit points", "voice/sfx cue times", "ducking envelopes", "mix receipt"], note: leak.length ? `the inputs carry audition state (${leak.join(", ")}): mute/solo never reaches the delivered mix, so it is not an input and the mix is rebuilt from real inputs` : reuseMix ? "the mix receipt still matches its inputs: the audio timeline stays continuous and is reused, not remixed" : reuse ? `the mix is not reused: ${reuse.reason}` : "no mix receipt to compare with: the mix cannot be shown to match, so it is rebuilt from its inputs (only the cues that depend on the change are remapped)" };
+  if (leak.length) base.audition_leak = leak;
+  // Addendum 2: a SOUND edit of a known scope (lib/impact.mjs AUDIO_SCOPES: gain_eq, effects_policy, cue_source, music_section, music_track, timing_edit, voiceover, ending) re-does only its consumers.
+  // Pictures stay unless the scope itself moves timing: a gain-only change never rebuilds an unchanged visual, and `visual_scenes_to_rebuild` says so explicitly.
+  if (o.sound_scope) {
+    const sc = audioScopeImpact(o.sound_scope, arr(o.touched), { music_led: !!o.music_led, narrated: o.narrated !== false });
+    if (!sc.ok) return { ...base, sound_scope: null, error: sc.error };
+    const audioRedo = sc.invalidates.filter((x) => x !== "visual_renders");
+    return { ...base, sound_scope: sc.scope, scope_label: sc.label, remix: reuseMix ? [] : audioRedo, keep: sc.keeps, needs_user: sc.needs_user, reuse_visuals: !sc.visuals_rebuilt, visual_scenes_to_rebuild: sc.visuals_rebuilt ? "only the scenes whose score timing moved (planIncremental)" : [], note: `${base.note}${reuseMix ? "" : `; scoped to ${sc.label}: ${audioRedo.join(", ")} re-done`}${sc.visuals_rebuilt ? "" : "; unchanged visuals are kept"}` };
+  }
+  return base;
 }
 
 // the film-wide finish is applied once. Fragments are PRE-finish intermediates; a fragment whose node already carries a grade/blur would be finished twice.

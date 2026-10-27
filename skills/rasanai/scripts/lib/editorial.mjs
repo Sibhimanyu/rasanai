@@ -10,9 +10,12 @@
 //   classifyBeatChange(change) -> { class: meaning | subdivision | timing | presentation, route, reopens_story }   proposeBeatChange(o)
 //   noteToRevision(note, anchor, ctx) -> an editorial revision request (never "more animation" by default)
 //   optionalRhythmChecks(shots, styleOptions)  opt-in, evidence-bearing style checks
+//   W05 temporal checks (additive; run only on shots that carry reads / bindings / composition, so legacy boards are judged exactly as before):
+//   evaluateTemporal(shots, ctx) -> { active, findings, inventory, ending, unassessed } / compositionInventory(shots) / CUT_FUNCTION_HINTS / KIND_TEMPORAL_EXPECTATIONS
 import { revisionKey, SCHEMA_VERSION } from "./contracts.mjs";
 import { impact } from "./impact.mjs";
 import { TRAVELING_KINDS, seamRelation } from "./continuity.mjs";
+import { toTicks } from "./timing.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -131,8 +134,117 @@ export function evaluateFilm(shots, ctx = {}) {
     else seen.set(k, sh.shot_id);
   }
   findings.push(...optionalRhythmChecks(S, ctx.styleOptions));
+  const tmp = evaluateTemporal(S, ctx);
+  if (tmp.active) findings.push(...tmp.findings);
   const errors = findings.filter((x) => x.severity === "major");
   return { ok: !errors.length, findings, errors: errors.length, minor: findings.length - errors.length };
+}
+
+// ---- W05: time-dependent shots: reads, cause before reaction, composition sameness, endings -----------------------------------------------------
+// Everything here is a finding with evidence, never a rewrite: it never shortens, speeds up or lengthens a shot (the user's duration and budget stand).
+// Reading-time heuristics stay warnings with a stated assumption. A repeated subject is NOT a defect; only an unprogressed reset of the same composition is.
+// shot extras (see storyboard.mjs normalizeShot): reads[{id,event_id,source_interval|interval,minimum_read_basis,competing_reads,...}], bindings{initial,action,consequence},
+// composition{focal_subject,scale,framing,ground,density,action_register,repeat_reason,...}, editorial.anticipation_reason
+// A read's resolved window: ctx.intervals (normalizeReads().intervals) wins, else the shot's own source_interval seconds. Returns null when it has no numeric window.
+const windowOf = (r, intervalsById) => {
+  const iv = intervalsById.get(r.id);
+  if (iv) return { start: iv.start_tick, end: iv.end_tick, stale: iv.stale };
+  const si = isObj(r.source_interval) ? r.source_interval : isObj(r.interval) ? r.interval : {};
+  const a = num(si.start_s ?? si.start), b = num(si.end_s ?? si.end);
+  return a != null && b != null && b >= a ? { start: toTicks(a), end: toTicks(b), stale: false } : null;
+};
+const REGISTER_KEYS = ["focal_subject", "scale", "framing", "ground", "density", "action_register"];
+// the film-level composition inventory: one row per shot and its relation to the neighbours (the facts the reviewer reads; no verdict here)
+export function compositionInventory(shots) {
+  const S = arr(shots);
+  return S.map((sh, i) => {
+    const c = isObj(sh && sh.composition) ? sh.composition : null;
+    const prev = i > 0 && isObj(S[i - 1] && S[i - 1].composition) ? S[i - 1].composition : null;
+    const same = c && prev ? REGISTER_KEYS.filter((k) => T(c[k]) && T(c[k]) === T(prev[k])) : [];
+    return { shot_id: T(sh && sh.shot_id), ...(c ? { ...Object.fromEntries(REGISTER_KEYS.map((k) => [k, T(c[k]) || null])), anchor_ids: arr(c.anchor_ids), representation_level: T(c.representation_level) || null } : { declared: false }), shares_with_previous: same };
+  });
+}
+export const CUT_FUNCTION_HINTS = { cause: "the next shot shows what the last one set in motion", contrast: "two things set against each other", ellipsis: "time or space skipped on purpose", viewpoint: "same subject, different vantage", evidence: "the claim, then its proof", rhythmic_punctuation: "a beat, not a meaning", separation: "a new context, nothing carried" };
+// What each bounded kind should show the reviewer in the temporal storyboard (specs for the deferred cases KND-04/10/12/13; data for the reviewer, not a gate)
+export const KIND_TEMPORAL_EXPECTATIONS = Object.freeze({
+  "instructional-explainer": { case: "KND-04", reads: "each step is a read whose cause precedes its result; the sourced relationship is understandable before the analogy is left", limits: "analogy limits stay on screen or in the narration at the read that uses them" },
+  "evidence-case-study": { case: "KND-10", reads: "an attributed, permitted result is read together with its qualifier; the qualifier is a protected text role", limits: "no invented improvement graph: a chart read needs a source_ref" },
+  "music-lyric-film": { case: "KND-12", reads: "supplied lyrics/sync set the read windows; picture relates to the music on purpose (illustrate, answer, counter)", limits: "launch grammar (feature cards, claim ladder) does not spill into a lyric film" },
+  "footage-led-story": { case: "KND-13", reads: "speaker and source meaning set the order; an editorial cut says its function; cause precedes reaction across cuts", limits: "a generated or illustrative shot is labelled so and never reads as recorded footage" },
+});
+export function evaluateTemporal(shots, ctx = {}) {
+  const S = arr(shots);
+  const findings = [], unassessed = [];
+  const active = S.some((s) => arr(s && s.reads).length || (s && s.bindings) || (s && s.composition));
+  if (!active) return { active: false, findings, inventory: [], ending: null, unassessed };
+  const byId = new Map(arr(ctx.intervals).map((x) => [x.id, x]));
+  const push = (f) => findings.push({ route: "storyboard", ...f });
+  S.forEach((sh, i) => {
+    const id = T(sh.shot_id);
+    const R = arr(sh.reads);
+    const wins = R.map((r) => ({ r, w: windowOf(r, byId) }));
+    for (const { r, w } of wins) {
+      if (!w) { unassessed.push({ shot_id: id, read_id: r.id, why: "no numeric window to judge" }); continue; }
+      if (w.stale) { push({ id: "read-stale", severity: "major", shot_id: id, read_id: r.id, message: `${id}/${r.id}: the read window belongs to an older score; re-map it (nothing is re-timed for you)` }); continue; }
+      // reading-time heuristic with its stated assumption: min_s comes from minimum_read_basis or the shot's copy; absent either, the read is not assessed
+      // addendum 1: a protected read (primary copy, product evidence) may state its own basis in protected_read.min_s_basis; reading time follows that content and context, never a default
+      const mb = isObj(r.minimum_read_basis) ? r.minimum_read_basis : {};
+      const pr = isObj(r.protected_read) && r.protected_read.required === true ? r.protected_read : null;
+      const pb = pr && isObj(pr.min_s_basis) && num(pr.min_s_basis.min_s) != null ? pr.min_s_basis : null;
+      const b = num(mb.min_s) == null && pb ? pb : mb;
+      const need = num(b.min_s);
+      const have = (w.end - w.start) / 1e6;
+      if (need == null) { unassessed.push({ shot_id: id, read_id: r.id, why: pr ? "protected read has no min_s basis (minimum_read_basis or protected_read.min_s_basis); a hold length is not guessed" : "minimum_read_basis has no min_s; heuristics are not guessed" }); continue; }
+      if (need > have + 1e-6) push({ id: b === pb ? "protected-read-short" : "read-window-short", severity: have < need * 0.7 ? "major" : "minor", shot_id: id, read_id: r.id, needed_s: need, have_s: Math.round(have * 1e3) / 1e3, assumption: T(b.assumption) || "stated minimum_read_basis",
+        message: `${id}/${r.id}: this read needs about ${need} s (${T(b.assumption) || "stated basis"}) and has ${Math.round(have * 100) / 100} s; ask for fewer messages, different staging (another channel, an earlier set-up) or more time, or record why it is enough. Do not just speed the action up` });
+    }
+    // overlapping reads are legitimate when independent channels cooperate; the Director must say why the viewer can follow both
+    for (let a = 0; a < wins.length; a++) for (let b = a + 1; b < wins.length; b++) {
+      const x = wins[a], y = wins[b];
+      if (!x.w || !y.w || !(x.w.start < y.w.end && y.w.start < x.w.end)) continue;
+      const tid = (r) => T(r.target_ref && r.target_ref.id);
+      const declared = [...arr(x.r.competing_reads), ...arr(y.r.competing_reads)].some((c) => c && (c.id === x.r.id || c.id === y.r.id) && T(c.why_followable || c.why))
+        || arr(x.r.competing).some((c) => c && tid(y.r) && c.ref === tid(y.r) && T(c.treatment)) || arr(y.r.competing).some((c) => c && tid(x.r) && c.ref === tid(x.r) && T(c.treatment));
+      const sameTarget = (T(x.r.attention_target) && T(x.r.attention_target) === T(y.r.attention_target)) || (tid(x.r) && tid(x.r) === tid(y.r));
+      if (!declared) push({ id: "reads-overlap-unexplained", severity: sameTarget ? "major" : "minor", shot_id: id, read_ids: [x.r.id, y.r.id], message: `${id}: reads ${x.r.id} and ${y.r.id} overlap${sameTarget ? " on the same attention target" : ""}; say in competing_reads why the viewer can follow both (a different channel: picture vs sound, face vs text) or stage them in sequence` });
+    }
+    // addendum 1: ordered attention. Findings state what is missing from the authored sequence; they never say a viewer understood or that it looks right.
+    const ordered = R.filter((r) => isObj(r) && (r.target_ref || r.transfer_change || r.intended_understanding || r.order != null)).sort((p, q) => (num(p.order, 1e9)) - (num(q.order, 1e9)));
+    ordered.forEach((r, k) => {
+      if (!T(r.intended_understanding)) push({ id: "attention-understanding-unstated", severity: "minor", shot_id: id, read_id: r.id, message: `${id}/${r.id}: no intended_understanding (what the viewer should take from this read); a playback reviewer has nothing to compare with` });
+      if (k < ordered.length - 1 && !(isObj(r.transfer_change) ? T(r.transfer_change.kind || r.transfer_change.note) : T(r.transfer_change))) push({ id: "attention-transfer-unstated", severity: "minor", shot_id: id, read_id: r.id, message: `${id}/${r.id}: the next read follows, but no transfer_change says what moves the emphasis (scale, contrast, focus, position, overlap, motion or stillness: the direction's choice; stillness is valid)` });
+    });
+    // cause before reaction (TMP-04): the consequence may not begin before the action that causes it, unless anticipation is motivated by the concept
+    const bd = isObj(sh.bindings) ? sh.bindings : null;
+    if (bd && bd.action && bd.consequence && num(bd.action.start_s) != null && num(bd.consequence.start_s) != null && bd.consequence.start_s < bd.action.start_s) {
+      const ant = (bd.consequence.anticipation && bd.consequence.anticipation.motivated === true && T(bd.consequence.anticipation.reason)) || T(sh.editorial && sh.editorial.anticipation_reason);
+      if (!ant) push({ id: "reaction-before-cause", severity: "major", shot_id: id, message: `${id}: the consequence starts (${bd.consequence.start_s} s) before its action (${bd.action.start_s} s); reorder, or record the anticipation the selected concept motivates (bindings.consequence.anticipation.reason)` });
+    }
+    if (bd && bd.initial && bd.action && num(bd.initial.start_s) != null && num(bd.action.start_s) != null && bd.action.start_s < bd.initial.start_s) push({ id: "action-before-initial-state", severity: "minor", shot_id: id, message: `${id}: the action begins before the initial state it changes is shown` });
+    if (bd && bd.action && !bd.consequence && sh.demonstrates) push({ id: "no-consequence", severity: "minor", shot_id: id, message: `${id}: a demonstration shows an action with no visible consequence (bindings.consequence)` });
+  });
+  // sameness (TMP-07) vs deliberate recurrence (TMP-06): a run of 3+ shots with the SAME composition fingerprint and no progression of the consequence, no repeat_reason
+  const fp = (sh) => { const c = isObj(sh && sh.composition) ? sh.composition : null; return c && REGISTER_KEYS.every((k) => T(c[k])) ? REGISTER_KEYS.map((k) => T(c[k]).toLowerCase()).join("|") : null; };
+  const progress = (sh) => T(sh && sh.bindings && sh.bindings.consequence && sh.bindings.consequence.state).toLowerCase();
+  const reason = (sh) => T((sh && sh.composition && sh.composition.repeat_reason) || (sh && sh.editorial && sh.editorial.repeat_reason));
+  const minRun = Math.max(2, num(ctx.sameness_run, 3));
+  for (let i = 0; i < S.length;) {
+    const k = fp(S[i]);
+    let j = i + 1;
+    while (k && j < S.length && fp(S[j]) === k) j++;
+    const run = S.slice(i, j);
+    if (k && run.length >= minRun && !run.some(reason)) {
+      const states = new Set(run.map(progress).filter(Boolean));
+      if (states.size < 2) push({ id: "composition-reset", severity: "minor", shot_ids: run.map((x) => x.shot_id), message: `${run.map((x) => x.shot_id).join(", ")}: ${run.length} shots reset the same composition (${REGISTER_KEYS.map((q) => `${q} ${T(run[0].composition[q])}`).join(", ")}) and the consequence does not progress; change what the viewer sees (scale, framing, ground, action) or record a repeat_reason (a refrain, a deliberate return). Returning to one subject is not itself a problem` });
+    }
+    i = j;
+  }
+  // endings (TMP-08): no universal tiny-ending or biggest-type quota; only whether the held ending resolves the opening and its read has its window
+  const last = S[S.length - 1];
+  const lastReads = arr(last && last.reads);
+  const ending = last ? { shot_id: T(last.shot_id), resolves: !!T(last.editorial && last.editorial.ends_by), has_reads: lastReads.length > 0, rule: "no universal minimum or maximum ending duration or type size; the window must fit the ending's own reads" } : null;
+  const attn = S.reduce((n, sh) => n + arr(sh && sh.reads).filter((r) => isObj(r) && (r.target_ref || r.transfer_change || r.order != null)).length, 0);
+  return { active: true, findings, inventory: compositionInventory(S), ending, unassessed, ...(attn ? { attention: { reads: attn, playback_review_required: true, cannot_prove: "These findings cover timing, missing targets and stale bindings only; they do not show comprehension or aesthetic success. Assess the attention sequence in later playback." } } : {}) };
 }
 
 // Opt-in style checks. Each needs `evidence` (why this style wants it); without evidence the option is ignored. They are `style` severity: never a gate.

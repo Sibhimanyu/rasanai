@@ -34,6 +34,8 @@ import { loadPrefs } from "./lib/prefs.mjs";
 import { headsDuring, overlapShare } from "./lib/heads.mjs";
 import { destinationOf, zonesFor, boxInZones } from "./lib/safezones.mjs";
 import { checkFrames } from "./lib/framecheck.mjs";
+import { finalCompletion } from "./lib/final-label.mjs";
+import { mixRevisionOf, busPlanForRun, writeBusPlan, renderBoundary } from "./lib/mix-bus.mjs";
 import { decideLanguage, installedModels, hasWhisperCli, whisperTranscribe, englishLooks } from "./lib/lang.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -981,6 +983,7 @@ async function build() {
     fs.mkdirSync(path.join(dir, "assets"), { recursive: true });
     fs.copyFileSync(musicSrc, path.join(dir, musicRel));
   }
+  let musicBus = null;
   const lanes = (pts) => `data-automation='${JSON.stringify({ version: 1, lanes: [{ target: "volume", points: pts }] })}'`;
   const media = [];
   const tweens = [];
@@ -1014,7 +1017,22 @@ async function build() {
       pts.push({ t: r3(a - 0.3), v: full }, { t: r3(a), v: duck }, { t: r3(b - 0.1), v: duck }, { t: r3(b + 0.2), v: full });
     }
     pts.push({ t: r3(Math.max(0.5, total - 1.5)), v: full }, { t: total, v: 0 });
-    const clean = pts.sort((x, y) => x.t - y.t).filter((q, k, arr) => q.t >= 0 && q.t <= total && (k === 0 || q.t > arr[k - 1].t));
+    let clean = pts.sort((x, y) => x.t - y.t).filter((q, k, arr) => q.t >= 0 && q.t <= total && (k === 0 || q.t > arr[k - 1].t));
+    // revision 2 (--run with mix_policy_revision 2): the speech space comes from the bus plan (voice spans = the clips that keep their sound; bounded-max reduction, one definition for every
+    // route) instead of the private 0.8 -> 0.18 arithmetic above. data-volume stays 1 and the lane carries the absolute linear level, so the two never multiply. The 0.4 s fade-in and the
+    // 1.5 s fade-out stay. The plan is written to audio/automation.json for the mix receipt.
+    if (args.run && args.run !== true && mixRevisionOf(path.resolve(String(args.run))) >= 2) {
+      const RR = path.resolve(String(args.run));
+      const spans = segs.filter((x) => x.kind === "clip" && x.audio && x.volume > 0).map((x) => ({ id: `a-${String(x.i + 1).padStart(2, "0")}`, start_s: r3(Math.max(0.5, x.start)), end_s: r3(x.start + x.dur) }));
+      const plan = busPlanForRun(RR, { music: { volume: full }, voice_spans: spans, cues: [], film_s: total });
+      const bed = renderBoundary(plan, "ffmpeg-reel").elements.find((e) => e.role === "music");
+      const lane = bed && bed["data-automation"] ? bed["data-automation"].lanes[0].points : null;
+      const val = (t) => { if (!lane) return bed["data-volume"]; if (t <= lane[0].t) return lane[0].v; for (let k = 1; k < lane.length; k++) if (t <= lane[k].t) { const a = lane[k - 1], b = lane[k]; return r3(a.v + (b.v - a.v) * ((t - a.t) / ((b.t - a.t) || 1))); } return lane[lane.length - 1].v; };
+      const tailT = r3(Math.max(0.5, total - 1.5));
+      const pts2 = [{ t: 0, v: 0 }, { t: 0.4, v: val(0.4) }, ...(lane ? lane.filter((q) => q.t > 0.4 && q.t < tailT) : []), { t: tailT, v: val(tailT) }, { t: total, v: 0 }];
+      clean = pts2.sort((x, y) => x.t - y.t).filter((q, k, arr) => q.t >= 0 && q.t <= total && (k === 0 || q.t > arr[k - 1].t));
+      musicBus = { plan_digest: plan.digest, ...writeBusPlan(RR, plan), flags: plan.flags.map((f) => f.check) };
+    }
     media.push(`<audio id="music-bed" src="${musicRel}" data-start="0" data-duration="${total}" data-media-start="${Number(R.music.start || 0)}" data-volume="1" data-track-index="20" ${lanes(clean)}></audio>`);
   }
 
@@ -1100,8 +1118,10 @@ ${MARK}
     if (rr.status !== 0 || !fs.existsSync(outFile)) die(`render failed:\n${(rr.stdout + rr.stderr).trim().split("\n").slice(-25).join("\n")}`);
     const info = probe(outFile);
     rendered = { file: path.relative(ws, outFile), duration: info.duration, size: `${info.width}x${info.height}`, audio: info.has_audio };
+    const completion = finalCompletion(args.run, outFile); // revision 2 runs only (--run <run>); null otherwise. A reel render is a draft until reviewed
+    if (completion) rendered.completion = completion;
   }
-  console.log(JSON.stringify({ ok: true, project_dir: path.relative(ws, dir), total_s: total, clips: segs.filter((s) => s.kind === "clip").length, cards: segs.filter((s) => s.kind === "card").length, overlays: overlaySegs.length, caption_groups: groups.length, music: musicRel, edl: path.relative(ws, path.join(dir, "reel.edl.json")), wrote, warnings, checks, rendered }, null, 2));
+  console.log(JSON.stringify({ ok: true, project_dir: path.relative(ws, dir), total_s: total, clips: segs.filter((s) => s.kind === "clip").length, cards: segs.filter((s) => s.kind === "card").length, overlays: overlaySegs.length, caption_groups: groups.length, music: musicRel, ...(musicBus ? { music_bus: musicBus } : {}), edl: path.relative(ws, path.join(dir, "reel.edl.json")), wrote, warnings, checks, rendered }, null, 2));
 }
 
 // rendered-frame checks: does a graphic cover a face, is text under platform UI (warnings; needs a render)

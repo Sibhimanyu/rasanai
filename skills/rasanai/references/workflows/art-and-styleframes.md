@@ -43,6 +43,10 @@ The music, the score and the build come after the boards: the Motion Director sc
 - The juror also writes `creative/reviews/storyboard-r<N>.json` (the images it really opened, per-shot judgments with exact repairs, set-level progression / repetition / signature, a `result`); `crew.mjs check --role frame-juror` validates it. A valid file is not a good verdict.
 - A branded direct film no longer treats the styleframes call as the Look call: the Look is confirmed first at the Look step; the boards are shown (`styleframes-show`) and the Storyboard review is the next human decision.
 
+### Revision 2 (v3)
+
+Boards are the storyboard's temporal reads: ordered audience reads with intervals on the score's timebase ([temporal-storyboard.md](../temporal-storyboard.md)), with the continuity owner and object identities for each required event ([continuity-ownership.md](../continuity-ownership.md)). Procedural fields, forms and camera space are planned from what the runtime can already do ([procedural-space.md](../procedural-space.md)); a flat card is never presented as a sculptural form. Assets are composited by the existing layers with rights kept in the existing ledger ([asset-compositing.md](../asset-compositing.md)).
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):
@@ -56,3 +60,4 @@ The canonical homes of the detail this guide points at (read the one the current
 | generated images in any route: when, prompt craft, the anchor, review, the slop list | `references/imagery.md`, `scripts/imagegen.mjs` |
 | thinking orbs (RasanOrbs): nine "AI is working" states, 64/20/hero, brand colour | `references/orbs.md`, `runtime/rasan-orbs.js` |
 | the selected medium's native actions and worked mechanisms (conditional, scene routes with a selected medium only; examples only for a stated communication problem, and never copy a whole example) | `references/medium-direction.md`, `references/medium-examples.md` |
+| connected sequences: sequence records, motion handoffs between scenes, optical treatments, product choreography (records checked statically; playback review owed) | `references/sequence-contracts.md`, `references/motion-handoffs.md`, `references/optical-treatments.md`, `references/product-choreography.md`, `references/motif-roles.md` |

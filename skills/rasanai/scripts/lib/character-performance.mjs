@@ -231,3 +231,53 @@ export function toRigActions(doc, { actor = doc.character_id } = {}) {
   }
   return { medium: "painted-2d", actions: actions.sort((p, q) => p.at - q.at), limits };
 }
+
+// ---- V3 W08 (additive): acting, contact and discontinuity READ-OUTS -------------------------------------------------------------------------------
+// Pure functions of a performance document; no rig, render or clock. They report what the TRACKS declare (source-level evidence); whether the drawn result reads is a
+// separate, visual judgement and is never claimed here. A commitment that allows stillness (hold_ok) is satisfied by a declared hold, so static emotion stays legitimate.
+//
+// commitments: [{ id, kind:"intention"|"anticipation"|"reaction"|"eyeline"|"contact"|"expression", t0_s, t1_s, hold_ok?, target?, name? }]
+// -> [{ id, kind, state:"declared"|"intentional-hold"|"not-declared", evidence:[...] }]   (callers map not-declared to capability_unavailable / review, never to a failure by itself)
+export function actingCoverage(doc, commitments = []) {
+  const d = isObj(doc) ? doc : {};
+  const within = (x, c) => num(x.t_s) && x.t_s < c.t1_s + 1e-9 && x.t_s + (x.dur_s ?? 0) > c.t0_s - 1e-9;
+  return (Array.isArray(commitments) ? commitments : []).filter(isObj).map((c) => {
+    const ev = [];
+    if (c.kind === "expression" || c.kind === "reaction" || c.kind === "intention") for (const x of d.expressions || []) if (within(x, c) && (!c.name || x.name === c.name)) ev.push(`expression:${x.name}@${x.t_s}`);
+    if (c.kind === "reaction" || c.kind === "anticipation" || c.kind === "contact" || c.kind === "intention") for (const g of d.gestures || []) if (within(g, c) && (!c.target || g.target === c.target)) ev.push(`gesture:${g.kind}@${g.t_s}`);
+    if (c.kind === "eyeline" || c.kind === "intention") for (const t of d.targets || []) if (t.kind === "gaze" && (t.keyframes || []).some((k) => num(k.t_s) && k.t_s >= c.t0_s - 1e-9 && k.t_s <= c.t1_s + 1e-9)) ev.push("target:gaze");
+    const hold = (d.foot_plants || []).some((f) => num(f.t0_s) && f.t0_s <= c.t0_s + 1e-9 && f.t1_s >= c.t1_s - 1e-9);
+    const state = ev.length ? "declared" : c.hold_ok && hold ? "intentional-hold" : "not-declared";
+    return { id: c.id ?? null, kind: c.kind ?? null, state, evidence: hold && state === "intentional-hold" ? ["hold:foot_plant"] : ev };
+  });
+}
+
+// object contact: a gesture with a `target` names what is held/touched for [t_s, t_s+dur_s]. Reports contact intervals the document declares and the ones a commitment
+// names that nothing declares or that end early. It cannot see a prop drift in the picture (that is a temporal visual read, W05/W09).
+export function contactCoverage(doc, commitments = []) {
+  const gs = (isObj(doc) && Array.isArray(doc.gestures) ? doc.gestures : []).filter((g) => num(g.t_s) && g.target);
+  return (Array.isArray(commitments) ? commitments : []).filter((c) => isObj(c) && c.kind === "contact").map((c) => {
+    const hits = gs.filter((g) => g.target === c.target && g.t_s <= c.t0_s + 1e-9);
+    const covering = hits.find((g) => g.t_s + (g.dur_s ?? 0) >= c.t1_s - 1e-9);
+    return { id: c.id ?? null, target: c.target ?? null, state: covering ? "declared" : hits.length ? "ends-early" : "not-declared", evidence: (covering || hits[0]) ? [`gesture:${(covering || hits[0]).kind}@${(covering || hits[0]).t_s}`] : [] };
+  });
+}
+
+// abrupt expression replacement: sample poseAt at fps and report frames where the weight vector jumps by more than maxStep (default 0.5) between adjacent frames.
+// An approved cut-based/stepped acting style passes allowAbrupt:true; the intervals are still returned as `intentional`.
+export function expressionDiscontinuities(doc, { fps = 30, maxStep = 0.5, allowAbrupt = false } = {}) {
+  const dur = isObj(doc) && num(doc.duration_s) ? doc.duration_s : 0;
+  const found = [];
+  let prev = null;
+  for (let f = 0; f <= Math.floor(dur * fps); f++) {
+    const t = f / fps, w = {};
+    for (const e of poseAt(doc, t).expressions) w[e.name] = e.weight;
+    if (prev) {
+      let step = 0;
+      for (const k of new Set([...Object.keys(prev), ...Object.keys(w)])) step = Math.max(step, Math.abs((w[k] || 0) - (prev[k] || 0)));
+      if (step > maxStep) found.push({ t0_s: r4((f - 1) / fps), t1_s: r4(t), step: r4(step) });
+    }
+    prev = w;
+  }
+  return { fps, max_step: maxStep, discontinuities: allowAbrupt ? [] : found, intentional: allowAbrupt ? found : [], basis: "declared expression tracks sampled with poseAt; not a measurement of rendered pixels" };
+}

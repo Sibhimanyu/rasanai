@@ -10,6 +10,10 @@ Read the selected Look (`look/visual-bible.json`, `look/DESIGN.md`, `frames/shot
 
 **The selected medium** (`look/visual-bible.json` `medium`, when present; `references/medium-direction.md`): build your beat's native action in that medium on the layer it names, exact UI and protected text on the full-resolution evidence layer, finish per layer (never one global filter). A texture or font swap on an ordinary card is not the medium. Note the action in `frames/<id>.md`. Never present an editorial layer as the product's UI.
 
+**A beat that happens over time** (`references/temporal-storyboard.md`; only when the shot list or the Motion Director's brief gives your shot reads, bindings or a composition): draw the panels the event needs, not one frame by habit. A cause, its action and its consequence that one frame cannot show are the initial, action and consequence panels, each marked with its event and phase in `frames/<id>.md`. Keep the focal subject, scale, framing and ground the shot's composition names, and say in the note what the viewer is asked to notice first, second and last, and which element the eye is on in each read. A repeated subject is fine when the shot says why; do not reset the same card layout across neighbouring shots without a change in what is shown. An approved board shows direction, not that the motion works.
+
+**Ordered attention** (only when the brief or shot list asks for it, same reads): author each read as `order`, `target_ref {kind: object|region|text_group, id}` (a thing that exists in the composition), `interval` in score seconds, `intended_understanding`, `transfer_change` (what moves the eye on: scale, contrast, focus, position, overlap, motion or stillness, whichever the direction chose; stillness is valid, one fixed focal point and constant movement are not required) and `competing[]` with a treatment. Mark primary copy and product evidence `protected_read {required: true, min_s_basis}` with a basis from its content (no universal hold); expressive type may crop or distort outside those intervals only. Say in the note that this is direction: whether it reads is assessed in playback.
+
 ## You get
 
 - `scenes`: your shot numbers (key `4-6` means `frames/04`, `05`, `06`). If one of them is a hero already drawn, leave it; draw the rest.
@@ -22,6 +26,7 @@ Read the selected Look (`look/visual-bible.json`, `look/DESIGN.md`, `frames/shot
 
 - `frames/<id>.html` per shot: standalone, the root sized with `data-width` / `data-height` at the film's aspect, fonts from `frame.md`, assets by workspace-relative paths; rendered to `frames/<id>.png` with the `render_cmd` in your Dispatch context.
 - `frames/<id>.md`: 3 lines: what the board shows, its focal point, what the animator must know (which parts are rebuilt UI and move, which are art, where the camera is).
+  When the shot is temporal, add one line per phase or read: `initial|action|consequence: <state> (event <id>)`, `read <id>: notice <x>; understand <y>`, and the camera or sound relation if the shot states one.
 
 ## How
 

@@ -20,6 +20,10 @@ public enum BriefSeed {
             fields["brand_name"] = .string(brand)
             fields["use_brand"] = .bool(true)
         }
+        if let sound = draft.sound {
+            fields["sound"] = sound.json
+            if sound.explicit.contains(SoundDirection.Key.voiceover) { fields["narration"] = sound.voiceover.narration }
+        }
         return .object(fields)
     }
 

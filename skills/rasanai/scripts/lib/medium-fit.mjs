@@ -5,6 +5,7 @@
 // Codes against the frozen medium-profile@1 / assignment shapes in the M01 contract; unknown fields are tolerated.
 import { canonicalDigest } from "./contracts.mjs";
 import { proposeMediumAdaptations, DEFAULT_ADAPTATION_CATALOG } from "./medium-adaptations.mjs";
+import { isBindingConstraint, MEDIUM_RESOLUTION_STATES } from "./medium-contract.mjs";
 
 export { proposeMediumAdaptations, DEFAULT_ADAPTATION_CATALOG };
 export const SELECTION_FORMAT = "medium-selection@1";
@@ -57,11 +58,11 @@ export function assessMediumEligibility(profile, assignment, resources = {}) {
   // 2. actual brand constraints (typed, sourced). Inferred preferences never block; they can only be uncertainty.
   const brand = isObj(a.brand) ? a.brand : {};
   for (const c of [...arr(brand.hard_constraints), ...arr(brand.motion_constraints)]) {
-    if (!isObj(c) || c.binding_kind === "inferred") continue;
+    if (!isObj(c) || !isBindingConstraint(c)) continue; // inferred, observed and proposed traits never block (v3: was binding_kind inferred only)
     if (constraintBlocks(c, p)) reasons.push(reason("brand_hard_constraint", c.id || c.source || null, `${str(c.reason, "declared brand constraint")} (scope: ${str(c.scope, "unspecified")})`, "hard", [c.source].filter(Boolean)));
   }
   // profile.hard_exclusions must name a real constraint kind present in the assignment, never an industry.
-  const kinds = new Set([...arr(brand.hard_constraints), ...arr(brand.motion_constraints)].filter((c) => isObj(c) && c.binding_kind !== "inferred").map((c) => low(c.kind)));
+  const kinds = new Set([...arr(brand.hard_constraints), ...arr(brand.motion_constraints)].filter((c) => isObj(c) && isBindingConstraint(c)).map((c) => low(c.kind)));
   for (const ex of arr(p.hard_exclusions)) {
     const k = low(isObj(ex) ? ex.constraint_kind || ex.constraint : ""); // integration fix: M01 names the field `constraint` ({constraint, reason})
     if (k && kinds.has(k)) reasons.push(reason("profile_hard_exclusion", isObj(ex) ? ex.id || k : k, str(ex.detail || ex.reason, `excluded by declared constraint ${k}`), "hard"));
@@ -297,6 +298,57 @@ export function validateFitDecision(decision, { assignment, profiles, expectedPi
   return { ok: !errors.length, errors, warnings };
 }
 
+// ---- v3 (W03): explicit medium resolution and Look alternatives --------------------------------------------------------
+export { MEDIUM_RESOLUTION_STATES };
+// reason codes from assessMediumEligibility that mean "the registry says this cannot be built here" (as opposed to a user or brand exclusion)
+const CAPABILITY_CODES = new Set(["not_buildable", "disabled", "not_permitted", "unavailable_here", "resource_policy", "planned", "reference_only"]);
+
+// Resolve what a Look actually is, in one of four explicit states. Pure; supplied facts only; never a probe and never a silent card fallback.
+//   profile/eligibility: the medium profile record and its assessMediumEligibility() result (null when the Look is a custom treatment)
+//   selected: the profile came from creative/medium-selection.json; judgmentsSupplied: the Director supplied fit judgments for it
+//   customDirection: {premise, primitives:[ids]} - a deliberate original treatment; supportedPrimitives: ids the runtime really supports
+// -> {state, reason, profile_id, candidate_id, conditions:[], unsupported:[], primitives:[], evidence_refs:[]}
+export function resolveMediumResolution({ profile = null, candidateId = null, eligibility = null, selected = false, judgmentsSupplied = false, customDirection = null, supportedPrimitives = null } = {}) {
+  const base = { profile_id: isObj(profile) ? profile.id ?? null : null, candidate_id: candidateId ?? (isObj(profile) ? profile.id ?? null : null), conditions: [], unsupported: [], primitives: [], evidence_refs: [] };
+  const out = (state, why, extra = {}) => ({ state, reason: why, ...base, ...extra });
+  if (isObj(customDirection) && (str(customDirection.premise).trim() || arr(customDirection.primitives).length)) {
+    const prims = uniq(arr(customDirection.primitives).map(str).filter(Boolean));
+    if (!prims.length) return out("needs-direction", "a custom treatment names no primitives: say which supported primitives carry it", { profile_id: null });
+    const sup = Array.isArray(supportedPrimitives) ? new Set(supportedPrimitives.map(str)) : null;
+    const bad = sup ? prims.filter((x) => !sup.has(x)) : [];
+    if (bad.length) return out("capability-blocked", `the custom treatment needs ${bad.join(", ")}, which the runtime does not support here: offer a feasible treatment through the Look/revision path`, { profile_id: null, primitives: prims, unsupported: bad });
+    return out("custom-supported", sup ? "an original treatment built only from supported primitives" : "an original treatment; primitive support was not checked (unknown, not assumed)", { profile_id: null, primitives: prims, ...(sup ? {} : { conditions: ["primitive support unverified"] }) });
+  }
+  if (!isObj(profile)) return out("needs-direction", "no medium was selected and no custom direction was given: a Director judgment is needed (an ordinary UI treatment is never chosen silently)");
+  const e = isObj(eligibility) ? eligibility : null;
+  if (e && e.state === "blocked") {
+    const hard = arr(e.reasons).filter((r) => r.severity === "hard");
+    const capHit = hard.filter((r) => CAPABILITY_CODES.has(r.code));
+    const unsupported = capHit.map((r) => r.code);
+    if (capHit.length) return out("capability-blocked", `${profile.id}: ${capHit.map((r) => r.detail).join("; ")}. A medium is never advertised as built because a runtime file exists`, { unsupported, evidence_refs: capHit.map((r) => r.constraint_ref).filter(Boolean) });
+    return out("needs-direction", `${profile.id} is excluded (${hard.map((r) => r.code).join(", ") || "hard constraint"}): choose another medium or a custom treatment`);
+  }
+  if (e && e.state === "unknown") return out("needs-direction", `${profile.id}: eligibility is unknown (${arr(e.reasons).filter((r) => r.severity === "unknown").map((r) => r.code).join(", ")}); direction is needed, not a guess`);
+  if (!selected) return out("needs-direction", `${profile.id} was not selected by the medium shortlist`);
+  if (!judgmentsSupplied) return out("needs-direction", `${profile.id} is eligible but no Director fit judgments exist (creative/medium-judgments.json is missing or empty): this is a deliberate gap, not a choice of the ordinary treatment`);
+  return out("selected", e && e.state === "conditional" ? "selected with named conditions" : "selected by the medium shortlist with supplied judgments", { conditions: e ? arr(e.reasons).filter((r) => r.severity === "condition").map((r) => r.code) : [] });
+}
+
+// How many Look alternatives a route produces. Brand ownership, a direct route or Fast alone never collapse the choice (count stays the requested
+// count, normally 3). Only an explicit user request does: reproduce/exact fidelity keeps full force (variation limited to what was authorized),
+// and an explicit existing delegation may reduce choice steps through the existing mechanism.
+//   userDirection: {exact_fidelity?, reproduce_existing?, authorized_variation?:[...], delegated?, source_action_id?}
+// -> {count, variation: "full"|"authorized-only"|"collapsed", forced, reason, authorized_variation:[], collapsed_by: null|"fidelity"|"delegation", source_action_id}
+export function lookAlternativePolicy({ requestedCount = null, route = "standard", brandOwned = false, userDirection = {} } = {}) {
+  const ud = isObj(userDirection) ? userDirection : {};
+  const want = Number.isInteger(requestedCount) && requestedCount >= 1 ? requestedCount : DEFAULT_REQUESTED_COUNT;
+  const src = ud.source_action_id ?? null;
+  if (ud.exact_fidelity === true || ud.reproduce_existing === true) return { count: 1, variation: "authorized-only", forced: true, reason: "the user asked to reproduce an existing film or exact look: fidelity keeps its force and only authorized variation is explored", authorized_variation: arr(ud.authorized_variation).map(str), collapsed_by: "fidelity", source_action_id: src };
+  if (ud.delegated === true) return { count: 1, variation: "collapsed", forced: false, reason: "the user explicitly delegated the choice through the existing mechanism: fewer choice steps", authorized_variation: [], collapsed_by: "delegation", source_action_id: src };
+  const why = brandOwned ? "a branded launch keeps its requested alternatives: shared protected identity, substantially different treatment (brand ownership alone is not delegation)" : route === "fast" || route === "direct" ? `the ${route} route keeps the requested alternatives; compact, not collapsed` : "the requested alternatives";
+  return { count: want, variation: "full", forced: false, reason: why, authorized_variation: [], collapsed_by: null, source_action_id: src };
+}
+
 // ---- Authored case fixtures for M09 (data only; never executed here) ---------------------------------------------
 const pixelProfile = { id: "pixel", family_id: "pixel-retro", execution_id: "pixel-native", style_refs: ["pixel"], native_actions: ["tile-assemble", "sprite-act", "palette-reveal"], capability_ref: null, state: "planned", proof_policy: { exact_ui: "assess-legibility", protected_text: "readable-or-separate-layer", claim_mutation: "forbidden" }, text_constraints: { unsupported_scripts: ["rtl"] } };
 export const MEDIUM_FIT_CASES = Object.freeze([
@@ -312,5 +364,13 @@ export const MEDIUM_FIT_CASES = Object.freeze([
   { id: "MF-same-card-three-adjectives", candidates: ["a", "b", "c"], differencesEqual: true, expect: { rejected_code: "not_distinct" } },
   { id: "MF-one-family-only", candidates: ["a", "b", "c"], note: "strict brief; one family feasible", expect: { notes_include: "distinct treatments within it" } },
   { id: "MF-offline-no-references", requestedCount: 3, candidates: ["a"], expect: { shortfall: { requested: 3, found: 1 }, silent_count_drop: false } },
+  // v3 (W03) deferred specs, data only: MED-01..08 / BRD-01..08 / EDGE-02 are mapped by W12, never executed here
+  { id: "MR-missing-judgments-needs-direction", note: "MED: eligible profile, no judgments file", resolve: { selected: true, judgmentsSupplied: false }, expect: { state: "needs-direction" } },
+  { id: "MR-capability-blocked-not-card", note: "MED: planned/unimplemented medium", resolve: { eligibility: { state: "blocked", reasons: [{ code: "not_buildable", severity: "hard", detail: "reference only" }] } }, expect: { state: "capability-blocked" } },
+  { id: "MR-custom-supported", resolve: { customDirection: { premise: "x", primitives: ["a"] }, supportedPrimitives: ["a"] }, expect: { state: "custom-supported" } },
+  { id: "MR-custom-unsupported-primitive", resolve: { customDirection: { premise: "x", primitives: ["cel-acting"] }, supportedPrimitives: ["a"] }, expect: { state: "capability-blocked" } },
+  { id: "BR-observed-layout-not-blocking", assignments: [{ brand: { hard_constraints: [{ id: "w1", kind: "two-column", authority: "observed", binding_kind: "observed", blocks: { tags: ["card"] } }] } }], expect: { not_blocked_by_brand: true } },
+  { id: "LA-branded-keeps-three", alternatives: { brandOwned: true, route: "direct" }, expect: { count: 3 } },
+  { id: "LA-exact-fidelity-keeps-force", alternatives: { userDirection: { exact_fidelity: true } }, expect: { count: 1, variation: "authorized-only", forced: true } },
   { id: "MF-locale-rtl-or-cjk", assignments: [{ destination: { script: "rtl", locale: "ar" } }], profile: pixelProfile, expect: { code: "locale_text_support", adaptation: "proof-layer-hybrid" } },
 ]);

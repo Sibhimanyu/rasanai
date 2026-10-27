@@ -69,7 +69,7 @@ import { formatShapesForRun } from "./lib/formats.mjs";
 import { readTime } from "./lib/reading.mjs";
 import { loadIntent, validateIntent } from "./lib/intent.mjs";
 import { STORY_GRAMMARS, grammarBrief, grammarKinds, OPTIONAL_TOOLS } from "./lib/story-grammars.mjs";
-import { normalizeTreatment, readTreatment, validateTreatment, validateTreatmentSet, validateReview, toLegacyPitch, toIntent, compareCandidates } from "./lib/treatment.mjs";
+import { normalizeTreatment, readTreatment, validateTreatment, validateTreatmentSet, validateReview, toLegacyPitch, toIntent, compareCandidates, conceptCard } from "./lib/treatment.mjs";
 import { retrieveReferences } from "./lib/story-refs.mjs";
 
 const args = parseArgs();
@@ -108,10 +108,21 @@ function treatmentCtx(a) {
   if (a.brief && a.brief !== true) {
     const j = rd(a.brief), b = j && j.brief ? j.brief : j || {};
     ctx.kind = b.communication_kind || undefined; ctx.must_show = Array.isArray(b.must_show) ? b.must_show : []; ctx.duration_s = Number(b.duration) || 0; ctx.scope = b.scope || undefined;
+    // V3 W02: the concept layer runs only for creative policy revision 2 (revision 1 and legacy films are never judged by it); the brief's fixed format/mechanism travel into the validators
+    const rev = Number(b.creative_policy_revision ?? (j && j.creative_policy_revision) ?? 0);
+    if (rev >= 2) {
+      ctx.concept = true;
+      const cx = (b.extensions && b.extensions.creative_thinking) || (j && j.extensions && j.extensions.creative_thinking) || {};
+      const fk = b.fixed_concept_kinds || cx.fixed_concept_kinds || (j && j.fixed_concept_kinds);
+      if (Array.isArray(fk) && fk.length) ctx.fixed_concept_kinds = fk.map(String);
+      const bm = b.brief_mechanism || b.mechanism || cx.brief_mechanism || (j && j.brief_mechanism);
+      if (typeof bm === "string" && bm.trim()) { ctx.brief_mechanism = bm; ctx.proposal_mode = true; }
+    }
     if (!ctx.evidence && Array.isArray(b.evidence_refs)) ctx.evidence = b.evidence_refs;
   }
   if (a.length && a.length !== true && !ctx.duration_s) ctx.duration_s = Number(a.length) || 0;
   if (a.kind && a.kind !== true) ctx.kind = String(a.kind);
+  if (a["policy-revision"] && a["policy-revision"] !== true && Number(a["policy-revision"]) >= 2) ctx.concept = true; // explicit opt-in when no brief is passed
   return ctx;
 }
 // --- the truth sheet -----------------------------------------------------------
@@ -999,7 +1010,7 @@ if (cmd === "truth") {
       list.forEach((t, i) => {
         const label = t.tag || TAGS_ORDER[i] || `T${i + 1}`;
         const full = { ...t, tag: t.tag || TAGS_ORDER[i] || null };
-        writeFile(path.join(dir, `pitch-${label}.json`), JSON.stringify({ ...toLegacyPitch(full, { label }), treatment: full }, null, 2));
+        writeFile(path.join(dir, `pitch-${label}.json`), JSON.stringify({ ...toLegacyPitch(full, { label }), ...(ctx.concept === true ? { concept_card: conceptCard(full) } : {}), treatment: full }, null, 2));
         writeFile(path.join(dir, `intent-${label}.json`), JSON.stringify(toIntent(full, {}), null, 2));
       });
       v.split = list.map((t, i) => `pitch-${t.tag || TAGS_ORDER[i] || `T${i + 1}`}.json`);
