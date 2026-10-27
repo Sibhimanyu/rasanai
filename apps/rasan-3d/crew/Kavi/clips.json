@@ -1,0 +1,25 @@
+{
+  "fps": 30,
+  "clips": {
+    "IdleBreathing": {
+      "frames": 90,
+      "seconds": 2.966666666666667
+    },
+    "Blink": {
+      "frames": 24,
+      "seconds": 0.7666666666666667
+    },
+    "LookAround": {
+      "frames": 90,
+      "seconds": 2.966666666666667
+    },
+    "Wave": {
+      "frames": 90,
+      "seconds": 2.966666666666667
+    },
+    "Walk": {
+      "frames": 60,
+      "seconds": 1.9666666666666666
+    }
+  }
+}

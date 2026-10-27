@@ -1,0 +1,43 @@
+{
+  "fps": 30,
+  "clips": {
+    "IdleBreathing": {
+      "frames": 90,
+      "seconds": 2.966666666666667
+    },
+    "Blink": {
+      "frames": 24,
+      "seconds": 0.7666666666666667
+    },
+    "LookAround": {
+      "frames": 96,
+      "seconds": 3.1666666666666665
+    },
+    "HappyBounce": {
+      "frames": 60,
+      "seconds": 1.9666666666666666
+    },
+    "Wave": {
+      "frames": 90,
+      "seconds": 2.966666666666667
+    },
+    "Walk": {
+      "frames": 60,
+      "seconds": 1.9666666666666666
+    },
+    "JumpAndLand": {
+      "frames": 72,
+      "seconds": 2.3666666666666667
+    },
+    "RaiseClapperboard": {
+      "frames": 72,
+      "seconds": 2.3666666666666667
+    },
+    "SnapClapperboard": {
+      "frames": 45,
+      "seconds": 1.4666666666666666
+    }
+  },
+  "rest": "Reference pose with clapper open 0.34 radians",
+  "coordinates": "Blender X right, -Y front, Z up; glTF X right, Y up, Z front"
+}
