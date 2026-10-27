@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.30.0 (2026-10-27): Creative overhaul v3: policy revision 2, concepts, temporal storyboards, continuity
 
 Implemented from the v3 creative overhaul handoff (Heresay briefs, 15 parts). Source-level only: checked with syntax and import loads, the skill-routing test, seven script suites and the Studio prompt parity test, but not rendered or tried on a real film, so no film-quality improvement is claimed. The film-pipeline, ffmpeg and Chrome test modules were not run.
 
