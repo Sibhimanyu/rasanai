@@ -11,6 +11,10 @@ final class DirectorMonitor {
         var pause: () -> Void = {}
         var showLog: () -> Void = {}
         var tell: () -> Void = {}
+        /// Stops the director and starts it again from the run's saved state (never two directors for one run).
+        var restart: () -> Void = {}
+        /// Nudges the step again: a note when Rasan is alive, a restart when it is not.
+        var retry: () -> Void = {}
     }
 
     /// The film the director is working on (the runtime's run), with its totals.
@@ -25,6 +29,15 @@ final class DirectorMonitor {
     private(set) var ledger: [URL: (tokens: Int, usd: Double, estimated: Bool, plan: Bool)] = [:]
     /// Set when the live film passes the budget the person chose and they have not dismissed the warning.
     private(set) var budgetLimit: Double?
+    /// Why RasanAI paused the director by itself (a loop or the budget), while it stays paused.
+    struct AutoPause: Equatable { enum Kind { case loop, budget }; var kind: Kind; var reason: String; var at: Date }
+    private(set) var autoPaused: AutoPause?
+    /// Commands the director was refused, read live from its output; `openBlock` is the one it has not got past.
+    private(set) var scanner = DirectorBlockScanner()
+    var openBlock: DirectorBlock? { scanner.open }
+    private var notifiedBlock: String?
+    /// How long the director must keep looking stuck before it is paused: long enough to ride out a retry that recovers.
+    static let loopGrace: TimeInterval = 120
     var actions = Actions()
 
     private weak var store: StudioStore?
@@ -39,6 +52,10 @@ final class DirectorMonitor {
     private var dirty = false
     private var dismissedBudget: Set<URL> = []
     private var loopAlerted = false
+    private var loopSince: Date?
+    /// Set on Resume: the repeat that triggered a pause is still in the history, so only events after this count.
+    private var resumedAt: Date?
+    private var lastBeat = Date.distantPast
     private var awaitingUser = false
     private var lastConsoleUpdate: Date?
     private var task: Task<Void, Never>?
@@ -56,7 +73,10 @@ final class DirectorMonitor {
         self.store = store
         actions = Actions(pause: { [weak store] in store?.pauseDirector() },
                           showLog: { [weak store] in store?.sheet = .log },
-                          tell: { [weak store] in store?.film?.beginTell() })
+                          tell: { [weak store] in store?.film?.beginTell() },
+                          restart: { [weak store] in store?.restartRasan() },
+                          retry: { [weak store] in store?.retryStep() })
+        ToolNeedCoordinator.shared.attach(store)
         let center = NSWorkspace.shared.notificationCenter
         wakeObservers = [center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.macDidWake() }
@@ -83,7 +103,12 @@ final class DirectorMonitor {
         if let loaded { summaries[run] = loaded }
     }
 
-    func dismissBudgetWarning() { if let run { dismissedBudget.insert(run) }; budgetLimit = nil }
+    /// Keep going: drops the warning, and wakes the director if the budget is what paused it.
+    func dismissBudgetWarning() {
+        if let run { dismissedBudget.insert(run) }
+        budgetLimit = nil
+        if autoPaused?.kind == .budget { store?.resumeDirector() }
+    }
     func raiseBudget(by amount: Double) {
         guard let store else { return }
         store.settings.budgetPerFilm = max(store.settings.budgetPerFilm, ceil(telemetry.cost.usd)) + amount
@@ -107,6 +132,7 @@ final class DirectorMonitor {
         var billing: Billing?
         var awaitingUser = false
         var lastConsoleUpdate: Date?
+        var scanner = DirectorBlockScanner()
     }
 
     private func tick() async {
@@ -127,13 +153,16 @@ final class DirectorMonitor {
                                     exitCode: runtime.lastExitCode, stopRequested: runtime.stopRequested, awaitingUser: running && awaitingUser,
                                     lastConsoleUpdate: lastConsoleUpdate,
                                     endedEarlyReason: runtime.recovery.map { [$0.title, runtime.recoveryDetail].filter { !$0.isEmpty }.joined(separator: ". ") },
-                                    lastWake: lastWake, paused: runtime.isFrozen)
+                                    lastWake: lastWake, paused: runtime.isFrozen, blocked: scanner.open)
         health = DirectorHealth.evaluate(telemetry, context: context)
+        if autoPaused != nil, !runtime.isFrozen { autoPaused = nil }
         updateKeepAwake(running: running, store: store)
+        if running, let live = runtime.runURL, now.timeIntervalSince(lastBeat) > 5 { lastBeat = now; Self.beat(run: live) }
         store.thawIfSentWhileFrozen()
         updateLedger()
         checkBudget(store: store)
         checkLoop(store: store)
+        checkBlock(store: store)
         if dirty, now.timeIntervalSince(lastSave) > 8 || !running { save() }
     }
 
@@ -149,7 +178,23 @@ final class DirectorMonitor {
 
     /// Time asleep is not silence: remember the wake so health measures from it, then let the store re-check any pending automatic resume.
     /// A frozen director was just thawed: the time it sat frozen is not silence, so health measures from now.
-    func noteResumed() { lastWake = Date() }
+    /// Tells the director's driver this app is watching, even when another launch started it: the driver then leaves a paused
+    /// director paused and leaves loop checks to the app.
+    nonisolated static func beat(run: URL) {
+        _ = FileManager.default.createFile(atPath: run.appendingPathComponent("director-watch").path, contents: Data())
+    }
+
+    func noteResumed() { lastWake = Date(); resumedAt = lastWake; autoPaused = nil; loopSince = nil }
+    /// The person saw the refusal, fixed its cause or restarted the director: it no longer holds the film's state.
+    func acknowledgeBlock() { scanner.acknowledge(); notifiedBlock = nil }
+
+    /// When the person last pressed Fix it, per block: a block seen again after that is a repeat, and Fix it becomes Restart Rasan.
+    private(set) var fixAttempts: [String: Date] = [:]
+    func noteFixAttempt(_ block: DirectorBlock) { fixAttempts[block.id] = Date() }
+    func blockRepeatedAfterFix(_ block: DirectorBlock) -> Bool {
+        guard let tried = fixAttempts[block.id] else { return false }
+        return block.at > tried
+    }
 
     private func macDidWake() {
         lastWake = Date()
@@ -160,11 +205,13 @@ final class DirectorMonitor {
         var input = Advance(telemetry: telemetry, logOffset: logOffset, rolloutPath: rolloutPath, rolloutOffset: rolloutOffset,
                             billing: billingResolved ? nil : (telemetry.agent == "codex" ? CodexBilling.detect() : (telemetry.agent == "claude" ? .metered : nil)))
         input.awaitingUser = awaitingUser
+        input.scanner = scanner
         let result = await Task.detached { Self.advance(input, run: run, log: log, final: final) }.value
         if result.telemetry != telemetry || result.logOffset != logOffset || result.telemetry.updatedAt != telemetry.updatedAt { dirty = true }
         telemetry = result.telemetry
         logOffset = result.logOffset; rolloutPath = result.rolloutPath; rolloutOffset = result.rolloutOffset
         awaitingUser = result.awaitingUser; lastConsoleUpdate = result.lastConsoleUpdate
+        scanner = result.scanner
         if result.billing != nil { billingResolved = true }
         if final { save() }
     }
@@ -174,7 +221,7 @@ final class DirectorMonitor {
         let file = log ?? run.appendingPathComponent("director.log")
         let read = DirectorUsageStore.readLines(file: file, from: state.logOffset)
         state.logOffset = read.offset
-        if !read.lines.isEmpty { state.telemetry.ingest(lines: read.lines, now: Date()) }
+        if !read.lines.isEmpty { state.telemetry.ingest(lines: read.lines, now: Date()); state.scanner.ingest(lines: read.lines, now: Date()) }
         if let billing = state.billing { state.telemetry.billing = billing }
         // Codex only reports final usage on the exec stream; its rollout file carries the live counters.
         if state.telemetry.agent == "codex", let thread = state.telemetry.sessionID {
@@ -206,6 +253,8 @@ final class DirectorMonitor {
         telemetry = DirectorTelemetry(); health = nil
         logOffset = 0; rolloutPath = nil; rolloutOffset = 0; billingResolved = false; wasRunning = false
         awaitingUser = false; lastConsoleUpdate = nil; loopAlerted = false; budgetLimit = nil; dirty = false
+        loopSince = nil; resumedAt = nil; autoPaused = nil
+        scanner = DirectorBlockScanner(); notifiedBlock = nil
         guard let target else { return }
         if let stored = await Task.detached(operation: { DirectorUsageStore.load(run: target) }).value {
             telemetry = stored.telemetry
@@ -242,16 +291,54 @@ final class DirectorMonitor {
         guard limit > 0, let run, !isPlanBilled, !dismissedBudget.contains(run) else { budgetLimit = nil; return }
         if telemetry.cost.usd > limit {
             if budgetLimit == nil {
-                notify(store, title: "Over your budget for this film", body: "\(UsageFormat.dollars(telemetry.cost.usd)) so far, above your \(UsageFormat.dollars(limit)) limit.")
+                budgetLimit = limit
+                let spent = "\(UsageFormat.dollars(telemetry.cost.usd)) so far, above your \(UsageFormat.dollars(limit)) limit."
+                if pause(.budget, reason: spent, store: store) {
+                    notify(store, title: "Paused at your budget for this film", body: spent + " Keep going in RasanAI Studio to carry on.")
+                } else {
+                    notify(store, title: "Over your budget for this film", body: spent)
+                }
             }
             budgetLimit = limit
         } else { budgetLimit = nil }
     }
 
+    /// Warns once when the director looks stuck, then pauses it if it is still stuck after `loopGrace`, so a loop stops spending tokens.
     private func checkLoop(store: StudioStore) {
-        if health?.state == .possiblyLooping {
-            if !loopAlerted { loopAlerted = true; notify(store, title: "The director may be stuck", body: health?.detail ?? "Open RasanAI Studio to check.") }
-        } else { loopAlerted = false }
+        let freshSinceResume = resumedAt.map { (telemetry.lastEventAt ?? .distantPast) > $0 } ?? true
+        guard health?.state == .possiblyLooping, freshSinceResume else { loopAlerted = false; loopSince = nil; return }
+        let reason = health?.loopReason ?? health?.detail ?? "It looks like it is repeating itself."
+        if loopSince == nil { loopSince = now }
+        if store.settings.pauseWhenStuck, let since = loopSince, now.timeIntervalSince(since) >= Self.loopGrace {
+            if pause(.loop, reason: reason, store: store) {
+                notify(store, title: "Paused: the director looked stuck", body: reason + " Resume or message it in RasanAI Studio.")
+                loopAlerted = true
+                return
+            }
+        }
+        if !loopAlerted {
+            loopAlerted = true
+            let soon = store.settings.pauseWhenStuck ? " RasanAI pauses it in two minutes if it stays stuck." : ""
+            notify(store, title: "The director may be stuck", body: reason + soon)
+        }
+    }
+
+    /// Tells the person once, even from another app or window, that the director was refused a command and is waiting on them.
+    private func checkBlock(store: StudioStore) {
+        guard let block = scanner.open, store.runtime.isRunning else { if scanner.open == nil { notifiedBlock = nil }; return }
+        guard notifiedBlock != block.id else { return }
+        notifiedBlock = block.id
+        notify(store, title: "Rasan was blocked", body: block.message + " Open RasanAI Studio to decide.")
+    }
+
+    /// Freezes the director on RasanAI's own call. Returns false when there was nothing to pause.
+    private func pause(_ kind: AutoPause.Kind, reason: String, store: StudioStore) -> Bool {
+        guard autoPaused == nil, store.canPause else { return false }
+        store.pauseDirector()
+        guard store.runtime.isFrozen else { return false }
+        autoPaused = AutoPause(kind: kind, reason: reason, at: now)
+        loopSince = nil
+        return true
     }
 
     private func notify(_ store: StudioStore, title: String, body: String) {

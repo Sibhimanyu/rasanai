@@ -1,0 +1,22 @@
+{
+  "format": "medium-profile@1",
+  "id": "collage",
+  "family_id": "paper-collage",
+  "execution_id": "paper-collage-native",
+  "style_refs": ["collage","halftone-collage"],
+  "summary": "Original cut-paper layers that reveal, hinge and regroup",
+  "visual_material": ["cut paper","halftone texture","paper shadow"],
+  "native_actions": ["layer-reveal","hinge-turn","strip-regroup"],
+  "story_affordances": ["assembly","juxtaposition"],
+  "risks": ["No licensed photo means original vector-cut paper, not fake footage."],
+  "proof_policy": {"exact_ui": "separate-full-resolution-layer", "protected_text": "readable-or-separate-layer", "claim_mutation": "forbidden"},
+  "runtime_refs": ["runtime/medium-surface.js", "runtime/medium-paper.js"],
+  "example_refs": ["library/medium-examples/paper-collage-native/positive-two-strips.js", "library/medium-examples/paper-collage-native/boundary-texture-sticker.js"],
+  "asset_needs": [{"id": "photo-pieces", "kind": "photo", "required": false, "original_alternative": true}],
+  "capability_ref": "style.paper-collage-native",
+  "preferred_assignments": [],
+  "hard_exclusions": [],
+  "evidence": {"basis": "authored-unvalidated", "receipt_refs": []},
+  "provenance_refs": ["third_party/mg-styles-15","third_party/gbro"],
+  "owner_lane": "M04"
+}

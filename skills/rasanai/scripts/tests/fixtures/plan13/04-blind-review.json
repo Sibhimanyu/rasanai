@@ -1,0 +1,315 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q04",
+  "case": "labels and A/B mapping stay out of the judge packet; order effects are sampled",
+  "targets": [
+    "lib/blind-review.mjs makeSheet / leaks / swappedPair / positionalEffect"
+  ],
+  "scenarios": [
+    {
+      "name": "packet has no mapping or labels",
+      "call": "makeSheet",
+      "input": {
+        "id": "sheet1",
+        "seed": "seed-1",
+        "shared": {
+          "brief": "Introduce the invented app Lumen Notes to a stranger in 20 seconds.",
+          "spec": {
+            "duration_s": 20,
+            "fps": 30,
+            "size": "1920x1080"
+          },
+          "evidence": [
+            "evidence-synthetic.json"
+          ]
+        },
+        "variants": {
+          "a": {
+            "label": "baseline-v1.18",
+            "version": "1.18.0",
+            "model": "opus-lane-one",
+            "media": "sheets/s1/one.mp4",
+            "conditions": {
+              "fps": 30,
+              "model": "opus-lane-one",
+              "cache": "cold"
+            }
+          },
+          "b": {
+            "label": "candidate-build",
+            "version": "1.19.0",
+            "model": "sonnet-lane-two",
+            "media": "sheets/s1/two.mp4",
+            "conditions": {
+              "fps": 30,
+              "model": "sonnet-lane-two",
+              "cache": "cold"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": true,
+        "has_mapping_in_packet": false,
+        "leaks": {
+          "$len": 0
+        },
+        "conditions_differ": [
+          "model"
+        ]
+      }
+    },
+    {
+      "name": "a version name in the media path is refused as a leak",
+      "call": "makeSheet",
+      "input": {
+        "id": "sheet2",
+        "seed": "seed-1",
+        "shared": {
+          "brief": "Introduce the invented app Lumen Notes to a stranger in 20 seconds.",
+          "spec": {
+            "duration_s": 20,
+            "fps": 30,
+            "size": "1920x1080"
+          },
+          "evidence": [
+            "evidence-synthetic.json"
+          ]
+        },
+        "variants": {
+          "a": {
+            "label": "baseline-v1.18",
+            "version": "1.18.0",
+            "model": "opus-lane-one",
+            "media": "runs/baseline-v1.18/out.mp4",
+            "conditions": {
+              "fps": 30,
+              "model": "opus-lane-one",
+              "cache": "cold"
+            }
+          },
+          "b": {
+            "label": "candidate-build",
+            "version": "1.19.0",
+            "model": "sonnet-lane-two",
+            "media": "sheets/s1/two.mp4",
+            "conditions": {
+              "fps": 30,
+              "model": "sonnet-lane-two",
+              "cache": "cold"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~leaks"
+      }
+    },
+    {
+      "name": "the same brief and spec are required",
+      "call": "makeSheet",
+      "input": {
+        "id": "sheet3",
+        "seed": "seed-1",
+        "shared": {
+          "spec": {}
+        },
+        "variants": {
+          "a": {
+            "label": "baseline-v1.18",
+            "version": "1.18.0",
+            "model": "opus-lane-one",
+            "media": "sheets/s1/one.mp4",
+            "conditions": {
+              "fps": 30,
+              "model": "opus-lane-one",
+              "cache": "cold"
+            }
+          },
+          "b": {
+            "label": "candidate-build",
+            "version": "1.19.0",
+            "model": "sonnet-lane-two",
+            "media": "sheets/s1/two.mp4",
+            "conditions": {
+              "fps": 30,
+              "model": "sonnet-lane-two",
+              "cache": "cold"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~shared.brief"
+      }
+    },
+    {
+      "name": "every pair is judged in both orders",
+      "call": "swappedOrders",
+      "input": {
+        "id": "pair1",
+        "seed": "seed-1",
+        "shared": {
+          "brief": "Introduce the invented app Lumen Notes to a stranger in 20 seconds.",
+          "spec": {
+            "duration_s": 20,
+            "fps": 30,
+            "size": "1920x1080"
+          },
+          "evidence": [
+            "evidence-synthetic.json"
+          ]
+        },
+        "variants": {
+          "a": {
+            "label": "baseline-v1.18",
+            "version": "1.18.0",
+            "model": "opus-lane-one",
+            "media": "sheets/s1/one.mp4",
+            "conditions": {
+              "fps": 30,
+              "model": "opus-lane-one",
+              "cache": "cold"
+            }
+          },
+          "b": {
+            "label": "candidate-build",
+            "version": "1.19.0",
+            "model": "sonnet-lane-two",
+            "media": "sheets/s1/two.mp4",
+            "conditions": {
+              "fps": 30,
+              "model": "sonnet-lane-two",
+              "cache": "cold"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": true,
+        "orders": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "name": "always choosing the first position is flagged",
+      "call": "positionalEffect",
+      "input": {
+        "results": [
+          {
+            "sheet_id": "p1-ab",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "a",
+                "Y": "b"
+              }
+            }
+          },
+          {
+            "sheet_id": "p1-ba",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "b",
+                "Y": "a"
+              }
+            }
+          },
+          {
+            "sheet_id": "p2-ab",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "a",
+                "Y": "b"
+              }
+            }
+          },
+          {
+            "sheet_id": "p2-ba",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "b",
+                "Y": "a"
+              }
+            }
+          },
+          {
+            "sheet_id": "p3-ab",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "a",
+                "Y": "b"
+              }
+            }
+          },
+          {
+            "sheet_id": "p3-ba",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "b",
+                "Y": "a"
+              }
+            }
+          },
+          {
+            "sheet_id": "p4-ab",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "a",
+                "Y": "b"
+              }
+            }
+          },
+          {
+            "sheet_id": "p4-ba",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "b",
+                "Y": "a"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "positional_effect_suspected",
+        "pairs_judged_both_orders": 4,
+        "order_consistent_pairs": 0
+      }
+    },
+    {
+      "name": "too few samples conclude nothing",
+      "call": "positionalEffect",
+      "input": {
+        "results": [
+          {
+            "sheet_id": "p1-ab",
+            "chose": "X",
+            "key": {
+              "mapping": {
+                "X": "a",
+                "Y": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "insufficient_samples"
+      }
+    }
+  ]
+}

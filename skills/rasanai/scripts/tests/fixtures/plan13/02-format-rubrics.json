@@ -1,0 +1,291 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q02",
+  "case": "communication evaluation varies by assignment, with no dramatic formula",
+  "targets": [
+    "lib/rubrics.mjs rubricFor / assertNoFormula / makeFinding / resolveFindings"
+  ],
+  "scenarios": [
+    {
+      "name": "every communication kind has a rubric",
+      "call": "rubricCoverage",
+      "input": {},
+      "expect": {
+        "uncovered": {
+          "$len": 0
+        },
+        "count": 13
+      }
+    },
+    {
+      "name": "single feature asks for focus, requires no villain or twist",
+      "call": "rubricFor",
+      "input": {
+        "kind": "single-feature-announcement"
+      },
+      "expect": {
+        "kind": "single-feature-announcement",
+        "not_required": [
+          "villain",
+          "twist"
+        ],
+        "questions": "~focused"
+      }
+    },
+    {
+      "name": "manifesto allows abstraction",
+      "call": "rubricFor",
+      "input": {
+        "kind": "brand-manifesto"
+      },
+      "expect": {
+        "legitimate": "~abstraction"
+      }
+    },
+    {
+      "name": "a rubric that demands a villain is rejected",
+      "call": "assertNoFormula",
+      "input": {
+        "rubric": {
+          "require_villain": true
+        }
+      },
+      "expect": {
+        "throws": "mandatory dramatic formula"
+      }
+    },
+    {
+      "name": "a shot count requirement is rejected",
+      "call": "assertNoFormula",
+      "input": {
+        "rubric": {
+          "checks": {
+            "min_shots": 12
+          }
+        }
+      },
+      "expect": {
+        "throws": "mandatory dramatic formula"
+      }
+    },
+    {
+      "name": "a finding without evidence cannot be a defect",
+      "call": "makeFinding",
+      "input": {
+        "category": "proof_scope",
+        "severity": "major",
+        "verdict": "fail",
+        "target": {
+          "beat": "b2"
+        },
+        "confidence": 0.7,
+        "proposed_repair": "show two more uses"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~evidence"
+      }
+    },
+    {
+      "name": "a grader may answer not_observed",
+      "call": "makeFinding",
+      "input": {
+        "category": "sound",
+        "severity": "note",
+        "verdict": "not_observed",
+        "target": {
+          "time_s": 4.5
+        },
+        "confidence": 0.2
+      },
+      "expect": {
+        "ok": true,
+        "finding": {
+          "verdict": "not_observed"
+        }
+      }
+    },
+    {
+      "name": "a complete finding carries target, evidence, confidence and repair",
+      "call": "makeFinding",
+      "input": {
+        "category": "beat_purpose",
+        "severity": "minor",
+        "verdict": "concern",
+        "target": {
+          "beat": "b4",
+          "time_s": 9.0
+        },
+        "evidence": [
+          "beat 4 repeats beat 3's screen with no new information"
+        ],
+        "confidence": 0.8,
+        "proposed_repair": "cut beat 4 or show the shared result"
+      },
+      "expect": {
+        "ok": true,
+        "finding": {
+          "target": {
+            "beat": "b4"
+          },
+          "confidence": 0.8
+        }
+      }
+    },
+    {
+      "name": "claims failure is a hard blocker even with a waiver",
+      "call": "resolveFindings",
+      "input": {
+        "findings": [
+          {
+            "id": "b1",
+            "category": "claims",
+            "verdict": "fail",
+            "severity": "blocker",
+            "target": {
+              "beat": "b1"
+            }
+          }
+        ],
+        "options": {
+          "waivers": [
+            {
+              "by": "user",
+              "decision_id": "d1",
+              "finding": "b1"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "hard_blockers": {
+          "$len": 1
+        },
+        "can_ship_on_these_findings": false
+      }
+    },
+    {
+      "name": "privacy failure is a hard blocker",
+      "call": "resolveFindings",
+      "input": {
+        "findings": [
+          {
+            "id": "b2",
+            "category": "privacy",
+            "verdict": "fail",
+            "severity": "blocker",
+            "target": {
+              "beat": "b2"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "hard_blockers": {
+          "$len": 1
+        }
+      }
+    },
+    {
+      "name": "taste needs a user decision",
+      "call": "resolveFindings",
+      "input": {
+        "findings": [
+          {
+            "id": "b3",
+            "category": "taste",
+            "verdict": "concern",
+            "severity": "minor",
+            "target": {
+              "beat": "b3"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "needs_decision": {
+          "$len": 1
+        },
+        "can_ship_on_these_findings": false
+      }
+    },
+    {
+      "name": "taste waived by the user's own decision",
+      "call": "resolveFindings",
+      "input": {
+        "findings": [
+          {
+            "id": "b3",
+            "category": "taste",
+            "verdict": "concern",
+            "severity": "minor",
+            "target": {
+              "beat": "b3"
+            }
+          }
+        ],
+        "options": {
+          "waivers": [
+            {
+              "by": "user",
+              "decision_id": "d9",
+              "finding": "b3"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "waived": {
+          "$len": 1
+        },
+        "needs_decision": {
+          "$len": 0
+        },
+        "can_ship_on_these_findings": true
+      }
+    },
+    {
+      "name": "an agent cannot waive taste",
+      "call": "resolveFindings",
+      "input": {
+        "findings": [
+          {
+            "id": "b3",
+            "category": "taste",
+            "verdict": "concern",
+            "severity": "minor",
+            "target": {
+              "beat": "b3"
+            }
+          }
+        ],
+        "options": {
+          "waivers": [
+            {
+              "by": "agent",
+              "decision_id": "d9",
+              "finding": "b3"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "needs_decision": {
+          "$len": 1
+        }
+      }
+    },
+    {
+      "name": "the rubric says a shared true benefit is not a failure",
+      "call": "rubricFor",
+      "input": {
+        "kind": "whole-product-introduction"
+      },
+      "expect": {
+        "notes": "~shared with competitors"
+      }
+    }
+  ]
+}

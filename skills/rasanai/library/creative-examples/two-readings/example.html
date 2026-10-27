@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- ORIGINAL teaching scene (invented brand "Tallybook"): one sentence, two precise readings. original-unreviewed; not rendered. -->
+<html lang="en"><head><meta charset="utf-8"><title>two readings</title>
+<style>
+html,body{margin:0;background:#101319;color:#eef1f6;font:500 52px/1.2 system-ui,sans-serif}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden}
+.s{position:absolute;left:210px;top:150px}
+.r{position:absolute;left:210px;width:1500px;font-size:38px;opacity:0}
+.r b{color:#7fd1ae}.r i{color:#f0b95e;font-style:normal}
+#r1{top:520px;animation:in .8s 2.5s forwards}#r2{top:700px;animation:in .8s 4s forwards}
+.pick{position:absolute;left:170px;top:690px;width:1580px;height:90px;border:3px solid #7fd1ae;border-radius:14px;opacity:0;animation:in .5s 6s forwards}
+svg{position:absolute;left:210px;top:260px}
+@keyframes in{to{opacity:1}}
+</style></head><body><div id="stage">
+<div class="s">Managers and employees who qualify get a bonus.</div>
+<svg width="1500" height="200" viewBox="0 0 1500 200" fill="none" stroke-width="4">
+<path d="M0 120 H350" stroke="#7fd1ae"/><path d="M370 120 H640" stroke="#f0b95e"/>
+<path d="M0 60 H640 V120" stroke="#7fd1ae" opacity=".0"/></svg>
+<!-- the two bracketings of the same words; the source's real ambiguity is kept: employees must not drop out of reading 1 -->
+<div class="r" id="r1"><b>Reading 1</b> all managers, plus the employees who qualify</div>
+<div class="r" id="r2"><i>Reading 2</i> only the people, managers or employees, who qualify</div>
+<div class="pick"></div>
+</div></body></html>

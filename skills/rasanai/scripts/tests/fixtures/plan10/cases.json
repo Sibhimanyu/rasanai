@@ -1,0 +1,100 @@
+{
+  "plan": "10",
+  "status": "implemented_unvalidated",
+  "note": "authored, not run; execution waits for explicitly approved Plan 14. All fixtures are synthetic and certify no capability.",
+  "cases": [
+    {
+      "id": "plan10/U01",
+      "name": "five-call journey",
+      "fixtures": [
+        "01-five-call-journey.json"
+      ]
+    },
+    {
+      "id": "plan10/U02",
+      "name": "back navigation and reconnect",
+      "fixtures": [
+        "02-back-navigation.json"
+      ]
+    },
+    {
+      "id": "plan10/U03",
+      "name": "stable panels and window scenarios (for Plan 14)",
+      "fixtures": [
+        "03-stable-panels.json"
+      ]
+    },
+    {
+      "id": "plan10/U04",
+      "name": "revision intent routing",
+      "fixtures": [
+        "04-revision-intent.json"
+      ]
+    },
+    {
+      "id": "plan10/U05",
+      "name": "pointer transform and one-transaction drag",
+      "fixtures": [
+        "05-pointer-transform.json"
+      ]
+    },
+    {
+      "id": "plan10/U06",
+      "name": "stale edits are conflicts, not silent region fallbacks",
+      "fixtures": [
+        "06-stale-edits.json"
+      ]
+    },
+    {
+      "id": "plan10/U07",
+      "name": "undo / redo through the engine",
+      "fixtures": [
+        "07-undo-redo.json"
+      ]
+    },
+    {
+      "id": "plan10/U08",
+      "name": "progress truth: receipts, run state, estimates",
+      "fixtures": [
+        "08-progress-truth.json"
+      ]
+    },
+    {
+      "id": "plan10/U09",
+      "name": "keyboard, labels, non-colour status, reduced motion",
+      "fixtures": [
+        "09-accessibility.json"
+      ]
+    },
+    {
+      "id": "plan10/U10",
+      "name": "resume, old runs, optional dependency states, recovery",
+      "fixtures": [
+        "10-resume-optional.json"
+      ]
+    },
+    {
+      "id": "plan10/U11",
+      "name": "undo an earlier edit after a newer one",
+      "fixtures": [
+        "11-undo-earlier-after-newer.json"
+      ]
+    },
+    {
+      "id": "plan10/U12",
+      "name": "idempotency collision",
+      "fixtures": [
+        "12-idempotency-collision.json"
+      ]
+    },
+    {
+      "id": "plan10/U13",
+      "name": "stale preview and pointer identity, receipts",
+      "fixtures": [
+        "13-stale-preview-pointer-identity.json"
+      ]
+    }
+  ],
+  "swift_tests": "apps/macos/Tests/StudioCoreTests/Plan10Tests.swift (authored, not run)",
+  "window_scenarios_for_plan14": "03-stable-panels.json"
+}

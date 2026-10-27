@@ -1,0 +1,493 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan14/G02",
+  "case": "a unit-only approval cannot expand; a changed candidate needs renewal unless repairs are included",
+  "targets": [
+    "lib/test-approval.mjs authorize"
+  ],
+  "scenarios": [
+    {
+      "name": "render is not covered by a unit approval",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "render"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~kind_not_approved"
+      }
+    },
+    {
+      "name": "grader and GUI are not covered either",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit",
+            "gui"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~kind_not_approved"
+      }
+    },
+    {
+      "name": "a case outside the list is refused",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q02"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~case_not_approved"
+      }
+    },
+    {
+      "name": "a wildcard in the approval does not match",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/*"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~case_not_approved"
+      }
+    },
+    {
+      "name": "an unlisted command is refused",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "command": "node skills/rasanai/scripts/selftest.mjs"
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~command_not_approved"
+      }
+    },
+    {
+      "name": "a live provider is not covered",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "provider": "example-provider"
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~provider_not_approved"
+      }
+    },
+    {
+      "name": "paid work is not covered",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "paid": true
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~paid_work_not_approved"
+      }
+    },
+    {
+      "name": "an approval past its expiry is refused",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": [],
+          "expires_at": "2020-01-01T00:00:00Z"
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~expired"
+      }
+    },
+    {
+      "name": "a changed candidate needs a new approval",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-two"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~candidate_changed"
+      }
+    },
+    {
+      "name": "repairs included and the approved commit is an ancestor: allowed with lineage",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": [],
+          "repairs_included": true
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "beef",
+          "digest": "digest-two"
+        },
+        "ancestor": true
+      },
+      "expect": {
+        "allowed": true,
+        "lineage": {
+          "approved": "digest-one",
+          "current": "digest-two"
+        }
+      }
+    },
+    {
+      "name": "repairs included but not a descendant: refused",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": [],
+          "repairs_included": true
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "beef",
+          "digest": "digest-two"
+        },
+        "ancestor": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~candidate_changed"
+      }
+    },
+    {
+      "name": "the wall-clock limit is checked from the ledger when set; an estimate above it is refused",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": [],
+          "limits": {
+            "max_wall_s_total": 60
+          }
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "est_wall_s": 90
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~resource_limit"
+      }
+    }
+  ]
+}

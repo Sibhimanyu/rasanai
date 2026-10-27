@@ -20,13 +20,17 @@ The script is written once and travels: the Story card shows it, `scenes.json` i
 
 ## Launch, promo and product films are product-first
 
-For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` first and let it win: the real product UI on screen within 3 s; the villain is the viewer's real pain at the claim's scope; the turn is the real product reversing it; one hero product moment (`hero_moment`) shows it for real; short plain lines; the required end line is the largest type on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (the only figures: an instant visual pun that resolves to the product within a second, and a letter or shape transformation that lands on the real product within its move). Sure, Bold and Wild differ in structure, pace and energy, never in leaving the product.
+For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` first and let it win: the real product UI on screen early (3 s is the house target for product-demonstrating kinds, not a rule for every kind); a villain, when you use one, is the viewer's real pain at the claim's scope; a turn, when you use one, is the real product reversing it; one hero product moment (`hero_moment`) shows it for real; short plain lines; the required end line is the largest type on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (the only figures: an instant visual pun that resolves to the product within a second, and a letter or shape transformation that lands on the real product within its move). Sure, Bold and Wild differ in structure, pace and energy, never in leaving the product.
 
 **Branded launch, promo or brand film:** write to the template in `references/launch-film.md` §1 (the product or brand in 1 to 3 s, the reveal, the hero demo, 2 to 4 real feature demos, the payoff line, the end card), each beat inside its timing range; mark each beat's `role` and set `payoff_line`. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and its words. The three scripts differ only in emphasis and order, never in concept. On a ladder the order is the rungs' order and the emphasis is which uses and how the refrain is worded.
 
+## Treatments mode: concept before outline
+
+In treatments mode the argument starts one level up: develop a small bounded pool of ideas, pick three that are real alternatives and record each concept (`references/concept-development.md`). Three treatments that reorder the same card walk are one idea in three outlines; differ in the organizing mechanism, perspective, temporal structure, emotional movement or the relation between picture and proof. A brief that fixes the format fixes it for all three. Mood words are not an occurrence: say what a viewer sees happen.
+
 ## Pass 0: the argument
 
-Write `intent-<label>.json` before any line (`references/intent.md`, "How to write it"): the proposition, PAGE, the villain and its felt numbers, the ending first, then the beats as beliefs, one peak at 60 to 75% with a rest before it. **Start from the viewer's day, not the product's feature list**: what the viewer is doing when the villain bites, at the claim's scope (for a universal or category claim, a moment most of the audience has had, never one person's evening).
+Write `intent-<label>.json` before any line (`references/intent.md`, "How to write it"): the proposition, PAGE, (the villain and its felt numbers, and the ending first, when the film has them: optional since Plan 03), then the beats as beliefs, a peak only where one helps (60 to 75% with a rest before it is the legacy guidance). **Start from the viewer's day, not the product's feature list**: what the viewer is doing when the villain bites, at the claim's scope (for a universal or category claim, a moment most of the audience has had, never one person's evening).
 
 The pitch carries the same decision for the user to read: `aim` (`takeaway`, 16 words at most, as the viewer would say it to a friend; `feel`, one feeling; `action`, one next step; `audience`), `approach` (one plain sentence on how the story gets there) and a `title` (2 to 5 words a person would use to refer to it, never a fragment of an on-screen line, never ending on a function word, never ALL CAPS). The takeaway is the proposition in the viewer's words. Sure, Bold and Wild may aim differently; the user chooses between arguments, not devices.
 
@@ -167,7 +171,7 @@ The sheet for any length, with its slot names, is printed by `node $SKILL_DIR/sc
 
 **60 s:** cold open 0-3 · setup 3-12 · turn 12-18 · three proofs 18-36, escalating · rest · peak 36-45 · payoff 45-54 · end 54-60. Eight to ten beats, 110 to 140 voiceover words.
 
-**90 s (explainer):** the 60 s shape with a stakes act (8-12 s) before the first proof; a second, smaller peak is allowed before the main one. Longer needs a character or a world.
+**90 s (explainer):** the 60 s shape with a stakes act (8-12 s) before the first proof; a second, smaller peak is allowed before the main one. Longer needs a character or a world. **Explainers: progressive disclosure.** Introduce the system in the order the viewer needs it: the action that starts it, then each part as it acts; one new element per beat, earlier ones stay as anchors, the full diagram is the payoff, and the narration names each part as it appears.
 
 **Brand film (20-40 s):** no feature proof. Image, image, image, the turn as a change in the viewer's point of view, then the name. Voiceover, if any, reads like a short poem with a plain last line.
 
@@ -179,12 +183,14 @@ The sheet for any length, with its slot names, is printed by `node $SKILL_DIR/sc
 
 Pick from the truth sheet, not this list. Each must work muted:
 
-- **The villain in action:** "Does 3 work?" bubbles burying Thursday. (The effect before the cause.)
-- **The outcome, stated flat:** "Your books, balanced. Every month."
-- **The tension they already feel:** "April 14. 11:58 pm."
-- **The true, surprising fact:** "Receipt ink fades in about a year." (Only if it's on the truth sheet.)
-- **The product doing its thing:** a phone snaps a receipt and the ledger fills before the first second ends.
-- **The flash-forward:** open on the finished result, then rewind and earn it.
+- `villain-in-action` **The villain in action:** "Does 3 work?" bubbles burying Thursday. (The effect before the cause.)
+- `outcome-flat` **The outcome, stated flat:** "Your books, balanced. Every month."
+- `felt-tension` **The tension they already feel:** "April 14. 11:58 pm."
+- `true-fact` **The true, surprising fact:** "Receipt ink fades in about a year." (Only if it's on the truth sheet.)
+- `product-doing` **The product doing its thing:** a phone snaps a receipt and the ledger fills before the first second ends.
+- `flash-forward` **The flash-forward:** open on the finished result, then rewind and earn it.
+- `transformation` **The transformation:** a complicated state that resolves in front of us.
+- `character-action` **The character acting:** a character does something we care about (mascot and story films).
 
 Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "Tired of…?", "In today's world…", a logo, a company description, a question the viewer can answer "no" to, or a statistic without a stake.
 
@@ -194,7 +200,7 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 
 - 6 words at most per line, 1 to 4 is better; one line on screen at a time.
 - Held at least its reading time: 0.6 s + 0.3 s per word (`lib/reading.mjs` readTime). The beat's `read` is the line it is built around.
-- The on-screen lines alone tell the story with the sound off, and never repeat the voiceover.
+- The on-screen lines alone tell the story with the sound off. Whether they repeat the voiceover is a channel-role decision per beat (a caption, an emphasis or an accessibility description may repeat it on purpose), not a ban.
 - Sentence case, a full stop for weight, no exclamation marks, no em dashes.
 - **Talk to the viewer.** Second person ("Your next deal"), their own question, a reaction when the pain lands ("Ugh"). Say what the viewer gets ("You never retype a list"), not what the product is ("Notes, reimagined"); a line with no verb and no pronoun is a slogan.
 - **One line every 1.5 to 2.5 s** on launch films (`sparse-lines` above 3.0 s per line).
@@ -215,6 +221,8 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 
 ## The turn, the peak and the end
 
+Legacy multi-writer and pas/ladder scripts: these are tools, not requirements. A treatment-mode film (`references/story.md` section 0) uses a reversal, a peak or a payoff only when it serves its proposition; a clear honest demonstration with none of them is valid.
+
 - **The turn** reverses something the viewer can see: the pile becomes one link, the refrain stops and the product finishes the sentence, the cause lands on screen. Write what the viewer believed just before and just after; if the two sentences match, there is no turn. It sits where its engine puts it.
 - **The peak** is the hardest proof of the proposition, at 60 to 75%: the furthest use, the break, the after at full. It gets the biggest picture and the longest hold. Before it, a **rest**: a slower or stiller beat (one slow mover for 0.3 to 1.0 s, never a frozen frame) so the peak lands.
 - **The payoff** answers the opening: its object or words return, changed. It never introduces a new idea.
@@ -224,9 +232,10 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 
 ## Self-check before the checks
 
-- [ ] The intent is written first: proposition (12 words, no "and"), villain, ending first, every beat's buys, relation, importance, read.
+- [ ] The intent is written first: proposition (12 words, no "and"), every beat's buys, relation, importance, read; villain and ending first when the film uses them (optional).
 - [ ] Blind retell: from the on-screen lines and visuals alone, a stranger would say the proposition.
-- [ ] The turn reverses something visible; the peak is at 60 to 75% with a rest before it; the payoff answers the opening.
+- [ ] If the film declares a turn, peak or payoff: the turn reverses something visible; the peak (legacy guidance 60 to 75%, a rest before it) is the hardest proof; the payoff answers the opening. A film that declares none is not failed for it.
+- [ ] Every demonstrated change (a corrected sentence, a calculation, a rule) keeps the source's people, numbers and conditions, and the demonstrations support the claim (`lib/proof-integrity.mjs`).
 - [ ] Importance 3 on a quarter of the beats at most; the biggest picture sits on the peak.
 - [ ] The first 2 s say something with the sound off.
 - [ ] Every on-screen line has a `shows` row; the pitch names its `actor`; no row is a caption over UI.
@@ -234,7 +243,7 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 - [ ] Every number and UI word is on the truth sheet, and a number's noun is the claim's noun ("50 people", not "50 phones").
 - [ ] Coverage: every Must-show feature and every Surprising fact is a row in `coverage` with a `beat`, or a `cut` with a reason of four words or more.
 - [ ] The plan: your slot's device, `turn_kind`, `peak_kind` and owned claims are in the pitch, and no word was moved into `actor` to pass the scope count.
-- [ ] The peak is the longest beat and the end line is held long enough for its length; `tempo.ideas` is the intent's count of distinct beliefs.
+- [ ] When the film has a peak, it is the longest beat; the end line is held long enough for its length; `tempo.ideas` is the intent's count of distinct beliefs.
 - [ ] Product-first: UI within 3 s, a hero moment, real uses, lines of 6 words or fewer, the end line the largest type, nothing is a museum, allegory, invented world or metaphor.
 - [ ] The three scripts are three arguments or engines, not one takeaway in three costumes.
 

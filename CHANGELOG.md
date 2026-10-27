@@ -1,5 +1,110 @@
 # Changelog
 
+## Unreleased
+
+Implemented from the two Heresay addenda to the v3 overhaul (Connected Sequence Craft; Music Direction and Layered Sound). Source-level only: checked with syntax and import loads and the skill-map link check, but not built, rendered or listened to. No film-quality or audio improvement is claimed, and the reported music dropout is not repaired.
+
+- **Connected sequences.** Evolving motifs with one owner per continuous action, motion handoffs that continue the outgoing movement's velocity, coordinated optics (focus, soft material, motion blur) with honest capability states, product choreography that only uses the current dark Studio UI, ordered attention on timed reads, and type and layout that protect reads. A Final is not marked ready without a playback review.
+- **Sound choices.** Voiceover, pace, feeling, effects and music source, with "Recommend for me" for each, in a compact section on the Brief and Look screens (Studio). Minimal effects now keep their signature moves instead of acting like none.
+- **Music and effects.** A ranked three-track shortlist with per-use rights and audition evidence (nothing is marked listened without evidence), AI generation off without consent and after the licensed catalog, user-only exclusions instead of fixed ones, layered effects with a lead and a tail, and phrase arrangement that never invents a beat grid.
+- **Mix guardrails (dropout not repaired).** The music dropout around ordinary effects has no established cause: source ruled out five candidates and four need a measurement. The changes are protective only: one dB convention, ordinary effects never duck the music, the music bed has carve disabled, one plan feeds preview and export, and receipts record the renderer and audio attributes. `audio/automation.json` now has a writer.
+- **Revisions.** Sound and sequence state join a film's dependency identity, so a change re-does only what it touches (a gain or EQ change rebuilds no pictures).
+- Known gaps: five of the 54 deferred cases have no covering code, about 15 audio cases need listening or a render, and a few exports have no caller yet (`seamReport`, `checkStudioCapture`).
+
+## 1.30.0 (2026-10-27): Creative overhaul v3: policy revision 2, concepts, temporal storyboards, continuity
+
+Implemented from the v3 creative overhaul handoff (Heresay briefs, 15 parts). Source-level only: checked with syntax and import loads, the skill-routing test, seven script suites and the Studio prompt parity test, but not rendered or tried on a real film, so no film-quality improvement is claimed. The film-pipeline, ffmpeg and Chrome test modules were not run.
+
+- **Creative policy revision 2.** One effective-policy resolver (`creative/effective-policy.json`) now decides pace, research and model limits. New eligible plans use revision 2; revision 1 films behave as before, and re-planning keeps a film's saved revision. Unsupported revisions refuse to dispatch.
+- **Concepts and commitments.** Story candidates carry a concept record and are checked for real divergence. Required creative commitments bind to events or are recorded as intentionally absent, so a quiet or formal film is valid.
+- **Temporal storyboards and continuity.** Shots can carry timed reads, anchors, camera intent and cut functions on the score's clock. A continuous action has one owner, so the crew assigns one agent per continuous action instead of one per scene.
+- **Mechanisms, medium rules and budgets.** Selected mechanism references attach to scene packets. Medium taste rules are scoped to the visual language while facts stay fixed. Spend is disclosed before work starts, and a model you pinned is never swapped for a cheaper one.
+- **Formal direction tools.** Role-aware typography operations, shared composition anchors, procedural form and field planning, and asset compositing plans (crop, mask, depth, rights), with two new runtime files `rasan-type.js` and `rasan-layout.js`. Beats opt in through `creative/beat-plans.json`; the check flags a beat that needs a plan and has none.
+- **Honest completion.** A Final is labelled `ready` only when its commitments have current evidence; anything else stays `draft`, which is always allowed. `ship` needs `ready`.
+- **Revisions.** A change re-runs only the work whose inputs it changed; font, anchor, material and camera changes join the dependency identity.
+- **Prompt wording.** "At least one spectacle moment" is now "a moment people will replay where the story earns one" (Show off and the Maximal default stay). Fast research may use local references and one bounded idea pass. The Swift prompt text, `director-prompt-data.json` and the golden file were regenerated together.
+- Known gaps: nothing yet authors `creative/beat-plans.json` automatically, 62 of the 180 deferred cases have no spec naming their expectation, and the Final label is not yet wired into every delivery path.
+
+## 1.29.0 (2026-10-26): Creative Recovery and Style Intelligence
+
+- **Creative Recovery.** New films carry one small creative brief owned by the Director (`creative/brief.json`, `crew.mjs creative init|check|revise|gate|status`), automatic references that need no inspiration from you, proof contracts so a demonstration cannot change what the source says, creative evidence in every worker packet, and a check that the built film calls the approved idea instead of a card. Brief, Story, Look, Storyboard and Final stay your calls: new films check a real consumed choice (or an explicit Just make it) before boards and build, and a prepared file, brand, Fast pace or recommendation never counts. Saved films are unchanged.
+- **Style Intelligence.** Twelve medium families and eight production profiles (flat vector, line art, paper and collage, pixel, pixel companion beside sharp UI, cel acting, isometric, evidence diagrams) with eligibility, fit and a diverse shortlist for the Look options, a medium contract per Look, and medium-aware motion, finish and frame checks (word choreography, blur, depth and camera drift apply only where the medium wants them). All eight profiles are written but not yet verified by a render.
+- Fast pace no longer logs routine shortcuts as problems: the director rules now say a downgrade is only for something expected that did not happen, and a score written as one contract (`motion/CONTRACT.md`) is the documented Fast pace path. `motion-gate.mjs` reads the beats from `scenes.json` when `score.json` is missing, quietly.
+- Downgrade rows (`downgrades.jsonl`, `console.mjs downgrade`) take an optional `severity` (`info` by default, `notice`, `needs-you`, `error`) and `kind` (a routine adjustment such as `fast-pace`, told as "Adjusted" and left out of "Working without"). A gate that could not run is a `notice`.
+- The crew planner (`crew.mjs plan`) no longer crashes on films with a Storyboard audio-direction phase: every phase now has a dispatch list, so the director never falls back to a plan made by hand.
+- Story and Look are never decided for you: a Story or Look closed without your choice is recorded as unconfirmed (`console.mjs push`), and the director rules now say a planner failure or Fast pace never removes a call.
+
+## 1.28.0 (2026-10-26): Drive a whole film from your phone: remote contract v2 and director.mjs
+
+- **Remote contract v2 (`external_actions: 2`).** A strict superset of v1 so a phone can run a whole film: the brief's `submit` (fields keep their types, unknown keys and formats not in the catalog are refused), `decide`, style-frame `approve` / `comment {frame, text}` / `redo {ids, note}`, an ask answered with `tool-ready:<tool>`, and Studio's chat note (`value.chat`). Lines from `squeak` and `squeak-phone` are checked against the session as it is when `wait` reads them; a refusal is listed in `rejected.json` with a fixed reason. `references/remote.md` documents it, where replies land (`steps.<step>.thread`) and how to read the director's liveness.
+- **`scripts/director.mjs`** (`status`, `resume`, `stop`, `install-tool`): one JSON line per command. `resume` restarts the director on the same run exactly as Studio's Resume does, with a Node port of Studio's launch prompt (`lib/director-launch.mjs`, generated text in `lib/director-prompt-data.json`, golden-tested against Swift) and a lock so two resumes cannot start two directors.
+
+## 1.27.0 (2026-10-25): Stories that fit what the film says, one look frame per option, and a safer engine underneath
+
+All of this is foundation work that landed together and was only syntax-checked, not validated end to end.
+
+- **Format-aware story, no mandatory twist.** The story step proposes three compact treatments suited to the film's format and no longer forces a twist; a structured review checks them.
+- **One representative look frame.** The Look call shows each of the three looks on the same approved story beat, with a short card of how they really differ, instead of three hero frames each.
+- **Storyboard timing and animatic.** Shots, panels and editorial checks, with timed playback labelled as what it is (timed panels, scratch or chosen audio).
+- **Hybrid media capabilities.** A capability map and graph for mixing generated, captured and rendered media.
+- **Audio contract.** An audio direction file with effect roles, silence windows and cue checks against the score, plus fit guards for music that is too short or repeats.
+- **Token-efficient briefs.** A production policy, compiled input packets per crew member, recipe retrieval and an artifact cache.
+- **Scheduler and incremental render foundations.** Jobs, job control and incremental render planning, so a change re-renders only what it touches.
+- **Recovery and security helpers.** Durable writes, containment, a license register and recovery utilities for run files.
+- **Delivery and accessibility.** A delivery manifest, destination profiles, captions and accessibility checks.
+- **Evaluation gate.** A blind-review and metrics gate for judging films. Fixtures and plans live under `docs/plans/studio-upgrade`.
+
+## 1.26.0 (2026-10-24): Motion Studio: reference motion, motion kit, click-to-revise elements
+
+- **Reference motion.** `scripts/reference-motion.mjs` (`ingest`, `analyze --fast`, `summarize --for crew`, `check`) turns a video the owner likes into `reference-motion.json` (cuts, shots, palette, energy arc, uncertainties; rights are required, the file's path stays private) and a short crew packet. A recipe step (`scripts/lib/reference-recipe`) lists transferable mechanics and what is not transferable. Inspiration for rhythm and mechanics only; never its logos, footage, audio or copy.
+- **Motion kit.** `motion-kit/catalog.json` registers 32 named mechanics (4 in each of 8 families); 12 are implemented in `runtime/rasan-motion-kit.js`, the other 20 are catalogued and report `implemented: false`. `scripts/motion-kit.mjs` (`list`, `suggest`, `inspect`, `scaffold`, `check`) gives a deterministic shortlist, not a decision; scenes carry `data-motion-kit="motion-kit:<id>@<ver>"`. Not the older `motionkit.mjs` (RasanMotion verbs), which is unchanged.
+- **Element index.** Scenes can mark elements with `data-el="scene-N.name"`; `scripts/element-index.mjs` (`build`, `check`, `lookup`) derives `motion/element-index.json` (bounds over time, editable fields, stale when the sources change).
+- **Edits as a transaction.** `scripts/editor-patch.mjs` (`record`, `propose`, `checkpoint`, `apply-simple`, `mark`, `undo`, `status`) keeps an append-only `motion/edits.jsonl`; text, colour, position, scale and retime edits apply deterministically when the element already has the token, anything else goes to the agent as a packet. A `motion-edit` console action records an edit sent by an app. An edit is `applied` only after the source changed and `rendered` only with a preview.
+- **Rasan3D recipes.** `stage3d/recipes/` adds six 3D recipes (hero turntable, focus pull, title extrude lockup, product slab evidence, icon portal through, character handoff) with an index and a checker.
+- **Renderer adapters.** `scripts/renderer-adapters.mjs doctor` reports which renderers are available; HyperFrames is the only one enabled. Remotion, OpenFilm and Rive are placeholders, off unless `RASANAI_ADAPTER_<ID>=1`.
+- **Routing.** `references/motion-studio.md` (reference, kit, element index, edits) is opened by `skill-map.mjs` only when a run has a reference, `data-motion-kit`, an edit request or `data-el` ids; caption-only runs and quick films never load it.
+- **Licence ledger.** `docs/plans/motion-studio-licenses.md` records what was inspected for each outside source (ideas only, nothing copied) and the vendored GSAP terms; status in `docs/plans/motion-studio-status.md`.
+- Known: 20 of 32 kit mechanics are not implemented; 5 of 6 3D recipes are not browser-gated; no full selftest or delivery-quality render was run for this work.
+
+## 1.25.0 (2026-10-22): Video-production upgrade: modular skill, checks, characters, styles, score, evidence, quick preview, benchmarks
+
+- **A much smaller entrypoint.** `SKILL.md` is a 12 KB router (was 148 KB); each phase and route loads its own guide from `references/workflows/` (`scripts/skill-map.mjs` lists what a route reads; `scripts/tests/skill-routing.mjs` checks every link, heading and command survived). The Studio launch prompt follows the routing.
+- **Checks on every PR.** `.github/workflows/checks.yml` (syntax, manifests, render regression, quick selftest) and `scripts/regression.mjs`: seeks a paused timeline A-B-A and cold, rejects blank, clipped, missing-asset, random and broken scenes, compares to reviewed baselines by a bounded metric (exit 0 / 2 / 1; a missing baseline is never a pass).
+- **One event timeline.** `scripts/events.mjs` derives `motion/events.json` from `motion/score.json` (hash-stamped, deterministic); music, sound, voice, motion-gate, crew and delivery read it when present.
+- **Reads.** Optional `reads[]` per scene and `scripts/reads.mjs` (warnings only until calibrated), contact sheets for review, and the four scored questions for the critic and frame juror.
+- **Rasan2D and the cartoon route.** `stage2d/` hand-painted character runtime (five views, 31 emotions, time-addressed actions, 12 Hz seeded boil), `scripts/stage2d.mjs`, an original actor, `character-designer` agent and the `character-cartoon` format (partial).
+- **Recurring 3D characters.** `scripts/canon.mjs`, `stage3d/character-rig.js` and the shared `identity.json` canon for painted and 3D actors (structural and silhouette checks; uncertain cases go to the frame juror). Rigged GLB actors still wait for the unmerged `rasan-3d`.
+- **Your own styles.** `scripts/custom-style.mjs`: save a style from a run, customize it as a new revision (closed schema, brand locks, nothing silently ignored), compare, a 15 to 30 s style test film, and a snapshot bound to a film.
+- **Original score (optional).** `scripts/original-score.mjs`: an offline, seeded score aligned to the event timeline; `music.mjs --procedural`. Your own track still wins; no network.
+- **Evidence films.** `scripts/evidence.mjs` and `library/evidence/`: every number and geometry traces to a measurement; schematic fixtures are labelled; unsupported formats fail honestly. The `evidence-film` format is partial.
+- **Quick preview (experimental).** `scripts/quick-film.mjs`: a single-HTML 10 to 40 s draft, rendered locally and promoted into the normal flow. Opt-in only.
+- **Benchmarks.** `scripts/benchmark.mjs` and 20 link-verified technique rows (`library/benchmarks/`); three synthetic fixture films with an A/B report. Human preference stays pending.
+- **Fixes.** Rasan2D on-twos scenes keep their finish blur off; `rasan3d.js` no longer throws when a second stage has a different size; the selftest no longer trips the story rewrite ledger.
+- Known: the full selftest was not re-run for this release; the Studio `swift test` shows 3 failures not yet compared with master; the Linux CI run of the new checks is the first one.
+
+## 1.24.0 (2026-10-21): Make a film's calls from your phone with Squeak
+
+- **A published contract for other apps (`references/remote.md`).** An app on the same Mac (a phone pager such as Squeak) can show RasanAI's calls and send the answer back the way RasanAI Studio does: the waiting rule, the step-to-call map, the action shapes per call, the `actions.lock` protocol and the picture paths per call. `session.json` now carries `schema: 1` and `console.json` `external_actions: 1`.
+- **Answers keep where they came from.** An action's `source` is kept when it is one of `console`, `chat`, `studio`, `squeak` or `squeak-phone` (anything else reads as `console`), on the step's `sent` (`source`, `via`) and, once the step is closed, as `by_source` / `by_via`. The feed says "You (iPhone): picked the story: …" and the decisions drawer "you (iPhone)".
+- **Other apps' answers work with the browser console too.** `console.mjs wait` now validates and applies a line another app appended in server mode as well (before, it was handed to the director with no `sent`, no feed line, and the page still waiting). The server marks the lines it applied on POST (`applied: true`) so nothing is applied twice, and appends and session rewrites take `actions.lock` and `session.lock` in both modes.
+- **Phone copies of the draft and the final.** A push of `animatic`, `render` or `final` with a video makes a small H.264 copy in the background (540p, about 1.2 Mbit/s, AAC) in `<run>/phone/` with ffmpeg and adds `proxy` to the step; no ffmpeg, no copy, no error (`RASANAI_PHONE_PROXY=off` turns it off).
+
+## 1.23.0 (2026-10-20): Director upgrades: motion and delivery checks, Reference DNA, word-level cuts
+
+- **Research handoff (motion hierarchy, delivery QA, scene contract, decision locks, reference principles).** Warnings are uncalibrated; ideas only from the sources in `third_party/SOURCES.md`, Creative research handoff.
+  - **Safe zones and phone view.** `scripts/lib/safezones.mjs`: per-destination platform zones and phone-size points, read by `frame-gate.mjs`, `slop.mjs`, `lib/textfit.mjs` and `crew.mjs`.
+  - **Motion hierarchy and energy.** `scripts/lib/fluency.mjs`, `scripts/lib/film-energy.mjs` and `scripts/motion-gate.mjs`: dominant-motion share, busy beats, the energy arc and result holds (`motion-busy`, `energy-flat`, `energy-arc-off`, `calm-beat-busy`), first frame and declared seams (`first-frame-empty`, `seam-colour-jump`).
+  - **Phone readability.** `scripts/frame-gate.mjs`: `phone-small-text` by destination, with `basis` and a `see` strip command.
+  - **Scene contract.** `scripts/lib/scene-contract.mjs`, `scripts/scenes.mjs` and `scripts/crew.mjs`: scene states, cast canon and continuity, held results (`states-thin`, `result-unheld-plan`, `cast-canon-missing`, `continuity-break`, `hero-in-ui-zone`), warnings only.
+  - **Decision locks.** `scripts/lib/locks.mjs` and `scripts/console.mjs`: locked decisions and each note's layer; a vague note is read with the table in `references/console.md`.
+  - **Reference principles.** `scripts/brandfilm.mjs` and `scripts/crew.mjs`: `research/reference-principles.json`, read by the Motion Director and checked on the render by the film critic (`agents/critic.md`).
+  - **Writers and editor.** `scripts/story.mjs` and `scripts/lib/intent.mjs`: hook kinds per story slot, three channels, the payoff triad and a character arc block.
+- **cooked. integration (adapted from cooked., MIT, credited in `third_party/cooked/`).**
+  - Reference DNA: `research.mjs profile --refs …` measures 1 to 12 reference videos once (cached by content fingerprint and analysis version), labels cut kinds and zoom punches, groups references by format and leaves out outliers with a reason, and writes `reference/profile.json` and `PROFILE.md` with medians, spreads and confidence; `profile-compare` re-measures a draft the same way (warnings). `motion-md.mjs write --reference-profile` adds the measured habits to motion.md; reels can take caption density from it. Adapted from cooked. (MIT, NextWork), credited in `third_party/cooked/`.
+  - Retakes and reversible cuts: `footage.mjs retakes` proposes retakes, false starts, talking-to-self, fillers, long pauses and alternate hooks on stable word ids; `footage.mjs cut` records accept, reject, cut, restore, spelling fixes, undo and redo in `footage/cuts/<clip>.cut.json` (originals untouched); `cut-plan` builds word-aligned, frame-snapped kept ranges and warns on splices inside speech; `reel.json` takes `{"type": "cut"}` items, overlays anchored to a word, and captions in the corrected spelling. Adapted from cooked. (MIT).
+  - RasanAI Studio: the Cut stage shows the transcript with proposed and accepted cuts, cut and restore by selection, fix a spelling, undo and redo, and notes on a word.
+  - New warnings: overlay or caption on the speaker's face, under platform UI (from `lib/safezones.mjs`), face hidden on the rendered frame (`reel.mjs check-frames`), and `text-under-platform-ui` in `slop.mjs --destination`. All warnings, uncalibrated.
+
 ## 1.22.0 (2026-10-19): a transcriber that installs after a yes, the full storyline
 
 - **A transcriber that really installs after a yes.** New `transcriber.mjs status|install`: installs `whisper-cli` (Homebrew, else a build) and a model, proves the pair on a silent clip, and gives the real reason when it fails. `whisper-cli` is found off PATH too (Homebrew and HyperFrames build folders). `reel.mjs scan` and `footage.mjs` stop (exit 3) without a working transcriber instead of falling back to loudness, and SKILL.md forbids continuing without transcripts after the user said yes: a failed install goes back to the user with the reason.

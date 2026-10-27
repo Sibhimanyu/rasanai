@@ -10,6 +10,7 @@
 //   node motion-md.mjs write --design-system <run>/design/<label> --out <dir>/motion.md [--reason "..."]
 //        (a bespoke system: its blend.json motion_contract, on the nearest motion language, binds the film;
 //         the system's "## Motion and camera" section is the guidance the animators read)
+//   (any write) [--reference-profile <run>/reference/profile.json [--brand-locked]]: adds a measured "Reference DNA" section
 //   node motion-md.mjs adjectives          -> list supported adjustments
 //   node motion-md.mjs show --file motion.md
 import fs from "node:fs";
@@ -22,6 +23,30 @@ import { loadSystem } from "./lib/system.mjs";
 import { fluentFields } from "./lib/fluent.mjs";
 import { fluentRules } from "./lib/contract.mjs";
 export { applyAdjustments };
+
+// Reference DNA: measured habits from reference/profile.json (opt-in, --reference-profile)
+function referenceDna(file, brandLocked) {
+  const prof = JSON.parse(fs.readFileSync(file, "utf8"));
+  const eff = (k) => { const o = (prof.style_overrides || {})[k]; if (o != null) return o; const m = (prof.metrics || {})[k]; return m && m.confidence !== "unmeasured" && m.value != null ? m.value : null; };
+  const conf = (k) => ((prof.metrics || {})[k] || {}).confidence || "unmeasured";
+  const keys = ["median_shot_s", "punch_zooms_per_min", "punch_scale", "zoom_on", "caption_words_per_unit"];
+  const dna = { profile: file, id: prof.id || null, applied: !!(prof.format && prof.format.applied) };
+  for (const k of keys) dna[k] = eff(k);
+  dna.confidence = Object.fromEntries(keys.map((k) => [k, conf(k)]));
+  const nOf = (k) => ((prof.metrics || {})[k] || {}).n || 0;
+  const lines = [];
+  if (dna.median_shot_s != null) lines.push(`- Median shot: ${dna.median_shot_s} s (${nOf("median_shot_s")} references, ${conf("median_shot_s")} confidence).`);
+  if (dna.punch_zooms_per_min != null) lines.push(`- Zoom punches: ${dna.punch_zooms_per_min} a minute${dna.punch_scale != null ? ` at about ${dna.punch_scale}x` : ""}${dna.zoom_on ? `, usually on ${dna.zoom_on}` : ""}.`);
+  if (dna.caption_words_per_unit != null) lines.push(`- Captions: ${dna.caption_words_per_unit} words a group.`);
+  const un = (prof.unmeasured || []).join("; "), out = (prof.outliers || []).map((o) => `${o.id}: ${o.why}`).join("; ");
+  const body = `
+## Reference DNA (measured from the user's references)
+Guidance, not a metronome: use these as the film's habits where the story allows, never as a fixed interval.
+${lines.join("\n") || "- Nothing could be measured with confidence."}
+Not measured: ${un || "nothing"}. Left out: ${out || "none"}.
+${brandLocked ? "\nThe brand's own film grammar wins on cut rate, transitions, palette and type; take only zoom habit and caption density from here.\n" : ""}${dna.applied ? "" : "\nLow confidence: the references were mixed or too few.\n"}`;
+  return { dna, body };
+}
 
 function motionMd(p, { mode, reason }) {
   const fl = fluentFields(p);
@@ -71,6 +96,10 @@ ${p.language === "character" ? "- Character language: anticipation pulls (50-120
 
 - Entrances: ${p.entrances.join(", ")}. Exits: ${p.exits.join(", ")}. Transitions: ${p.transitions.join(", ")}.
 ${reason ? `\n## Why this personality\n\n${reason}\n` : ""}`;
+  if (args["reference-profile"]) {
+    const r = referenceDna(String(args["reference-profile"]), !!args["brand-locked"]);
+    return writeFrontmatterDoc({ ...fields, reference_dna: r.dna }, body + r.body);
+  }
   return writeFrontmatterDoc(fields, body);
 }
 

@@ -621,8 +621,7 @@ struct ReelPanel: View {
     private func draft(_ player: AVPlayer) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             StageSectionTitle("Draft render")
-            VideoPlayer(player: player)
-                .aspectRatio(model.snapshot.aspectRatio, contentMode: .fit)
+            StudioVideoPlayer(player: player, takesKeys: true, aspect: model.snapshot.aspectRatio)
                 .frame(maxWidth: 560)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 14, y: 6)
@@ -636,6 +635,9 @@ struct ReelPanel: View {
                 StageSectionTitle("The cut")
                 Spacer()
                 Text("\(rows.count) items · \(secondsText(total))").font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
+            }
+            if !payload["cut"]["clips"].array.isEmpty {
+                CutTranscriptView(model: model, step: step, cut: payload["cut"], player: player)
             }
             timelineStrip
             List {

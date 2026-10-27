@@ -1,0 +1,82 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D08",
+  "case": "OTIO via the optional sidecar, rational rates, relative relinking, handles",
+  "targets": [
+    "lib/interchange.mjs timelineModel / verifyModel / relinkCheck / exportOtio / doctor",
+    "lib/interchange/otio_sidecar.py",
+    "lib/interchange/otio-pin.json"
+  ],
+  "checks": [
+    {
+      "name": "rational rate",
+      "setup": {
+        "rate": "30000/1001",
+        "clips": [
+          {
+            "duration_f": 90
+          },
+          {
+            "duration_f": 45
+          }
+        ]
+      },
+      "expect": "all ranges are integer frames with rate 30000/1001; no float seconds; duration_f 135"
+    },
+    {
+      "name": "track order and gaps",
+      "expect": "tracks keep order; a gap is explicit and positive; record_start_f is cumulative"
+    },
+    {
+      "name": "relative paths",
+      "setup": "media_path '/Users/example/film.mp4' and '../x.mp4'",
+      "expect": "timelineModel not ok; verifyModel finds no private path in a valid model"
+    },
+    {
+      "name": "relink after a move",
+      "steps": [
+        "build a package",
+        "move the folder to another volume path",
+        "relinkCheck(model, newRoot, manifest)"
+      ],
+      "expect": "every clip resolves and hashes match; a removed file is reported with its path"
+    },
+    {
+      "name": "handles",
+      "setup": [
+        {
+          "handles": null
+        },
+        {
+          "handles": {
+            "head_f": 0,
+            "tail_f": 12
+          }
+        },
+        {
+          "handles": {
+            "head_f": 8,
+            "tail_f": 8
+          }
+        }
+      ],
+      "expect": "first: state unknown (null, not zero); second: known with a zero head noted; third known"
+    },
+    {
+      "name": "sidecar absent",
+      "setup": "no python or no OpenTimelineIO",
+      "expect": "exportOtio ok false, state otio_unavailable, neutral .interchange.json written, NO .otio file; ordinary video production never touches the sidecar"
+    },
+    {
+      "name": "sidecar present",
+      "setup": "Plan 14 only, in the owner's own environment",
+      "expect": "official library writes and re-reads; compare reports no problems; verified_editor_import false; pin state in_compatible_range_unverified until exact_version is recorded"
+    },
+    {
+      "name": "staging name",
+      "expect": "the part file keeps the .otio extension so the adapter is chosen; it is renamed only after the re-read check"
+    }
+  ]
+}

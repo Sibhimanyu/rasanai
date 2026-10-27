@@ -1,0 +1,4 @@
+{"case":"F05","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented data to describe expected behaviour. Authored, not run; certifies nothing about current capabilities.","title":"a result built on an old digest cannot replace current output",
+"calls":["canonicalDigest","validateWorkerPacket","approvalCurrent","revisionKey"],
+"input":{"current":{"story_digest":"sha-B","look_digest":"sha-L1"},"results":[{"id":"r1","built_on":{"story_digest":"sha-A","look_digest":"sha-L1"}},{"id":"r2","built_on":{"story_digest":"sha-B","look_digest":"sha-L1"}}]},
+"expect":{"r1":"rejected as stale (story digest sha-A != sha-B); kept aside as a candidate, output untouched","r2":"accepted and replaces output","missing_built_on":"rejected, not assumed current"}}

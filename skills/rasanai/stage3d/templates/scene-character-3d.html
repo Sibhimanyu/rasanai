@@ -1,0 +1,47 @@
+<template>
+  <!--
+    {{FRAME_ID}}: a 3D scene with the film's recurring actor (Rasan3D + RasanCharacter3D, wave W6).
+    The actor is the CANON: CANON below is a copy of RUN/cast/<id>/identity.json (canon.mjs scaffold wrote it; canon.mjs check
+    compares its digest with the run's file). A scene REFERENCES the rig, it never modifies it: no scaling one axis, no hiding
+    the scarf, no recolouring a locked key. What a scene may change is state: where the actor stands, its actions, the camera,
+    the light, the set, props in a hand, a permitted outfit.
+    Actions (SPEC.actions): look, point, hop, react, walk, turn, carry. Each is a pure function of t: seek anywhere, any order.
+    Reference: references/3d.md (Recurring characters).
+  -->
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #r3-{{FRAME_ID}}-ground { position: absolute; inset: 0; background: {{CANVAS}}; }
+    #r3-{{FRAME_ID}}-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  </style>
+
+  <div id="root" data-composition-id="{{FRAME_ID}}" data-width="{{W}}" data-height="{{H}}" data-duration="{{DURATION}}">
+    <div id="r3-{{FRAME_ID}}-ground" class="clip" data-start="0" data-duration="{{DURATION}}" data-track-index="0"></div>
+    <canvas id="r3-{{FRAME_ID}}-gl" class="clip" data-start="0" data-duration="{{DURATION}}" data-track-index="1"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script src="assets/three/rasan3d.js"></script>
+  <script src="assets/three/character-rig.js"></script>
+  <script>
+    const FID = "{{FRAME_ID}}", D = {{DURATION}}, W = {{W}}, H = {{H}};
+    const CANON = {{CANON_JSON}};
+    const SPEC = {{SPEC_JSON}};
+    const tl = gsap.timeline({ paused: true });
+    window.__timelines[FID] = tl;
+
+    Rasan3D.stage({
+      id: FID, canvas: document.getElementById(`r3-${FID}-gl`), timeline: tl, duration: D, width: W, height: H, fps: 30,
+      camera: {{CAMERA_JSON}},
+      environment: "studio", toneMapping: "neutral", exposure: 1, motionBlur: { shutter: 0.5 },
+      async build(k) {
+        k.rig("three-point", { key: "{{KEY}}", dir: {{KEY_DIR}}, shadowSize: 4 });
+        k.ground({ y: 0, shadowOpacity: 0.3 });
+        const rig = RasanCharacter3D.loadCharacter(CANON, k);
+        k.scene.add(rig.group);
+        {{BUILD_EXTRA}}
+        return { rig };
+      },
+      pose(t, k) { k.objects.rig.poseAt(t, SPEC); },
+    });
+  </script>
+</template>

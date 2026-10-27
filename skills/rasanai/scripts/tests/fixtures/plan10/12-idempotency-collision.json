@@ -1,0 +1,62 @@
+{
+  "case": "plan10/U12",
+  "note": "synthetic",
+  "cases": [
+    {
+      "name": "same id same payload",
+      "expect": {
+        "ok": true,
+        "duplicate": true,
+        "changed": false
+      }
+    },
+    {
+      "name": "same id different payload",
+      "expect": {
+        "ok": false,
+        "conflict": true,
+        "changed": false
+      }
+    },
+    {
+      "name": "old line without payload_digest",
+      "expect": {
+        "ok": true,
+        "duplicate": true,
+        "legacy_unverified": true
+      }
+    },
+    {
+      "name": "revision request same key different content",
+      "expect": {
+        "ok": false,
+        "conflict": true
+      }
+    },
+    {
+      "name": "revision request repeated",
+      "expect": {
+        "duplicate": true,
+        "one_record": true
+      }
+    },
+    {
+      "name": "two processes race the same id",
+      "expect": "one writer wins under the strict source lock; the other sees duplicate or conflict"
+    }
+  ],
+  "payload_digest_covers": [
+    "operation",
+    "scene_id",
+    "element_id",
+    "region_norm",
+    "time_s",
+    "fields",
+    "instruction",
+    "original",
+    "proposed",
+    "film_version",
+    "build_digest",
+    "element_digest"
+  ]
+}

@@ -14,7 +14,7 @@ RasanAI decides everything creative; the HyperFrames workflow builds. The workfl
 | `talking-head-recut` | Brief, Brand, Route, Direction, Look (overlay card style), Motion (optional: described in the style fields), Music (optional), Plan | BRIEF.md with the style fields (`footage`) | the chosen motion's feel goes into the `footage` style fields (no DISPATCH or obey: the workflow owns its overlay code) · render gate |
 | `reel` (RasanAI's reel editor) | Brief, Brand, Route, Footage, Direction, Story, Look, Motion, Style frames, Cut, Music, Plan | nothing: `reel.mjs build` writes the whole project (references/reel.md) | lint + obey + render run inside `reel.mjs build`; render gate in the console |
 | `embedded-captions` | Brief, Brand, Route, Direction, Look (caption identity), Plan | BRIEF.md with the style fields (`footage`) | render gate |
-| `motion-graphics` (single unit) | see SKILL.md "Single motion units" | `handoff.mjs` (references/handoff.md) | DISPATCH to every subagent · `obey` · render gate |
+| `motion-graphics` (single unit) | see workflows/routes/motion-graphics.md (the "Single units" guide) | `handoff.mjs` (references/handoff.md) | DISPATCH to every subagent · `obey` · render gate |
 
 `scenes.mjs` accepts the four story routes; for `music-to-video` the scenes come from the chosen treatment instead (`treatment.mjs scenes --treatment story/chosen-treatment.json --lyrics music/lyrics.json --out scenes.json`: one scene per plate, durations from the plate windows, each carrying `plate`, `idiom`, `space`, `energy`, `start`, `end`, `lines` (indices into lyrics.json), `motifs`, `ground`; `references/lyric-video.md`). The track is not fitted or cut; the plates are cut to it. `video.mjs init` runs `npx hyperframes init --skill=<route>` for every route except the footage routes, where it only creates the folder (their workflows set the project up from the footage).
 
@@ -107,7 +107,7 @@ Everything a frame worker must honour is written **inside** its `## Frame N — 
 ## Build-time commands
 
 ```bash
-node $SKILL_DIR/scripts/video.mjs inject --project-dir videos/<name>                                  # after frame-packets.mjs
+node $SKILL_DIR/scripts/video.mjs inject --project-dir videos/<name> --run "$RUN"                  # after frame-packets.mjs
 node $SKILL_DIR/scripts/video.mjs audio-lock --project-dir videos/<name> --music videos/<name>/assets/music-bed.<ext>   # after fetch-sfx
 node $SKILL_DIR/scripts/obey.mjs --project videos/<name>                                              # after verify, before render
 node $SKILL_DIR/scripts/finish.mjs all --project videos/<name> --out <final.mp4>                      # the delivery render only: film-wide motion blur + one grade (references/finish.md); drafts use the workflow's render

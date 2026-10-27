@@ -1,0 +1,5 @@
+{ "_note": "authored, not run. Localization may propose but never silently drop protected text.",
+  "inputs": { "text": "launch video for Acme Notes", "locales": ["en", "de", "ja"] },
+  "evidence": [ { "id": "q1", "source": { "url": "https://example.com/pricing" }, "retrieved_at": "2026-10-24T00:00:00Z", "assertion": "\"Free forever\" for individuals", "qualification": "personal use only", "type": "public", "permitted_use": "claim" } ],
+  "proposed_translation_de": "Kostenlos fuer immer",
+  "expected": { "profiles": 3, "checkProtected.ok": false, "checkProtected.missing_includes": ["personal use only"], "action": "propose_only" } }

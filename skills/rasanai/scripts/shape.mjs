@@ -2,7 +2,7 @@
 // The shape kit: RasanShape (morph, draw-on, motion path, split, scatter, ink, dissolve, squash, smear, stepped)
 // for paused GSAP timelines. Every function is a pure function of the timeline's time, so it is seek-safe.
 //
-//   node shape.mjs install --project videos/<name>        copies the runtime + flubber (MIT) into <project>/assets/rasan-shape/
+//   node shape.mjs install --project videos/<name> [--optics]   copies the runtime + flubber (MIT) into <project>/assets/rasan-shape/; --optics also copies rasan-optics.js
 //   node shape.mjs demo    --out <dir> [--times 0,0.6,1.1,1.6,2.3]
 //                                   renders a test page that exercises every function headlessly: one frame per time,
 //                                   a contact strip (strip.png), and a report: each function changes the frame over
@@ -15,7 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
-import { install, collect, usesShape, RUNTIME, runtimeVersion } from "./lib/shape.mjs";
+import { install, collect, usesShape, usesOptics, RUNTIME, runtimeVersion } from "./lib/shape.mjs";
 import { serve } from "./lib/stage3d.mjs";
 import { launch } from "./lib/cdp.mjs";
 
@@ -183,6 +183,19 @@ function checkProject(project) {
     }
     if (/\bRasanShape\b/.test(t) && /Math\.random\s*\(|Date\.now\s*\(|performance\.now\s*\(/.test(t)) add("error", "nondeterministic", f, "Math.random / the wall clock in a composition that uses RasanShape", "use RasanShape.rng(seed) and derive everything from the timeline");
   }
+  // optics (additive): a composition calling RasanOptics loads rasan-optics.js after GSAP, has it installed, and keeps the timeline paused and clock-free
+  const haveOptics = fs.existsSync(path.join(project, "assets", "rasan-shape", "rasan-optics.js"));
+  for (const f of collect(project).filter(usesOptics)) {
+    const t = fs.readFileSync(f, "utf8");
+    if (/\.(html?)$/i.test(f)) {
+      const iO = t.search(/rasan-optics\.js/), iG = t.search(/gsap(\.min)?\.js/);
+      if (!haveOptics && iO < 0) add("error", "optics-runtime-missing", f, "calls RasanOptics but rasan-optics.js is not installed or loaded", "node shape.mjs install --project <dir> --optics");
+      if (iO >= 0 && iG >= 0 && iO < iG) add("error", "optics-script-order", f, "rasan-optics.js loads before GSAP", "load GSAP first");
+      if (!/paused\s*:\s*true/.test(t)) add("warning", "optics-timeline-not-paused", f, "no gsap.timeline({ paused: true }) found; RasanOptics is driven by a paused timeline", "create the timeline paused and register it");
+    }
+    if (/Math\.random\s*\(|Date\.now\s*\(|performance\.now\s*\(/.test(t)) add("error", "optics-nondeterministic", f, "Math.random / the wall clock in a composition that uses RasanOptics", "the optics are a pure function of timeline time: use the plan's seed and score-second keys");
+    if (/RasanOptics[\s\S]*\.style\.filter\s*=|\.style\.filter\s*=[\s\S]*RasanOptics/.test(t)) add("warning", "optics-second-writer", f, "this composition writes style.filter by hand next to RasanOptics: one writer per element, or the helpers overwrite each other", "move that effect into an optics operation or give it another element");
+  }
   const errors = findings.filter((x) => x.severity === "error").length;
   return { project, files: files.map((f) => path.relative(project, f)), runtime_installed: have, findings, errors, warnings: findings.length - errors, status: files.length ? (errors ? "violations" : "clean") : "no-shape" };
 }
@@ -191,7 +204,7 @@ function checkProject(project) {
 if (cmd === "install") {
   const root = path.resolve(str(args.project) || str(args.dest) || die("--project <videos/name> required"));
   if (!fs.existsSync(root)) die(`not found: ${root}`);
-  const inst = install(root);
+  const inst = install(root, { optics: !!args.optics });
   out({ ok: true, ...inst, dir: path.relative(process.cwd(), inst.dir), use: 'after GSAP: <script src="assets/rasan-shape/flubber.min.js"></script><script src="assets/rasan-shape/rasan-shape.js"></script> (flubber only for morph)' });
 } else if (cmd === "demo") {
   const dir = path.resolve(str(args.out) || die("--out <dir> required"));

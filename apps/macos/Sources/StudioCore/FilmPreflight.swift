@@ -58,19 +58,26 @@ public enum FilmPreflight {
         let engineOK = config.engine.map { fm.isReadableFile(atPath: $0.appendingPathComponent("scripts/console.mjs").path) } == true
             && config.driver.map { fm.isReadableFile(atPath: $0.path) } == true
         rows.append(PreflightItem("engine", "Studio tools", engineOK ? "The bundled director and review tools are available." : "Bundled tools are missing. Download a fresh copy of Studio.", engineOK ? .ready : .blocked))
+        // The director is a headless process: it can never run brew, sudo or an installer. Say what is true on this Mac and prefer Studio's own install.
+        let brewPresent = executable("brew", directories: config.directories + ["/opt/homebrew/bin", "/usr/local/bin"]) != nil
+        let managedAvailable = config.node != nil
         for tool in ["ffmpeg", "ffprobe"] {
             let binary = executable(tool, directories: config.directories)
             let okay = if let binary { await probe(binary, arguments: ["-version"], config: config) } else { false }
+            let how = managedAvailable ? "Press Install below and Studio sets FFmpeg up for you (no password, no Homebrew)."
+                : "Set Node.js up in Settings so Studio can install FFmpeg for you."
+            let own = brewPresent ? " Or run `brew install ffmpeg` yourself in Terminal; Rasan's director is not allowed to run it."
+                : " Homebrew is not installed on this Mac, so `brew install ffmpeg` will not work; use Studio's install."
             rows.append(PreflightItem(tool, tool == "ffmpeg" ? "Video rendering" : "Media inspection",
-                okay ? "\(tool) is available." : "\(tool) is missing or cannot run. Install FFmpeg, then recheck.", okay ? .ready : .blocked,
-                command: okay ? nil : "brew install ffmpeg"))
+                okay ? "\(tool) is available." : "\(tool) is missing or cannot run. \(how)\(own)", okay ? .ready : .blocked,
+                command: okay || !brewPresent ? nil : "brew install ffmpeg"))
         }
         let npxOK = executable("npx", directories: config.directories) != nil
         rows.append(PreflightItem("npx", "Renderer launcher", npxOK ? "npx is available for HyperFrames." : "npx is missing. Install Node.js with npm, or select the complete Node distribution in Settings.", npxOK ? .ready : .blocked))
         let renderer = executable("hyperframes", directories: config.directories)
             ?? executable("hyperframes", directories: [config.project.appendingPathComponent("node_modules/.bin").path])
         rows.append(PreflightItem("renderer", "HyperFrames", renderer == nil
-            ? "The renderer will be resolved through npx and may need an internet connection. Install it in advance for offline work."
+            ? "The renderer will be resolved through npx and may need an internet connection. Press Install below to have Studio set it up in advance (no password), or run the command yourself in Terminal for offline work."
             : "A local HyperFrames executable is available. Compatibility is checked when rendering.", renderer == nil ? .warning : .ready,
             command: renderer == nil ? "npm install --global --prefix \(LocalAgent.shellQuote(fm.homeDirectoryForCurrentUser.appendingPathComponent(".npm-global").path)) hyperframes" : nil))
         let browser = findBrowser(environment: config.environment)
@@ -150,6 +157,20 @@ public enum FilmPreflight {
         return signedIn
             ? PreflightItem("imagegen", title, "Generated images for presenter films use your ChatGPT plan through Codex.", .ready)
             : PreflightItem("imagegen", title, "Generated images for presenter films use your ChatGPT plan through Codex. Sign in to Codex to use them; until then films use designed backdrops.", .warning, command: "codex login")
+    }
+    /// Which of `names` the director would find: present in its PATH and able to start. Used to verify an install before the film carries on.
+    public static func visibleOnPath(_ names: [String], environment: [String: String]) async -> [String: URL] {
+        let directories = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
+        let config = PreflightConfiguration(node: nil, engine: nil, driver: nil, directories: directories, environment: environment,
+                                            project: FileManager.default.temporaryDirectory, sources: [])
+        var found: [String: URL] = [:]
+        for name in names {
+            guard let binary = executable(name, directories: directories) else { continue }
+            // Only the tools known to answer a version flag are started; any other program counts when it is executable on the PATH.
+            guard ["ffmpeg", "ffprobe", "hyperframes"].contains(name) else { found[name] = binary; continue }
+            if await probe(binary, arguments: [name == "hyperframes" ? "--version" : "-version"], config: config) { found[name] = binary }
+        }
+        return found
     }
     private static func executable(_ name: String, directories: [String]) -> URL? {
         directories.map { URL(fileURLWithPath: $0).appendingPathComponent(name) }

@@ -1,0 +1,93 @@
+{
+  "case": "A06",
+  "title": "destination profiles, honest measurement, dialogue-first ducking without pumping",
+  "calls": [
+    "resolveProfile",
+    "measureRecord",
+    "evaluateMeasures",
+    "duckEnvelope"
+  ],
+  "measures": {
+    "ok": {
+      "lufs": -14.2,
+      "lra": 5,
+      "true_peak": -1.6,
+      "short_term_max": -11,
+      "clipped_samples": 0,
+      "total_samples": 2880000,
+      "channels": 2,
+      "sample_rate": 48000,
+      "duration": 60
+    },
+    "loud": {
+      "lufs": -9.5,
+      "true_peak": 0.2,
+      "clipped_samples": 48,
+      "total_samples": 2880000,
+      "channels": 2,
+      "sample_rate": 48000,
+      "duration": 60
+    },
+    "short": {
+      "lufs": -14,
+      "true_peak": -2,
+      "clipped_samples": 0,
+      "duration": 57.4
+    }
+  },
+  "expected_duration_s": 60,
+  "duck_spans": {
+    "dense": [
+      [
+        1,
+        1.8
+      ],
+      [
+        2.5,
+        3.2
+      ],
+      [
+        4,
+        4.7
+      ],
+      [
+        5.3,
+        6
+      ],
+      [
+        6.8,
+        7.5
+      ],
+      [
+        8.1,
+        8.9
+      ],
+      [
+        9.6,
+        10.2
+      ],
+      [
+        11,
+        11.8
+      ]
+    ],
+    "single": [
+      [
+        2,
+        6
+      ],
+      [
+        6.8,
+        9
+      ]
+    ]
+  },
+  "expect": {
+    "profiles": "resolveProfile() is rasanai-house: -14 LUFS +/-1, check ceiling -1.0 dBTP, limiter -1.5 dBTP (the old defaults). ebu-r128 is -23 +/-0.5 / -1. An unknown id falls back to house and says so. No profile is called universal",
+    "ok": "house profile: measured ok true (loudness within tolerance, peak under the ceiling, clipped 0); deferred lists mono_downmix and phone_speaker (not claimed from channel count)",
+    "loud": "errors integrated-loudness (with a gain fix), true-peak, clipping; ok false",
+    "short": "error duration (57.4 s vs 60 s: a tail may have been cut); clipping is 'info: unmeasured', not a pass",
+    "ebu": "the 'ok' measures against ebu-r128 fail integrated-loudness (-14.2 vs -23)",
+    "ducking": "dense spans -> pumping-risk flag (8 ducks in ~12 s); single merges both spans into one lane (gap 0.8 s < 1.2 s) so ducks 1; depth 5 dB, release 0.8 s, depth capped at 9 dB when asked for 14"
+  }
+}

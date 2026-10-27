@@ -1,0 +1,1443 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "id": "kinetic-type-text-mask-reveal-v1",
+      "version": 1,
+      "label": "Text as mask",
+      "family": "kinetic-type",
+      "role": "entry",
+      "summary": "Lines of a headline rise out of their own clip box, so the type is revealed by a hard edge instead of a fade.",
+      "use_when": "A headline that must feel cut into the frame: one decisive line, big type, a calm ground.",
+      "avoid_when": "Body copy, more than three lines, or any text smaller than the safe reading size.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "font.display",
+        "color.text"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "lineDelay": {
+          "type": "number",
+          "min": 0.04,
+          "max": 0.4,
+          "default": 0.12
+        },
+        "travel": {
+          "type": "number",
+          "min": 0.4,
+          "max": 1.4,
+          "default": 1
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.3,
+          "max": 1.2,
+          "default": 0.6
+        },
+        "direction": {
+          "type": "enum",
+          "enum": [
+            "up",
+            "down"
+          ],
+          "default": "up"
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Lines appear in place with a short opacity step, no travel.",
+      "implementation": "runtime/rasan-motion-kit.js:textMaskReveal",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "kinetic-type-tracking-tension-v1",
+      "version": 1,
+      "label": "Tracking tension",
+      "family": "kinetic-type",
+      "role": "emphasis",
+      "summary": "Letter-spacing tightens as the word lands, loading it with pressure, then relaxes a hair.",
+      "use_when": "A single word that carries the claim and needs weight, not movement across the frame.",
+      "avoid_when": "Long strings, or type already set in a tight monospace grid.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "font.display"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "from": {
+          "type": "number",
+          "min": 0,
+          "max": 0.3,
+          "default": 0.14
+        },
+        "to": {
+          "type": "number",
+          "min": -0.06,
+          "max": 0.1,
+          "default": 0
+        },
+        "relax": {
+          "type": "number",
+          "min": 0,
+          "max": 0.04,
+          "default": 0.01
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.3,
+          "max": 1.5,
+          "default": 0.7
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final tracking applied immediately.",
+      "implementation": "runtime/rasan-motion-kit.js:trackingTension",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "kinetic-type-path-follow-title-v1",
+      "version": 1,
+      "label": "Path-follow title",
+      "family": "kinetic-type",
+      "role": "entry",
+      "summary": "A title travels along a drawn curve and settles level at its anchor, the path doing the staging.",
+      "use_when": "A title that has to arrive from somewhere meaningful: a route, a chart line, a gesture.",
+      "avoid_when": "Titles that must be read in the first half second.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "font.display"
+      ],
+      "motion_inputs": [],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.6,
+          "max": 3,
+          "default": 1.4
+        },
+        "rotate": {
+          "type": "boolean",
+          "default": true
+        },
+        "settleLevel": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Title shown at its end position, no travel.",
+      "implementation": "runtime/rasan-shape.js:followPath",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "kinetic-type-editorial-stagger-cut-v1",
+      "version": 1,
+      "label": "Editorial stagger cut",
+      "family": "kinetic-type",
+      "role": "scene",
+      "summary": "Words of a statement land on hard cuts at irregular intervals, each one a new typographic scale.",
+      "use_when": "A manifesto line or list of beliefs where the rhythm of reading is the content.",
+      "avoid_when": "Statements under three words; text that must stay on screen for translation.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "font.display",
+        "font.body"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "words": {
+          "type": "number",
+          "min": 3,
+          "max": 12,
+          "default": 6
+        },
+        "minGap": {
+          "type": "number",
+          "min": 0.08,
+          "max": 0.4,
+          "default": 0.14
+        },
+        "maxGap": {
+          "type": "number",
+          "min": 0.2,
+          "max": 1,
+          "default": 0.42
+        },
+        "scaleSpread": {
+          "type": "number",
+          "min": 1,
+          "max": 3,
+          "default": 1.8
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "All words visible together at the final layout.",
+      "implementation": "runtime/rasan-motion-kit.js:editorialStaggerCut",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "product-ui-authentic-field-fill-v1",
+      "version": 1,
+      "label": "Authentic field fill",
+      "family": "product-ui",
+      "role": "emphasis",
+      "summary": "Cursor lands in a real input and types a believable value, with the field reacting.",
+      "use_when": "Showing one task being done in the product: search, name, address.",
+      "avoid_when": "Fields with no visible label, or typed text longer than one short line.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "tokens.ui",
+        "font.body"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "charsPerSecond": {
+          "type": "number",
+          "min": 8,
+          "max": 30,
+          "default": 16
+        },
+        "pressFrames": {
+          "type": "number",
+          "min": 1,
+          "max": 4,
+          "default": 2
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Field shown filled; no cursor travel.",
+      "implementation": "runtime/rasan-ui.js:kit.type",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "product-ui-card-stack-rotation-v1",
+      "version": 1,
+      "label": "Card stack rotation",
+      "family": "product-ui",
+      "role": "emphasis",
+      "summary": "A stack of cards cycles: the top one leaves along an arc and re-enters at the bottom, the rest step forward.",
+      "use_when": "Showing alternatives, versions or queue depth without a carousel.",
+      "avoid_when": "More than six cards, or content that must be compared side by side.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "tokens.ui",
+        "color.surface"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "cards": {
+          "type": "number",
+          "min": 3,
+          "max": 6,
+          "default": 4
+        },
+        "stepOffset": {
+          "type": "number",
+          "min": 8,
+          "max": 40,
+          "default": 20
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 1.2,
+          "default": 0.7
+        },
+        "arc": {
+          "type": "number",
+          "min": 0,
+          "max": 80,
+          "default": 32
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final stack order shown, no cycling.",
+      "implementation": "runtime/rasan-motion-kit.js:cardStackRotation",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "product-ui-layout-reflow-v1",
+      "version": 1,
+      "label": "Layout reflow",
+      "family": "product-ui",
+      "role": "transition",
+      "summary": "Panels rearrange to a new grid with each box travelling from its old rect to its new one.",
+      "use_when": "Switching a view (list to grid, sidebar collapse) so the viewer sees the same thing re-ordered.",
+      "avoid_when": "When the two layouts share no element, a plain cut reads cleaner.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "tokens.ui"
+      ],
+      "motion_inputs": [],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 1.4,
+          "default": 0.8
+        },
+        "stagger": {
+          "type": "number",
+          "min": 0,
+          "max": 0.15,
+          "default": 0.04
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final layout shown immediately.",
+      "implementation": "runtime/rasan-motion-kit.js:layoutReflow",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "product-ui-component-to-fullscreen-v1",
+      "version": 1,
+      "label": "Component to fullscreen",
+      "family": "product-ui",
+      "role": "transition",
+      "summary": "A component grows from its place in the UI to fill the frame, becoming the next scene.",
+      "use_when": "Entering a detail view: a card opens to a page, a chart to a dashboard.",
+      "avoid_when": "Components with no meaningful detail behind them.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "tokens.ui"
+      ],
+      "motion_inputs": [],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.5,
+          "max": 1.6,
+          "default": 0.9
+        },
+        "radiusEnd": {
+          "type": "number",
+          "min": 0,
+          "max": 32,
+          "default": 0
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Cross-dissolve by opacity step, no resize.",
+      "implementation": "runtime/rasan-motion-kit.js:componentToFullscreen",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "shape-outline-to-solid-v1",
+      "version": 1,
+      "label": "Outline to solid",
+      "family": "shape",
+      "role": "entry",
+      "summary": "A stroked shape draws on, then its fill floods in from the stroke.",
+      "use_when": "Introducing an icon or mark that is about to become a solid object in the scene.",
+      "avoid_when": "Complex marks with hundreds of paths.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.accent"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "drawDuration": {
+          "type": "number",
+          "min": 0.3,
+          "max": 2,
+          "default": 0.8
+        },
+        "fillDuration": {
+          "type": "number",
+          "min": 0.1,
+          "max": 1,
+          "default": 0.4
+        },
+        "fillDelay": {
+          "type": "number",
+          "min": 0,
+          "max": 0.6,
+          "default": 0.1
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Solid shape shown at once.",
+      "implementation": "runtime/rasan-motion-kit.js:outlineToSolid",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "shape-topology-bridge-v1",
+      "version": 1,
+      "label": "Topology bridge",
+      "family": "shape",
+      "role": "transition",
+      "summary": "One silhouette morphs into another with matched point counts so the form reads as one object changing meaning.",
+      "use_when": "A concept hand-off: seed becomes chart, chat bubble becomes envelope.",
+      "avoid_when": "Shapes with no visual relation; the morph will look like a glitch.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.accent"
+      ],
+      "motion_inputs": [],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 2,
+          "default": 0.9
+        },
+        "ease": {
+          "type": "string",
+          "default": "power2.inOut"
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "End shape shown immediately.",
+      "implementation": "runtime/rasan-shape.js:morph",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "shape-silhouette-wipe-v1",
+      "version": 1,
+      "label": "Silhouette wipe",
+      "family": "shape",
+      "role": "transition",
+      "summary": "The outgoing scene is cut away through the silhouette of an object, revealing the next scene inside it.",
+      "use_when": "A scene change motivated by an object already on screen.",
+      "avoid_when": "Scenes with no hero object, or when a plain iris would do.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.accent"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 1.6,
+          "default": 0.8
+        },
+        "growTo": {
+          "type": "number",
+          "min": 1,
+          "max": 30,
+          "default": 12
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Hard cut at the same time, no scaling.",
+      "implementation": "runtime/rasan-motion-kit.js:silhouetteWipe",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "shape-split-recombine-v1",
+      "version": 1,
+      "label": "Split and recombine",
+      "family": "shape",
+      "role": "emphasis",
+      "summary": "An element divides into pieces that drift apart and snap back as a new arrangement.",
+      "use_when": "Showing a thing made of parts, then the same parts working as one.",
+      "avoid_when": "Photographic content, where slicing looks like damage.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.accent"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "pieces": {
+          "type": "number",
+          "min": 2,
+          "max": 8,
+          "default": 4
+        },
+        "spread": {
+          "type": "number",
+          "min": 20,
+          "max": 300,
+          "default": 120
+        },
+        "holdDuration": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.25
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.6,
+          "max": 2.4,
+          "default": 1.2
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final arrangement shown; no travel.",
+      "implementation": "runtime/rasan-motion-kit.js:splitRecombine",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "camera-space-dolly-with-landing-v1",
+      "version": 1,
+      "label": "Dolly with landing",
+      "family": "camera-space",
+      "role": "scene",
+      "summary": "The camera pushes toward a point with a log-space zoom and brakes onto a deliberate framing.",
+      "use_when": "One subject deserves a slow approach that ends exactly framed.",
+      "avoid_when": "Scenes with many equal subjects; the move will pick a favourite.",
+      "supports": [
+        "dom-gsap",
+        "stage3d"
+      ],
+      "brand_inputs": [
+        "color.ground"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "zoomTo": {
+          "type": "number",
+          "min": 1.05,
+          "max": 4,
+          "default": 1.4
+        },
+        "duration": {
+          "type": "number",
+          "min": 1,
+          "max": 8,
+          "default": 4
+        },
+        "offsetX": {
+          "type": "number",
+          "min": -600,
+          "max": 600,
+          "default": 0
+        },
+        "offsetY": {
+          "type": "number",
+          "min": -400,
+          "max": 400,
+          "default": 0
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final framing, no movement.",
+      "implementation": "runtime/rasan-camera.js:stage.keys",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "camera-space-rack-focus-emphasis-v1",
+      "version": 1,
+      "label": "Rack-focus emphasis",
+      "family": "camera-space",
+      "role": "emphasis",
+      "summary": "Depth of field shifts from one plane to another so attention moves without the camera moving.",
+      "use_when": "Two items at different depths; the second one is the point.",
+      "avoid_when": "Flat layouts with no depth cues.",
+      "supports": [
+        "dom-gsap",
+        "stage3d"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.2,
+          "max": 1.2,
+          "default": 0.5
+        },
+        "aperture": {
+          "type": "number",
+          "min": 1,
+          "max": 8,
+          "default": 2.4
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Both planes sharp; target gets a plain scale-up nudge.",
+      "implementation": "runtime/rasan-camera.js:stage.rack",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "camera-space-ortho-perspective-handoff-v1",
+      "version": 1,
+      "label": "Ortho to perspective",
+      "family": "camera-space",
+      "role": "transition",
+      "summary": "A flat front-on layout tips into a perspective view, depth appearing as the lens widens.",
+      "use_when": "Turning a flat diagram or UI into a place the story moves through.",
+      "avoid_when": "Text-heavy layouts that must stay legible during the tilt.",
+      "supports": [
+        "dom-gsap",
+        "stage3d"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [],
+      "params": {
+        "rotateX": {
+          "type": "number",
+          "min": 0,
+          "max": 60,
+          "default": 35
+        },
+        "rotateY": {
+          "type": "number",
+          "min": -45,
+          "max": 45,
+          "default": -18
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.6,
+          "max": 3,
+          "default": 1.4
+        },
+        "perspectiveMm": {
+          "type": "number",
+          "min": 24,
+          "max": 85,
+          "default": 50
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final angle applied directly.",
+      "implementation": "runtime/rasan-motion-kit.js:orthoPerspectiveHandoff",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "camera-space-layer-parallax-v1",
+      "version": 1,
+      "label": "Layer parallax",
+      "family": "camera-space",
+      "role": "background",
+      "summary": "Layers drift at different rates with a seeded wobble, so depth reads from lateral camera motion.",
+      "use_when": "A hero scene with a foreground, mid and ground that has to feel physically shot.",
+      "avoid_when": "Flat design-system screens where depth would contradict the UI.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.ground"
+      ],
+      "motion_inputs": [],
+      "params": {
+        "layers": {
+          "type": "number",
+          "min": 2,
+          "max": 6,
+          "default": 3
+        },
+        "travel": {
+          "type": "number",
+          "min": 20,
+          "max": 400,
+          "default": 120
+        },
+        "duration": {
+          "type": "number",
+          "min": 1,
+          "max": 10,
+          "default": 5
+        },
+        "axis": {
+          "type": "enum",
+          "enum": [
+            "x",
+            "y"
+          ],
+          "default": "x"
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Layers rest at their midpoint, no drift.",
+      "implementation": "runtime/rasan-motion-kit.js:layerParallax",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "sound-hit-downbeat-reveal-v1",
+      "version": 1,
+      "label": "Downbeat reveal",
+      "family": "sound-hit",
+      "role": "entry",
+      "summary": "An element is hidden until a music cue, then lands exactly on it with a short overshoot.",
+      "use_when": "The reveal is the payoff of the shot and a cue exists at the right time.",
+      "avoid_when": "No cue track; the move will fall back to time and lose its point.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "cue": {
+          "type": "number",
+          "min": 0,
+          "max": 300,
+          "default": 0
+        },
+        "overshoot": {
+          "type": "number",
+          "min": 0,
+          "max": 0.3,
+          "default": 0.08
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.15,
+          "max": 0.8,
+          "default": 0.35
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Element visible from the cue time with no scale overshoot.",
+      "implementation": "runtime/rasan-motion-kit.js:downbeatReveal",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "sound-hit-multi-part-contraction-v1",
+      "version": 1,
+      "label": "Multi-part contraction",
+      "family": "sound-hit",
+      "role": "emphasis",
+      "summary": "Several parts compress toward one point across successive beats, then release.",
+      "use_when": "Building tension toward a drop: items converge as the music thickens.",
+      "avoid_when": "Anything that must remain readable at the contraction point.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "parts": {
+          "type": "number",
+          "min": 2,
+          "max": 8,
+          "default": 4
+        },
+        "compression": {
+          "type": "number",
+          "min": 0.2,
+          "max": 0.9,
+          "default": 0.6
+        },
+        "releaseDuration": {
+          "type": "number",
+          "min": 0.1,
+          "max": 0.8,
+          "default": 0.3
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Parts rest at their final spacing, no compression.",
+      "implementation": "runtime/rasan-motion-kit.js:multiPartContraction",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "sound-hit-visual-foley-hit-v1",
+      "version": 1,
+      "label": "Visual-to-foley hit",
+      "family": "sound-hit",
+      "role": "emphasis",
+      "summary": "A short impact pulse (scale, flash, offset) is timed to the frame of a foley sound.",
+      "use_when": "An object lands, clicks or snaps and the sound track carries the hit.",
+      "avoid_when": "Silent exports; the hit must be left out.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "cue": {
+          "type": "number",
+          "min": 0,
+          "max": 300,
+          "default": 0
+        },
+        "intensity": {
+          "type": "number",
+          "min": 0.02,
+          "max": 0.3,
+          "default": 0.1
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.08,
+          "max": 0.5,
+          "default": 0.2
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "No pulse, element stays put.",
+      "implementation": "runtime/rasan-motion-kit.js:visualFoleyHit",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "sound-hit-pause-payoff-v1",
+      "version": 1,
+      "label": "Pause and payoff",
+      "family": "sound-hit",
+      "role": "scene",
+      "summary": "Everything holds still for a measured pause, then one move resolves the held tension.",
+      "use_when": "A moment before the key line, when silence is the loudest thing.",
+      "avoid_when": "Fast montages; the pause will feel like a stall.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "pause": {
+          "type": "number",
+          "min": 0.2,
+          "max": 2,
+          "default": 0.7
+        },
+        "payoffDuration": {
+          "type": "number",
+          "min": 0.2,
+          "max": 1.2,
+          "default": 0.5
+        },
+        "holdBefore": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.2
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Payoff state shown at the pause end, no hold motion.",
+      "implementation": "runtime/rasan-motion-kit.js:pausePayoff",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "data-evidence-evidence-number-reveal-v1",
+      "version": 1,
+      "label": "Evidence number reveal",
+      "family": "data-evidence",
+      "role": "emphasis",
+      "summary": "A figure counts up and resolves exactly on its true value, then a source line appears under it.",
+      "use_when": "Any claim whose strength is a real number from the brief or product.",
+      "avoid_when": "Numbers that are invented or have no source line.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "font.display",
+        "color.accent"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "value": {
+          "type": "number",
+          "min": 0,
+          "max": 1000000000000,
+          "default": 100
+        },
+        "decimals": {
+          "type": "number",
+          "min": 0,
+          "max": 4,
+          "default": 0
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1.2
+        },
+        "prefix": {
+          "type": "string",
+          "default": ""
+        },
+        "suffix": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final value shown, no counting.",
+      "implementation": "runtime/rasan-motion-kit.js:evidenceNumberReveal",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "data-evidence-chart-trace-v1",
+      "version": 1,
+      "label": "Chart trace",
+      "family": "data-evidence",
+      "role": "entry",
+      "summary": "A line draws left to right on its data, a marker following the tip.",
+      "use_when": "Showing a trend where the shape of the line is the message.",
+      "avoid_when": "Comparing many categories; use a bar reveal.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.accent",
+        "font.body"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.6,
+          "max": 4,
+          "default": 1.8
+        },
+        "marker": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Complete line shown at once.",
+      "implementation": "runtime/rasan-shape.js:drawOn",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "data-evidence-axis-reframe-v1",
+      "version": 1,
+      "label": "Axis reframe",
+      "family": "data-evidence",
+      "role": "transition",
+      "summary": "The chart rescales its axis to a new range, the data shifting to show what was hidden.",
+      "use_when": "Revealing scale: zooming from a total down to the slice that matters.",
+      "avoid_when": "Charts where the new range would hide the context.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "font.body"
+      ],
+      "motion_inputs": [],
+      "params": {
+        "fromMax": {
+          "type": "number",
+          "min": 1,
+          "max": 1000000000,
+          "default": 100
+        },
+        "toMax": {
+          "type": "number",
+          "min": 1,
+          "max": 1000000000,
+          "default": 20
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 2,
+          "default": 0.9
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final axis shown with no tween.",
+      "implementation": "runtime/rasan-motion-kit.js:axisReframe",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "data-evidence-count-to-object-v1",
+      "version": 1,
+      "label": "Count to object",
+      "family": "data-evidence",
+      "role": "scene",
+      "summary": "A number counts up and its final value is built as that many small objects.",
+      "use_when": "Making a count feel physical: users, files, hours.",
+      "avoid_when": "Counts above a few hundred, where objects stop being countable.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.accent"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "count": {
+          "type": "number",
+          "min": 1,
+          "max": 200,
+          "default": 24
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.8,
+          "max": 4,
+          "default": 2
+        },
+        "columns": {
+          "type": "number",
+          "min": 2,
+          "max": 20,
+          "default": 8
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "All objects shown at once.",
+      "implementation": "runtime/rasan-motion-kit.js:countToObject",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "texture-pen-path-v1",
+      "version": 1,
+      "label": "Pen path",
+      "family": "texture",
+      "role": "background",
+      "summary": "A hand-pen path draws on at a human pace, with seeded pressure wobble in its width.",
+      "use_when": "Hand-made annotation, underline or route on an otherwise clean product frame.",
+      "avoid_when": "Brands that want machine precision.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.accent"
+      ],
+      "motion_inputs": [],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1.2
+        },
+        "wobble": {
+          "type": "number",
+          "min": 0,
+          "max": 3,
+          "default": 0.8
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Path shown complete.",
+      "implementation": "runtime/rasan-shape.js:drawOn",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "texture-stepped-pose-v1",
+      "version": 1,
+      "label": "Stepped pose",
+      "family": "texture",
+      "role": "emphasis",
+      "summary": "Motion is held on a low frame rate in a seeded irregular step, like a hand-posed cut-out.",
+      "use_when": "Craft-forward or editorial pieces where smoothness would feel corporate.",
+      "avoid_when": "Product-UI proof shots; stepping reads as lag.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [],
+      "params": {
+        "steps": {
+          "type": "number",
+          "min": 4,
+          "max": 24,
+          "default": 8
+        },
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Final pose shown, no stepping.",
+      "implementation": "runtime/rasan-shape.js:stepped",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "texture-ink-reveal-v1",
+      "version": 1,
+      "label": "Ink reveal",
+      "family": "texture",
+      "role": "entry",
+      "summary": "A shape or image is revealed through a spreading ink edge.",
+      "use_when": "A mood-led reveal on a photograph, headline or mark.",
+      "avoid_when": "Informational UI where the edge would blur data.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "color.ink"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 2,
+          "default": 0.9
+        },
+        "mode": {
+          "type": "enum",
+          "enum": [
+            "bleed",
+            "smear"
+          ],
+          "default": "bleed"
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Target visible, no mask.",
+      "implementation": "runtime/rasan-shape.js:ink",
+      "origin": "reused-rasan",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "texture-seeded-jitter-v1",
+      "version": 1,
+      "label": "Seeded jitter",
+      "family": "texture",
+      "role": "background",
+      "summary": "Small position and rotation tremor that is a pure function of time and a seed, so every render is identical.",
+      "use_when": "A live, handmade surface under static content: print misregistration, paper.",
+      "avoid_when": "Anywhere jitter would move text people need to read.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [],
+      "params": {
+        "amount": {
+          "type": "number",
+          "min": 0,
+          "max": 6,
+          "default": 1.2
+        },
+        "rate": {
+          "type": "number",
+          "min": 2,
+          "max": 24,
+          "default": 8
+        },
+        "seedOffset": {
+          "type": "number",
+          "min": 0,
+          "max": 999,
+          "default": 0
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Static at rest position.",
+      "implementation": "runtime/rasan-motion-kit.js:seededJitter",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "ending-logo-resolution-v1",
+      "version": 1,
+      "label": "Logo resolution",
+      "family": "ending",
+      "role": "ending",
+      "summary": "Elements converge and resolve into the logo mark, which lands once and holds.",
+      "use_when": "The final lockup after a film that has been building to a name.",
+      "avoid_when": "Films with no logo asset, or where the name already appeared big.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "logo",
+        "color.ground"
+      ],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.6,
+          "max": 3,
+          "default": 1.4
+        },
+        "holdDuration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 4,
+          "default": 1.2
+        }
+      },
+      "requires_assets": [
+        "logo"
+      ],
+      "seek_safe": true,
+      "reduced_motion": "Logo shown at its final place.",
+      "implementation": "runtime/rasan-motion-kit.js:logoResolution",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "ending-matched-open-end-echo-v1",
+      "version": 1,
+      "label": "Matched open/end echo",
+      "family": "ending",
+      "role": "ending",
+      "summary": "The last frame answers the first: the same composition returns with one thing changed.",
+      "use_when": "Giving a film closure by echoing its opening shot.",
+      "avoid_when": "Films whose opening shot is not worth repeating.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [],
+      "params": {
+        "echoDuration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1.2
+        },
+        "changeStrength": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.6
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Echo frame shown as a still.",
+      "implementation": "runtime/rasan-motion-kit.js:matchedEcho",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "ending-hold-then-cut-v1",
+      "version": 1,
+      "label": "Hold then cut",
+      "family": "ending",
+      "role": "ending",
+      "summary": "The final frame holds still for a deliberate beat and then cuts to black on a downbeat.",
+      "use_when": "A confident end: a bold line with room to land.",
+      "avoid_when": "Looping or auto-advancing contexts.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [
+        "cues"
+      ],
+      "params": {
+        "hold": {
+          "type": "number",
+          "min": 0.3,
+          "max": 5,
+          "default": 1.5
+        },
+        "cutAt": {
+          "type": "number",
+          "min": 0,
+          "max": 300,
+          "default": 0
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "Last frame shown for the hold.",
+      "implementation": "runtime/rasan-motion-kit.js:holdThenCut",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "ending-seamless-loop-v1",
+      "version": 1,
+      "label": "Seamless loop",
+      "family": "ending",
+      "role": "ending",
+      "summary": "Motion ends on the exact state it began in, with velocity matched so the seam disappears.",
+      "use_when": "A short social loop or website hero that repeats.",
+      "avoid_when": "Narrative films that need a conclusion.",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [],
+      "motion_inputs": [],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 1,
+          "max": 10,
+          "default": 4
+        },
+        "matchVelocity": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "One static frame, no loop.",
+      "implementation": "runtime/rasan-motion-kit.js:seamlessLoop",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    }
+  ]
+}

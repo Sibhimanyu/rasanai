@@ -4,11 +4,226 @@ Desktop releases are separate from RasanAI skill releases.
 
 ## Unreleased
 
+- **Sound direction on Brief and Look.** A compact Sound section for voiceover, pace, feeling, effects and music source, each with "Recommend for me", plus four starting points and a three-track music shortlist on Look with quick revisions. Choices are saved with the brief and passed to the director. Not built or tried in the app yet.
+- The Voiceover menu gains "Recommend for me" and defaults to it. The Look "Motion and sound" section now always shows.
+- **Bundles the next RasanAI skill:** connected sequences, music selection and layered effects (see the skill changelog). The reported music dropout is not repaired.
+
+## 0.25.0 (build 66) — 2026-10-27
+
+- **Bundles RasanAI 1.30.0:** the creative overhaul. Stories are checked for real differences between options, creative commitments are tracked per film (a quiet or formal film is valid), storyboards carry timed reads, and a continuous action has one owner so work is split by action instead of by scene. A Final is only marked ready when its commitments have current evidence; a draft is always allowed.
+- **Director wording updated:** "at least one spectacle moment" becomes "a moment people will replay where the story earns one" (Show off and the Maximal default stay), Fast research may use local references and one bounded idea pass, and a model you pin is never swapped for a cheaper one.
+- No screens, settings or approvals changed. This is engine and prompt work, checked with syntax and import loads, the skill-routing test, seven script suites and the prompt parity test, but not tried on a real film.
+
+## 0.24.3 (build 65) — 2026-10-26
+
+- **Bundles RasanAI 1.29.0:** creative briefs and automatic references, proof checks, strict approval checks for new films, and the medium-aware Look options and checks.
+- The earlier installed Studio carried an older engine; this build brings it level with the skill.
+
+## 0.24.2 (build 64) — 2026-10-26
+
+- Small adjustments Rasan makes along the way no longer show up as orange warnings. They sit quietly in one line you can expand, with the original message one tap away.
+- Fast pace no longer logs routine shortcuts as problems.
+- Anything that does need you, or a step that failed, is said in plain words, with "Show original message" for the exact text and a Copy button.
+- While the film is being checked, the critic (Rasika) now appears on the crew stage instead of Rasan.
+- **Bundles RasanAI 1.28.0.**
+
+## 0.24.1 (build 63) — 2026-10-26
+
+- Rasan no longer skips your Look call when the film planner has trouble: it always asks you, even at Fast pace.
+- If a look or story was ever chosen without you, Studio tells you and lets you review it.
+- **Bundles RasanAI 1.28.0.**
+
+## 0.24.0 (build 62) — 2026-10-26
+
+- Quitting while a film is working now offers a third choice, "Keep the film running": Studio closes and the director carries on, and the next Studio picks it up (also when a phone resumed it while Studio was closed). Stop and Quit stays the default.
+- A director started from outside Studio (`director.mjs resume`) is found by a relaunched Studio from the process list.
+- **Bundles RasanAI 1.28.0.**
+
+## 0.23.0 (build 61) — 2026-10-26
+
+- The Brief page is tidier: two columns that line up at the top and stay a comfortable width on big screens, a smaller header, an idea sentence that wraps instead of being cut off, and a quieter Details panel that no longer hides behind the bottom bar.
+- The crew talks in speech cards near their head instead of cloud thought bubbles: the newest one, plus one faded older one.
+- Decisions is now a timeline grouped by stage, with headers that stay in view and fold away, marks for what you decided, what Rasan decided and what is still open, a filter and search, Show more, and Jump to now.
+- The working screen fits its window: the character and their speech cards shrink to fit a smaller window instead of making you scroll, and the latest picture sizes itself to match.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.9 (build 60) — 2026-10-26
+
+- When Rasan is blocked, the banner now says what happened and what to do, with one main button: Fix it. Ask Rasan why, Retry step, Restart Rasan, View activity, Copy details and Report a problem are under More.
+- Ask "what happened?" and Studio answers right away from what it already knows (why Rasan stopped, the current step, the last error, the last few events), without waiting for Rasan.
+- Messages to Rasan are sent once, not twice, and Studio's own instructions show as a short line like "You pressed Fix it" instead of a long message.
+- "Rasan is thinking" can no longer get stuck: if Rasan is stopped, blocked or silent for 3 minutes it says "Not answered" and offers Ask again, Ask for a short answer, or Stop waiting.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.8 (build 59) — 2026-10-26
+
+- Updating restarts RasanAI by itself: the app now closes and reopens in the new version without you pressing anything, and if it ever needs a hand, the window says what it is waiting for.
+- The update window now says it can take up to a minute on Macs with security software, and keeps counting so you can see it is not stuck.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.7 (build 58) — 2026-10-26
+
+- The strip above each step ('Call 5 of 5 · Final…') is gone. What it said now lives in the bottom bar: a small Preview/Final tag, and hovering the main button tells you what it will do. The page gets that row of space back.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.6 (build 57) — 2026-10-26
+
+- A fresh last step for setting up a film: one calm page with everything visible and editable in place, instead of a pop-up. Speed, quality, motion, Brand, footage and a reference video all live on it.
+- Ask Rasan: type right in the bottom bar. The chat opens above it and older messages fade away as you look up. Scroll up, or open the side panel, to see more.
+- The sidebar no longer has a coloured block behind it, and the character header at the top of each step takes less space.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.5 (build 56) — 2026-10-26
+
+- Setting up a film is one screen: click any answer to open a single set-up sheet with every option in view. Speed, quality, motion and Brand are no longer hidden under More settings.
+- The Ask Rasan chat tucks back into the bar when you close it, so there is never a second Ask Rasan box on screen.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.4 (build 55) — 2026-10-26
+
+- The sidebar and floating panels no longer show a ghostly reflection of what is behind them; they just pick up a soft tint, like glare.
+- Fixed the "You're now on…" card that came back after pressing Got it.
+- The update screen always shows where it is: four steps, a progress bar, and a time estimate. If installing stalls it tells you why and offers Restart now, Try again or a manual download.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.3 (build 54) — 2026-10-26
+
+- Fixed the "You're now on…" card that came back after pressing Got it.
+- The update screen always shows where it is: four steps, a progress bar, and a time estimate. If installing stalls it tells you why and offers Restart now, Try again or a manual download.
+- **Bundles RasanAI 1.27.0.**
+
+
+## 0.22.2 (build 53) — 2026-10-26
+
+- Ask Rasan now lives in the bottom bar. Click it to open a floating chat that you can collapse, or open the full side panel with ⌥⌘I.
+- Report a Problem (Heresay) now opens reliably, even when another window or sheet is open.
+- The sidebar no longer shows a reflection of the page behind it.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.1 (build 52) — 2026-10-26
+
+- Updates now show what changed: a native update screen with a "What's new" list while it downloads and installs, plus a one-time "You're now on X" card after you restart.
+- Fixed a flat colour strip behind the floating sidebar in full screen.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.0 (build 51) — 2026-10-26
+
+- **One player everywhere.** Every video preview now has the same controls (play, skip 5 seconds, speed, loop, volume, full screen), including the final film page, source files, drafts, the library and progress cards. Full screen now also works when the app is already full screen.
+- **New "Ask Rasan" bar** at the bottom of every film screen, with a one-time hint, so the chat with Rasan is easy to find. The toolbar button is now labelled Ask Rasan.
+- **The Note button works on finished films** and says why when it is off.
+- **History button on the film page.** Watch or restore any earlier version from the review screen, with dates and what changed.
+- **The ? button opens a menu** with help and Report a Problem; Heresay can be opened from it.
+- **Plainer words.** Proxy is now Preview, Styleframe is Still, Animatic is Rough cut; the ... menu has icons and friendlier names.
+- **The character in the Final header** is centred between top and bottom.
+- **The stepper works on the Final page.** From the finished film, click Brief, Story, Look or Storyboard to go back to that step, and Final to come back.
+- **Redesigned Settings page.** Side navigation, cards, a Rasan section, show tips again, open the guide and send feedback.
+- **Ask Rasan panel shortcut.** The right-hand Ask Rasan panel opens with ⌥⌘I (Apple's inspector key) and is in the View menu.
+- **The film page ... menu** has icons and friendlier names.
+- **Source-file preview** uses the same player from the first frame.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.21.0 (build 50) — 2026-10-25
+
+- **Ask Rasan how long it will take.** In the chat, "how long will it take?" and "what is happening?" are answered on the spot from the film's real progress, without interrupting the work.
+- **Notes become real change requests.** A message like "don't use this font" is read as a revision request the engine acts on and answers (an unclear one asks you to confirm first), and the answer shows in the chat.
+- **Edit elements on the final film.** Click an element in the final picture to move or resize it; the engine applies the edit and says if it could not. Early foundation, not tested end to end.
+- **Delivery details are collapsed** in the export sheet until you open them.
+- **Behind the scenes:** the groundwork for undo and revisions, and for safer recovery when a step fails, is in. Not yet tested end to end.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.20.1 (build 49) — 2026-10-25
+
+- **The film status says what Rasan is doing.** After you send something, the bar shows what Rasan is working on, how long it has been, and a time estimate when there is one. If nothing has happened after two minutes it says so and offers Show log.
+- **Decisions newest first.** The Decisions panel lists the newest decision first and shows the current step while Rasan works or waits for you.
+- **Installs are explained.** When Rasan needs a tool installed, Studio asks you directly, installs it for you without a password or Homebrew, and shows what is happening. If a command is blocked, or Rasan goes quiet for five minutes, you see exactly what happened, with Retry step and Restart Rasan.
+- **Bundles RasanAI 1.26.0.**
+
+## 0.20.0 (build 48) — 2026-10-24
+
+- **Reference chip.** A film with a linked reference video shows a reference chip and, on Look, a Motion inspiration summary (cuts, rhythm, uncertainties) with a way to send the director a note on how much it should influence the film. Shown only when the film has `reference-motion.json`.
+- **Motion library on Look.** A collapsed Motion library lists the motion kit catalog; asking for an item sends a note to the director with the item, its annotation and parameters. Shown only when a catalog exists.
+- **Final element inspector.** When the film has an element index, clicking the video also resolves the element under the point, and a change request is sent to the director as a `motion-edit` action with an edit status chip (requested, accepted, applied, rendered, failed). Studio never edits scene files itself.
+- These screens are new and have not yet been opened in a window for review.
+- **Bundles RasanAI 1.26.0.**
+
+## 0.19.9 (build 47) — 2026-10-23
+
+- **Help opens the new How it works page**, which follows one film through the app, the crew, the engine and the files on your disk.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.8 (build 46) — 2026-10-23
+
+- **Hover a note on the timeline and see that note.** Each pin answered for the whole timeline, so one note's card showed wherever the pointer was; each pin now shows its own. The card and the time under the pointer sit just above the timeline, where the video no longer covers them.
+- **A smoother timeline.** Only the playhead follows the clock now, so the video and the scene thumbnails stop redrawing thirty times a second, and dragging the playhead seeks to the nearest frame it can reach quickly, then lands exactly when you let go.
+- **Studio's own full screen.** Full screen (F) shows the film edge to edge with its pins and captions, and the timeline, notes and controls in a bar that fades while it plays. Esc or F comes back; C or a pin takes you to the chat with that moment.
+- **Your call wakes the director.** A call made on a film whose director had stopped used to sit unread, and the page never moved. Studio now starts the director to apply it, so the crew member comes to the centre and gets to work. Pin notes still wait for Apply, and a plan-limit wait keeps its own resume.
+- **Rasika has both eyebrows when she asks.** Her asking pose (Final, and checks) drew only the right brow; the left one is back.
+- **The sample film shows the crew at work.** Make a call in the sample and the crew member for the next step comes to the centre with the work in bubbles around them, then steps aside to ask before the sample returns.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.7 (build 45) — 2026-10-23
+
+- **Chat with Rasan.** The right sidebar is a chat with Rasan, the director: tell him what you want or what to avoid, with suggestions to start from. Open it with ⌥⌘B (⌥⌘I and ⌘K work too).
+- **Point at the film.** Click the video to mark a spot, drag a box, or circle an area: the chat opens with that frame, your mark and the time attached.
+- **A real player on Final.** Speed, loop, volume, full screen, ±5 s and frame steps, J/K/L, and a filmstrip timeline with your notes pinned on it.
+- **Preview is now Storyboard.** It was always key frames timed to the music, so it now looks like a storyboard: numbered panels with time, line and voice, and Play with music.
+- **Describe and Setup are one step.** The stepper reads Describe · Brief · Story · Look · Storyboard · Final.
+- **Calmer, even layout.** Equal 20 pt gutters on every page, panels that stay put while their content scrolls, a slimmer bottom bar with Pause and an honest "the director is stopped" with Resume, look options above the preview, and Preview and Final laid out like Look.
+- **The crew, drawn better.** A new speech bubble tinted per character that hugs its words and points at the speaker's mouth, readable highlight colours, Kavi's papers no longer see-through, and Rasan never cropped into a circle.
+- **Clearer buttons.** "Apply notes" is now "Revise with N notes"; "Preview again" is gone.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.6 (build 44) — 2026-10-22
+
+- **The crew asks, properly.** Every stage opens with the crew member at full size asking the question in a new speech bubble: one smooth outline with a curved tail toward the speaker, sized to the words, soft depth, and a small pop as it appears.
+- **Story and Look use the whole window.** On wide windows the character, question and your choices sit on the left; the script, or the look preview, runs top to bottom on the right. The selected look's details now sit beside the tiles instead of under the preview.
+- **One floating bar at the bottom.** The status and actions live in a full-width glass bar that content scrolls under, like the sidebar. Looking back at a step keeps "Back to now" and "Change this…" there; the separate green "Decided" strip is gone, since the stepper and the highlighted choice already show it.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.5 (build 43) — 2026-10-22
+
+- **Story and Look stay in view.** The review workspace keeps your choices and key context visible while detailed scripts and look guidance scroll in their own panels. The existing action bar remains available, including when looking back at an earlier decision.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.4 (build 42) — 2026-10-21
+
+- **Pause holds after a relaunch.** Pausing a film that Studio picked back up after a restart (by you, or by its own stuck or budget check) now really pauses it; before, the director was stopped and had to start over from its saved state.
+- **Bundles RasanAI 1.24.0.**
+
+## 0.19.3 (build 41) — 2026-10-21
+
+- **A stuck director pauses itself.** When Claude repeats the same step, or burns tokens without showing you anything new, for two minutes, Studio pauses it so a loop stops spending tokens. A red banner says why, with Resume, Message Claude and Show log; nothing is lost and Resume carries on mid-step. Turn it off in Settings → "Pause the director when it looks stuck".
+- **Your budget is a limit, not just a warning.** When a film passes your spend per film, the director pauses. Keep going resumes it; Raise by $10 lifts the limit.
+- **Loops are caught even with Studio closed.** If Studio crashes or is force-quit mid-film, the director's supervisor stops it after the same call five times in a row instead of letting it run on unwatched.
+- **Bundles RasanAI 1.24.0.**
+
+## 0.19.2 (build 40) — 2026-10-21
+
+- **Decisions say where you made them.** A call answered from another app (Squeak on your iPhone) shows "You · iPhone" in the Decisions drawer.
+- **Bundles RasanAI 1.24.0.**
+
+## 0.19.1 (build 39) — 2026-10-21
+
+- **Honest time estimates.** Elapsed time and "time left" leave out the hours nothing ran (a Claude plan limit, a pause, the app closed) and stop while it is your call. Estimates start from how long real films take (about 1 h 45 min of work for a 30 s film, not 2.5 h), and no longer count down while you decide.
+- **Films pick themselves back up.** Quitting or updating Studio mid-film no longer strands it: a director still working is picked back up (never a second one on the same film), a plan limit still resumes by itself when it resets, and an unexpected stop resumes once.
+- **A stopped film says so.** When nothing is working on a film, it says "Claude stopped working on this film" with a Resume button, instead of a working screen stuck on "18 min left".
+- **Bundles RasanAI 1.23.0.**
+
+## 0.19.0 (build 38) — 2026-10-20
+
+- **Edit a talking-head cut by its words.** The Cut step shows the transcript with Claude's suggested cuts (retakes, false starts, "wait, let me start again", fillers) marked. Cut or restore any phrase, accept or keep a suggestion, fix a misspelled name, and undo or redo with ⌘Z / ⇧⌘Z. Your decisions are kept if you quit and reopen.
+- **Notes can point at a word,** so Claude fixes the exact moment, even when the same word is said more than once.
+- **Updated Heresay** (the Report button) to 0.2.34.
+- **Bundles RasanAI 1.23.0.**
+
+## 0.18.0 (build 37) — 2026-10-20
+
 - **The crew on the working screen.** Film progress puts the phase's crew member big in the centre with live eyes, and the newest real activity as thought bubbles. Paused, they snooze; when a call waits on you, they step aside and ask.
 - **Setup in three buttons: Claude, Codex, Tools.** One click does the next step: install, sign in, or make it your director. Tools installs the missing rendering tools right there.
 - **Sign in without Terminal.** Claude and Codex sign in from inside Studio: your browser opens, and there is a box for the code Claude shows. Use Terminal instead is still there.
 - **Codex is found when it is signed in.** A Codex that Studio installed now passes its sign-in check, and one installed after launch is picked up in Settings.
 - **Notifications are on.** Studio asks macOS once, after setup, and Settings says when macOS has them turned off, with a button to fix it.
+- **Bundles RasanAI 1.22.0.**
 
 ## 0.17.1 (build 36) — 2026-10-19
 

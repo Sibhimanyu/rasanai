@@ -9,8 +9,24 @@ if [[ "$configuration" != "debug" && "$configuration" != "release" ]]; then
 fi
 
 cd "$studio_dir"
-swift build -c "$configuration"
-binary_dir="$(swift build -c "$configuration" --show-bin-path)"
+# STUDIO_PREBUILT_DIR (CI): reuse the binary and resource bundle compiled earlier from the same sources and
+# toolchain (the caller keys it on both); otherwise compile and leave a copy there. Everything below (Info.plist,
+# version stamp, engine, runtime, signing) is always redone fresh.
+prebuilt="${STUDIO_PREBUILT_DIR:-}"
+if [[ -n "$prebuilt" && -x "$prebuilt/RasanAIStudio" && -d "$prebuilt/RasanAIStudio_RasanAIStudio.bundle" ]]; then
+    echo "Using prebuilt binary from $prebuilt"
+    swift package resolve
+    binary_dir="$prebuilt"
+else
+    swift build -c "$configuration"
+    binary_dir="$(swift build -c "$configuration" --show-bin-path)"
+    if [[ -n "$prebuilt" ]]; then
+        if [[ -d "$prebuilt" ]]; then /bin/rm -r "$prebuilt"; fi
+        mkdir -p "$prebuilt"
+        cp "$binary_dir/RasanAIStudio" "$prebuilt/RasanAIStudio"
+        ditto "$binary_dir/RasanAIStudio_RasanAIStudio.bundle" "$prebuilt/RasanAIStudio_RasanAIStudio.bundle"
+    fi
+fi
 app_path="$studio_dir/dist/RasanAI Studio.app"
 staging="$(mktemp -d "$studio_dir/dist-build.XXXXXX")"
 trap 'if [[ -d "$staging" ]]; then /bin/rm -r "$staging"; fi' EXIT

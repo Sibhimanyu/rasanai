@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "pim-and-the-pear",
+  "synthetic": true,
+  "note": "Synthetic 15-second test film, entirely procedural (no model, no network): the original actor Pim notices a pear drop, anticipates, lunges and misses, reacts (a take, then a slump, then a long reaction hold), learns, turns away and comes back, and catches the second pear. Two shots, one cut, two turns, nine named emotions, prop and limb depth changes, a reaction hold.",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "duration": 15,
+  "seed": 7,
+  "look": {
+    "paper": { "tint": "#f1e7d2", "grain": 0.5, "fibres": 1 },
+    "boil": { "hz": 12, "amp": 1 },
+    "glow": { "strength": 0.6 },
+    "grade": { "tint": "#ffe9c8", "strength": 0.08 }
+  },
+  "actors": [
+    { "id": "hero-01", "canon": "hero-01", "position": { "x": 0.6, "y": 0.8 }, "scale": 1, "yaw": "front", "emotion": "calm" }
+  ],
+  "props": [
+    { "id": "pear-1", "kind": "pear", "size": 66, "x": 0.4, "y": 0.325, "groundY": 0.86, "shots": ["s1"],
+      "z": [ { "t": 0, "rel": "hero-01", "where": "behind" }, { "t": 2.37, "rel": "hero-01", "where": "front" } ],
+      "motion": [
+        { "kind": "fall", "at": 1.1, "arrive": 1.95, "to": [0.485, 0.845], "spin": 0.06 },
+        { "kind": "bounce", "at": 1.95, "duration": 0.42, "height": 0.1, "dx": -0.03, "spin": 0.1 },
+        { "kind": "bounce", "at": 2.37, "duration": 0.3, "height": 0.035, "dx": -0.015, "spin": 0.05 },
+        { "kind": "roll", "at": 2.67, "duration": 1.2, "dx": 0.34, "radius": 24 }
+      ] },
+    { "id": "pear-2", "kind": "pear", "size": 66, "x": 0.4, "y": 0.325, "groundY": 0.86, "shots": ["s2"],
+      "z": [ { "t": 0, "rel": "hero-01", "where": "behind" } ],
+      "motion": [ { "kind": "fall", "at": 9.3, "arrive": 10.4, "to": [0.452, 0.63], "spin": 0.08 } ] }
+  ],
+  "sets": {
+    "orchard": {
+      "palette": { "skyTop": "#bcd7df", "skyBottom": "#f7ebcb", "ground": "#9cb873", "hill": "#a9c48b", "trunk": "#8a6247", "leaf": "#6f9a52", "bush": "#5e8f4e" },
+      "elements": [
+        { "kind": "sky", "layer": "far", "id": "sky" },
+        { "kind": "cloud", "layer": "far", "x": 0.72, "y": 0.16, "w": 0.2, "id": "cloud-a" },
+        { "kind": "cloud", "layer": "far", "x": 0.38, "y": 0.09, "w": 0.14, "id": "cloud-b" },
+        { "kind": "hill", "layer": "far", "x": 0.3, "y": 0.72, "w": 1.2, "h": 0.2, "color": "#b9d0a0", "id": "hill-far" },
+        { "kind": "hill", "layer": "mid", "x": 0.88, "y": 0.74, "w": 0.95, "h": 0.15, "id": "hill-mid" },
+        { "kind": "ground", "layer": "mid", "y": 0.72, "id": "ground" },
+        { "kind": "tree", "layer": "near", "x": 0.2, "y": 0.84, "h": 0.8, "branchDx": 0.2, "branchAt": 0.72, "lean": 0.02, "id": "pear-tree" },
+        { "kind": "flowers", "layer": "near", "x": 0.72, "y": 0.9, "w": 0.4, "n": 16, "id": "flowers" },
+        { "kind": "rock", "layer": "near", "x": 0.33, "y": 0.9, "r": 0.04, "id": "rock" },
+        { "kind": "bush", "layer": "front", "x": 0.86, "y": 0.985, "r": 0.1, "id": "bush-front" }
+      ]
+    }
+  },
+  "shots": [
+    { "id": "s1", "from": 0, "to": 7.2, "set": "orchard", "actors": ["hero-01"],
+      "camera": { "keys": [ { "t": 0, "x": 0.52, "y": 0.52, "zoom": 1.0 }, { "t": 3.0, "x": 0.5, "y": 0.52, "zoom": 1.04 }, { "t": 7.2, "x": 0.46, "y": 0.54, "zoom": 1.1 } ] },
+      "lights": [ { "x": 0.25, "y": 0.08, "r": 0.9, "color": [255, 226, 170], "alpha": 0.2 } ] },
+    { "id": "s2", "from": 7.2, "to": 15, "set": "orchard", "actors": ["hero-01"],
+      "camera": { "keys": [ { "t": 7.2, "x": 0.45, "y": 0.58, "zoom": 1.45 }, { "t": 10.4, "x": 0.45, "y": 0.6, "zoom": 1.5 }, { "t": 13.0, "x": 0.45, "y": 0.62, "zoom": 1.55 }, { "t": 15, "x": 0.45, "y": 0.63, "zoom": 1.34 } ] },
+      "lights": [ { "x": 0.25, "y": 0.08, "r": 0.9, "color": [255, 226, 170], "alpha": 0.2 } ] }
+  ],
+  "actions": [
+    { "actor": "hero-01", "kind": "idle", "at": 0, "duration": 0.6 },
+    { "actor": "hero-01", "kind": "look", "at": 0.55, "duration": 0.45, "prop": "pear-1" },
+    { "actor": "hero-01", "kind": "emote", "emotion": "curious", "at": 0.6, "duration": 0.35 },
+    { "actor": "hero-01", "kind": "emote", "emotion": "surprised", "at": 1.2, "duration": 0.12 },
+    { "actor": "hero-01", "kind": "hop", "at": 1.35, "duration": 0.7, "dx": -0.045, "height": 1.4 },
+    { "actor": "hero-01", "kind": "reach", "hand": "R", "at": 1.45, "duration": 0.75, "target": [0.505, 0.7], "hold": 0.1 },
+    { "actor": "hero-01", "kind": "react", "style": "take", "at": 2.12, "snap": 0.28, "hold": 0, "recover": 0.5, "emotion": "shocked" },
+    { "actor": "hero-01", "kind": "emote", "emotion": "disappointed", "at": 2.6, "duration": 0.45 },
+    { "actor": "hero-01", "kind": "react", "style": "slump", "at": 2.55, "snap": 0.5, "hold": 1.7, "recover": 0.55 },
+    { "actor": "hero-01", "kind": "look", "at": 2.65, "duration": 0.3, "prop": "pear-1" },
+    { "actor": "hero-01", "kind": "blink", "at": 3.9, "duration": 0.16 },
+    { "actor": "hero-01", "kind": "emote", "emotion": "thoughtful", "at": 4.75, "duration": 0.4 },
+    { "actor": "hero-01", "kind": "look", "at": 4.8, "duration": 0.5, "target": [0.4, 0.3] },
+    { "actor": "hero-01", "kind": "turn", "to": "side", "dir": "left", "at": 5.2, "duration": 0.7 },
+    { "actor": "hero-01", "kind": "emote", "emotion": "determined", "at": 6.0, "duration": 0.3 },
+    { "actor": "hero-01", "kind": "walk", "dx": -0.085, "at": 6.1, "duration": 1.0 },
+    { "actor": "hero-01", "kind": "turn", "to": "back-quarter", "dir": "left", "at": 7.2, "duration": 0 },
+    { "actor": "hero-01", "kind": "look", "at": 7.25, "duration": 0.2, "target": [0.4, 0.3] },
+    { "actor": "hero-01", "kind": "walk", "dx": -0.025, "at": 7.7, "duration": 0.7 },
+    { "actor": "hero-01", "kind": "reach", "hand": "R", "at": 8.7, "duration": 1.7, "track": "pear-2", "hold": 0 },
+    { "actor": "hero-01", "kind": "reach", "hand": "L", "at": 8.7, "duration": 1.7, "track": "pear-2", "hold": 0 },
+    { "actor": "hero-01", "kind": "look", "at": 9.0, "duration": 0.3, "prop": "pear-2" },
+    { "actor": "hero-01", "kind": "hold", "hand": "both", "prop": "pear-2", "at": 10.4, "grab": 0.3 },
+    { "actor": "hero-01", "kind": "emote", "emotion": "delighted", "at": 10.45, "duration": 0.2 },
+    { "actor": "hero-01", "kind": "hop", "at": 10.9, "duration": 0.8, "height": 1.5, "dx": 0 },
+    { "actor": "hero-01", "kind": "turn", "to": "front", "at": 11.9, "duration": 0.9 },
+    { "actor": "hero-01", "kind": "emote", "emotion": "proud", "at": 13.0, "duration": 0.5 }
+  ]
+}

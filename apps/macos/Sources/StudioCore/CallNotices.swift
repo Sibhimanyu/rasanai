@@ -15,7 +15,7 @@ public enum CallVocabulary {
         case "direction": "pick a direction"
         case "styleframes": "approve the style frames"
         case "keyframes": "check the key poses"
-        case "animatic": "review the animatic"
+        case "animatic": "review the storyboard"
         case "render", "final": hasPreview ? "review the film" : "render the final"
         case "footage": "choose the clips"
         case "reel": "check the cut"
@@ -97,7 +97,7 @@ public enum CallNotices {
             title = "Chitra's style frames are ready"
             body = count > 0 ? "\(film): \(count) frames to look over before anything moves." : "\(film): look them over before anything moves."
         case "animatic":
-            title = "Laya's first cut is ready"; body = "\(film): watch it with the music and leave notes."
+            title = "Laya's storyboard is ready"; body = "\(film): check it with the music and leave notes."
         case "footage", "reel":
             title = "Mala logged your clips"; body = "\(film): look over the selects."
         default:
@@ -121,7 +121,7 @@ public enum CallNotices {
         case "story", "concept": if count > 0 { parts.append("\(count) \(count == 1 ? "story" : "stories") ready") }
         case "look", "films": if count > 0 { parts.append("\(count) \(count == 1 ? "look" : "looks") ready") }
         case "styleframes": if count > 0 { parts.append("\(count) style frames ready") }
-        case "animatic": parts.append("Animatic ready")
+        case "animatic": parts.append("Storyboard ready")
         default: break
         }
         if let pick = CallVocabulary.pickTitle(payload) { parts.append("Claude's pick: \(pick)") }

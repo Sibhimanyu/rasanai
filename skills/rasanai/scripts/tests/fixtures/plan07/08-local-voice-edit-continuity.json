@@ -1,0 +1,96 @@
+{
+  "case": "A08",
+  "title": "a replaced line keeps neighbouring pauses and music automation; a different voice invalidates neighbour assumptions",
+  "calls": [
+    "segmentRecord",
+    "reconcileReplacement"
+  ],
+  "old": {
+    "segment_id": "line-02",
+    "shot_id": "shot-2",
+    "text": "Make a whole film from one sentence.",
+    "voice": {
+      "id": "v1",
+      "provider": "heygen",
+      "model": "m",
+      "version": "1"
+    },
+    "format": {
+      "sample_rate": 24000,
+      "channels": 1,
+      "duration_s": 2.6
+    },
+    "silence": {
+      "lead_s": 0.1,
+      "trail_s": 0.2
+    },
+    "handles": {
+      "head_s": 0.1,
+      "tail_s": 0.2
+    },
+    "context": {
+      "prev_segment": "line-01",
+      "next_segment": "line-03",
+      "gap_before_s": 0.5,
+      "gap_after_s": 0.6,
+      "film_start_s": 6
+    }
+  },
+  "next": {
+    "segment_id": "line-02",
+    "shot_id": "shot-2",
+    "text": "Make an entire film from one sentence.",
+    "voice": {
+      "id": "v1",
+      "provider": "heygen",
+      "model": "m",
+      "version": "1"
+    },
+    "format": {
+      "sample_rate": 24000,
+      "channels": 1,
+      "duration_s": 3
+    },
+    "silence": {
+      "lead_s": 0.3,
+      "trail_s": 0.05
+    },
+    "handles": {
+      "head_s": 0.3,
+      "tail_s": 0.05
+    },
+    "context": {
+      "film_start_s": 6
+    }
+  },
+  "variants": {
+    "different_voice": {
+      "voice": {
+        "id": "v2",
+        "provider": "heygen",
+        "model": "m",
+        "version": "3"
+      }
+    },
+    "sample_rate_mismatch": {
+      "format": {
+        "sample_rate": 44100,
+        "channels": 2,
+        "duration_s": 3
+      }
+    }
+  },
+  "expect": {
+    "base": "old lead 0.1 s / trail 0.2 s, new lead 0.3 s / trail 0.05 s, duration 2.6 -> 3.0: duration_delta_s +0.4; timing_proposal {shot_id 'shot-2', duration_delta_s 0.4, via commitTiming} (never retimed in place); music_automation shift_after_s 0.4 (the duck envelope is re-derived by duckEnvelope, not stretched). Head: the new clip carries 0.2 s more leading silence, so action trim_or_pad_head of -0.2 s needs a head handle of 0.3 s (present) and keeps the pause after line-01 at 0.5 s. Tail: 0.15 s less trailing silence is padded (positive slide) -> trim_or_pad_tail +0.15 s keeps the pause before line-03 at 0.6 s. ok true",
+    "different_voice": "issue voice-differs and neighbours_recheck true: level, pace and room tone of the neighbours were set against the old voice and are not assumed to match",
+    "sample_rate_mismatch": "issues sample-rate and channel-layout; ok false until the clip is conformed to the stem's layout",
+    "unmeasured": "a segment with duration_s null: issue duration-unmeasured and timing_proposal null (unknown, not zero)"
+  },
+  "prev": {
+    "segment_id": "line-01"
+  },
+  "after": {
+    "segment_id": "line-03"
+  },
+  "note": "prev and after only need to be present: they say there ARE neighbours whose pauses must be kept"
+}

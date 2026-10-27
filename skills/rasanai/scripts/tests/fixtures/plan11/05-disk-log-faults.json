@@ -1,0 +1,53 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R05",
+  "case": "disk exhaustion, torn and malformed logs, abandoned temps, partial media",
+  "targets": [
+    "lib/recovery.mjs readJsonl / appendJsonl / repairJsonlTail / atomicWrite / sweepTemps / diskGuard",
+    "lib/publish-txn.mjs publishFileAtomic"
+  ],
+  "jsonl": {
+    "valid_lines": [
+      "{\"id\":\"e1\",\"status\":\"requested\"}",
+      "{\"id\":\"e1\",\"status\":\"accepted\"}"
+    ],
+    "torn_tail": "{\"id\":\"e2\",\"status\":\"requ",
+    "malformed_middle": "not json",
+    "expect": {
+      "readJsonl.events": 2,
+      "torn_tail": true,
+      "appendJsonl then read": "3 events: the torn fragment stays isolated on its own line and the new event is not lost",
+      "repairJsonlTail": "keeps a .torn- copy and the 2 valid lines"
+    }
+  },
+  "temps": {
+    "files": [
+      "scene.html.pub-4242-ab12cd",
+      "state.json.7777.tmp",
+      "edits.jsonl.tmp-9999-deadbe",
+      "keep.json"
+    ],
+    "expect": "sweepTemps lists the first three (dead pids), never keep.json, removes single files only, no recursion"
+  },
+  "disk": {
+    "diskGuard(dir, bigger than free)": "ok false with a message that nothing was deleted",
+    "ENOSPC during atomicWrite": "temp removed, target unchanged, error classified permanent with owner_action 'free space'"
+  },
+  "media": [
+    {
+      "name": "half-written mp4",
+      "staged_size": "1048576 of a manifest saying 4194304",
+      "expect": "publishFileAtomic -> partial_file; final path unchanged"
+    },
+    {
+      "name": "same size, flipped byte",
+      "expect": "checksum_mismatch"
+    },
+    {
+      "name": "no manifest",
+      "expect": "no_committed_manifest"
+    }
+  ]
+}

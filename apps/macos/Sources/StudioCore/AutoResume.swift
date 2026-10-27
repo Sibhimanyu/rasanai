@@ -84,13 +84,14 @@ public enum AutoResumePolicy {
     }
 
     public static func decide(outcome: (recovery: DirectorRecovery, detail: String)?, stopRequested: Bool, progress: DirectorRecovery.Progress,
-                              log: String, lastAutoResume: Date?, now: Date = Date()) -> Decision {
+                              log: String, lastAutoResume: Date?, now: Date = Date(), limitClock: Date? = nil) -> Decision {
         if stopRequested { return .none }          // a person pressed Stop or Pause: never undo that
         guard let outcome else { return .none }    // a real finish
         if progress.awaitingUser { return .none }  // it is the person's turn, not a stop
         switch outcome.recovery {
         case .usageLimit:
-            if let limit = SessionLimit.detect(in: log, now: now) { return .waitForLimit(limit) }
+            // A stop found after a relaunch reads the reset relative to when the director stopped, not to now.
+            if let limit = SessionLimit.detect(in: log, now: limitClock ?? now) { return .waitForLimit(limit) }
             return .none
         case .stoppedEarly, .unknown:
             if let last = lastAutoResume, now.timeIntervalSince(last) < cooldown { return .none }

@@ -3,22 +3,21 @@ import SwiftUI
 
 /// The creation journey is presentation only; the director still owns the existing five review checkpoints.
 enum StudioFlowStep: Int, CaseIterable, Identifiable {
-    case describe, setup, brief, story, look, preview, final
+    case describe, brief, story, look, preview, final
     var id: Int { rawValue }
     var title: String {
         switch self {
         case .describe: "Describe"
-        case .setup: "Setup"
         case .brief: "Brief"
         case .story: "Story"
         case .look: "Look"
-        case .preview: "Preview"
+        case .preview: "Storyboard"
         case .final: "Final"
         }
     }
     var reviewStage: ReviewStage? {
         switch self {
-        case .describe, .setup: nil
+        case .describe: nil
         case .brief: .brief
         case .story: .story
         case .look: .look
@@ -55,11 +54,11 @@ struct StudioFlowProgress: View {
                 if canSelect(step) || (step == current && viewing != nil), let onSelect {
                     Button { onSelect(step) } label: { marker(step) }.buttonStyle(.plain)
                         .help("Review \(step.title.lowercased())")
-                } else { marker(step) }
+                } else { marker(step).help(step == .describe ? "Your first description. It has no page to open." : step.rawValue > current.rawValue ? "\(step.title) is not ready yet." : "Nothing to show for \(step.title.lowercased()).") }
             }
         }
         .fixedSize().accessibilityElement(children: .contain)
-        .accessibilityLabel("\(current.title), step \(current.rawValue + 1) of 7")
+        .accessibilityLabel("\(current.title), step \(current.rawValue + 1) of 6")
     }
 
     private func marker(_ step: StudioFlowStep) -> some View {

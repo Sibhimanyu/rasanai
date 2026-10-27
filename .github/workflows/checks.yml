@@ -1,0 +1,77 @@
+name: checks
+# Pull-request and master checks. Read-only, no secrets, no paid model calls, no visible windows.
+# The full selftest stays manual or scheduled in ci.yml (workflow_dispatch).
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax (every CLI and library script)
+        run: for f in skills/rasanai/scripts/*.mjs skills/rasanai/scripts/lib/*.mjs; do node --check "$f" || exit 1; done
+      - name: Manifests parse
+        run: node -e 'for (const f of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) JSON.parse(require("fs").readFileSync(f,"utf8"))'
+
+  render-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: FFmpeg
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - name: Find a headless Chrome (installed one first, then hyperframes' own)
+        run: |
+          for c in "$RASANAI_CHROME" google-chrome google-chrome-stable chromium chromium-browser; do
+            [ -n "$c" ] && p=$(command -v "$c" 2>/dev/null) && [ -x "$p" ] && { echo "RASANAI_CHROME=$p" >> "$GITHUB_ENV"; echo "chrome: $p"; exit 0; }
+          done
+          npx --yes hyperframes browser ensure
+          p=$(npx --yes hyperframes browser path | tail -n1)
+          [ -x "$p" ] && echo "RASANAI_CHROME=$p" >> "$GITHUB_ENV" && echo "chrome: $p"
+      - name: Render regression (A-B-A seeks, cold render, baselines by bounded metric)
+        run: node skills/rasanai/scripts/regression.mjs check --out regression-out
+      - name: Regression suite (planted bad scenes must be refused)
+        run: node skills/rasanai/scripts/tests/run-one.mjs regression
+      - name: Upload reports (only if there are any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-report
+          path: regression-out
+          if-no-files-found: ignore
+          retention-days: 7
+
+  selftest-quick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: FFmpeg
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - name: Find a headless Chrome
+        run: |
+          for c in google-chrome google-chrome-stable chromium chromium-browser; do
+            p=$(command -v "$c" 2>/dev/null) && [ -x "$p" ] && { echo "RASANAI_CHROME=$p" >> "$GITHUB_ENV"; exit 0; }
+          done
+          npx --yes hyperframes browser ensure
+          echo "RASANAI_CHROME=$(npx --yes hyperframes browser path | tail -n1)" >> "$GITHUB_ENV"
+      - name: Self-test (quick)
+        run: node skills/rasanai/scripts/selftest.mjs --quick

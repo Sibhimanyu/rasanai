@@ -6,6 +6,7 @@ import Heresay
 /// The window's root: a NavigationStack with Home at the bottom. No sidebars, no inspectors.
 struct StudioView: View {
     @Bindable var store: StudioStore
+    @ObservedObject private var updater = StudioUpdater.shared
 
     init(store: StudioStore) {
         self.store = store
@@ -16,7 +17,13 @@ struct StudioView: View {
 
     var body: some View {
         content.environment(\.momentStore, store)
+            .heresayCoordinated(store: store)
             .modifier(LaunchFocus(ready: !store.isLoadingProjects, agent: store.settings.agent.title))
+    }
+
+    /// After an update, the one-time "here's what changed" card, once nothing else is open.
+    private func showWhatsNewIfNeeded() {
+        if updater.whatsNew != nil, store.sheet == nil, !store.settings.showWelcome { store.sheet = .whatsNew }
     }
 
     @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
@@ -24,10 +31,9 @@ struct StudioView: View {
     /// dropped the animation's transaction and made the sidebar snap; the setting is only written back afterwards.
     @State private var columns: NavigationSplitViewVisibility = .all
     @State private var isFullScreen = false
-    /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
-    private var showsStatusBar: Bool {
-        switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
-    }
+    /// The shell's bar shows whenever the page on screen does not draw its own (published by `FilmStatusBarHost`).
+    @State private var pageOwnsBottomBar = false
+    private var showsStatusBar: Bool { !pageOwnsBottomBar }
 
     /// The native split view: on macOS Tahoe the system draws the floating glass sidebar with the window buttons inside it,
     /// its toggle, and the toggle's move into the toolbar when the sidebar hides, with the system's own animation.
@@ -36,12 +42,20 @@ struct StudioView: View {
             AppSidebar(store: store)
         } detail: {
             stack
-            .safeAreaPadding(.bottom, showsStatusBar && !store.path.isEmpty ? 50 : 0)
-            .overlay(alignment: .bottom) {
-                if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly) }
+            .onPreferenceChange(PageOwnsBottomBarKey.self) { owns in
+                var tx = Transaction(); tx.disablesAnimations = true
+                withTransaction(tx) { pageOwnsBottomBar = owns }
             }
-            .background(Color.appBackground)
+            .safeAreaPadding(.bottom, showsStatusBar && !store.path.isEmpty ? Workspace.barReserve - Workspace.barInset : 0)
+            .overlay(alignment: .bottom) {
+                if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly).transition(.identity).transaction { $0.animation = nil } }
+            }
+            .background(Color.appBackground.ignoresSafeArea())
+            .clipped()
         }
+        // The same background sits behind the whole split view, so the column behind the floating sidebar glass is never a
+        // different flat colour (full screen especially).
+        .background(Color.appBackground.ignoresSafeArea())
         // Keep floating toolbar controls in ordinary windows. In full screen, let AppKit choose the toolbar background
         // so the native split view and fullscreen chrome can compose together.
         .modifier(NoToolbarBand(fullScreen: isFullScreen))
@@ -115,13 +129,18 @@ struct StudioView: View {
             case .welcome: WelcomeView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .log: DirectorLogSheet(runtime: store.runtime).tint(.rasan).buttonStyle(.rasanSecondary)
             case .files: FilesSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .update: StudioUpdateView(updater: updater).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .whatsNew: WhatsNewCard(updater: updater).tint(.rasan).buttonStyle(.rasanSecondary)
             case .preflight: PreflightView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .projectTransfer: ProjectTransferView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .export:
-                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions).tint(.rasan).buttonStyle(.rasanSecondary) }
+                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions, delivery: DeliveryPlan.read(run: store.runURL)).tint(.rasan).buttonStyle(.rasanSecondary) }
             }
         }
-        .onAppear { introduceFeedback() }
+        .onAppear { introduceFeedback(); showWhatsNewIfNeeded() }
+        .onChange(of: updater.presentRequest) { store.sheet = .update }
+        .onChange(of: updater.dismissRequest) { if store.sheet == .update { store.sheet = nil } }
+        .onChange(of: store.sheet) { showWhatsNewIfNeeded() }
         .onChange(of: store.settings.showWelcome) {
             if store.settings.showWelcome { store.sheet = .welcome }
             else if store.sheet == .welcome { store.sheet = nil }

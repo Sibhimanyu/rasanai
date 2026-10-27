@@ -1,0 +1,4 @@
+{"case":"F06","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented data to describe expected behaviour. Authored, not run; certifies nothing about current capabilities.","title":"existing films and uncommitted work stay intact after upgrade and rollback",
+"calls":["readLegacy","safePath"],
+"input":{"library":{"films":["old-film-a","old-film-b"],"uncommitted_edits":["old-film-a/notes.md"]},"steps":["upgrade","open each film","rollback"]},
+"expect":{"after_upgrade":"old films open; no file rewritten without a recorded backup; uncommitted edits byte-identical","after_rollback":"old build reads every film; new-only files ignored, not deleted","film_count":2,"data_loss":0,"adoption_needs_no_git_stash_or_commit":true}}

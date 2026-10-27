@@ -20,6 +20,16 @@
 //        -> the console's Look payload {styles:[{id,name,blend,why,style:{recipe,three?}}], recommended, hook}: exactly the three bespoke systems
 //   node design.mjs choose-system --run <run> --label Sure|Bold|Wild --decisions <decisions.json> [--mode light|dark] [--preset <id>]
 //        -> (--preset: a lyric video's technical frame.md, the gate wants a preset verbatim)  design/<label>/DESIGN.md becomes the film's look: <run>/look/{DESIGN.md,frame.md,grammar.json}, decisions.look + picks + design_system
+//   (Plan 04) node design.mjs compare-plan --run <run> [--beat <id>] [--expected 3] [--lean]   -> design/comparison-plan.json: ONE approved story beat drawn in every look, one styleframe per look (a justified second only for a real uncertainty)
+//        (new creative policy: the plan file also carries `creative_intent`, the chosen Story's premise, promise, signature events, repetition intent and the selected references' principles, from creative/brief.json and
+//         creative/references.json: what each look must develop a DIFFERENT strategy for. Additive; the plan's own fields and the card and image payloads are unchanged)
+//   (Plan 04) node design.mjs bible --run <run> | bible-check --run <run> | bible-for --run <run> --scene <id> [--relations cause,contrast] [--continuity <file>]
+//        -> look/visual-bible.json (a projection of DESIGN.md + the motion contract with a source digest; choose-system writes it too), its stale/valid check, the subset one scene worker gets
+//   (Part 2) bible-for also takes [--role <worker role>] [--shots a,b] [--events id,id]: the projection then carries the chosen medium contract's role section (look/medium.json), omitted when the look has none
+//   (Part 2) node design.mjs medium-wire --run <run> [--scene <n>]   -> what a medium scene needs and the project never guesses: the contract, eventBindings (scene-local seconds from motion/events.json), assets.canons (cast/<id>/identity.json), the runtime files, the treatment line
+//   (Part 2) check-system also gates design/<label>/medium.json for a medium Look: missing or invalid is "needs-you", never a pass
+//   (Plan 04) node design.mjs look-revise --run <run> --instruction "same typography, less glossy" [--ids a,b]   -> a bounded look revision: what changes, what stays fixed, the impact (Story kept)
+//   (Plan 04) node design.mjs continuity-check --file <continuity.json>   -> shared components (one owner each) and seam types (same object, analogy, causal handoff, temporal, discontinuity)
 //   node design.mjs pick --looks <dir>/looks.json --id B --decisions <decisions.json>
 //        -> merges the look's terms (visual style, typography) into decisions.json and prints its frame.md
 import fs from "node:fs";
@@ -28,9 +38,35 @@ import { parseArgs, die, readJSON, writeFile, esc, normalizeAspect, chromeScreen
 import { generateLooks, lookAsBrand } from "./lib/looks.mjs";
 import { readDesignMd, toFrameMd, contrast } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
-import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, runFilm, LABELS } from "./lib/system.mjs";
+import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, runFilm, writeVisualBible, visualBibleInputs, LABELS } from "./lib/system.mjs";
+import { validateVisualBible, bibleCurrent, projectForWorker } from "./lib/visual-bible.mjs";
+import { comparisonPlan, validateComparisonPlan, reviseLook } from "./lib/look.mjs";
+import { validateContinuity, projectForScene } from "./lib/continuity.mjs";
 import { libraryIds } from "./library.mjs";
+import { runCreativeOn, readPlan } from "./lib/creative-run.mjs";
+import { creativePolicyOn } from "./lib/creative-policy.mjs";
+import { checkMediumLook, labelAssignments, loadMedium, readSelection, mediumContractFor, eventBindingsFor, canonsFor, treatmentLines, RUNTIME_FILES, needsRasan2d, resolveLookMedium, lookIdentityFor, brandConstraintRecords, readMediumContract } from "./lib/medium-wiring.mjs"; // Part 2: only a creative run or a look with design/<label>/medium.json reads any of it // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
 
+// V3 W03 (policy revision >= 2 only; revision 1 and legacy runs untouched): stamp the explicit medium resolution and pins.look_identity_digest on each Look's medium.json that lacks them.
+// Never overwrites a designer-written resolution or an existing pin (a stale pin must stay visible to checkMediumLook). The digest is taken after the resolution is stamped.
+// NOTE: mediumContractDigest does not strip pins.look_identity_digest (see the patch proposal in the INT-ENGINE-B report), so until lib/medium-contract.mjs DERIVED lists it a freshly stamped pin reads stale.
+function stampLookIdentity(run, labels, med) {
+  const stamped = [];
+  if (!creativePolicyOn(readPlan(run)) || Number(readPlan(run).creative_policy_revision) < 2) return stamped;
+  for (const l of labels) {
+    const f = path.join(run, "design", l, "medium.json");
+    let doc; try { doc = JSON.parse(fs.readFileSync(f, "utf8")); } catch { continue; }
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) continue;
+    const need = [!doc.resolution && "resolution", !(doc.pins && doc.pins.look_identity_digest) && "pins.look_identity_digest"].filter(Boolean);
+    if (!need.length) continue;
+    if (!doc.resolution) doc.resolution = resolveLookMedium(run, l, { med });
+    if (!(doc.pins && doc.pins.look_identity_digest)) { const li = lookIdentityFor(run, l, { med, contract: doc, resolution: doc.resolution }); if (li.digest) doc.pins = { ...(doc.pins || {}), look_identity_digest: li.digest }; }
+    fs.writeFileSync(f, JSON.stringify(doc, null, 2) + "\n");
+    stamped.push({ label: l, stamped: need });
+  }
+  return stamped;
+}
+const lockBrandOf = (run) => { try { return runBrand(path.resolve(String(run))); } catch { return null; } };
 // The brand lock: when the run's decisions carry a brand (and use_brand is not false), every system must stay inside it
 function runBrand(run) {
   try {
@@ -236,7 +272,14 @@ if (cmd === "looks") {
   let md = "";
   try { md = fs.readFileSync(path.join(dirAbs, "DESIGN.md"), "utf8"); } catch {}
   r.P.push(...imageryProblems(dirAbs, md));
-  console.log(JSON.stringify({ ok: !r.P.length, problems: r.P, warnings: r.W, system: r.info }, null, 2));
+  // Part 2: a medium Look (an assigned candidate, a medium.json, or blend.medium_policy_revision) needs its contract; a legacy look is untouched
+  const runAbs = path.resolve(dirAbs, "..", ".."), mlabel = path.basename(dirAbs);
+  let medium = null;
+  if (fs.existsSync(path.join(dirAbs, "medium.json")) || runCreativeOn(runAbs)) {
+    medium = checkMediumLook(runAbs, mlabel, { creative: runCreativeOn(runAbs) });
+    if (medium.applicable) { r.P.push(...medium.problems); r.W.push(...medium.warnings); }
+  }
+  console.log(JSON.stringify({ ok: !r.P.length, problems: r.P, warnings: r.W, system: r.info, ...(medium && medium.applicable ? { medium: { state: medium.state, limitations: medium.limitations, contract_digest: medium.contract_digest || null } } : {}) }, null, 2));
   process.exit(r.P.length ? 2 : 0);
 } else if (cmd === "check-systems") {
   if (!args.run) die("--run <run dir> required");
@@ -250,6 +293,33 @@ if (cmd === "looks") {
   if (!args.run) die("--run <run dir> required");
   const pl = lookPayload(path.resolve(String(args.run)), { recommended: args.recommended, hook: args.hook && args.hook !== true ? String(args.hook) : "", sub: args.sub && args.sub !== true ? String(args.sub) : "" });
   if (pl.styles.length !== 3) die(`the Look step shows exactly the three bespoke systems; ${pl.styles.length} are ready in ${args.run}/design`);
+  // new creative policy: the Look is a craft class the Story supports. A look that names none is read as "not the dimensional craft" by the frame checks; say it before the user is asked (stderr: the payload is unchanged)
+  if (runCreativeOn(path.resolve(String(args.run)))) {
+    const ls = LABELS.map((l) => { try { return [l, (JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "design", l, "blend.json"), "utf8")) || {}).look_style || null]; } catch { return [l, null]; } });
+    const unnamed = ls.filter(([, v]) => !v).map(([l]) => l);
+    if (unnamed.length) console.error(`creative policy: design/${unnamed.join(", design/")}/blend.json names no look_style (dimensional | flat-graphic | editorial | photographic | character | ...): the frame checks then treat the look as not the depth craft; the designer says which class the look is`);
+    else if (new Set(ls.map(([, v]) => String(v).toLowerCase())).size === 1 && !lockBrandOf(args.run)) console.error(`creative policy: all three looks are look_style "${ls[0][1]}": check they are different visual strategies for the Story, not one look recoloured`);
+  }
+  // Part 2: every medium Look carries its contract before the user is asked (needs-you, not a pass); the fit and trade-off ride the card's existing limitations rows
+  if (runCreativeOn(path.resolve(String(args.run))) || creativePolicyOn(readPlan(path.resolve(String(args.run))))) {
+    const runAbs = path.resolve(String(args.run)), M = loadMedium();
+    const stamped = stampLookIdentity(runAbs, LABELS, M);
+    if (stamped.length) console.error(`creative policy 2: stamped ${stamped.map((x) => `${x.label} (${x.stamped.join(", ")})`).join("; ")} on design/<label>/medium.json`);
+    const bad = LABELS.map((l) => [l, checkMediumLook(runAbs, l, { med: M })]).filter(([, c]) => c.applicable && c.state !== "ok");
+    if (bad.length) die(`needs-you: a medium Look has no valid contract, so the Look cannot be pushed (fix each, then design.mjs check-system): ${bad.map(([l, c]) => `${l}: ${c.problems[0]}`).join(" | ")}`);
+  }
+  // Part 2: the selected medium shortlist (creative/medium-selection.json, a recommendation) is projected into the Look's EXISTING name / blend (description) / why (rationale) fields, and only where the
+  // designer left one empty; nothing is added to the payload shape, the Look count stays three, and nothing here approves or picks a Look.
+  if (runCreativeOn(path.resolve(String(args.run))) && readSelection(path.resolve(String(args.run)))) {
+    const la = labelAssignments(path.resolve(String(args.run)));
+    for (const st of pl.styles) {
+      const a = la[st.label], m = a && a.profile;
+      if (!m) continue;
+      if (!String(st.name || "").trim()) st.name = m.id;
+      if (!String(st.blend || "").trim() && m.summary) st.blend = m.summary;
+      if (!String(st.why || "").trim()) st.why = `${m.summary || m.id}${m.risks && m.risks.length ? ` Trade-off: ${m.risks[0]}` : ""} (a recommendation from the medium shortlist, not yet rendered)`.trim();
+    }
+  }
   // the brand lock: never show (or recommend) an off-brand look
   const lockBrand = runBrand(path.resolve(String(args.run)));
   if (lockBrand) {
@@ -267,4 +337,94 @@ if (cmd === "looks") {
   const label = LABELS.find((l) => l.toLowerCase() === String(args.label).toLowerCase());
   if (!label) die("--label must be Sure, Bold or Wild");
   try { console.log(JSON.stringify(chooseSystem(path.resolve(String(args.run)), label, String(args.decisions), { mode: args.mode }), null, 2)); } catch (e) { die(e.message); }
-} else die("usage: design.mjs looks|pick|stills|check-system|check-systems|look-payload|choose-system (see the header)");
+} else if (cmd === "compare-plan") {
+  if (!args.run) die("--run <run dir> required");
+  const run = path.resolve(String(args.run));
+  const rj = (...f) => { try { return JSON.parse(fs.readFileSync(path.join(run, ...f), "utf8")); } catch { return null; } };
+  const treatment = rj("story", "chosen-treatment.json") || rj("story", "chosen.json");
+  if (!treatment) die("no approved story yet (story/chosen-treatment.json or story/chosen.json): the comparison beat comes from the approved Story");
+  const dec = rj("decisions.json") || {};
+  const looks = LABELS.filter((l) => fs.existsSync(path.join(run, "design", l))).map((label) => { const b = rj("design", label, "blend.json") || {}; return { label, axes: b.axes || null }; });
+  const series = dec.series_look ? { name: dec.series_name || "", look: dec.series_look, provenance: "saved_series_default" } : null;
+  const r = comparisonPlan({ treatment, beat_id: args.beat && args.beat !== true ? String(args.beat) : null, looks, brand: { locked: !!(dec.brand && dec.use_brand !== false) }, series, expected: Number(args.expected) || 3, lean: !!args.lean });
+  if (!r.ok) die(r.error);
+  const v = validateComparisonPlan(r.plan);
+  // new creative policy: hand the Story's creative intent to the design jobs (they read this file); the brief is intent only: it grants no approval and owns no timing
+  let creative_intent = null;
+  if (runCreativeOn(run)) {
+    const cb = rj("creative", "brief.json"), cr = rj("creative", "references.json");
+    if (cb && cb.status !== "skeleton") creative_intent = { brief_revision: cb.revision ?? null, promise: cb.promise ?? null, premise: cb.premise ?? null, visual_strategy: cb.visual_strategy ?? null, signature_events: (Array.isArray(cb.signature_events) ? cb.signature_events : []).map((e) => ({ id: e.id, beat_ids: e.beat_ids, before: e.before, change: e.change, after: e.after, must_preserve: e.must_preserve, why_motion: e.why_motion })), repetition_intent: cb.repetition_intent || [], do_not_substitute: cb.do_not_substitute || [], references: ((cr && cr.selected) || []).map((x) => ({ id: x.id, principle: (x.transferable || [])[0] || "", avoid: x.notTransferable || [] })), reference_evidence: (cr && cr.evidenceLevel) || "none", rule: "each look develops a different visual STRATEGY for this one idea (not a recolour); the real words, source behaviour and brand fixed things stay identical in every look; a look the brand excludes is excluded, never forced to fill a slot" };
+    // V3 W03 (revision >= 2): required identity vs observed brand traits, split by authority (identity binds; observed/proposed traits are information only)
+    if (creative_intent && creativePolicyOn(readPlan(run)) && Number(readPlan(run).creative_policy_revision) >= 2) { try { const bc = brandConstraintRecords(run); creative_intent.brand_constraints = { required_identity: bc.required_identity, factual_product_surfaces: bc.factual_product_surfaces, observed_reference_traits: bc.observed_reference_traits, proposed_treatment: bc.proposed_treatment }; } catch (e) {
+      // recorded, never swallowed or thrown (revision 2 only): the intent file says brand constraints are unavailable and why, the error log keeps it, `crew.mjs creative plans` shows it
+      const msg = String((e && e.message) || e).slice(0, 400);
+      creative_intent.brand_constraints = { error: msg, state: "unavailable", note: "brand constraints could not be derived; treat the brand as unconstrained by this record and say so, not as cleared" };
+      try { const ef = path.join(run, "creative", "errors.json"); let cur = null; try { cur = JSON.parse(fs.readFileSync(ef, "utf8")); } catch {} const list = Array.isArray(cur && cur.errors) ? cur.errors : []; list.push({ where: "brandConstraintRecords (design.mjs brief)", message: msg, at: new Date().toISOString() }); fs.mkdirSync(path.dirname(ef), { recursive: true }); fs.writeFileSync(ef, JSON.stringify({ errors: list.slice(-20) }, null, 2) + "\n"); } catch {}
+      process.stderr.write(`design: brand constraints unavailable (${msg}); recorded in creative/errors.json\n`);
+    } }
+  }
+  // Part 2: "different medium, same evidence and story": the selected medium candidates are listed per Look label next to the ONE representative beat and its content digest (every candidate
+  // develops this same beat; medium.json pins.comparison_content_digest must equal it). Additive: absent with no selection.
+  let medium_assignments = null;
+  if (runCreativeOn(run) && readSelection(run)) {
+    const la = labelAssignments(run);
+    medium_assignments = { content_digest: r.plan.representative && r.plan.representative.content_digest, by_label: Object.fromEntries(Object.entries(la).map(([k, x]) => [k, { candidate_id: x.candidate_id, profile_id: x.profile && x.profile.id, family_id: x.profile && x.profile.family_id, execution_id: x.profile && x.profile.execution_id, state: x.profile && x.profile.state, adaptation: x.adaptation ? x.adaptation.adaptation_id : null }])), note: "the shortlist is a recommendation (creative/medium-selection.json), not an approval; a label with no entry is developed as an ordinary (legacy) Look" };
+  }
+  writeFile(path.join(run, "design", "comparison-plan.json"), JSON.stringify({ ...r.plan, validation: v, ...(creative_intent ? { creative_intent } : { }), ...(medium_assignments ? { medium_assignments } : {}) }, null, 2) + "\n");
+  console.log(JSON.stringify({ ok: v.ok, problems: v.problems, plan: r.plan }, null, 2));
+  process.exit(v.ok ? 0 : 2);
+} else if (cmd === "bible") {
+  if (!args.run) die("--run <run dir> required");
+  const r = writeVisualBible(path.resolve(String(args.run)), {});
+  console.log(JSON.stringify({ ok: !r.problems.length, file: path.join(String(args.run), "look", "visual-bible.json"), problems: r.problems, source_digest: r.source_digest }, null, 2));
+  process.exit(r.problems.length ? 2 : 0);
+} else if (cmd === "bible-check") {
+  if (!args.run) die("--run <run dir> required");
+  const run = path.resolve(String(args.run));
+  let b = null;
+  try { b = JSON.parse(fs.readFileSync(path.join(run, "look", "visual-bible.json"), "utf8")); } catch { die("look/visual-bible.json is missing: design.mjs bible --run <run> (choose-system writes it)"); }
+  const v = validateVisualBible(b);
+  const cur = bibleCurrent(b, visualBibleInputs(run, {}));
+  console.log(JSON.stringify({ ok: v.ok && cur.current, valid: v, stale: !cur.current, ...cur }, null, 2));
+  process.exit(v.ok && cur.current ? 0 : 2);
+} else if (cmd === "bible-for") {
+  if (!args.run || !args.scene) die("--run <run dir> --scene <id> required");
+  const run = path.resolve(String(args.run));
+  let b = null;
+  try { b = JSON.parse(fs.readFileSync(path.join(run, "look", "visual-bible.json"), "utf8")); } catch { die("look/visual-bible.json is missing"); }
+  const cf = args.continuity && args.continuity !== true ? path.resolve(String(args.continuity)) : path.join(run, "look", "continuity.json");
+  let cont = null;
+  try { cont = JSON.parse(fs.readFileSync(cf, "utf8")); } catch { /* none yet */ }
+  const sc = String(args.scene);
+  const uses = cont && cont.scenes && cont.scenes[sc] ? cont.scenes[sc].uses || [] : [];
+  // Part 2: role + shot ids select the medium contract's section a worker needs (projectForWorker -> projectMediumForWorker); no contract in the bible = the same output as before
+  const csv = (v) => (v && v !== true ? String(v).split(",").map((x) => x.trim()).filter(Boolean) : []);
+  console.log(JSON.stringify({ bible: projectForWorker(b, { scene_id: sc, relations: args.relations && args.relations !== true ? String(args.relations).split(",") : [], anchors: { objects: uses, screens: uses, characters: uses, sound_motifs: uses }, role: args.role && args.role !== true ? String(args.role) : undefined, beat_ids: csv(args.beats), shot_ids: csv(args.shots), events: csv(args.events) }), continuity: cont ? projectForScene(cont, sc) : null }, null, 2));
+} else if (cmd === "medium-wire") {
+  // what a medium scene needs and must not guess (eventBindings in scene-local seconds from the derived motion/events.json, assets.canons from cast/<id>/identity.json, the runtime files, the treatment line)
+  if (!args.run) die("--run <run dir> required");
+  const run = path.resolve(String(args.run));
+  const contract = mediumContractFor(run);
+  if (!contract) die("needs-you: this run has no chosen medium contract (look/medium.json): a legacy look needs none, and no medium scene is wired");
+  const scene = args.scene && args.scene !== true ? String(args.scene) : null;
+  const eb = eventBindingsFor(run, scene);
+  console.log(JSON.stringify({ ok: eb.ok, execution_id: contract.execution_id, profile_id: contract.profile_id, state: "implemented_unvalidated", runtime: { dir: "assets/rasan-medium/", files: RUNTIME_FILES[contract.execution_id] || [], with_rasan2d: needsRasan2d(contract) }, eventBindings: eb.bindings, ...(eb.ok ? {} : { note: eb.note }), assets: { canons: canonsFor(run) }, scene_clock: "setTime(t) takes SCENE-LOCAL seconds; film time stays in motion/score.json", treatment_lines: treatmentLines(contract), after_ui_finish: contract.execution_id === "pixel-companion" ? "call C.bind(tl, {...}) AFTER RasanUI's U.finish(): one clock, one camera" : null }, null, 2));
+  process.exit(eb.ok ? 0 : 2);
+} else if (cmd === "look-revise") {
+  if (!args.run || !args.instruction || args.instruction === true) die("--run <run dir> --instruction \"...\" required");
+  const run = path.resolve(String(args.run));
+  let dec = {};
+  try { dec = JSON.parse(fs.readFileSync(path.join(run, "decisions.json"), "utf8")); } catch { /* none */ }
+  const started = ["storyboard", "frames", "motion", "build"].some((d) => fs.existsSync(path.join(run, d)));
+  const r = reviseLook({ instruction: String(args.instruction), ids: args.ids && args.ids !== true ? String(args.ids).split(",") : [], brand: { locked: !!(dec.brand && dec.use_brand !== false) }, downstream_started: started });
+  if (r.ok && r.request) writeFile(path.join(run, "look", "revisions", `${r.request.idempotency_key.slice(0, 12)}.json`), JSON.stringify(r, null, 2) + "\n");
+  console.log(JSON.stringify(r, null, 2));
+  process.exit(r.ok ? 0 : 2);
+} else if (cmd === "continuity-check") {
+  if (!args.file || args.file === true) die("--file <continuity.json> required");
+  let c = null;
+  try { c = JSON.parse(fs.readFileSync(path.resolve(String(args.file)), "utf8")); } catch (e) { die(`cannot read ${args.file}: ${e.message}`); }
+  const r = validateContinuity(c, {});
+  console.log(JSON.stringify(r, null, 2));
+  process.exit(r.ok ? 0 : 2);
+} else die("usage: design.mjs looks|pick|stills|check-system|check-systems|look-payload|choose-system|compare-plan|bible|bible-check|bible-for|look-revise|continuity-check|medium-wire (see the header)");

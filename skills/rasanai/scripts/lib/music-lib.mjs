@@ -17,31 +17,49 @@ export const KEYS = {
 
 // ---------------------------------------------------------------- the source chain
 
-// user -> AI (to the film's timing) -> curated catalog -> HeyGen -> ccMixter -> Openverse (last, stricter).
+// user -> curated catalog (licensed / local) -> AI (to the film's timing, only with the film's own generation consent) -> HeyGen -> ccMixter -> Openverse (last, stricter).
+// Generated music is an optional lane under consent, budget and capability rules: it never sits ahead of appropriate licensed or local music, and a key in the
+// environment is capability, not per-film consent (opts.generationConsent, i.e. --allow-generation, or an explicit "ai" in --sources, turns it on).
+// An explicit --sources list that names ai before catalog is a user pin and is kept in that order.
 // Never: Jamendo's API (non-commercial terms), Freesound's API at runtime, Bensound, scraping Pixabay,
 // Uppbeat, YouTube Audio Library, Artlist, Epidemic, Envato, Musicbed or Soundstripe, Higgsfield seed_audio
 // (a speech model, not for beds). A source with no key or no sign-in drops out without a word.
-export const THRESHOLD = { user: 0, ai: 65, catalog: 60, heygen: 65, ccmixter: 70, openverse: 75 };
-export const PRIOR = { user: 1.0, ai: 1.0, catalog: 0.9, mixkit: 0.8, heygen: 0.7, ccmixter: 0.5, openverse: 0.3 };
+export const THRESHOLD = { user: 0, ai: 65, catalog: 60, heygen: 65, ccmixter: 70, openverse: 75, procedural: 50 };
+export const PRIOR = { user: 1.0, ai: 1.0, catalog: 0.9, mixkit: 0.8, heygen: 0.7, ccmixter: 0.5, openverse: 0.3, procedural: 0.85 };
 
 export function sourceChain(env = process.env, opts = {}) {
   const has = (k) => !!(env[k] && String(env[k]).trim());
   const vendors = [];
   if (has(KEYS.elevenlabs)) vendors.push("elevenlabs");
   if (has(KEYS.stable)) vendors.push("stable-audio");
+  const pinned = Array.isArray(opts.sources) ? opts.sources : null;
+  const consent = !!opts.generationConsent || !!(pinned && pinned.includes("ai"));
+  const aiPinnedFirst = !!(pinned && pinned.includes("ai") && (!pinned.includes("catalog") || pinned.indexOf("ai") < pinned.indexOf("catalog")));
+  const aiWhy = !vendors.length ? `no ${KEYS.elevenlabs} or ${KEYS.stable} in the environment`
+    : !consent ? `${vendors.join(" then ")} key found, but generation is off for this film: a key is a capability, not consent. Pass --allow-generation (the film's explicit consent, within its budget) or name ai in --sources`
+    : `${vendors.join(" then ")}: takes generated to the film's arc (optional, after the licensed and local library unless pinned first)`;
+  const ai = { id: "ai", on: vendors.length > 0 && !opts.noAi && consent, vendors, consent, threshold: THRESHOLD.ai, why: aiWhy };
   const chain = [
     { id: "user", on: !!opts.user, threshold: THRESHOLD.user, why: opts.user ? "the user's own track" : "no --track given" },
-    { id: "ai", on: vendors.length > 0 && !opts.noAi, vendors, threshold: THRESHOLD.ai, why: vendors.length ? `${vendors.join(" then ")}: takes generated to the film's arc` : `no ${KEYS.elevenlabs} or ${KEYS.stable} in the environment` },
   ];
+  if (aiPinnedFirst) chain.push(ai);
   if (has(KEYS.epidemic)) chain.push({ id: "epidemic-connect", on: true, manual: true, why: "Epidemic Connect (the user's own paid plan, the one route Epidemic allows for AI tools): search and download there, then pass the file with --track <file> --library epidemic-connect" });
+  chain.push({ id: "catalog", on: true, threshold: THRESHOLD.catalog, why: "library/music/catalog.json: CC0 / CC BY files fetched on demand, Mixkit only when the user picks it" });
+  if (!aiPinnedFirst) chain.push(ai);
   chain.push(
-    { id: "catalog", on: true, threshold: THRESHOLD.catalog, why: "library/music/catalog.json: CC0 / CC BY files fetched on demand, Mixkit only when the user picks it" },
     { id: "heygen", on: true, threshold: THRESHOLD.heygen, why: "HeyGen's catalog (needs the heygen sign-in)" },
     { id: "ccmixter", on: true, threshold: THRESHOLD.ccmixter, why: "ccMixter query API, CC BY, instrumental, BPM within 8% of the target" },
     { id: "openverse", on: true, threshold: THRESHOLD.openverse, why: "last resort: multi-tag query, a stricter threshold" },
   );
+  // an original procedural score (original-score.mjs): an explicit choice (--procedural, or "procedural" in --sources: it then comes right after the user's own
+  // track) and the offline fallback when no source gave a usable track; never replaces a track the user supplied
+  const explicitProc = !!opts.procedural || !!(opts.sources && opts.sources.includes("procedural"));
+  chain.push({ id: "procedural", on: true, explicit: explicitProc, fallback: !explicitProc, threshold: THRESHOLD.procedural, why: explicitProc ? "chosen: an original score synthesised offline to the film's events (scripts/original-score.mjs)" : "offline fallback: an original score synthesised to the film's events when no other source gave a usable track" });
+  // an explicit --procedural with no --sources is the offline choice: the user's track and the original score only, no catalog or network source
+  if (opts.procedural && !opts.sources) opts = { ...opts, sources: ["user", "procedural"] };
   if (opts.sources) {
     const want = new Set(opts.sources);
+    if (opts.procedural) want.add("procedural");
     for (const c of chain) if (!want.has(c.id) && c.id !== "user") c.on = false;
   }
   return chain;
@@ -237,6 +255,35 @@ export function judge(file, { kind = "catalog", family, title, A, plan, narrated
   return { quality: Q, score: sc.score, parts: sc.parts, rank: Math.round(sc.score * (PRIOR[kind] ?? 0.5)), threshold, rejects, problems, warnings, pass: !problems.length };
 }
 
+// ---------------------------------------------------------------- style exclusions (per direction, not global)
+
+// With no sound direction these are the long-standing defaults and every output stays identical. With a direction, instruments and genres are excluded
+// only by the user's own constraints (hard) or because the selected feeling rules them out; the stock-library cliche markers stay as a ranking-side word
+// filter; structural exclusions (vocals under a voice, supersaws, tempo changes, fade-outs) are about editability, not taste.
+export const LEGACY_BANNED_WORDS = ["corporate", "inspirational", "inspiring", "uplifting", "motivational", "positive", "happy", "success", "business", "presentation", "ukulele", "whistl\\w*", "glockenspiel", "background music", "epic trailer"];
+export const LEGACY_AVOID = ["vocals", "supersaws", "dubstep wobble", "fade-outs", "tempo changes", "ukulele", "claps", "whistles"];
+const STOCK_MARKERS = ["corporate", "business", "presentation", "background music"]; // describe a stock-library cliche, not an instrument or genre
+const SENTIMENT_MARKERS = ["inspirational", "inspiring", "uplifting", "motivational", "positive", "happy", "success"];
+const STRUCTURAL_AVOID = ["supersaws", "dubstep wobble", "tempo changes", "fade-outs"];
+const escRe = (w) => String(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// o: { direction: {feeling, vocals_ok, narrated, music_role}|null, constraints: normalizeConstraints() output | {hard:{exclude_terms[]}}|null }
+// -> { source, banned_words[], banned_re (global, case-insensitive), avoid[], negative_global_styles[] }
+export function styleExclusions(o = {}) {
+  const dir = o && o.direction && typeof o.direction === "object" ? o.direction : null;
+  const hardTerms = o && o.constraints && o.constraints.hard && Array.isArray(o.constraints.hard.exclude_terms) ? o.constraints.hard.exclude_terms.map(String).filter(Boolean) : [];
+  if (!dir && !hardTerms.length) {
+    return { source: "legacy_default", banned_words: LEGACY_BANNED_WORDS.slice(), banned_re: new RegExp(`\\b(${LEGACY_BANNED_WORDS.join("|")})\\b`, "gi"), avoid: LEGACY_AVOID.slice(), negative_global_styles: LEGACY_AVOID.slice() };
+  }
+  const feeling = dir && dir.feeling && (dir.feeling.value || dir.feeling) || null;
+  const words = [...STOCK_MARKERS];
+  // an upbeat sentiment word is a cliche marker only when the selected feeling is not itself upbeat (playful, warm) or custom
+  if (!["playful", "warm", "custom"].includes(String(feeling))) words.push(...SENTIMENT_MARKERS);
+  for (const t of hardTerms) words.push(escRe(t));
+  const avoid = [...STRUCTURAL_AVOID, ...(dir && dir.vocals_ok ? [] : ["vocals"]), ...hardTerms];
+  return { source: dir ? "direction" : "user_constraints", banned_words: [...new Set(words)], banned_re: new RegExp(`\\b(${[...new Set(words)].join("|")})\\b`, "gi"), avoid: [...new Set(avoid)], negative_global_styles: [...new Set(avoid)] };
+}
+
 // ---------------------------------------------------------------- the brief written from the arc
 
 export function defaultArc(film) {
@@ -279,26 +326,30 @@ export function sections(arc, bpm, film) {
   return out.map((s) => ({ ...s, duration_ms: Math.max(3000, Math.round((s.t1 - s.t0) * 1000)) }));
 }
 
-export function buildPrompt({ film, bpm, family, arc, narrated, instruments }) {
+// o.subject / o.tone / o.exclusions are additive: with none of them the text is the long-standing one (a "SaaS launch film", "not cinematic").
+// o.subject: what the film is ("product explainer", "brand film"); o.tone: words from the selected direction; o.exclusions: styleExclusions().
+export function buildPrompt({ film, bpm, family, arc, narrated, instruments, subject, tone, exclusions }) {
   const secs = sections(arc, bpm, film);
   const fam = family && family.text ? family.text : String(family || "minimal electronic");
+  const legacy = !subject && !tone && !exclusions;
+  const avoid = exclusions && exclusions.avoid ? exclusions.avoid : LEGACY_AVOID;
   const lines = [
-    `BRIEF: Instrumental bed for a ${film} s SaaS launch film. No vocals, no vocal chops.`,
-    `Genre: ${fam}. ${bpm} BPM, 4/4${instruments ? `, ${instruments}` : ""}. Clean modern mix, confident, not cinematic.`,
+    `BRIEF: Instrumental bed for a ${film} s ${subject || "SaaS launch film"}. No vocals, no vocal chops.`,
+    `Genre: ${fam}. ${bpm} BPM, 4/4${instruments ? `, ${instruments}` : ""}. ${legacy ? "Clean modern mix, confident, not cinematic." : `Clean modern mix${tone ? `, ${tone}` : ""}.`}`,
     `Structure (1 bar = ${(240 / bpm).toFixed(2)} s):`,
     ...secs.map((s) => ` ${s.t0.toFixed(1)}-${s.t1.toFixed(1)} s ${s.name}: ${s.what}.`),
-    `Mix: punchy low end${narrated ? ", space at 1-4 kHz for a voice" : ""}.`,
-    "Avoid: vocals, supersaws, dubstep wobble, long risers, fade-outs, tempo changes, ukulele, claps, whistles.",
+    `Mix: ${legacy ? "punchy low end" : "a balanced low end"}${narrated ? ", space at 1-4 kHz for a voice" : ""}.`,
+    `Avoid: ${avoid.join(", ")}.`,
   ];
   return { text: lines.join("\n"), sections: secs, bar_s: 240 / bpm };
 }
 
 // ElevenLabs Music's composition_plan (bar-exact durations) from the same sections
-export function elevenPlan(p, family) {
+export function elevenPlan(p, family, exclusions = null) {
   const fam = String(family && family.text ? family.text : family || "minimal electronic").split(",").map((s) => s.trim()).filter(Boolean);
   return {
     positive_global_styles: [...fam, "instrumental", "modern clean mix"],
-    negative_global_styles: ["vocals", "supersaws", "dubstep wobble", "fade-out", "tempo changes", "ukulele", "claps", "whistles"],
+    negative_global_styles: exclusions && exclusions.negative_global_styles ? exclusions.negative_global_styles.slice() : ["vocals", "supersaws", "dubstep wobble", "fade-out", "tempo changes", "ukulele", "claps", "whistles"],
     sections: p.sections.map((s) => ({ section_name: s.name.toLowerCase(), positive_local_styles: [s.what], negative_local_styles: [], duration_ms: s.duration_ms, lines: [] })),
   };
 }
@@ -384,6 +435,10 @@ export function creditsText(opt) {
   const lic = opt.license || opt.licence || "";
   if (opt.origin === "user") {
     return { credits: `Music: "${opt.title}", the producer's own licensed track (${opt.declared || "licence declared by the producer"}). No credit line from RasanAI.\n`, description: "" };
+  }
+  if (opt.origin === "procedural") {
+    const used = Array.isArray(opt.samples_used) ? opt.samples_used : [];
+    return { credits: `Music: "${opt.title}", an original score generated by RasanAI for this film from code (no third-party recording or model).${used.length ? ` Samples used: ${used.map((x) => `${x.name || x.id} (${x.license}${x.source ? `, ${x.source}` : ""})`).join("; ")}.` : " Samples used: none."} No credit required.\n`, description: "" };
   }
   if (opt.origin && String(opt.origin).startsWith("ai:")) {
     return { credits: `Music: "${opt.title}", generated for this film with ${opt.origin.slice(3)}. Commercial use under the plan active at generation time (see LICENSES.json).\n`, description: "" };

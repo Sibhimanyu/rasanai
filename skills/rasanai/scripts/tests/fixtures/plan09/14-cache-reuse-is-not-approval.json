@@ -1,0 +1,35 @@
+{
+  "id": "plan09/P14",
+  "title": "Cache reuse is not approval; side effects are never replayed; reuse is explainable",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "artifact-store.explainReuse",
+      "case": "a valid hit for a storyboard-panel projection while the storyboard approval is superseded"
+    },
+    {
+      "fn": "artifact-store.put",
+      "case": "job_type provider_submission; job_type tool_side_effect; provider status unknown_outcome"
+    },
+    {
+      "fn": "artifact-store.explainReuse",
+      "case": "entry with no dependency declaration; entry with revoked rights; stale volatile fact"
+    },
+    {
+      "fn": "artifact-store.explainReuse",
+      "case": "identical key, scope, dependencies, current approval, fresh, authorized"
+    },
+    {
+      "fn": "graph.schedule",
+      "case": "every render fragment is a cache hit but the Storyboard is not approved"
+    }
+  ],
+  "expect": [
+    "reusable false with reason: the approval it was accepted under is superseded; reuse_is_approval false and approval_effect none in every result",
+    "put refuses all three: a remote submission is never replayed and an unknown outcome is reconciled by client id, only immutable output is reusable",
+    "each is a conservative miss with its reason (no dependency declaration, rights revoked, stale)",
+    "the only reusable case returns why, the producing manifest (job, attempt, generation, input digest), freshness, rights and dependencies",
+    "cache hits do not change a node's approvals: the delivery and scene-build nodes stay waiting_on_approval until the person approves"
+  ]
+}

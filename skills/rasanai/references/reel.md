@@ -11,7 +11,7 @@ node reel.mjs scan --footage <folder> --run <run dir> [--no-transcribe] [--lang 
 ```
 
 
-`--no-transcribe` is only for a user who explicitly chose to continue without transcripts. A missing transcriber makes `scan` exit 3 ("TRANSCRIBER NOT READY"); see SKILL.md, Footage reels, for the ask, `transcriber.mjs install` and the retry-or-skip rule.
+`--no-transcribe` is only for a user who explicitly chose to continue without transcripts. A missing transcriber makes `scan` exit 3 ("TRANSCRIBER NOT READY"); see references/workflows/routes/footage.md (Footage reels) for the ask, `transcriber.mjs install` and the retry-or-skip rule.
 Walks the folder (up to four levels deep, for camera cards; `.mp4 .mov .m4v .webm .mkv .avi .mts`) and writes `<run>/footage/footage.json`:
 
 ```json

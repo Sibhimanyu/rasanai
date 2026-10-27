@@ -1,0 +1,11 @@
+{
+  "$comment": "Four ORIGINAL minimal teaching scenes authored for RasanAI's reference index (workers/W02, 2026-10-26). Invented brands and content; nothing here is copied from any film, repository or product, so there is no third-party licence. They were not rendered, previewed or reviewed: evidence level original-unreviewed, not a gold standard. They teach one decision each; the second is a rough sketch of the two-readings idea (the SVG strokes are placeholders), to be developed by a future authorised pass. Wording that mentions a feature (practice, alerts, backups) is illustrative copy, not a claim about any real product.",
+  "authored_by": "Claude (RasanAI W02)",
+  "licence": "same as the RasanAI skill repository",
+  "scenes": [
+    {"id": "ref-original-correction-to-phrase", "path": "correction-to-phrase/example.html", "teaches": "a correction becoming a later unassisted phrase", "status": "original-unreviewed"},
+    {"id": "ref-original-two-readings", "path": "two-readings/example.html", "teaches": "two precise interpretations of one sentence", "status": "original-unreviewed"},
+    {"id": "ref-original-interaction-at-scale", "path": "interaction-at-scale/example.html", "teaches": "a product interaction shown at a useful scale", "status": "original-unreviewed"},
+    {"id": "ref-original-single-change-calm", "path": "single-change-calm/example.html", "teaches": "a deliberate calm composition where one change matters", "status": "original-unreviewed"}
+  ]
+}

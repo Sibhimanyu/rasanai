@@ -1,0 +1,35 @@
+{
+  "id": "plan09/P13",
+  "title": "Bundle deadlock and stale owner: stable order, all or nothing, identity-based reclaim, fairness across films",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "resource-pools.tryBundle",
+      "case": "task X needs encode then video_render, task Y needs video_render then encode, both launched together"
+    },
+    {
+      "fn": "slot.acquireManaged",
+      "case": "outer render holds a slot; its managed child asks for the same pool with RASANAI_SLOT_OWNER set; and with a forged token"
+    },
+    {
+      "fn": "slot.acquireManaged (stale reclaim)",
+      "case": "slot file whose pid is alive but 7 h old with a missed heartbeat; one whose pid is gone; one whose pid start time changed"
+    },
+    {
+      "fn": "slot.fairOrder",
+      "case": "film A holds 2 slots and has an old ticket; film B has a new interactive ticket; film C a background ticket waiting 20 min"
+    },
+    {
+      "fn": "slot handle.release()",
+      "case": "release called by a process that is not the token owner"
+    }
+  ],
+  "expect": [
+    "both bundles are taken in POOL_ORDER (video_render before encode), all or nothing, and released before any wait: neither can hold encode while waiting for video_render",
+    "the child is admitted as re-entrant (units 0, not counted twice) only while the outer token still owns a slot file; the forged token is queued like any other task",
+    "alive and old is NOT reclaimed in the managed path; a dead pid and a changed pid start time are",
+    "B's interactive head start puts it first, but A's penalty for the slots it holds and C's accumulated age keep anyone from starving",
+    "release removes a slot file only when the token and pid match"
+  ]
+}

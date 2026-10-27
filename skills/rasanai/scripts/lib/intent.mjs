@@ -3,7 +3,7 @@
 // takes every beat's duration from it.
 //   loadIntent(file)                      -> the parsed sheet, or null when there is none
 //   validateIntent(intent, { lengthS, durations }) -> { ok, errors, warnings, timing, curve }
-//        errors block: missing fields, relation words, importance values, the 25% budget, the one peak at importance 3, the peak holds longest (peak-not-longest), the proposition (<= 12 words, no "and"), ending_first;
+//        errors block: missing fields, relation words, importance values, the 25% budget, at most one peak (importance 3; a peak is OPTIONAL since Plan 03), the peak holds longest when there is one (peak-not-longest), the proposition (<= 12 words, no "and"), ending_first (legacy sheets; optional for story_format "v2"). A villain is optional everywhere (validated only when present);
 //        warnings are the uncalibrated rules: the peak's place (60-75%), the rest before it, read seconds, duplicate buys, buys wording, felt-number count
 //        durations = the pitch's beats' duration_s (the draft the peak's position is measured on); without them the beats' own, else planDurations()
 //        (the plot engine, the turn and the payoff live in the pitch: story.mjs check holds them to these beats)
@@ -83,14 +83,16 @@ export function validateIntent(intent, { lengthS = 0, durations = null } = {}) {
   const beats = Array.isArray(intent.beats) ? intent.beats : [];
   const N = beats.length;
   const treatment = intent.kind === "treatment";
+  const v2 = intent.story_format === "v2"; // derived from a format-aware treatment (lib/treatment.mjs toIntent)
 
   // the proposition: one sentence, <= 12 words, no "and" (single-minded)
   const prop = str(intent.proposition);
   if (!prop) E("proposition: missing (one sentence, at most 12 words, no \"and\")");
   else {
     const n = wordCount(prop);
-    if (n > MAX_PROPOSITION_WORDS) E(`proposition-long: ${n} words (${MAX_PROPOSITION_WORDS} at most): "${prop}"`);
-    if (hasAnd(prop) || /&|\+/.test(prop)) E(`proposition-and: has "and": two ideas are one too many ("${prop}"); keep the one every beat carries, proves or pays off`);
+    const PE = v2 ? W : E; // for a v2 treatment the one-sentence form is craft guidance (warning), not a gate
+    if (n > MAX_PROPOSITION_WORDS) PE(`proposition-long: ${n} words (${MAX_PROPOSITION_WORDS} at most): "${prop}"`);
+    if (hasAnd(prop) || /&|\+/.test(prop)) PE(`proposition-and: has "and": two ideas are one too many ("${prop}"); keep the one every beat carries, proves or pays off`);
   }
   const page = intent.page && typeof intent.page === "object" ? intent.page : null;
   if (!page) E("page: missing { problem, audience, goal, emotion }");
@@ -98,16 +100,31 @@ export function validateIntent(intent, { lengthS = 0, durations = null } = {}) {
     for (const k of ["problem", "audience", "goal", "emotion"]) if (!str(page[k])) E(`page.${k}: missing`);
     if (str(page.emotion) && !/ to /i.test(page.emotion)) W('page.emotion: write it "from <feeling> to <feeling>"');
   }
+  // Plan 03: a villain is an OPTIONAL tool (lib/story-grammars.mjs). Absent is fine; present must be well formed. Legacy sheets that carry one validate exactly as before.
   const vil = intent.villain && typeof intent.villain === "object" ? intent.villain : null;
-  if (!vil || !str(vil.what) || !str(vil.picture)) E("villain: missing { what, picture } (the one object or problem to blame, and how it is visible on screen)");
+  if (intent.villain != null && (!vil || !str(vil.what) || !str(vil.picture))) E("villain: when present it needs { what, picture } (the one object or problem to blame, and how it is visible on screen); it is optional");
   const fn = Array.isArray(intent.felt_numbers) ? intent.felt_numbers : [];
-  if (fn.length < 1 || fn.length > 3) W(`felt_numbers: ${fn.length} (1 to 3 of { value, source })`);
+  if (vil && (fn.length < 1 || fn.length > 3)) W(`felt_numbers: ${fn.length} (1 to 3 of { value, source })`);
   fn.forEach((x, i) => { if (!/\d/.test(str(x && x.value))) W(`felt_numbers[${i}].value has no digit`); if (!str(x && x.source)) W(`felt_numbers[${i}].source: a claim id or "prop"`); });
   const ef = intent.ending_first && typeof intent.ending_first === "object" ? intent.ending_first : null;
-  if (!ef || !str(ef.line) || !str(ef.last_frame)) E("ending_first: missing { line, last_frame, echo } (the last line and frame, written FIRST)");
-  else {
+  // ending_first is a method for legacy argument sheets; a v2 treatment need not have one (when present it is still checked)
+  if ((!ef || !str(ef.line) || !str(ef.last_frame)) && (!v2 || intent.ending_first != null)) E("ending_first: missing { line, last_frame, echo } (the last line and frame, written FIRST)");
+  else if (ef) {
     if (!str(ef.echo)) E("ending_first.echo: missing (what of the opening the ending answers)");
     if (ef.echoes_beat != null && !(Number(ef.echoes_beat) >= 1 && Number(ef.echoes_beat) <= N)) W(`ending_first.echoes_beat: a beat number 1-${N}`);
+  }
+  // idea from storytelling/payoff craft notes; our code, uncalibrated: a last frame that is only the mark does not pay the opening
+  if (ef && str(ef.last_frame)) {
+    const lf = str(ef.last_frame), lw = lf.split(/\s+/).filter(Boolean);
+    const echoW = new Set((str(ef.echo).toLowerCase().match(/[a-z]{4,}/g) || []));
+    const hasEcho = (lf.toLowerCase().match(/[a-z]{4,}/g) || []).some((w) => echoW.has(w));
+    if ((/^\s*(the\s+)?(logo|mark|wordmark|lockup|end card)\b/i.test(lf) || (lw.length <= 6 && /logo|mark|wordmark|lockup/i.test(lf))) && !hasEcho) W(`logo-only-ending: the last frame is only the mark ("${lf}"); show the outcome the opening promised (ending_first.echo) and let the mark sit in it`);
+  }
+  // optional character arc (mascot, brand-character, animated-story films); silent when absent
+  if (intent.character != null) {
+    const ch = typeof intent.character === "object" ? intent.character : {};
+    for (const k of ["want", "obstacle", "behaviour", "change", "acting"]) if (!str(ch[k])) W(`character-arc-thin: character.${k} missing`);
+    if (str(ch.change) && str(ch.want) && str(ch.change).toLowerCase() === str(ch.want).toLowerCase()) W("character-no-change: character.change repeats character.want (what is different at the end?)");
   }
   if (!str(intent.muted_hook)) W("muted_hook: missing (what the first 2 s say with the sound off)");
 
@@ -145,11 +162,12 @@ export function validateIntent(intent, { lengthS = 0, durations = null } = {}) {
   if (N && top / N > MAX_TOP_SHARE + 1e-9) E(`importance-budget: ${top} of ${N} beats are 3 (${Math.round((top / N) * 100)}%; at most ${MAX_TOP_SHARE * 100}%): when everything is important nothing is`);
   if (N && !beats.some((b) => Number(b && b.importance) === 1)) W("no-valley: no beat is 1 (emphasis is spent, not spread: at least one beat is calm)");
   const peaks = beats.map((b, i) => (b && b.peak === true ? i : -1)).filter((i) => i >= 0);
-  if (peaks.length !== 1) E(`peak-count: ${peaks.length} beats marked peak: true (exactly one)`);
-  else if (Number(beats[peaks[0]].importance) !== 3) E(`${label(beats[peaks[0]], peaks[0])}: the peak must be importance 3`);
+  // Plan 03: a peak is optional (none is fine; two are not). Where one exists it carries importance 3; its place and rest are legacy guidance, not v2 rules.
+  if (peaks.length > 1) E(`peak-count: ${peaks.length} beats marked peak: true (at most one; a peak is optional)`);
+  else if (peaks.length === 1 && Number(beats[peaks[0]].importance) !== 3) E(`${label(beats[peaks[0]], peaks[0])}: the peak must be importance 3`);
 
   const timing = N ? timingOf(beats, { lengthS: lengthS || Number(intent.length_s) || 0, durations }) : null;
-  if (timing && peaks.length === 1) {
+  if (timing && peaks.length === 1 && !v2) {
     const pk = peaks[0], at = timing.starts[pk] / (timing.total || 1), [lo, hi] = treatment ? TREATMENT_PEAK_RANGE : timing.total <= 12 ? PEAK_RANGE_10S : PEAK_RANGE;
     // the peak holds longest: a measured beat (the pitch's durations, else the beats' own duration_s) shorter than another is an error; planned durations hold the peak longest by construction
     if (!timing.planned) { const longer = timing.secs.map((d, i) => ({ d, i })).filter(({ d, i }) => i !== pk && d > timing.secs[pk] + 1e-9); if (longer.length) E(`peak-not-longest: ${label(beats[pk], pk)} runs ${+timing.secs[pk].toFixed(2)} s, shorter than ${longer.map(({ d, i }) => `${label(beats[i], i)} (${+d.toFixed(2)} s)`).join(", ")}: the peak holds longest`); }

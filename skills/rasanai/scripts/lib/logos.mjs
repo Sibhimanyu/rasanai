@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { guardedFetch } from "./containment.mjs";
 
 const KINDS = ["mark", "wordmark", "lockup", "app-icon"];
 const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
@@ -218,7 +219,7 @@ export function scanLogos({ project, sources, logos, cssText }) {
 // ---------------------------------------------------------------- fetching a third-party mark
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const getText = async (url, ms = 15000) => {
-  const r = await fetch(url, { headers: { "user-agent": UA, accept: "*/*" }, signal: AbortSignal.timeout(ms), redirect: "follow" });
+  const r = await guardedFetch(url, { headers: { "user-agent": UA, accept: "*/*" }, timeoutMs: ms }); // Plan 11 R4: no local / metadata targets, redirects re-checked, no credential forwarding
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.text();
 };

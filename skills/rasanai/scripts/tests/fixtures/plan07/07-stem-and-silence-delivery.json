@@ -1,0 +1,70 @@
+{
+  "case": "A07",
+  "title": "stems when available, silence-only handled explicitly, mono/phone left to final validation",
+  "calls": [
+    "stemSet",
+    "evaluateMeasures",
+    "deliverableState",
+    "readDirection"
+  ],
+  "stems": {
+    "separate": {
+      "vo": "audio/stems/vo.wav",
+      "music": "audio/stems/music.wav",
+      "sfx": "audio/stems/sfx.wav"
+    },
+    "combined_only": {
+      "combined": "audio/bed.wav"
+    }
+  },
+  "cases": [
+    {
+      "name": "no audio stream, silent by choice",
+      "measures": {
+        "has_audio": false
+      },
+      "opts": {
+        "silent_by_choice": "a quiet lobby loop"
+      },
+      "expect": "state silent_by_choice, ok true; no loudness target applies"
+    },
+    {
+      "name": "no audio stream, audio expected",
+      "measures": {
+        "has_audio": false
+      },
+      "opts": {
+        "audio_expected": true
+      },
+      "expect": "state audio_missing, error no-audio: an audio failure, not a silent deliverable"
+    },
+    {
+      "name": "no audio stream, none expected",
+      "measures": {
+        "has_audio": false
+      },
+      "opts": {
+        "audio_expected": false
+      },
+      "expect": "state silent, ok true (a no-VO, no-music film is complete)"
+    },
+    {
+      "name": "silence only",
+      "measures": {
+        "lufs": -70,
+        "true_peak": -60,
+        "duration": 30,
+        "channels": 2,
+        "sample_rate": 48000
+      },
+      "opts": {
+        "audio_expected": true
+      },
+      "expect": "integrated_lufs null (undefined, not -70); audio_missing with error silent-mix unless silent_by_choice is recorded"
+    }
+  ],
+  "expect": {
+    "stems": "separate stems (3 present): separate true, missing ['ambience']; combined_only: separate false and the note says ducking and per-stem fixes are not possible",
+    "mono_phone": "every measured result lists mono_downmix and phone_speaker under deferred: listening in final validation, not metadata"
+  }
+}

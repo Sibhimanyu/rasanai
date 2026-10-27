@@ -169,3 +169,48 @@ export function dispatchFor(profile, { desc, file, role, tier }) {
   }
   return `Run a fresh agent session with the prompt: "${msg}"  (${desc}); if you can't, do it yourself in sequence (--lean)`;
 }
+
+// ---------------------------------------------------------------- allocation by task (Plan 08 K6)
+// Builds on tierFor: it never names a model id of its own (the session's profile and FAST_ALIAS are the only sources), respects the person's
+// choice (policy.resources.model.choice or RASANAI_MODEL/--model), and never lowers story or visual-direction work below its `min`.
+// A failed bounded task gets a FOCUSED REPAIR packet first; escalation (a fast model -> the session's model) happens only when the person has not
+// pinned a model, and its reason is returned for the ledger so Plan 14 can see whether it helped.
+const BOOKKEEPING = new Set(["footage-logger", "retrospective", "ab-juror", "move-sketcher", "brand-kit-builder"]);
+const DIRECTION = new Set(["treatment-writer", "script-writer", "visual-writer", "footage-writer", "film-builder", "motion-director", "scene-animator", "design-system-designer", "styleframe-designer", "frame-designer", "art-director", "move-inventor", "critic"]);
+export function allocate({ role, profile, policy = null, attempt = 1, failed = null, requested = null } = {}) {
+  const p = profile || profileFor("unknown");
+  const T = tierFor(role, p);
+  const pinned = !!(policy && policy.resources && policy.resources.model && policy.resources.model.choice);
+  const out = {
+    role, profile: p.key || p.id || null, tier: p.tier, model: T.model, fast: T.fast, effort: T.effort,
+    reasoning: BOOKKEEPING.has(role) ? "minimal" : DIRECTION.has(role) ? "full" : "standard",
+    silent_downgrade: false, pinned_by_user: pinned, escalation: null, repair: null, notes: [],
+  };
+  // v3: the person's single-model choice wins over recommended routing: no smaller-model alias for any role, and a requested premium model is not used (no hidden upgrade or downgrade)
+  if (pinned) {
+    out.pinned_model = String(policy.resources.model.choice);
+    if (out.fast || out.model) { out.fast = false; out.model = null; out.notes.push("the person chose one model: no role is routed to a different one"); }
+    if (requested && String(requested) !== out.pinned_model) { out.requested_ignored = String(requested); out.notes.push(`requested ${requested} ignored: the person's model choice (${out.pinned_model}) wins`); }
+  } else if (requested) out.notes.push(`requested ${requested} is a recommendation only: routing stays within the models already authorized for this run`);
+  if (BOOKKEEPING.has(role) && out.effort) out.effort = "low"; // no maximum effort for deterministic bookkeeping
+  if (!T.ok) out.notes.push(T.note); // the session's model is below this role's floor: say so, never pretend
+  if (DIRECTION.has(role) && (T.fast || p.tier === "fast")) { out.fast = false; out.model = null; out.notes.push("story and visual-direction work is not given to a fast model to hit a cost target"); }
+  if (failed && attempt > 1) {
+    out.repair = { packet: "focused", scope: "the failing findings only", rerun_full_crew: false };
+    if (!pinned && T.fast) { out.fast = false; out.model = null; out.escalation = { from: "fast", to: "session model", reason: String(failed.reason || failed).slice(0, 200), attempt, record: "ledger event escalate: compare the repaired result with the first attempt in Plan 14" }; }
+    else if (pinned) out.notes.push("the person pinned a model: repair is retried on it, not escalated");
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- model-plan wording (v3 W10)
+// Words for the Director's prompt per plan, for the lead/INT-NATIVE to mirror into the Swift prompt (Swift stays prompt-only). `plan`: recommended | opus | sonnet | settings.
+// Recommended routing only ever picks among models the person already authorized; a single-model plan means every role, gathering included, stays on that model.
+// No savings or quality claim is made here.
+export function modelPlanWording({ plan = "recommended", pace = "standard" } = {}) {
+  if (plan === "opus") return "MODEL PLAN: OPUS EVERYWHERE. The person chose one model for every role. Do not hand any role, gathering or mechanical work included, to a different model, and do not add another provider.";
+  if (plan === "sonnet") return "MODEL PLAN: SONNET EVERYWHERE. The person chose one model for every role to keep usage low. Every role stays on it, gathering and the final review included: this plan overrides any recommended split in the engine files. Follow the structured steps in the order written, look at renders before accepting them, and still push for ambitious motion. Never switch to a stronger model silently; if a role cannot be done well on it, say so as a limitation.";
+  if (plan === "settings") return null;
+  const f = pace === "fast" ? "the script and design desks, the Motion Director's score and the one final fresh-eyes review" : "the script and design desks, the Motion Director, the scene animators' hardest scenes and the critics";
+  return `MODEL PLAN: RECOMMENDED. Within the models already authorized for this run, put the stronger one on the roles that decide how the film reads, looks and moves (${f}) and the lighter one on gathering, routine implementation, gate checks and renders. This is a recommendation: a single-model setting always overrides it, no model or provider outside the authorized set is used, and no role is silently moved to a cheaper model to hit a cost target.`;
+}

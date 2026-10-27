@@ -1,0 +1,73 @@
+{
+  "case": "plan10/U03",
+  "note": "window scenarios are RECORDED for Plan 14; nothing was run or opened in Plan 10",
+  "persistent": [
+    "sidebar",
+    "toolbar order",
+    "dot stepper",
+    "call meaning line",
+    "player or choice context",
+    "primary action in the status bar"
+  ],
+  "own_scroll_panels": [
+    "long script text",
+    "explanation panels",
+    "notes list",
+    "reference lists"
+  ],
+  "window_scenarios": [
+    {
+      "id": "w-min",
+      "size": [
+        900,
+        620
+      ],
+      "check": "primary action and stepper stay on screen; the player shrinks; script scrolls inside its panel"
+    },
+    {
+      "id": "w-default",
+      "size": [
+        1280,
+        800
+      ],
+      "check": "player, strip and scene filmstrip visible together"
+    },
+    {
+      "id": "w-large",
+      "size": [
+        1920,
+        1200
+      ],
+      "check": "cards and thumbnails do not stretch past useful size"
+    },
+    {
+      "id": "w-fullscreen",
+      "size": "fullscreen",
+      "check": "pointer mapping through the real picture rectangle with fullscreen insets; Edit elements still reachable"
+    },
+    {
+      "id": "w-retina",
+      "size": [
+        1440,
+        900
+      ],
+      "backing_scale": 2,
+      "check": "hit targets and outlines align on high-DPI"
+    },
+    {
+      "id": "w-narrow-inspector",
+      "size": [
+        1100,
+        700
+      ],
+      "inspector": "open",
+      "check": "thumbnails stay identifiable; no horizontal clipping"
+    }
+  ],
+  "player_modes": [
+    "fit with letterbox",
+    "vertical master cropped from wide",
+    "fullscreen",
+    "render of a different shape than the element index"
+  ]
+}

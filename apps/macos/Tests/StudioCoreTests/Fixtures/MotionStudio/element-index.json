@@ -1,0 +1,7 @@
+{"schema_version":1,"build_digest":"abc123","film_version":2,"frame_size":{"w":1920,"h":1080},"future_key":true,
+ "items":[
+  {"element_id":"scene-1.bg","scene_id":"scene-1","kind":"image","z":0,"active_s":[0,5],"capability":"raster","bounds_samples":[{"t_s":0,"x":0,"y":0,"w":1920,"h":1080}]},
+  {"element_id":"scene-1.hero-title","scene_id":"scene-1","kind":"text","label":"Hero title","z":5,"active_s":[0,5],"editable":["text","color"],"capability":"dom",
+   "bounds_samples":[{"t_s":0,"x":0,"y":0,"w":960,"h":540},{"t_s":2,"x":960,"y":0,"w":960,"h":540}]},
+  {"element_id":"scene-2.late","scene_id":"scene-2","kind":"shape","z":9,"active_s":[6,8],"bounds_samples":[{"t_s":6,"x":0,"y":0,"w":1920,"h":1080}]}
+ ]}

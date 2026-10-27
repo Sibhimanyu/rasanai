@@ -1,0 +1,96 @@
+{
+  "case": "E09",
+  "title": "old `animatic` console actions and records map to the one Storyboard stage",
+  "calls": [
+    "legacyAction",
+    "mapLegacyRecord",
+    "storyboardStageOf",
+    "fromLegacyAnimatic",
+    "fromLegacyShots"
+  ],
+  "actions": [
+    {
+      "step": "animatic",
+      "type": "approve"
+    },
+    {
+      "step": "animatic",
+      "type": "comment",
+      "value": {
+        "scene": 2,
+        "t": 6.5,
+        "shot_id": "shot-02",
+        "panel_id": "p1"
+      }
+    },
+    {
+      "step": "animatic",
+      "type": "redo"
+    }
+  ],
+  "records": [
+    {
+      "step": "animatic"
+    },
+    {
+      "step": "preview"
+    },
+    {
+      "step": "keyframes"
+    },
+    {
+      "step": "styleframes"
+    },
+    {
+      "step": "styleframes",
+      "hint": "heroes"
+    },
+    {
+      "kind": "storyboard"
+    }
+  ],
+  "animatic_step": {
+    "scenes": [
+      {
+        "id": "1",
+        "title": "Notes",
+        "line": "Start rough",
+        "visual": "notes",
+        "duration": 4,
+        "thumb": "frames/01.png"
+      },
+      {
+        "id": "2",
+        "title": "Draft",
+        "line": "Get a draft",
+        "visual": "draft",
+        "duration": 5,
+        "thumb": "frames/02.png"
+      }
+    ],
+    "audio": "music/bed.wav",
+    "music": {
+      "file": "music/bed.wav"
+    }
+  },
+  "expect": {
+    "actions_stage": [
+      "storyboard",
+      "storyboard",
+      "storyboard"
+    ],
+    "records_stage": [
+      "storyboard",
+      "storyboard",
+      "storyboard",
+      "storyboard",
+      "look",
+      "storyboard"
+    ],
+    "extra_approval": false,
+    "adopted_shots": 2,
+    "adopted_panels_each": 1,
+    "console_step_key_unchanged": "animatic",
+    "old_session_without_storyboard_dir": "hooks do nothing; everything behaves as before"
+  }
+}

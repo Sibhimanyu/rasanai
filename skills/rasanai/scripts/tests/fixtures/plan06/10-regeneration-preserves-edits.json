@@ -1,0 +1,145 @@
+{
+  "case": "V10",
+  "title": "User edits survive a rebuild through stable ids; a missing id is a conflict",
+  "calls": [
+    "reconcileOverrides",
+    "regenerationGate",
+    "handleMotionEditAction (console motion-edit hook)"
+  ],
+  "edits": [
+    {
+      "id": "edit-001",
+      "element_id": "scene-2.hero-title",
+      "scene_id": "scene-2",
+      "status": "applied",
+      "fields": {
+        "text": "Made to be seen"
+      }
+    },
+    {
+      "id": "edit-002",
+      "element_id": "scene-2.old-badge",
+      "scene_id": "scene-2",
+      "status": "applied",
+      "fields": {
+        "color": "#ff6600"
+      }
+    },
+    {
+      "id": "edit-003",
+      "element_id": "scene-3.screen",
+      "scene_id": "scene-3",
+      "status": "accepted",
+      "fields": {
+        "text": "hello"
+      }
+    },
+    {
+      "id": "edit-004",
+      "element_id": null,
+      "scene_id": "scene-2",
+      "status": "accepted",
+      "region_norm": {
+        "x": 0.1,
+        "y": 0.1,
+        "w": 0.2,
+        "h": 0.2
+      },
+      "fields": {}
+    },
+    {
+      "id": "edit-005",
+      "element_id": "scene-2.hero-title",
+      "scene_id": "scene-2",
+      "status": "failed",
+      "fields": {
+        "text": "x"
+      }
+    }
+  ],
+  "rebuilt_index": {
+    "items": [
+      {
+        "element_id": "scene-2.hero-title",
+        "scene_id": "scene-2",
+        "kind": "text",
+        "editable": [
+          "text",
+          "position",
+          "color"
+        ]
+      },
+      {
+        "element_id": "scene-3.screen",
+        "scene_id": "scene-3",
+        "kind": "video",
+        "editable": [
+          "position",
+          "scale",
+          "timing"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "carried": [
+      "edit-001",
+      "edit-004"
+    ],
+    "conflicts": [
+      {
+        "id": "edit-002",
+        "code": "missing_id"
+      },
+      {
+        "id": "edit-003",
+        "code": "property_not_editable"
+      }
+    ],
+    "skipped": [
+      "edit-005"
+    ],
+    "ok": false
+  },
+  "no_nearest_pixel": "edit-002 is never moved onto a different element because it sat in the same place",
+  "gate": {
+    "regenerationGate scene-2": {
+      "allowed": false,
+      "conflicts": [
+        "edit-002"
+      ]
+    },
+    "regenerationGate scene-3": {
+      "allowed": false,
+      "conflicts": [
+        "edit-003"
+      ]
+    }
+  },
+  "console_hook": {
+    "actions_line": {
+      "kind": "motion-edit",
+      "edit": {
+        "schema_version": 1,
+        "id": "edit-009",
+        "film_version": 1,
+        "time_s": 1.2,
+        "scene_id": "scene-2",
+        "element_id": "scene-2.hero-title",
+        "operation": "modify",
+        "fields": {
+          "text": "New"
+        },
+        "instruction": "change the title",
+        "source": "studio-final",
+        "status": "requested"
+      }
+    },
+    "expect": {
+      "recorded_in": "motion/edits.jsonl",
+      "feed_line_starts": "Edit recorded",
+      "step_answer_not_marked": true
+    }
+  },
+  "deferred_to": "plan 14: edit a title in Studio, rebuild the scene, the title survives; rename an id and see the conflict"
+}

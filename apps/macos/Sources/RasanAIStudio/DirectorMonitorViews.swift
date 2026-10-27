@@ -104,6 +104,8 @@ struct DirectorMonitorPanel: View {
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    if let block = health?.blocked { blockedCard(block) }
+                    if let health, health.stalled, health.blocked == nil { stalledCard(health) }
                     if let health, health.state == .possiblyLooping { loopWarning(health) }
                     if let limit = monitor.budgetLimit { budgetCard(limit) }
                     usage(t)
@@ -139,7 +141,7 @@ struct DirectorMonitorPanel: View {
     private func detailText(_ health: DirectorHealth?, now: Date) -> String {
         guard let health else { return "The director is getting ready." }
         if health.state == .possiblyLooping { return "It looks like it is repeating itself. Details below." }
-        if health.state == .quiet, monitor.telemetry.toolInFlight == nil, let last = monitor.telemetry.lastEventAt {
+        if health.state == .quiet, !health.stalled, health.blocked == nil, monitor.telemetry.toolInFlight == nil, let last = monitor.telemetry.lastEventAt {
             let what = monitor.telemetry.lastToolSummary.map { " Last: \($0)." } ?? ""
             return "No activity for \(UsageFormat.span(max(0, now.timeIntervalSince(last)))).\(what)"
         }
@@ -155,13 +157,56 @@ struct DirectorMonitorPanel: View {
                 .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Pause") { monitor.actions.pause(); dismiss() }
-                Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Button("Retry step") { monitor.actions.retry(); dismiss() }.help("Tells Rasan to try the current step again, without repeating the same call.")
+                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }.help("Stops this director and starts a fresh one from the saved film. Your files are kept.")
                 Spacer()
             }.controlSize(.regular)
         }
         .padding(12)
         .background(Color(nsColor: .systemRed).opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .systemRed).opacity(0.35), lineWidth: 0.5))
+    }
+
+    /// A command the director was refused: named exactly, with the way forward. Never silent.
+    private func blockedCard(_ block: DirectorBlock) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Blocked", systemImage: "hand.raised.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemOrange))
+            Text(block.message).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+            if let note = block.repeatNote { Text(note).font(.system(size: 11)).foregroundStyle(.secondary) }
+            if block.isInstall {
+                Text("Studio never lets the director install software by itself. Studio can install it for you instead.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if let tool = block.suggestedTool { ToolNeedCard(need: ToolNeed(tool: tool, why: "Rasan tried to install it with `\(block.command)`."), model: nil) }
+            } else {
+                Text("This command is outside what the director is allowed to run. Turn on Settings → Director → Allow unrestricted tools if you trust this film, or tell Rasan another way to do it.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Button("Retry step") { monitor.actions.retry(); dismiss() }
+                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }
+                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Spacer()
+            }
+        }
+        .padding(12)
+        .background(Color(nsColor: .systemOrange).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .systemOrange).opacity(0.4), lineWidth: 0.5))
+    }
+
+    private func stalledCard(_ health: DirectorHealth) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Rasan looks stuck", systemImage: "moon.zzz.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemOrange))
+            Text(health.detail).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Retry step") { monitor.actions.retry(); dismiss() }
+                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }
+                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Spacer()
+            }
+        }
+        .padding(12)
+        .background(Color(nsColor: .systemOrange).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func budgetCard(_ limit: Double) -> some View {
@@ -288,6 +333,10 @@ struct DirectorMonitorPanel: View {
         HStack {
             Button { monitor.actions.showLog(); dismiss() } label: { Label("Show log", systemImage: "text.alignleft") }
             Spacer()
+            if monitor.isLive {
+                Button { monitor.actions.restart(); dismiss() } label: { Label("Restart Rasan", systemImage: "arrow.clockwise") }
+                    .help("Stops this director and starts a fresh one from the saved film.")
+            }
             if monitor.isLive, monitor.canPause {
                 Button { monitor.actions.pause(); dismiss() } label: { Label("Pause", systemImage: "pause.fill") }
                     .help("Pause freezes it in place. Resume carries on exactly where it was.")
@@ -303,23 +352,56 @@ struct MonitorBudgetBanner: View {
     var store: StudioStore
     var body: some View {
         let monitor = store.monitor
-        if let limit = monitor.budgetLimit, monitor.run == store.runURL {
-            HStack(spacing: 12) {
-                Image(systemName: "dollarsign.circle.fill").foregroundStyle(Color(nsColor: .systemOrange))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("This film is over your \(UsageFormat.dollars(limit)) budget").font(.system(size: 13, weight: .semibold))
-                    Text("About \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far\(monitor.telemetry.cost.isEstimated ? " (est.)" : ""). Pause now, or let it carry on.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Pause") { store.pauseDirector() }.disabled(!store.canPause)
-                Button("Keep going") { monitor.dismissBudgetWarning() }
+        if monitor.run == store.runURL, let paused = monitor.autoPaused, paused.kind == .loop {
+            banner(symbol: "exclamationmark.arrow.triangle.2.circlepath", tint: .systemRed,
+                   title: "Paused: the director looked stuck",
+                   detail: paused.reason + " Nothing is lost. Resume to let it carry on, or tell it what to do.") {
+                Button("Show log") { store.sheet = .log }
+                Button("Chat with Rasan…") { store.film?.beginTell() }
+                Button("Restart Rasan") { monitor.actions.restart() }
+                Button("Resume") { store.resumeDirector() }.keyboardShortcut(.defaultAction)
             }
-            .padding(.horizontal, 16).padding(.vertical, 10)
-            .background(Color(nsColor: .systemOrange).opacity(0.12))
-            .overlay(alignment: .bottom) { Divider() }
-            .transition(.move(edge: .top).combined(with: .opacity))
+        } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, let block = health.blocked, health.state != .paused {
+            BlockedBanner(store: store, block: block)
+        } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, health.stalled {
+            banner(symbol: "moon.zzz.fill", tint: .systemOrange, title: "Rasan looks stuck", detail: health.detail) {
+                Button("Retry step") { monitor.actions.retry() }
+                Button("Restart Rasan") { monitor.actions.restart() }
+                Button("Chat with Rasan…") { store.film?.beginTell() }
+            }
+        } else if let limit = monitor.budgetLimit, monitor.run == store.runURL {
+            let spent = "About \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far\(monitor.telemetry.cost.isEstimated ? " (est.)" : "")."
+            if monitor.autoPaused?.kind == .budget {
+                banner(symbol: "dollarsign.circle.fill", tint: .systemOrange, title: "Paused at your \(UsageFormat.dollars(limit)) budget",
+                       detail: spent + " Keep going to resume, or raise the limit.") {
+                    Button("Raise by $10") { monitor.raiseBudget(by: 10) }
+                    Button("Keep going") { monitor.dismissBudgetWarning() }
+                }
+            } else {
+                banner(symbol: "dollarsign.circle.fill", tint: .systemOrange, title: "This film is over your \(UsageFormat.dollars(limit)) budget",
+                       detail: spent + " Pause now, or let it carry on.") {
+                    Button("Pause") { store.pauseDirector() }.disabled(!store.canPause)
+                    Button("Keep going") { monitor.dismissBudgetWarning() }
+                }
+            }
         }
+    }
+
+    private func banner<Buttons: View>(symbol: String, tint: NSColor, title: String, detail: String, @ViewBuilder buttons: () -> Buttons) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).foregroundStyle(Color(nsColor: tint))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            buttons()
+        }
+        .padding(.horizontal, Workspace.panelPadding).padding(.vertical, 10)
+        .background(Color(nsColor: tint).opacity(0.12))
+        .overlay(alignment: .bottom) { Divider() }
+        .padding(.bottom, Workspace.gap)   // the stage's gap below the banner, only when a banner is shown
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
 
@@ -384,9 +466,9 @@ struct FinishedUsageLine: View {
 struct BudgetSetting: View {
     @Bindable var settings: StudioSettings
     var body: some View {
-        Toggle("Warn me above a spend per film", isOn: Binding(get: { settings.budgetPerFilm > 0 }, set: { settings.budgetPerFilm = $0 ? 10 : 0 }))
+        Toggle("Pause above a spend per film", isOn: Binding(get: { settings.budgetPerFilm > 0 }, set: { settings.budgetPerFilm = $0 ? 10 : 0 }))
         if settings.budgetPerFilm > 0 {
-            LabeledContent("Warn above") {
+            LabeledContent("Pause above") {
                 HStack(spacing: 4) {
                     Text("$")
                     TextField("", value: $settings.budgetPerFilm, format: .number.precision(.fractionLength(0...2)))

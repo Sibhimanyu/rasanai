@@ -1,0 +1,41 @@
+{
+  "id": "plan08/K08",
+  "title": "Source intake record, rule budget, and no speculation on unselected alternatives",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "packets.admitDuringChoice",
+      "args": {
+        "artifact": "research/brand/assets/",
+        "depends_on_choice": false,
+        "authorized": true,
+        "reusable": true,
+        "risk": "low"
+      }
+    },
+    {
+      "fn": "packets.admitDuringChoice",
+      "args": {
+        "artifact": "storyboard for story B",
+        "depends_on_choice": true,
+        "authorized": true,
+        "reusable": false
+      }
+    },
+    {
+      "fn": "packets.admitDuringChoice",
+      "args": {
+        "depends_on_choice": false,
+        "authorized": true,
+        "reusable": true
+      }
+    }
+  ],
+  "expect": [
+    "first admitted",
+    "second refused (depends on the pending choice, not reusable)",
+    "third refused (states no artifact)",
+    "docs/plans/RULE_MIGRATION_MAP.md Plan 08 section records for each selected mechanic: file or commit, licence evidence, adaptation mode, destination, scoped rule ids; unselected repos listed as references only"
+  ]
+}

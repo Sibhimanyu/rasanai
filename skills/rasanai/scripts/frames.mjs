@@ -16,8 +16,13 @@
 //        -> a side-by-side sheet: ours (outlined) | reference(s), one row per ours
 //   node frames.mjs gate --run <run> [--dir <frames dir>]
 //        -> runs frame-gate.mjs on the boards when it is installed (frames/gate.json); a note when it is not
+//        (new creative policy: init writes film.look_style from the selected Look's blend.json, shots-check and gate apply the depth craft only to a look that selects it,
+//         its other findings are severity "review" evidence for the juror; refs adds the selected creative references' lawful images, origin "creative-reference")
+//        (new medium path: a look with design/<Label>/medium.json (or look/medium.json) that qualifies multi-plane-depth for every layer moves the depth craft to review in shots-check and the gate; reported as medium_exceptions)
 //   node frames.mjs match --run <run> --video <draft.mp4> [--plan <score.json>] [--out <png>]
 //        -> the draft at each board's peak next to the board, SSIM on a 160x90 grey downscale (frames/match.json, frames/match.png)
+//   node frames.mjs notes --run <run> [--dir <frames dir>]
+//        -> (creative policy revision 2 storyboards that carry reads/bindings) writes frames/<shot id>.md: one line per binding phase, read and camera motivation; shots without them get no file
 //   node frames.mjs payload --run <run> [--out <styleframes.json>]
 //        -> the console's styleframes payload from shots.json, the PNGs and verdict.json
 import fs from "node:fs";
@@ -26,6 +31,8 @@ import { spawnSync } from "node:child_process";
 import { parseArgs, die, chromeScreenshot, normalizeAspect, SKILL_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { readShots, checkShots, boardFiles, collectRefs, gridSheet, grey, ssim, boardFor, buildPayload, frameId, KIT_CSS, KIT_JS } from "./lib/frames-lib.mjs";
+import { readStoryboard, temporalNotes } from "./lib/storyboard.mjs";
+import { runCreativeOn, lookStyleOf, creativeLookProfile, referenceStills } from "./lib/creative-run.mjs"; // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -67,6 +74,27 @@ const hasChrome = () => { if (_chrome !== null) return _chrome; _chrome = (() =>
   return !!line && fs.existsSync(line);
 })(); return _chrome; };
 const shot = (u, o, w, h, b) => chromeScreenshot(u, o, w, h, b);
+// the craft class of the look being drawn: the Look comparison folder (design/<Label>/frames) uses that system's own look_style, the film's frames folder the selected Look's (null on a legacy run)
+function lookStyleFor(run, dir) {
+  if (!runCreativeOn(run)) return null;
+  const parent = path.dirname(dir);
+  if (path.basename(dir) === "frames" && path.basename(path.dirname(parent)) === "design") {
+    const b = readJ(path.join(parent, "blend.json"));
+    if (b && typeof b.look_style === "string" && b.look_style.trim()) return b.look_style.trim();
+  }
+  return lookStyleOf(run);
+}
+// Part 2 (new path only): the medium contract of the look being drawn (design/<Label>/medium.json in a Look comparison folder, else the chosen look/medium.json) and the checks it qualifies for ALL its layers
+// (medium-rules via medium-wiring scopedSkips). No contract (a legacy look) -> null and every check is as before.
+async function mediumFor(run, dir) {
+  const parent = path.dirname(dir);
+  const files = path.basename(dir) === "frames" && path.basename(path.dirname(parent)) === "design" ? [path.join(parent, "medium.json")] : [path.join(run, "look", "medium.json")];
+  const f = files.find(exists), c = f && readJ(f);
+  if (!c || c.format !== "medium-contract@1") return null;
+  const { scopedSkips } = await import("./lib/medium-wiring.mjs");
+  const r = scopedSkips(c, ["multi-plane-depth"]);
+  return { profile: c.profile_id, skip: [...r.skip], exceptions: r.exceptions };
+}
 const filmLength = (run) => {
   const b = readJ(path.join(run, "brief.json")) || {};
   const f = b.fields || b;
@@ -100,24 +128,42 @@ if (cmd === "init") {
     let n = shots.length;
     // --heroes (the Look call): only the story's open, peak and end, with those ids
     if (args.heroes && n) { const pick = [0, Math.max(1, Math.floor((n - 1) * 0.6)), n - 1].map((k) => shots[Math.min(k, n - 1)]); ["open", "peak", "end"].forEach((id, k) => { pick[k] = { ...pick[k], id }; }); shots.splice(0, n, ...pick); n = 3; }
-    fs.writeFileSync(shotsF, JSON.stringify({ film: { aspect, duration: Math.round(t * 100) / 100 || null, device: "", light: "", palette: "", heroes: n >= 3 ? [shots[0].id, shots[Math.floor((n - 1) * 0.6)].id === shots[0].id ? shots[1].id : shots[Math.floor((n - 1) * 0.6)].id, shots[n - 1].id] : [], density_shot: null }, shots }, null, 2) + "\n");
+    const ls = lookStyleFor(run, dir);
+    fs.writeFileSync(shotsF, JSON.stringify({ film: { aspect, duration: Math.round(t * 100) / 100 || null, ...(ls ? { look_style: ls } : {}), device: "", light: "", palette: "", heroes: n >= 3 ? [shots[0].id, shots[Math.floor((n - 1) * 0.6)].id === shots[0].id ? shots[1].id : shots[Math.floor((n - 1) * 0.6)].id, shots[n - 1].id] : [], density_shot: null }, shots }, null, 2) + "\n");
     skeleton = true;
+  }
+  // an existing shots.json keeps what the designer wrote; only a missing film.look_style is filled in (the craft class the frame checks and the gate read)
+  if (!skeleton && runCreativeOn(run)) {
+    const doc0 = readJ(shotsF), ls0 = lookStyleFor(run, dir);
+    if (doc0 && doc0.film && typeof doc0.film === "object" && !doc0.film.look_style && ls0) { doc0.film.look_style = ls0; fs.writeFileSync(shotsF, JSON.stringify(doc0, null, 2) + "\n"); }
   }
   out({ ok: true, dir: rel(dir), kit: [rel(path.join(dir, "kit", "frame-kit.css")), rel(path.join(dir, "kit", "frame-kit.js"))], camera: camera || "not in this skill yet: use the frame kit (data-dof, RK.contactShadow) and CSS 3D", shots: rel(shotsF), skeleton, next: "Fill shots.json (every field, per beat), run shots-check, design the 3 hero frames, then one board per beat; render with design.mjs stills --dir " + rel(dir) });
 } else if (cmd === "shots-check") {
   const run = runDir(), dir = dirOf(run);
   const doc = readShots(path.join(dir, "shots.json"));
   if (doc === undefined) out({ ok: false, errors: [`${rel(path.join(dir, "shots.json"))} is not valid JSON`] }, 2);
-  const r = checkShots(doc, { duration: filmLength(run) });
+  // null: every rule as before. A Look comparison folder (design/<Label>/frames: three heroes) is not the film's shot list, so the film's signature-event and beat bindings are not asked of it.
+  const cp0 = runCreativeOn(run) ? { ...creativeLookProfile(run, doc), ...(lookStyleFor(run, dir) ? { style: lookStyleFor(run, dir) } : {}) } : null;
+  const cp = cp0 && path.resolve(dir) !== path.join(run, "frames") ? { ...cp0, signatureEvents: [], beatIds: [], protectedText: [] } : cp0;
+  const med = await mediumFor(run, dir);
+  const r = checkShots(doc, { duration: filmLength(run), creativePolicy: cp, ...(med && med.skip.length ? { mediumSkip: med.skip } : {}) });
   const boards = doc ? boardFiles(dir, doc) : [];
   const missing = boards.filter((b) => !b.has_png).map((b) => b.id);
-  out({ ok: !r.errors.length, errors: r.errors, warnings: r.warnings, stats: r.stats, boards: { have: boards.filter((b) => b.has_png).map((b) => b.id), missing } }, r.errors.length ? 2 : 0);
+  out({ ok: !r.errors.length, errors: r.errors, warnings: r.warnings, ...(r.review ? { review: r.review, review_note: "craft the selected look does not choose: evidence for the juror, not a failure" } : {}), ...(med && med.exceptions.length ? { medium_exceptions: med.exceptions } : {}), stats: r.stats, boards: { have: boards.filter((b) => b.has_png).map((b) => b.id), missing } }, r.errors.length ? 2 : 0);
 } else if (cmd === "refs") {
   const run = runDir();
   const R = collectRefs(run, { skillDir: SKILL_DIR, extract: !args["no-extract"] });
+  // new creative policy: the selected references' lawful, present, hash-checked images join the stills (no download, no copy); text-only selections stay descriptions and say so
+  let creative = null;
+  if (runCreativeOn(run)) {
+    const cr = referenceStills(run, { skillDir: SKILL_DIR });
+    for (const st of cr.stills) if (!R.stills.some((x) => x.image === st.image)) { R.stills.push(st); R.by_origin["creative-reference"] = (R.by_origin["creative-reference"] || 0) + 1; }
+    const sel = readJ(path.join(run, "creative", "references.json"));
+    creative = { selected: ((sel && sel.selected) || []).map((x) => x.id), evidence: (sel && sel.evidenceLevel) || "none", images_added: cr.stills.length, skipped: cr.skipped, limitation: cr.stills.length ? "pictures are reference-only: learn the principle, never copy the scene, logo or media" : "no lawful reference image is available for the selected references: they are text descriptions, which teach a principle and cannot certify visual parity" };
+  }
   const file = path.join(run, "frames", "refs.json");
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const doc = { stills: R.stills.map((s) => ({ ...s, image: rel(s.image) })), by_origin: R.by_origin, descriptions: R.descriptions.map((d) => ({ ...d, file: rel(d.file) })) };
+  const doc = { stills: R.stills.map((s) => ({ ...s, image: rel(s.image) })), by_origin: R.by_origin, descriptions: R.descriptions.map((d) => ({ ...d, file: rel(d.file) })), ...(creative ? { creative_references: creative } : {}) };
   fs.writeFileSync(file, JSON.stringify(doc, null, 2) + "\n");
   let sheet = null;
   if (args.sheet && R.stills.length) {
@@ -126,7 +172,7 @@ if (cmd === "init") {
     for (let i = 0; i < cells.length; i += 6) rows.push(cells.slice(i, i + 6));
     try { sheet = rel(gridSheet(rows, path.join(run, "frames", "refs-sheet.png"), { cellW: 360, title: "Reference stills in this run", screenshot: hasChrome() ? shot : null }).sheet); } catch (e) { sheet = `could not draw: ${e.message}`; }
   }
-  out({ ok: true, refs: rel(file), stills: R.stills.length, by_origin: R.by_origin, descriptions: R.descriptions.length, sheet, note: R.stills.length ? "Sort them by kind (title card, UI demo, object, type, end card) and judge each board next to one of its own kind" : "No reference stills in this run: judge against the showcase films' lines (descriptions) and say so in the verdict" });
+  out({ ok: true, refs: rel(file), stills: R.stills.length, by_origin: R.by_origin, descriptions: R.descriptions.length, ...(creative ? { creative_references: creative } : {}), sheet, note: R.stills.length ? "Sort them by kind (title card, UI demo, object, type, end card) and judge each board next to one of its own kind" : "No reference stills in this run: judge against the showcase films' lines (descriptions) and say so in the verdict" });
 } else if (cmd === "sheet") {
   const ours = list(args.ours), refs = list(args.refs);
   const outPng = str(args.out) ? path.resolve(str(args.out)) : die("--out <png> required");
@@ -147,12 +193,18 @@ if (cmd === "init") {
   if (fs.readdirSync(dir).some((x) => /^\d+\.html$/.test(x))) a.push("--html", dir);
   const g = path.join(run, "brand-film", "grammar.json");
   if (exists(g)) a.push("--brand-film", g);
+  // the look decides which measured craft is a requirement; the rest is severity "review". A look that names no style is not the dimensional craft ("unspecified"), never silently the old rules.
+  // Part 2: a medium contract that qualifies the depth craft for every layer makes it review evidence in the gate too (a flat style class); hard findings (legibility, structure) are unchanged
+  const med = await mediumFor(run, dir);
+  const mediumFlat = !!(med && med.skip.includes("multi-plane-depth"));
+  if (mediumFlat) a.push("--look-style", "medium-flat");
+  else if (runCreativeOn(run)) a.push("--look-style", lookStyleFor(run, dir) || creativeLookProfile(run, readShots(path.join(dir, "shots.json"))).style || "unspecified");
   const r = spawnSync(process.execPath, a, { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, timeout: 300000, maxBuffer: 1 << 26 });
   let j = null;
   try { j = JSON.parse(r.stdout); } catch { /* none */ }
   if (!j) out({ ok: false, could_not_run: true, error: (r.stderr || r.stdout || "").trim().split("\n").slice(-2).join(" ") }, 1);
   fs.writeFileSync(path.join(dir, "gate.json"), JSON.stringify(j, null, 2) + "\n");
-  out({ ok: r.status === 0, gate: rel(path.join(dir, "gate.json")), status: r.status, findings: (j.findings || []).slice(0, 12) }, r.status === 2 ? 2 : 0);
+  out({ ok: r.status === 0, gate: rel(path.join(dir, "gate.json")), status: r.status, ...(mediumFlat ? { medium_exceptions: med.exceptions } : {}), findings: (j.findings || []).slice(0, 12) }, r.status === 2 ? 2 : 0);
 } else if (cmd === "match") {
   const run = runDir(), dir = dirOf(run);
   const video = str(args.video) ? path.resolve(str(args.video)) : die("--video <draft.mp4> required");
@@ -190,6 +242,20 @@ if (cmd === "init") {
   const doc2 = { video: rel(video), frames: res, mean_ssim: vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 1000) / 1000 : null, sheet, note: "SSIM is a number for the record (160x90 grey); the critic judges the match by eye: hero, crop, ground, focus and type sizes as the board" };
   fs.writeFileSync(path.join(dir, "match.json"), JSON.stringify(doc2, null, 2) + "\n");
   out({ ok: true, match: rel(path.join(dir, "match.json")), ...doc2 });
+} else if (cmd === "notes") {
+  const run = runDir(), dir = dirOf(run);
+  const doc = readStoryboard(run);
+  if (!doc) out({ ok: true, written: [], note: "no storyboard/storyboard.json: nothing to project" });
+  fs.mkdirSync(dir, { recursive: true });
+  const written = [];
+  for (const sh of doc.shots || []) {
+    const n = temporalNotes(sh);
+    if (!n.length || !sh.shot_id) continue;
+    const f = path.join(dir, `${String(sh.shot_id).replace(/[^\w.-]/g, "_")}.md`);
+    fs.writeFileSync(f, `# ${sh.shot_id}${sh.purpose ? `: ${sh.purpose}` : ""}\n\n${n.map((x) => `- ${x}`).join("\n")}\n`);
+    written.push(rel(f));
+  }
+  out({ ok: true, written, note: written.length ? "temporal direction projected from the storyboard; edit the storyboard, not these files" : "no shot carries reads or bindings (a revision 1 board): nothing written" });
 } else if (cmd === "payload") {
   const run = runDir();
   let p;
@@ -198,5 +264,5 @@ if (cmd === "init") {
   fs.writeFileSync(f, JSON.stringify(p, null, 2) + "\n");
   out({ ok: true, payload: rel(f), frames: p.frames.length, heroes: p.heroes, recommended: p.recommended, push: `node "${path.join(SKILL_DIR, "scripts", "console.mjs")}" push --run ${rel(run)} --step styleframes --file ${rel(f)}` });
 } else {
-  die("usage: frames.mjs init|shots-check|refs|sheet|gate|match|payload (see the header)");
+  die("usage: frames.mjs init|shots-check|refs|sheet|gate|match|notes|payload (see the header)");
 }

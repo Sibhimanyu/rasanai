@@ -1,0 +1,61 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R03",
+  "case": "provider timeout and unknown outcome",
+  "targets": [
+    "lib/jobs.mjs beginProviderSubmit / fail / reconcileProvider / requeue",
+    "lib/provider-jobs.mjs classifySubmitError / findByClient",
+    "lib/recovery.mjs failWithClass"
+  ],
+  "scenarios": [
+    {
+      "name": "timeout after the request left",
+      "errors": [
+        {
+          "code": "ETIMEDOUT"
+        }
+      ],
+      "expect": {
+        "job_state": "unknown_outcome",
+        "persisted_before_request": [
+          "operation",
+          "consent",
+          "idempotency_key",
+          "client_id"
+        ],
+        "claim": "refused: unknown_outcome",
+        "resubmit": "never automatic"
+      }
+    },
+    {
+      "name": "reconcile finds the job in the provider history by client id",
+      "expect": {
+        "provider.id": "adopted",
+        "state": "pending (collect, do not submit again)",
+        "may_resubmit": false
+      }
+    },
+    {
+      "name": "reconcile finds nothing",
+      "expect": {
+        "state": "stays unknown_outcome",
+        "message": "not found is not proof it never ran",
+        "retry": "only with explicit duplicate approval via requeue(explicit_approval)"
+      }
+    },
+    {
+      "name": "connection refused (never connected)",
+      "expect": "not_submitted: safe to retry with bounded backoff"
+    },
+    {
+      "name": "provider answered 400",
+      "expect": "rejected / invalid_input: no retry loop"
+    }
+  ],
+  "never": [
+    "a claim of exactly-once execution",
+    "a second paid request while the first is unknown"
+  ]
+}

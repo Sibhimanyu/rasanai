@@ -1,0 +1,114 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D03",
+  "case": "variants are revision-scoped descendants with retained / shortened / removed / new beats",
+  "targets": [
+    "lib/variants.mjs diffBeats / approvalNeeded / variantRecord / invalidate / mutedSafe"
+  ],
+  "checks": [
+    {
+      "name": "dispositions",
+      "setup": {
+        "parent": [
+          {
+            "id": "b1",
+            "claim_ids": [
+              "c1"
+            ],
+            "duration_s": 6
+          },
+          {
+            "id": "b2",
+            "claim_ids": [
+              "c2"
+            ],
+            "duration_s": 8
+          },
+          {
+            "id": "b3",
+            "claim_ids": [],
+            "duration_s": 5
+          }
+        ],
+        "variant": [
+          {
+            "id": "b1",
+            "claim_ids": [
+              "c1"
+            ],
+            "duration_s": 6
+          },
+          {
+            "id": "b2",
+            "claim_ids": [
+              "c2"
+            ],
+            "duration_s": 4
+          },
+          {
+            "id": "b4",
+            "claim_ids": [],
+            "duration_s": 3
+          }
+        ]
+      },
+      "expect": "b1 retained, b2 shortened, b3 removed, b4 new; counts 1/1/1/1; claim ids c1 and c2 unchanged"
+    },
+    {
+      "name": "new claim needs approval",
+      "setup": "variant beat carries claim c9 not in the parent",
+      "expect": "approvalNeeded.needs_approval true, approval_stage story; record status blocked_on_approval; nothing is toggled by export"
+    },
+    {
+      "name": "reordered argument",
+      "setup": "b2 before b1",
+      "expect": "needs_approval true (order_changed)"
+    },
+    {
+      "name": "mostly new beats",
+      "setup": "3 of 4 beats new",
+      "expect": "needs_approval true: a different narrative, not a variant"
+    },
+    {
+      "name": "dropped claim is visible",
+      "setup": "c2 not in the variant",
+      "expect": "listed in reasons; not itself blocking"
+    },
+    {
+      "name": "parent link",
+      "expect": "record.parent carries story, look, storyboard digests and score revision; profile pin carries id, version, digest"
+    },
+    {
+      "name": "shared asset change",
+      "steps": [
+        "invalidate(variants, {kind:'shared_asset', ids:['asset-7']})"
+      ],
+      "expect": "only variants listing asset-7 are stale; others keep; accepted exports untouched"
+    },
+    {
+      "name": "translation change",
+      "steps": [
+        "invalidate(variants, {kind:'translation', ids:['t-de-b2']})"
+      ],
+      "expect": "only the German variant is stale"
+    },
+    {
+      "name": "muted safe",
+      "setup": [
+        {
+          "id": "m1",
+          "essential": true,
+          "via_voice": true
+        },
+        {
+          "id": "m2",
+          "essential": true,
+          "caption": true
+        }
+      ],
+      "expect": "ok false, lost [m1]; no requirement for large redundant headings"
+    }
+  ]
+}

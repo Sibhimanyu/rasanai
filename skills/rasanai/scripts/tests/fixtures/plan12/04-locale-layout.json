@@ -1,0 +1,123 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D04",
+  "case": "localization: approval state, protected numbers, bidi, shaping, font coverage, mirroring, voice timings",
+  "targets": [
+    "lib/localize.mjs translationRecord / checkTranslation / scriptInfo / fontPlan / mirrorPolicy / formatNumber / alignment / uiString"
+  ],
+  "checks": [
+    {
+      "name": "draft vs approved",
+      "steps": [
+        "translationRecord(state approved)",
+        "edit the translated text",
+        "currentState"
+      ],
+      "expect": "state falls back to draft with stale true; the source edit does the same"
+    },
+    {
+      "name": "numbers and units",
+      "setup": {
+        "source": "Cuts review time by 40% for 3 teams",
+        "translation_ar": "يقلل وقت المراجعة بنسبة ٤٠٪ لثلاثة فرق"
+      },
+      "expect": "numberDrift reads 40% across Arabic-Indic digits; '3' written as a word is reported as a number to confirm via number_map, not silently accepted"
+    },
+    {
+      "name": "protected qualifier",
+      "setup": "required_qualifiers ['in our benchmark'] missing from the translation",
+      "expect": "protected_token_missing reported; text is never edited"
+    },
+    {
+      "name": "Arabic",
+      "setup": "Arabic text with a Latin product name and a number",
+      "expect": "direction rtl, mixed_direction true, needs_shaping_engine true, bidi isolation advice"
+    },
+    {
+      "name": "Thai",
+      "expect": "needs_dictionary_segmenter true; captions group with Intl.Segmenter where available and say so when not"
+    },
+    {
+      "name": "CJK",
+      "setup": "Japanese 70 characters",
+      "expect": "captions break by units (wide 2) not characters; closing punctuation never starts line two"
+    },
+    {
+      "name": "missing glyphs",
+      "setup": {
+        "brand": {
+          "family": "BrandSans",
+          "coverage": [
+            [
+              32,
+              126
+            ]
+          ]
+        },
+        "text": "Привет",
+        "fallbacks": [
+          {
+            "family": "Fallback Sans",
+            "coverage": [
+              [
+                32,
+                126
+              ],
+              [
+                1024,
+                1279
+              ]
+            ]
+          }
+        ]
+      },
+      "expect": "status substituted, visible true, notice names the glyphs and the fallback; with no fallback needs_owner_choice true; with no coverage data status coverage_unknown (not covered)"
+    },
+    {
+      "name": "RTL mirroring",
+      "setup": [
+        {
+          "id": "logo",
+          "kind": "logo"
+        },
+        {
+          "id": "ui",
+          "kind": "real_ui"
+        },
+        {
+          "id": "title",
+          "kind": "text"
+        },
+        {
+          "id": "arrow",
+          "kind": "icon",
+          "directional": true
+        }
+      ],
+      "expect": "mirror [title, arrow]; keep [logo, ui]"
+    },
+    {
+      "name": "unverified UI language",
+      "setup": {
+        "ui_strings": [
+          {
+            "id": "btn",
+            "localized": "تصدير"
+          }
+        ]
+      },
+      "expect": "unverified_ui_language problem; never presented as the product's real label"
+    },
+    {
+      "name": "voice timings",
+      "setup": "localized voice words, two with confidence 0.3",
+      "expect": "alignment status needs_review; low_confidence lists them; they are not smoothed; the source language's timings are not used"
+    },
+    {
+      "name": "number format",
+      "expect": "formatNumber(1234567.5,'de') uses locale separators and returns the approved value alongside"
+    }
+  ]
+}

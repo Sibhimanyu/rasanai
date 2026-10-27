@@ -1,0 +1,22 @@
+<!-- Motion kit demo: two mechanics on placeholder content for "Tidewell Coffee Roasters", a FABRICATED brand made up for this fixture.
+     Mechanics: kinetic-type-text-mask-reveal-v1 (headline lines) and data-evidence-evidence-number-reveal-v1 (a figure).
+     Paths are relative to this file inside the repo; a real project gets the scripts injected under assets/ by video.mjs. -->
+<template><div id="root" data-composition-id="kit-demo" data-start="0" data-duration="6" data-width="1920" data-height="1080" style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#1b1a17">
+  <div id="headline" class="clip" data-start="0" data-duration="6" data-track-index="0" style="position:absolute;left:0;top:0;width:1920px;height:600px;font-size:130px;line-height:1.1;font-weight:700;text-align:center;padding-top:130px;box-sizing:border-box">
+    <div>Roasted slowly.</div><div>Poured honestly.</div>
+  </div>
+  <div id="figure" class="clip" data-start="0" data-duration="6" data-track-index="1" style="position:absolute;left:0;top:600px;width:1920px;height:480px"></div>
+</div>
+<script src="../../scripts/vendor/gsap.min.js"></script>
+<script src="../rasan-motion-kit.js"></script>
+<script>
+  window.__timelines = window.__timelines || {};
+  var tl = gsap.timeline({ paused: true });
+  // The brand lives here as the film's design tokens; the kit reads colours and fonts only from this object.
+  var DESIGN = { colors: { fg: "#f3ead9", bg: "#1b1a17", accent: "#e0803a", muted: "#a49a88" }, fonts: { display: "Georgia, serif", body: "Helvetica, Arial, sans-serif" } };
+  RasanMotionKit.apply({ id: "kinetic-type-text-mask-reveal-v1", timeline: tl, target: "#headline", design: DESIGN, fps: 30, seed: "tidewell/1",
+    cues: [0.5, 1.1], props: { duration: 0.7, travel: 1 } });
+  RasanMotionKit.apply({ id: "data-evidence-evidence-number-reveal-v1", timeline: tl, target: "#figure", design: DESIGN, fps: 30, seed: "tidewell/1",
+    props: { at: 2.2, value: 12480, duration: 1.6, suffix: " cups", text: "Fictional figure, for this demo only", width: 1920, height: 480 } });
+  window.__timelines["kit-demo"] = tl;
+</script></template>

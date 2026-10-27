@@ -1,0 +1,41 @@
+{
+  "id": "plan08/K05",
+  "title": "Cache hit accepted only after validation; never replays a provider submission; reuse is not approval",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "artifact-cache.validateHit",
+      "case": "identical key, scope, dependency digests, current approval, fresh"
+    },
+    {
+      "fn": "artifact-cache.validateHit",
+      "case": "another project asks for private material"
+    },
+    {
+      "fn": "artifact-cache.validateHit",
+      "case": "approval superseded"
+    },
+    {
+      "fn": "artifact-cache.validateHit",
+      "case": "dependency digest changed"
+    },
+    {
+      "fn": "artifact-cache.validateHit",
+      "case": "entry job_type provider_submission or status unknown_outcome"
+    },
+    {
+      "fn": "artifact-cache.validateHit",
+      "case": "volatile fact older than its window"
+    },
+    {
+      "fn": "artifact-cache.validateHit",
+      "case": "no dependency declaration"
+    }
+  ],
+  "expect": [
+    "only the first is ok and reuse_is_approval is false in every result",
+    "each other case lists its reason (scope differs, approval superseded, dependency changed, never replayed, stale, conservative miss)",
+    "changing policy digest, a recipe version, packet version or model_config changes cacheKey"
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "id": "plan08/K01",
+  "title": "One production policy: pace and budget never change alternatives, story type or the Story/Look distinction",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "rules.productionPolicy",
+      "args": {
+        "pace": "fast"
+      }
+    },
+    {
+      "fn": "rules.productionPolicy",
+      "args": {
+        "pace": "thorough"
+      }
+    },
+    {
+      "fn": "rules.productionPolicy",
+      "args": {
+        "budget": "lean",
+        "direct": true
+      }
+    },
+    {
+      "fn": "rules.productionPolicy",
+      "args": {
+        "pace": "fast",
+        "alternatives": 2,
+        "render": "rough"
+      }
+    }
+  ],
+  "expect": [
+    "fast and thorough both report creative.alternatives 3 (source default) and story_look_distinct true; fast has alternative_detail compact, thorough standard",
+    "budget lean + direct: creative.alternatives still 3, creative.direct true, execution.build_shape direct, resources.parallel_workers 1",
+    "alternatives 2 is source user; render.tier rough maps to legacy quality draft and relabel_rough_as_delivery false",
+    "every numeric starting value sits under basis proposed and status proposed_starting_values; no character-count cap field exists"
+  ]
+}

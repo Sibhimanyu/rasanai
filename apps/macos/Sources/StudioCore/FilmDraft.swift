@@ -34,7 +34,7 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
         case .recommended:
             switch pace {
             case .fast: """
-                MODEL PLAN: RECOMMENDED (FAST PACE). You are the director on Claude Opus 5.5. Keep Opus 5.5 for the roles that decide how the film reads, looks and moves: the script and design desks, the Motion Director's score and the one final fresh-eyes review. Hand everything else to Sonnet 5.5 subagents to keep the film fast and the user's usage low: the gathering roles (product, brand and screens researchers, the local scout), key frames, scene animators, fix agents, gate checks, renders and routine mechanical work. The BUILD PLAN above gives the same split; if any engine crew file says otherwise, this plan and the BUILD PLAN win. Never give Sonnet the script, the design systems or the final review.
+                MODEL PLAN: RECOMMENDED (FAST PACE). You are the director on Claude Opus 5.5. Keep Opus 5.5 for the roles that decide how the film reads, looks and moves: the script and design desks, the Motion Director's score and the one final fresh-eyes review. Hand everything else to Sonnet 5.5 subagents to keep the film fast and the user's usage low: the gathering roles (product, brand and screens researchers, the local scout), key frames, scene animators, fix agents, gate checks, renders and routine mechanical work. The BUILD PLAN above gives the same split; if any engine crew file says otherwise, this plan and the BUILD PLAN win. Never give Sonnet the script, the design systems or the final review. This is a recommendation: no model or provider outside the authorized set is used, and no role is silently moved to a cheaper model to hit a cost target.
                 """
             case .standard: """
                 MODEL PLAN: RECOMMENDED (STANDARD PACE). You are the director on Claude Opus 5.5. Keep Opus 5.5 for the roles that decide how the film reads, looks and moves: the script and design desks, the Motion Director's score, key frames and the critics. Hand the gathering roles (product, brand and screens researchers, the local scout), scene animators, fix agents, gate checks, renders and routine mechanical work to Sonnet 5.5 subagents. The BUILD PLAN above gives the same split; if any engine crew file says otherwise, this plan and the BUILD PLAN win.
@@ -44,10 +44,10 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
                 """
             }
         case .opus: """
-            MODEL PLAN: OPUS EVERYWHERE. The user chose Claude Opus 5.5 for every role. Do not hand any role to a smaller model.
+            MODEL PLAN: OPUS EVERYWHERE. The user chose Claude Opus 5.5 for every role. Do not hand any role, gathering or mechanical work included, to a different model, and do not add another provider.
             """
         case .sonnet: """
-            MODEL PLAN: SONNET EVERYWHERE. The user chose Claude Sonnet 5.5 for every role to keep usage low. Follow the structured steps in the order written, look at renders before accepting them, and still push for ambitious motion.
+            MODEL PLAN: SONNET EVERYWHERE. The user chose Claude Sonnet 5.5 for every role to keep usage low. Follow the structured steps in the order written, look at renders before accepting them, and still push for ambitious motion. Every role stays on it, gathering and the final review included: this plan overrides any recommended split in the engine files. Never switch to a stronger model silently; if a role cannot be done well on it, say so as a limitation.
             """
         case .settings: nil
         }
@@ -123,12 +123,15 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     public var series: SeriesRef?
     /// The end card the film closes on when `ending` is `card` (`ending_file`, an absolute path).
     public var endingFile: String?
-    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms, moments: [FilmMoment] = [], linked: [LinkedSource] = [], format: FormatPick? = nil, preferences: [String: String] = [:], series: SeriesRef? = nil, endingFile: String? = nil) {
+    /// The person's sound choices (`sound` in rasanai-brief.json). nil for every draft saved before this existed and for films nobody set it on.
+    public var sound: SoundDirection?
+    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms, moments: [FilmMoment] = [], linked: [LinkedSource] = [], format: FormatPick? = nil, preferences: [String: String] = [:], series: SeriesRef? = nil, endingFile: String? = nil, sound: SoundDirection? = nil) {
+        self.sound = sound
         self.linked = linked; self.format = format; self.preferences = preferences; self.series = series; self.endingFile = endingFile
         self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand; self.modelPlan = modelPlan; self.pace = pace
         self.moments = Array(moments.prefix(Self.maxMoments))
     }
-    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace, moments, format, preferences, series
+    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace, moments, format, preferences, series, sound
         case linked = "linkedSources"
         case endingFile = "ending_file"
     }
@@ -152,6 +155,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         preferences = (try? c.decodeIfPresent([String: String].self, forKey: .preferences)) ?? nil ?? [:]
         series = (try? c.decodeIfPresent(SeriesRef.self, forKey: .series)) ?? nil
         endingFile = (try? c.decodeIfPresent(String.self, forKey: .endingFile)) ?? nil
+        sound = (try? c.decodeIfPresent(SoundDirection.self, forKey: .sound)) ?? nil
     }
     /// The `--model` value for the director: the chosen plan under Claude Code, otherwise the Settings model.
     public func cliModel(settingsModel: String) -> String {
@@ -213,7 +217,26 @@ public struct FilmDraft: Codable, Equatable, Sendable {
             text += "\n\nPRESENTER FILMS\n" + Self.presenterText[level]!
         }
         text += tasteText()
+        text += soundText
         return text
+    }
+    /// The sound choices, as the director reads them (empty unless `sound` is set, so every film without it reads exactly as before).
+    /// Mirrored in skills/rasanai/scripts/lib/director-launch.mjs (SOUND_TEXT).
+    public var soundText: String {
+        guard let sound else { return "" }
+        func value(_ raw: String, _ key: String, unset: Bool) -> String {
+            "\(unset ? "recommend" : raw) (\(sound.explicit.contains(key) ? "explicit" : "not set by the user"))"
+        }
+        var lines = ["SOUND DIRECTION (the user's sound choices from Studio; independent of the film pace and model plan above):"]
+        lines.append("- voiceover = " + value(sound.voiceover.rawValue, SoundDirection.Key.voiceover, unset: sound.voiceover == .recommend))
+        lines.append("- pace = " + value(sound.pace.rawValue, SoundDirection.Key.pace, unset: sound.pace == .recommend) + " (perceived energy, density and development; not tempo)")
+        let feeling = sound.feeling == .custom ? "custom: \(sound.feelingCustom ?? "")" : sound.feeling.rawValue
+        lines.append("- feeling = " + value(feeling, SoundDirection.Key.feeling, unset: sound.feeling == .unset))
+        lines.append("- effects = " + value(sound.effects.rawValue, SoundDirection.Key.effects, unset: sound.effects == .unset))
+        let source = sound.musicSource == .userTrack ? "user_track" + (sound.userTrackPath.map { ": \($0)" } ?? "") : sound.musicSource.rawValue
+        lines.append("- music_source = " + value(source, SoundDirection.Key.musicSource, unset: false))
+        lines.append("Explicit choices are binding and win over show-off defaults; \"recommend\" means you recommend and show it in the console. A recommendation is never permission to spend, transmit or generate: music generation, voice and every provider call stay under the existing consent and budget rules. Effects mapping: subtle = sparse cues; expressive = causal cues, selected prominent hits allowed; minimal_none = signature_only (none when the film is fully silent). Read audio/sound-choices.json when it exists.")
+        return "\n\n" + lines.joined(separator: "\n")
     }
     /// The owner's taste answers, the end card and the series, as the director reads them (empty when there are none). Part of
     /// the creative direction, so a resumed or revised run keeps obeying them. `questions` names the choices in the owner's words.
@@ -236,21 +259,21 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         }
         return lines.isEmpty ? "" : "\n\n" + lines.joined(separator: "\n")
     }
-    private static let levelText = [
+    static let levelText = [
         "maximal": """
         The user chose Maximal, so go all out on motion. Maximal is about ambition, and it has two dials: density (how many designed elements are on screen) and complexity (how intricate each movement is). Turn up whichever makes each scene strongest, often both, and never read Maximal as "more things moving".
         Complexity is choreography: multi-stage moves (anticipation, action, overshoot, settle), overlapping and follow-through action, staggered and offset timing, secondary motion, elements that hand off or morph into one another, masks and reveals, match cuts, a motivated camera (push, parallax, rack), and type that is built, broken and rebuilt. One word or one product shot with intricate, perfectly timed choreography is as Maximal as a screen full of layers.
         Density is layered kinetic typography, overlays and callouts, caption boxes, framed or windowed shots, animated data, shape and line work, and graphic transitions. Nothing sits as a bare shot or a bare subtitle for long.
-        Build at least one spectacle moment people will replay. This is the full ambition of the house style. Craft over clutter: every element and every move is timed, aligned to a grid, and earns its place.
+        Build the moment people will replay where the story earns it; it may be a quiet, precisely timed beat rather than a loud one. This is the full ambition of the house style. Craft over clutter: every element and every move is timed, aligned to a grid, and earns its place.
         """,
         "balanced": """
-        The user chose Balanced. Put designed graphics on most scenes (titles, callouts, caption plates, a few framed shots) and let the strongest moments breathe with the picture alone. Moves stay fully crafted (eased, staggered, with follow-through), with richer choreography saved for the moments that matter. Keep one spectacle moment. Keep the craft at full strength; only the density and the number of elaborate moves are dialed down.
+        The user chose Balanced. Put designed graphics on most scenes (titles, callouts, caption plates, a few framed shots) and let the strongest moments breathe with the picture alone. Moves stay fully crafted (eased, staggered, with follow-through), with richer choreography saved for the moments that matter. Keep one earned standout moment where the story supports it. Keep the craft at full strength; only the density and the number of elaborate moves are dialed down.
         """,
         "minimal": """
         The user chose Minimal. Deliver a clean, confident cut: tight pacing, simple legible captions, and a few well-made titles with simple, precise moves. Skip decorative overlays, framed shots, heavy effects and elaborate choreography. This is a deliberate restraint chosen by the user, so execute it with precision and polish.
         """,
     ]
-    private static let footageText = [
+    static let footageText = [
         "maximal": """
         Raw footage is not a reason to hold back. Treat the clips as material for a motion-designed reel, not as a slideshow with subtitles.
         Every segment carries graphics. Use all of these across the reel:
@@ -273,7 +296,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         Cut the footage clean: strong clip selection, tight trims, simple legible captions and a few well-made titles. No framed shots, split screens or decorative overlays, because the user chose a minimal level. Use reel.mjs for scanning, transcripts and staging.
         """,
     ]
-    private static let presenterText = [
+    static let presenterText = [
         "maximal": """
         If the footage is a talking head shot on a green or blue screen, or the brief asks to put the speaker into other worlds, use the presenter route (RasanAI's Presenter films): key the speaker out, generate image plates for the right moments of what they say, move the camera on every plate, and add motion graphics (kinetic titles, callouts, stats) throughout. Vary the layouts, land at least one cutaway, and let the speaker interact with the world once. Ask nothing in chat.
         """,

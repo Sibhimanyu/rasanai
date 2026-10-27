@@ -1,0 +1,40 @@
+{
+  "id": "plan09/P07",
+  "title": "Boundary handles: transition overlaps, motion-blur shutter and global-time signals",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "incremental-render.planIncremental",
+      "case": "s2 changed; seams s1->s2 crossfade and s2->s3 hard cut"
+    },
+    {
+      "fn": "incremental-render.planIncremental",
+      "case": "s2 changed with both seams hard cuts and a score shutter of 180 degrees"
+    },
+    {
+      "fn": "incremental-render.planIncremental",
+      "case": "s3 changed, its code reads a global-time signal, it starts at 6 s"
+    },
+    {
+      "fn": "incremental-render.planIncremental",
+      "case": "s2 changed and its score names a particle simulation, no checkpoint; and with hybrid/checkpoints/s2.json"
+    },
+    {
+      "fn": "incremental-render.shutterHandleFrames",
+      "case": "angle 180, angle 0, shutter 0.5"
+    },
+    {
+      "fn": "hybrid-render.host.buildGroupHost",
+      "case": "hosts s1,s2 at 0-4 s and 4-8 s; and a non-contiguous pair"
+    }
+  ],
+  "expect": [
+    "a crossfade forces a group_host unit over s1+s2 with a handle for the incoming side and the reason; the hard-cut side adds nothing",
+    "hard cuts only: scene_host, with a shutter handle noted (1 frame each side for the film-wide finish)",
+    "a global-time scene that does not start at 0 falls back to full_film with the reason",
+    "stateful effect without a checkpoint widens to the continuity group (or full_film when the group is the film); with a checkpoint it stays narrow",
+    "handle frames: 180 degrees -> 1, 0 -> 0, shutter 0.5 -> 1",
+    "the group host keeps relative times (the earliest host moves to data-start 0, the next to 4) and the root lasts the span; a gap throws instead of rendering empty time"
+  ]
+}

@@ -115,7 +115,7 @@ struct FilmSummary: Equatable, Sendable {
 @MainActor @Observable
 final class StudioStore {
     enum Sheet: String, Identifiable {
-        case welcome, log, files, export, preflight, projectTransfer
+        case welcome, log, files, export, preflight, projectTransfer, update, whatsNew
         var id: String { rawValue }
     }
     var preflightReport: PreflightReport?
@@ -302,7 +302,8 @@ final class StudioStore {
         if runtime.stopRequested { return .paused }
         if let code = runtime.lastExitCode, code != 0 || runtime.recovery != nil { return .needsAttention }
         if !isConnected { return .offline }
-        return .working
+        // Nothing runs and it is not the person's turn (a plan limit, a stop while the app was closed): never a fake working screen.
+        return runtime.isFinishing ? .working : .paused
     }
     var phaseDuration: Double { loadedVideoDuration > 0 ? loadedVideoDuration : snapshot.duration(for: .final) }
     var currentFilmTitle: String {
@@ -366,7 +367,9 @@ final class StudioStore {
         snapshot = SessionSnapshot()
         isSample = false
         if demo { return }
+        var interrupted: [UUID] = []
         for index in settings.filmQueue.indices where settings.filmQueue[index].state == .running {
+            interrupted.append(settings.filmQueue[index].id)
             settings.filmQueue[index].state = .attention
             settings.filmQueue[index].message = "Interrupted when the app closed. Resume the queue to continue the saved run."
         }
@@ -395,6 +398,45 @@ final class StudioStore {
             self.notify(title: code == 0 && self.runtime.recovery == nil ? "Director finished" : "Director needs attention", body: "Open RasanAI Studio to review the result or log.", id: "director-\(UUID().uuidString)")
         }
         monitor.attach(self)
+        reattachDirector(interrupted: interrupted)
+    }
+
+    /// The film this app was directing when it last closed: a director that is still working is adopted, one that stopped is read
+    /// from the run's files (a plan limit still resumes by itself). Never starts a second director on the run.
+    private func reattachDirector(interrupted: [UUID]) {
+        // A director started from outside Studio (a phone resumed the film while Studio was closed) left no `activeDirectorRun`: look for a live driver.
+        guard let path = UserDefaults.standard.string(forKey: DirectorRuntime.activeRunKey) ?? DirectorRuntime.liveDriverRuns().first?.path else { return }
+        let run = URL(fileURLWithPath: path)
+        guard run.deletingLastPathComponent().lastPathComponent == ".rasanai",
+              FileManager.default.fileExists(atPath: run.appendingPathComponent("session.json").path) else { return }
+        let project = run.deletingLastPathComponent().deletingLastPathComponent()
+        let navigate = UserDefaults.standard.string(forKey: "lastOpenedRun") == run.path
+        if runtime.adopt(run: run, project: project) {
+            // The init loop marked the queue entry interrupted; its director is in fact still working, so the queue carries on when it ends.
+            if let index = settings.filmQueue.firstIndex(where: { $0.project.standardizedFileURL == project.standardizedFileURL && interrupted.contains($0.id) }) {
+                settings.filmQueue[index].state = .running; settings.filmQueue[index].message = nil
+            }
+            openRun(run, navigate: navigate)
+            return
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.runtime.reconcileStopped(run: run, project: project)
+            guard self.runtime.runURL == run else { return }
+            self.openRun(run, navigate: navigate)
+            switch self.runtime.autoResumeDecision {
+            case .resume(let delay): self.scheduleAutoResume(after: delay)
+            case .waitForLimit(let limit):
+                // Its reset may have passed while the app was closed: then it resumes after the usual short delay.
+                self.scheduleAutoResume(after: max(AutoResumePolicy.delay, (limit.resetsAt ?? Date()).timeIntervalSinceNow + 30), isLimit: true)
+            case .none: break
+            }
+        }
+    }
+    /// A director that is still alive on `run` (left by a previous Studio) is taken over, never duplicated.
+    @discardableResult private func adoptLiveDirector(run: URL) -> Bool {
+        guard run.deletingLastPathComponent().lastPathComponent == ".rasanai" else { return false }
+        return runtime.adopt(run: run, project: run.deletingLastPathComponent().deletingLastPathComponent())
     }
 
     func reloadProjects() {
@@ -722,6 +764,8 @@ final class StudioStore {
             let state = try await Task.detached { try SessionSnapshot(data: Data(contentsOf: run.appendingPathComponent("session.json"))) }.value
             guard runOpenGeneration == identity else { return }
             guard (!runtime.isRunning && !runtime.isPreparing) || run == runtime.runURL else { errorMessage = "Stop the director before switching films."; return }
+            // A director may still be working on this run (the app was closed or updated): take it over before anything resets.
+            if runtime.runURL != run || !runtime.isRunning { adoptLiveDirector(run: run) }
             if runtime.runURL != run { runtime.clearPresentation() }
             resetConnection()
             snapshot = state
@@ -754,9 +798,17 @@ final class StudioStore {
         workspaceURL = workspace
         let model = FilmSessionModel(snapshot: snapshot, run: runURL, workspace: workspace)
         model.startedAt = runtime.startedAt
+        model.progressProvider = { [weak self] in self?.progress?.snapshot }
+        model.contextExtras = { [weak self] context in self?.fillChatContext(&context) }
+        model.quickActionHandler = { [weak self] action in self?.performQuickAction(action) }
+        model.livenessProvider = { [weak self] in self?.chatLiveness() }
         model.onSnapshot = { [weak self, weak model] next in
             guard let self, let model, self.film === model else { return }
             self.ingest(next)
+        }
+        model.onSent = { [weak self, weak model] _, type in
+            guard let self, let model, self.film === model else { return }
+            self.wakeForSentCall(type: type)
         }
         model.onConnection = { [weak self, weak model] connection in
             guard let self, let model, self.film === model else { return }
@@ -802,7 +854,7 @@ final class StudioStore {
         researchTimeBoxing.observe(store: self)
         playhead = min(playhead, duration)
         refreshDockBadge()
-        statusMessage = next.workingMessage ?? (awaitingAgent ? "Sent to the director · waiting for an update" : "Connected to the local director")
+        statusMessage = next.workingMessage ?? (awaitingAgent ? "Waiting for the director to pick this up" : "Connected to the local director")
         film?.startedAt = runtime.startedAt
         configureMedia()
     }
@@ -893,6 +945,8 @@ final class StudioStore {
         }
         do {
             let resume = launchProject == nil ? runURL : nil
+            // Never a second director on one run: if one is still alive (left by a previous Studio), take it over instead.
+            if let resume, adoptLiveDirector(run: resume) { openRun(resume); return }
             let run = try await runtime.start(project: project, existingRun: resume, request: request, settings: settings,
                                               model: draft?.cliModel(settingsModel: settings.model(for: draft?.agent == "codex" ? .codex : .claude)))
             openRun(run)
@@ -931,6 +985,14 @@ final class StudioStore {
         guard runtime.isFrozen, let before = sendCountAtFreeze, let now = film?.sendCount, now > before else { return }
         resumeDirector()
     }
+    /// A call made while no director runs would sit unread in actions.jsonl and the page would never move: start the director
+    /// to apply it. Pin notes wait for their Apply, a frozen director wakes through `thawIfSentWhileFrozen`, and a plan-limit
+    /// wait keeps its own scheduled resume.
+    func wakeForSentCall(type: String) {
+        guard type != "comment", !runtime.isRunning, !runtime.isFrozen, runtime.autoResume?.isLimit != true, canResume else { return }
+        statusMessage = "Starting the director to apply your call"
+        resumeDirector()
+    }
     /// Whether the queue was already paused when the director was frozen, so Resume restores it and not more.
     @ObservationIgnored private var queuePausedBeforeFreeze: Bool?
     var canPause: Bool { runtime.isRunning && !runtime.isFrozen }
@@ -941,9 +1003,12 @@ final class StudioStore {
         guard let run = runtime.runURL else { return }
         autoResumeTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(delay))
+            // Right after a relaunch the film page may still be opening: wait for it once, not forever.
+            if let self, !Task.isCancelled, self.runURL == nil { try? await Task.sleep(for: .seconds(10)) }
             guard let self, !Task.isCancelled, self.runtime.autoResume != nil, self.runtime.runURL == run,
                   !self.runtime.stopRequested, !self.runtime.isFrozen, self.canResume else { return }
             if !isLimit { self.runtime.lastAutoResume[run.path] = Date() }
+            RunEvents.append(RunEvent(t: Date(), event: .autoResume), run: run)
             self.resumeDirector()
         }
     }

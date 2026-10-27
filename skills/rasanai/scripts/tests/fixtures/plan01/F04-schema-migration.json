@@ -1,0 +1,4 @@
+{"case":"F04","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented data to describe expected behaviour. Authored, not run; certifies nothing about current capabilities.","title":"older fields migrate idempotently; unsupported required versions fail explicitly",
+"calls":["readLegacy","validateFilmBrief","validateStoryTreatment","validateLookContract","SCHEMA_VERSION"],
+"input":{"records":[{"name":"v0 brief","data":{"idea":"a film","pitch":"x"}},{"name":"already current","data":{"schema_version":1}},{"name":"too new","data":{"schema_version":99,"requires_version":99}}]},
+"expect":{"v0 brief":"migrated to schema_version 1, old fields preserved under legacy","migrate_twice":"byte-identical to migrate once (idempotent)","already current":"unchanged","too new":"fails explicitly naming required version 99 and supported 1; never partially read or downgraded","error_is_not_empty_default":true}}

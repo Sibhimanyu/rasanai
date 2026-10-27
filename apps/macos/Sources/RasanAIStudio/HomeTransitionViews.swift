@@ -98,7 +98,7 @@ struct HomeReturnButton: View {
         Button(action: action) {
             Label("New film", systemImage: "chevron.up").font(.system(size: 12.5, weight: .medium)).foregroundStyle(.secondary)
                 .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(.ultraThinMaterial, in: Capsule())
+                .softGlass(in: Capsule(), opacity: 0.9)
                 .overlay { Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 1) }
         }
         .buttonStyle(.plain)

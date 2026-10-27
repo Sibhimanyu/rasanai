@@ -47,7 +47,7 @@ public enum ReviewStage: String, CaseIterable, Identifiable, Sendable {
         case .brief: "Give the film a clear starting point."
         case .story: "Choose the story worth telling."
         case .look: "Choose a visual world for this story."
-        case .animatic: "Review the rhythm before we build."
+        case .animatic: "Check the storyboard before we build."
         case .final: "Watch the cut. Leave the finishing notes."
         }
     }
@@ -72,6 +72,8 @@ public struct FilmScene: Identifiable, Sendable, Equatable {
     public let start: Double
     public let thumbnail: String?
     public let state: String?
+    /// The narration for the scene, when the step carries one.
+    public var vo: String = ""
     public var end: Double { start + duration }
 }
 
@@ -90,6 +92,9 @@ public struct ReviewNote: Identifiable, Sendable, Equatable {
     public var quick: String? = nil
     /// What Claude changed when it resolved the note.
     public var resolution: String? = nil
+    /// The transcript word the note is anchored to, and the clip it sits in (nil for ordinary notes).
+    public var wordID: String? = nil
+    public var clip: String? = nil
 }
 
 public struct SessionSnapshot: Sendable {
@@ -142,11 +147,13 @@ public struct SessionSnapshot: Sendable {
             let duration = proposed.isFinite && proposed > 0 ? proposed : 4
             let originalID = value["id"] == .null ? JSONValue.number(Double(index + 1)) : value["id"]
             cursor = start + duration
-            return FilmScene(id: originalID.identifier ?? String(index + 1), originalID: originalID,
+            var scene = FilmScene(id: originalID.identifier ?? String(index + 1), originalID: originalID,
                              title: value["title"].string ?? "Scene \(index + 1)",
                              line: value["line"].string ?? value["on_screen"].string ?? "",
                              visual: value["visual"].string ?? "", duration: duration, start: start,
                              thumbnail: value["frame"].string ?? value["thumb"].string, state: value["state"].string)
+            scene.vo = value["vo"].string ?? value["voiceover"].string ?? value["narration"].string ?? ""
+            return scene
         }
     }
     public var duration: Double { duration(for: stage) }
@@ -166,7 +173,8 @@ public struct SessionSnapshot: Sendable {
             return ReviewNote(id: id, text: value["text"].string ?? "", time: value["t"].number ?? 0,
                               scene: value["scene"].identifier, step: value["step"].string ?? "animatic",
                               scope: value["scope"].string ?? "scene", state: value["state"].string ?? "open",
-                              x: value["x"].number, y: value["y"].number, quick: value["quick"].string, resolution: value["resolution"].string)
+                              x: value["x"].number, y: value["y"].number, quick: value["quick"].string, resolution: value["resolution"].string,
+                              wordID: value["word_id"].string, clip: value["clip"].string)
         }
     }
     public func payload(for stage: ReviewStage) -> JSONValue {

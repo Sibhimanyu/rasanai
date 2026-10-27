@@ -51,12 +51,15 @@ extension StudioStore {
             return .yourTurn(what, background: health?.state == .waitingForYou ? health?.background : nil)
         case .working, .starting:
             if health?.state == .possiblyLooping { return .attention(health?.loopReason ?? "It may be stuck.") }
-            // "Ready for you: the animatic" is the director's last push, stale once you've answered: never show it as work.
+            // "Ready for you: the storyboard" is the director's last push, stale once you've answered: never show it as work.
             let activity = snapshot.latestActivity.flatMap { $0.hasPrefix("Ready for you") ? nil : $0 }
             let reading = snapshot.workingMessage == SessionOverlay.readingMessage ? snapshot.workingMessage : nil
             return .working(reading ?? activity ?? snapshot.workingMessage ?? "\(settings.agent.shortName) is working on your film.", since: runtime.startedAt,
                             next: NextNeeded.line(snapshot, pace: settings.pace))
-        case .paused: return .paused
+        case .paused:
+            // Nothing runs, nobody paused it and no automatic resume is coming: say so plainly, Resume is the bar's primary.
+            if !runtime.stopRequested, !runtime.isFrozen, runtime.autoResume == nil { return .attention("\(settings.agent.shortName) stopped working on this film. Your work is saved; press Resume to carry on.") }
+            return .paused
         case .needsAttention: return .attention("The last session stopped unexpectedly. The log shows why.")
         default: return nil
         }

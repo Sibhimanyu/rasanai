@@ -1,0 +1,11 @@
+{
+  "profile": "line-art", "family": "flat-vector-geometric", "owner": "M04", "status": "implemented_unvalidated",
+  "module": "runtime/medium-graphic.js#createLineDrawingScene", "verified": false,
+  "examples": [
+    { "file": "positive-line-reveals-relation.js", "role": "positive", "mechanism": "stroke-progress from path length, deliberate branch, point emphasis, label after line", "worksWithoutHeading": true },
+    { "file": "boundary-unsupported-connector.js", "role": "boundary", "mechanism": "connector must declare supported|illustrative; progressive disclosure", "worksWithoutHeading": false }
+  ],
+  "requiredAssets": [], "editability": "per-path groups line-*, stroke-*, guide-*; points pt-*; labels label-*",
+  "limitations": ["path commands M L H V C Q Z absolute only (others throw)", "length is polyline-approximated from sampled curves", "no handwriting font used as evidence of drawing", "alpha: opaque strokes; guide lines use opacity"],
+  "rendered": false, "receipts": []
+}

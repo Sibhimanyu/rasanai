@@ -1,0 +1,81 @@
+{
+  "case": "plan10/U13",
+  "note": "synthetic",
+  "receipt": [
+    {
+      "name": "nonempty old MP4, no receipt",
+      "expect": "mark rendered refused"
+    },
+    {
+      "name": "receipt for another edit",
+      "expect": "refused: the receipt is for edit X"
+    },
+    {
+      "name": "receipt source digest differs from the accepted one",
+      "expect": "refused"
+    },
+    {
+      "name": "output file does not hash to output_checksum",
+      "expect": "refused: it is another render"
+    },
+    {
+      "name": "source changed after the edit was applied",
+      "expect": "refused: a render of it is not a render of this edit"
+    },
+    {
+      "name": "preview-mode receipt for rendered",
+      "expect": "refused (use preview_ready)"
+    },
+    {
+      "name": "matching receipt",
+      "expect": "status rendered; line carries receipt with verified.output_sha; missing score/look digest/build job listed under unavailable"
+    }
+  ],
+  "pointer": [
+    {
+      "name": "render revision differs from the displayed one",
+      "expect": "mode conflict/region_only, apply_allowed false, reselect true"
+    },
+    {
+      "name": "index build digest changed",
+      "expect": "region_only, note kept, not applied to an object"
+    },
+    {
+      "name": "index older than scene sources",
+      "expect": "region_only"
+    },
+    {
+      "name": "matching render and index",
+      "expect": "element, apply_allowed true"
+    }
+  ],
+  "show": "annotated frame (frame_ref) and region are returned so Studio can show the conflict and offer a reselect path",
+  "compare": {
+    "original": [
+      {
+        "id": "b1",
+        "start": 0,
+        "end": 2
+      },
+      {
+        "id": "b2",
+        "start": 2,
+        "end": 4
+      }
+    ],
+    "updated": [
+      {
+        "id": "b1",
+        "start": 0,
+        "end": 3
+      },
+      {
+        "id": "b2",
+        "start": 3,
+        "end": 4
+      }
+    ],
+    "map_original_1.0_to_updated": 1.5,
+    "identical": false
+  }
+}

@@ -7,7 +7,7 @@ public enum StepCatalog {
                                "plan", "build", "render", "final"]
     private static let labels = ["brief": "Brief", "research": "Research", "brand": "Brand", "route": "Workflow", "footage": "Footage",
                                  "story": "Story", "direction": "Style", "films": "Films", "concept": "Story", "scenes": "Scenes",
-                                 "look": "Look", "motion": "Motion", "styleframes": "Style frames", "animatic": "Animatic", "reel": "Cut",
+                                 "look": "Look", "motion": "Motion", "styleframes": "Style frames", "animatic": "Storyboard", "reel": "Cut",
                                  "transitions": "Transitions", "voice": "Voice", "music": "Music", "keyframes": "Key poses",
                                  "storyboard": "Storyboard", "plan": "Plan", "build": "Build", "render": "Final", "final": "Final"]
     public static func label(_ step: String) -> String { labels[step] ?? step.capitalized }
@@ -38,6 +38,14 @@ public struct DecisionRow: Identifiable, Equatable, Sendable {
     public let decision: String
     /// True when the person made the call; false when Claude did.
     public let byUser: Bool
+    /// Where the person made it, when that was another app that speaks `references/remote.md` (e.g. "iPhone"); nil from Studio or the console.
+    public let via: String?
+    /// When the step was last pushed by the engine (`updated`, ISO text; sorts chronologically). Empty when unknown.
+    public var updated: String = ""
+    /// The step is still open (working or waiting): the row shows its provisional call, or what it waits for.
+    public var inProgress: Bool = false
+    /// "working" or "awaiting" for an in-progress row.
+    public var state: String = ""
 }
 
 public struct ThreadMessage: Identifiable, Equatable, Sendable {
@@ -46,6 +54,12 @@ public struct ThreadMessage: Identifiable, Equatable, Sendable {
     public let fromUser: Bool
     public let text: String
     public let time: String
+    /// Set on a quick status Studio answered itself from what it already knows (Rasan was not asked): the one-tap actions it offers.
+    public var quickActions: [ChatQuickAction]? = nil
+    public var isQuickStatus: Bool { quickActions != nil }
+    /// Studio's own instruction to the director ("Studio: please retry…"), sent as a note: shown as a short system line, never as the person's bubble.
+    public var isStudioInstruction: Bool { fromUser && text.hasPrefix(Self.studioPrefix) }
+    public static let studioPrefix = "Studio: "
 }
 
 public struct ActivityItem: Identifiable, Equatable, Sendable {
@@ -99,14 +113,33 @@ public extension SessionSnapshot {
             return ActivityItem(id: index, message: message, level: entry["level"].string ?? "info", time: entry["t"].string ?? "")
         }.reversed()
     }
-    /// Every decided step with its decision, in step order.
+    /// Every decided step with its decision, newest first, with the current open step (working or waiting) on top.
     var decisions: [DecisionRow] {
-        StepCatalog.order.compactMap { name in
+        var rows: [DecisionRow] = []
+        for name in StepCatalog.order {
             let payload = step(name)
-            guard payload["status"].string == "done", let decision = payload["decision"].string, !decision.isEmpty else { return nil }
+            guard payload != .null else { continue }
+            let status = payload["status"].string
             let sentType = payload["sent"]["type"].string
             let byUser = (sentType != nil && sentType != "decide") || payload["by"].string == "user"
-            return DecisionRow(step: name, label: StepCatalog.label(name), decision: decision, byUser: byUser)
+            let via = byUser ? (payload["sent"]["via"].string ?? payload["by_via"].string).flatMap { $0.isEmpty ? nil : String($0.prefix(40)) } : nil
+            let updated = payload["updated"].string ?? ""
+            let decision = payload["decision"].string ?? ""
+            if status == "done", !decision.isEmpty {
+                rows.append(DecisionRow(step: name, label: StepCatalog.label(name), decision: decision, byUser: byUser, via: via, updated: updated))
+            } else if name == currentStep, status == "working" || status == "awaiting", !isFinalDone || name != "final" {
+                let waiting = status == "awaiting" && sentType == nil
+                let text = !decision.isEmpty ? decision : (waiting ? "Waiting for your call." : "Being decided now.")
+                rows.append(DecisionRow(step: name, label: StepCatalog.label(name), decision: text, byUser: false, via: nil,
+                                        updated: updated, inProgress: true, state: waiting ? "awaiting" : "working"))
+            }
+        }
+        // Open row first, then newest to oldest; ties fall back to the later step.
+        let order = Dictionary(uniqueKeysWithValues: StepCatalog.order.enumerated().map { ($1, $0) })
+        return rows.sorted { l, r in
+            if l.inProgress != r.inProgress { return l.inProgress }
+            if l.updated != r.updated { return l.updated > r.updated }
+            return (order[l.step] ?? 0) > (order[r.step] ?? 0)
         }
     }
     /// The discussion on one step: the person's notes and Claude's replies, oldest first.

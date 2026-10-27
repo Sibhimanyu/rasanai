@@ -1,0 +1,91 @@
+{
+  "case": "saved series",
+  "synthetic": true,
+  "covers": [
+    "L01",
+    "L08"
+  ],
+  "inputs": {
+    "treatment": {
+      "story_format": "v2",
+      "id": "invite-writer",
+      "treatment_title": "Rough notes become the invitation",
+      "premise": "a few typed lines become a finished, sendable invitation",
+      "communication_kind": "single-feature-announcement",
+      "proposition": "The writing assistant turns rough notes into a usable invitation in one step.",
+      "viewer_takeaway": "I can go from notes to a sendable invite without rewriting.",
+      "beats": [
+        {
+          "id": "beat-open",
+          "viewer_takeaway": "notes are messy",
+          "on_screen": "Notes, half a sentence",
+          "visual_event": {
+            "before": "empty page",
+            "change": "rough notes appear",
+            "after": "notes visible"
+          },
+          "evidence_refs": []
+        },
+        {
+          "id": "beat-writing",
+          "viewer_takeaway": "the invitation is written",
+          "on_screen": "Dinner Friday at 7, bring a dish",
+          "visual_event": {
+            "before": "rough notes in the product UI",
+            "change": "the product screen rewrites them",
+            "after": "a readable invitation"
+          },
+          "evidence_refs": [
+            "ev-ui-1"
+          ]
+        },
+        {
+          "id": "beat-send",
+          "viewer_takeaway": "send it",
+          "on_screen": "Send",
+          "visual_event": {
+            "before": "invitation",
+            "change": "sent",
+            "after": "confirmation"
+          },
+          "evidence_refs": []
+        }
+      ]
+    },
+    "series": {
+      "name": "Friday Notes",
+      "look": "series/friday-notes/DESIGN.md",
+      "label": "Series",
+      "provenance": "saved_series_default"
+    },
+    "looks": [
+      {
+        "label": "Series"
+      }
+    ],
+    "expected": 3
+  },
+  "expect": {
+    "comparison": {
+      "looks": [
+        "Series"
+      ],
+      "count_ok": true,
+      "series": {
+        "locked": true,
+        "provenance": "saved_series_default"
+      }
+    },
+    "bible": {
+      "defaults_have_provenance": "saved_series_default"
+    },
+    "phases": [
+      "look-series (no three-system desk, no Look call)"
+    ],
+    "card": {
+      "provenance": {
+        "kind": "saved_series_default"
+      }
+    }
+  }
+}

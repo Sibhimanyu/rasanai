@@ -14,7 +14,7 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
 - `DISPATCH.md` (RasanAI's decisions and the motion contract; binding) and `frame.md` (the look; copy its Font loading rules)
 - **`story/intent.json`**: your beat's `buys`, `importance`, `relation`, and whether it is the `peak` (the film's argument in one page; `references/intent.md`)
 - your scene's section of `motion/score.json` (`buys`, `hero`, `verb`, shots, entrances, camera, events) and its two seams (`in` from the scene before, `out` to the scene after, with exact handoff numbers)
-- **your approved board**: `$RUN/frames/<NN>.png` and its row in `frames/shots.json` (shot size, hero, angle, focus, light, ground, type sizes, crop; older runs: `assets/keyframes/<n>.png` and `frames/<n>.md`): the picture. At the score's peak your frame looks like it; do not change its size, hero, crop, ground or type sizes without a reason under `## Deviations`
+- **your approved board**: `$RUN/frames/<NN>.png` and its row in `frames/shots.json` (shot size, hero, angle, focus, light, ground, type sizes, crop; older runs: `assets/keyframes/<n>.png` and `frames/<n>.md`): the picture. At the score's peak your frame looks like it; do not change its size, hero, crop, ground or type sizes without a reason under `## Deviations` A scene's `states` are checkpoints: at each `t` the frame shows its `what` with the eye on its `look`. The score's `cast` is canon: never redraw a cast member's `fixed` traits, and enter and leave in its `cast_state`.
 - **the motion vocabulary** `RasanMotion` (`runtime/rasan-motion.js`, installed with `motionkit.mjs install`; recipes in `agents/film-builder.md`, "Your tools" and "Recipes") and the camera kit `RasanCamera` (`references/cinematography.md`) for the board's angle, depth of field and light
 - the product: `research/screens.md` (the UI kit and flows), `research/brand.md` § Motion (how the product itself moves), the asset kit
 - the technique recipes for the terms your score names (from `references/vocabulary.md`, inlined below the role when the Director dispatched you with `crew.mjs brief`)
@@ -34,6 +34,12 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
 - your composition, at the path your packet names (`compositions/frames/NN-*.html`), nothing else in the project
 - `crew/animators/<n>.md`: what you built in 5 to 10 lines; any deviation from the score and why; `## Showing off` (the moment you're proudest of, and why it works); `## Events`, one line per causal on-screen event as `t=<s> <what>` (the sound plan uses these); and for a 3D or hybrid scene `## 3D` (the lens and why, the light and why, what each object is made of, how the seams match, the frame cost `stage3d.mjs check` measured)
 
+## Building the approved idea (new creative policy)
+
+When your scene hosts a signature event (your packet's creative slice and your row in `creative/execution-map.json`), build that specific event on your shots: its `before`, `change` and `after` visible, its `must_preserve` kept, its `do_not_substitute` avoided ("the two readings separate by their conditions" is not a heading over two unexamined pills). Use the kits for common mechanics; where none expresses the action, write small deterministic GSAP, DOM, SVG or Three code in your scene's own timeline (seeded, no network, no second renderer); a missing preset is not a reason to make a card. Before you simplify a material part of it, write the blocker, the cheapest meaning-preserving build and what would visibly be lost, under `## Deviations`; ask only if the approved outcome would change. Add the composition file and `data-el` ids to the event's `produced_artifact_refs` in your note, never edit another scene's or the score's timing. Shared objects and continuous camera belong to the lead builder: build to the fixed boundary states. Universal craft quotas (constant drift, glass or grade, a carried object at every cut) are applied only when the look or `score.creative.profiles` selects them.
+
+**Continuous handoff.** When your beat's plan (`creative/plans/<beat>.json`) carries a handoff, drive each carried channel with `RasanMotion.continueFrom` using the plan's channels (`references/motion-handoffs.md`); never restart the ease at the seam, and leave exempt properties alone. Product beats follow their stages (`references/product-choreography.md`).
+
 ## How to animate
 
 0. **Honour the tempo.** The score's `tempo` says how often the story moves on and how long a hold may run. A hold is composed, never dead: the camera keeps its push, the ground breathes, a secondary settles late. A long beat is a few gestures that overlap, not one slow move and not constant drift.
@@ -49,7 +55,7 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
    - **layers:** a showcase shot carries 5 to 10 independently timed layers at its peak (ground, actor, ink or flare, pen line, tiny type, secondaries), each with its own start and ease; where the motion language is `character`, give the objects squash (10 to 25%), anticipation (60 to 120 ms), overshoot (3 to 8%) and smear frames on fast moves (`references/craft.md`, "Animation principles")
    - depth when the style has it: 3 planes moving at different rates, light from one named direction, shadows that agree
 3b. **A move card is the target, not a ceiling.** Build the card's carrier, path, order, seconds and **bridge frame** exactly: at the card's bridge time both states must be true on screen (look at your strip for that frame). **Beat the rough, don't copy it**: the grey-box look is the sketch, the look comes from DESIGN.md and frame.md; keep its timing, anticipation and landing, then add the follow-through, the secondaries, the product moving like the product, the craft the sketcher could not. If the card cannot be built as written, build its `build.simplest` and say why under `## Deviations`; never replace the move with a label (a fade, a slide, a generic match cut). Under `## Showing off` say what you added beyond the rough.
-4. **The seams are contracts, and they move.** At t=0 your scene arrives already moving at the `in` handoff numbers (position, scale, opacity, and the direction and speed it is travelling); at the end it is still moving at the `out` numbers when the cut lands. Never settle and then cut, never start from rest. A seam marked `cut` cuts on the curve: the last frame mid-move, the first frame mid-move on the same axis.
+4. **The seams are contracts, and they move.** At t=0 your scene arrives already moving at the `in` handoff numbers (position, scale, opacity, and the direction and speed it is travelling); at the end it is still moving at the `out` numbers when the cut lands. Never settle and then cut, never start from rest, on a continuity seam; a seam the score declares a deliberate hard cut or a hold (`seam.editorial`) is built as written. A seam marked `cut` cuts on the curve: the last frame mid-move, the first frame mid-move on the same axis.
 5. **Look at your own motion.** If your scene carries a hero move, render its **key-pose board first** (4 to 6 stills: start, anticipation, smear or bridge, settle, end, `design.mjs stills` into `boards/<move-id>.png`) and fix the pose that does not read before you time it. Then render strips and fix what you see; **review each hero move as a 24 fps strip** (`crew.mjs strip --file <your composition> --from <t0> --to <t1> --fps 24 --out crew/animators/<n>-<move-id>-24fps.png`), not only the 2 fps overview: overshoot, smear and a morph's in-betweens are invisible at 2 fps.
    - `node "$SKILL_DIR/scripts/crew.mjs" strip --file <your composition> --from 0 --to <duration> --fps 4 --out crew/animators/<n>-overview.png`: the whole scene
    - `node "$SKILL_DIR/scripts/crew.mjs" strip --file <your composition> --from <move start> --to <move end> --fps 15 --out crew/animators/<n>-move.png`: your primary move frame by frame (spacing should read as the curve: wide gaps fast, a long tail of tight gaps into the landing, a settle one or two frames past it)
@@ -95,6 +101,10 @@ If the delivery render goes through `finish.mjs all` (it does for every Final; d
 
 **Branded film (`brand_film`)**: read `brand-film/FILM-STYLE.md` before you animate. Use only the moves in its motion vocabulary (scale, morph, draw-on, cut, UI choreography...) and none it says are absent. The card locks palette, type, logo, UI and tone. Add hero effects only where `score.budget` names them; keep the finish layer and motion blur on fast moves; 3D in the brand palette (matte or unlit). The brand's own curves are the signature (`motion.md`); the role mix, durations from travel (0.3 to 0.8 s for UI, 0.5 to 1.2 s for type) and overlap still apply.
 
+## Reads
+
+Your scene's `reads[]` in the score (if any) is the order the audience reads it: every dramatic shot has **one focal change** and a planned order in which the audience reads it. Ask for anticipation, action, reaction and payoff only where the content has them (a product demo may need only an action and its result). Format and checks: `references/reads.md`. Hit each read's `t0`/`t1` (scene-local seconds), keep its `visual_cue` on screen for the whole read, make the reaction land after the cause, and hold the payoff 0.6 s or more. Before you return, generate and open `node "$SKILL_DIR/scripts/reads.mjs" sheet --run "$RUN" --scene <id> --file <your composition>` (four positions plus a strip around the key transition) and fix anything you cannot read in it.
+
 ## Coded-film gotchas
 
 - Every canvas helper saves and restores `globalAlpha` and the transform (`save()` / `restore()`), so one helper never leaks state into the next.
@@ -104,6 +114,22 @@ If the delivery render goes through `finish.mjs all` (it does for every Final; d
 - Seeded hash, never `Math.random`.
 - Let a retreating flood finish before the next scene starts, or it reads as a hard cut.
 - Fast whips need more blur subframes (8, not 4).
+
+## A selected medium (when your packet carries a medium projection)
+
+Build the native actions bound to your scene's beats, shots and events, in the medium and layer the projection names, through the existing adapters only (no second renderer, clock or timeline). Hard invariants and evidence-layer proof are mandatory; shared characters and continuous camera belong to the lead builder. Finish is per layer. Set `data-finish-blur="off"` where the Look's cadence is stepped. A texture or font swap on an ordinary card is not the medium. If an action cannot be built as specified, write the blocker and the cheapest meaning-preserving build under `## Deviations`; never replace it with animated type quietly.
+
+## Your slice of the look (Plan 04)
+
+Your packet names a projected subset of the visual bible and the continuity contract (`visual_bible_for`: `design.mjs bible-for --run $RUN --scene <your key>`): role palette, the exact font identities (and the locale fallback), safe regions, motion scale and eases, the transitions for your seams, the shared components you use, and the hard brand constraints. Shared components (the product interface, a character, a camera convention, a motif) are read-only for you: build with them as given and, if one must change, write the request to the owner (`continuity.mjs` `requestChange`) instead of redefining it in your scene. Check `source_digest` against `look/visual-bible.json`: if it differs, stop and say so.
+
+## Visual production (Plan 06)
+
+Read `references/visual-production.md` when your scene uses a kit move, footage, a generated plate, a tracked screen, a person-mask or a recurring character. Your packet carries `capabilities` (`production.mjs capabilities`): use only moves whose `ui_state` is `ready` or `experimental`; an `unavailable` move is not offered, and a missing optional engine is said plainly (never a silent substitute, never a download). Every element you place gets a stable `data-el` id (`scene-2.hero-title`) with the properties a person may edit; a mechanic from the kit registers one itself. Frames are a function of absolute time: no wall clock, no `Math.random`, no network. If your packet has `regeneration_guard`, run it before you replace a scene file that has edits.
+
+## Your boundary contract (Plan 09)
+
+When the film is built in parallel, your scene sits in a continuity group (`crew.mjs schedule` lists `groups` and `boundaries`). Shared components belong to the lead builder: ask, do not redefine. If your scene has a boundary contract with a neighbour (semantic objects, positions and units, camera/crop, scale, colour, start/end time, and velocity or transform when the link says so), end and start exactly as it says; a hard cut needs only the agreed times. A scene that reads global time, uses unseeded randomness or a simulation without a checkpoint is re-rendered more widely: say so in your return instead of hiding it.
 
 ## Never
 

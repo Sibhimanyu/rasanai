@@ -1,0 +1,3 @@
+{ "_note": "authored, not run. A supplied brand kit is authoritative over web research for the look.",
+  "inputs": { "text": "brand film for Slowpour", "brand": { "source": "user_provided", "authority": "brand_kit", "kit": "assets/slowpour-kit" }, "preferences": { "communication_kind": "teaser" } },
+  "expected": { "communication_kind": "brand-manifesto", "note": "user words ('brand film') beat the saved teaser preference", "brand.authority": "brand_kit" } }

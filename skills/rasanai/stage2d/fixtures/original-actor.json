@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "hero-01",
+  "display_name": "Pim (original demo actor)",
+  "medium": "painted-2d",
+  "palette": { "body": "#c97057", "outline": "#302921", "accent": "#f3d79e" },
+  "proportions": { "body_w": 10, "body_h": 8, "head_w": 11.2, "head_h": 9.2, "eye_sep": 3.4, "leg_len": 2, "arm_len": 5, "ear_r": 1.9, "tuft_h": 3 },
+  "fixed_traits": ["round ears", "single curved tuft", "two short legs", "cream belly patch", "cream mittens", "cream tail pom"],
+  "views": ["front", "quarter", "side", "back-quarter", "back"],
+  "outfits": [],
+  "expression_preset": "standard-31",
+  "source": "original",
+  "notes": "Synthetic fixture: an original generic cartoon creature drawn by RasanAI's own runtime (stage2d/runtime/character.js). Not a copy of any existing character."
+}

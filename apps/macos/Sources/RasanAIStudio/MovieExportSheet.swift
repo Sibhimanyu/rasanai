@@ -120,7 +120,12 @@ enum DeliveryFormat: String, CaseIterable, Identifiable {
 struct MovieExportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: MovieExporter
-    init(source: URL, captions: URL?) { _model = State(initialValue: MovieExporter(source: source, captions: captions)) }
+    /// Plan 12 D7: what the delivery plan says about this film (profile, variants, required accessibility files, package contents). Read-only; nil for films with no plan.
+    private let delivery: DeliveryPlan?
+    init(source: URL, captions: URL?, delivery: DeliveryPlan? = nil) {
+        _model = State(initialValue: MovieExporter(source: source, captions: captions))
+        self.delivery = (delivery?.isEmpty ?? true) ? nil : delivery
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 4) {
@@ -158,6 +163,7 @@ struct MovieExportSheet: View {
                     }
                 }
                 .padding(14).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
+                if let delivery { DeliveryPanel(plan: delivery) }
             }
             if model.isExporting {
                 TimelineView(.periodic(from: .now, by: 0.25)) { _ in
@@ -202,5 +208,108 @@ struct MovieExportSheet: View {
         let panel = NSOpenPanel(); panel.title = "Choose captions"; panel.canChooseDirectories = false
         panel.allowedContentTypes = [UTType(filenameExtension: "srt"), UTType(filenameExtension: "vtt")].compactMap { $0 }
         if panel.runModal() == .OK { model.captions = panel.url }
+    }
+}
+
+
+/// The delivery summary inside the existing export sheet: simple by default (one line about where the film is going), details one disclosure away.
+/// Advanced items are explained, never advertised: a capability that is unavailable shows why, and nothing here says a destination or an editor is supported.
+private struct DeliveryPanel: View {
+    let plan: DeliveryPlan
+    @State private var open = false
+    var body: some View {
+        DisclosureGroup(isExpanded: $open) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let target = plan.target { targetBlock(target) }
+                    if let migration = plan.migration, migration.offer {
+                        note("A newer destination record exists", migration.summary ?? "Accepting it changes this film's target; exports already made keep theirs.", symbol: "arrow.triangle.2.circlepath")
+                    }
+                    if !plan.variants.isEmpty { variantsBlock }
+                    if !plan.requiredFiles.isEmpty { filesBlock }
+                    renderLine
+                    if !plan.packageContents.isEmpty {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Package folders").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                            Text(plan.packageContents.map(\.folder).joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                    let unavailable = plan.capabilities.filter { !$0.isOffered }
+                    if !unavailable.isEmpty { advancedBlock(unavailable) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+            }
+            .frame(maxHeight: 240)
+        } label: {
+            Label(summaryLine, systemImage: "shippingbox").font(.system(size: 12, weight: .medium))
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
+        .accessibilityLabel("Delivery details").accessibilityHint(open ? "Expanded" : "Collapsed. Press to show the destination, variants and files")
+    }
+    private var summaryLine: String {
+        if let target = plan.target { return "Delivery: " + (target.label ?? target.id ?? "destination") }
+        return "Delivery details"
+    }
+    @ViewBuilder private func targetBlock(_ target: DeliveryPlan.Target) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(target.label ?? target.id ?? "Destination").font(.system(size: 13, weight: .semibold))
+            Text([target.aspect, target.width.flatMap { w in target.height.map { "\(w)×\($0)" } }].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+            Label(target.stateTitle, systemImage: target.state == "verified" ? "checkmark.seal" : "exclamationmark.triangle").font(.caption)
+                .foregroundStyle(target.state == "verified" || target.state == "house" ? Color.secondary : Color.orange)
+            ForEach(target.warnings, id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+        }
+        .accessibilityElement(children: .combine)
+    }
+    private var variantsBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Variants").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            ForEach(plan.variants) { variant in
+                HStack(spacing: 6) {
+                    Text([variant.id, variant.locale].compactMap { $0 }.joined(separator: " · ")).font(.caption)
+                    Spacer(minLength: 0)
+                    Text(variant.statusTitle).font(.caption).foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+    private var filesBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Accessibility files this film needs").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            ForEach(plan.requiredFiles) { file in
+                HStack(spacing: 6) {
+                    Image(systemName: file.isReady ? "checkmark.circle.fill" : "circle.dashed").foregroundStyle(file.isReady ? Color.green : Color.secondary).accessibilityHidden(true)
+                    Text(file.title).font(.caption)
+                    Spacer(minLength: 0)
+                    Text(file.statusTitle).font(.caption).foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine).help(file.why ?? "")
+            }
+        }
+    }
+    @ViewBuilder private var renderLine: some View {
+        if let render = plan.render {
+            Label(render.delivered ? "A delivered render exists" + (render.frames.map { " (\($0) frames)" } ?? "") : (render.note ?? "No delivered render recorded yet"), systemImage: render.delivered ? "film" : "film.stack").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+    private func advancedBlock(_ rows: [DeliveryPlan.Capability]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Not available yet").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            ForEach(rows) { row in
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(row.label ?? row.id).font(.caption)
+                    if let reason = row.reason, !reason.isEmpty { Text(reason).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+    private func note(_ title: String, _ body: String, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label(title, systemImage: symbol).font(.caption.weight(.medium))
+            Text(body).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

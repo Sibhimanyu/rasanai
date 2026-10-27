@@ -1,0 +1,138 @@
+{
+  "_label": "SYNTHETIC EXAMPLE. Invented to exercise the story code. NOT a recording, a certification of any product's capabilities, or a claim source. Never reuse as a captured result in a real film.",
+  "_note": "authored, not run. Negative fixture: a product film whose labels never communicate the promised behaviour. Must be a rewrite for MEANING (no evidence behind demonstration beats, abstract takeaways with no before/after, the required takeaway mapped to a beat that never says it), not because 'Desire' is a banned word: fixture 02 shows an abstract word passing when a stated position earns it.",
+  "context": {
+    "kind": "whole-product-introduction",
+    "duration_s": 24,
+    "evidence_file": "evidence-synthetic.json",
+    "must_show": [
+      {
+        "id": "ms1",
+        "claim_ref": "syn-w"
+      }
+    ]
+  },
+  "treatment": {
+    "story_format": "v2",
+    "id": "t-vague",
+    "tag": "Wild",
+    "treatment_title": "Desire / Possibility / Transformation",
+    "premise": "an emotional sequence of big words",
+    "logline": "Desire. Possibility. Transformation.",
+    "communication_kind": "whole-product-introduction",
+    "proposition": "Transformation is possible.",
+    "viewer_takeaway": "Feel the possibility.",
+    "perspective": "everyone",
+    "takeaways": [
+      {
+        "id": "t1",
+        "text": "the assistant turns rough notes into a finished invitation",
+        "required": true
+      }
+    ],
+    "optional_tools": [],
+    "beats": [
+      {
+        "id": "beat-1",
+        "internal_beat_label": "Desire",
+        "grammar_role": "demonstration",
+        "viewer_takeaway": "Desire.",
+        "on_screen": "Desire",
+        "voiceover": "Desire.",
+        "visual_event": {
+          "before": "",
+          "change": "text fades in",
+          "after": ""
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "open",
+        "duration_provisional_s": 6,
+        "channel_role": {
+          "mode": "caption",
+          "reason": "the words repeat"
+        }
+      },
+      {
+        "id": "beat-2",
+        "internal_beat_label": "Possibility",
+        "grammar_role": "demonstration",
+        "viewer_takeaway": "Possibility.",
+        "on_screen": "Possibility",
+        "voiceover": "Possibility.",
+        "visual_event": {
+          "before": "",
+          "change": "a gradient animates behind the word",
+          "after": ""
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "then",
+        "duration_provisional_s": 6,
+        "channel_role": {
+          "mode": "caption",
+          "reason": "the words repeat"
+        }
+      },
+      {
+        "id": "beat-3",
+        "internal_beat_label": "Transformation",
+        "grammar_role": "demonstration",
+        "viewer_takeaway": "Transformation.",
+        "on_screen": "Transformation",
+        "voiceover": "Transformation.",
+        "visual_event": {
+          "before": "",
+          "change": "the word shimmers",
+          "after": ""
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "then",
+        "duration_provisional_s": 6,
+        "channel_role": {
+          "mode": "caption",
+          "reason": "the words repeat"
+        }
+      },
+      {
+        "id": "beat-4",
+        "internal_beat_label": "Close",
+        "grammar_role": "invitation",
+        "viewer_takeaway": "The future is here.",
+        "on_screen": "The future is here.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "",
+          "change": "logo fades in",
+          "after": ""
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "then",
+        "duration_provisional_s": 6,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      }
+    ],
+    "coverage": {
+      "ledger": [
+        {
+          "takeaway_id": "t1",
+          "beat_id": "beat-3"
+        }
+      ],
+      "excluded": []
+    }
+  },
+  "expected": {
+    "verdict": "rewrite",
+    "issue_ids": [
+      "unsupported-demonstration",
+      "beat-says-nothing",
+      "promise-not-shown",
+      "must-show-missing",
+      "coverage-vague",
+      "internal-label-leak"
+    ],
+    "note": "the on_screen words equal the internal beat labels, so the leak error also fires"
+  }
+}

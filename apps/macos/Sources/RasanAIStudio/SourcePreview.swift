@@ -75,6 +75,12 @@ struct SourcePreviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
     @State private var info: SourceInfo?
+    init(url: URL) {
+        self.url = url
+        // Decide up front so a video never flashes Quick Look's own controls before ours.
+        let media = (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType)?.conforms(to: .audiovisualContent) == true
+        _player = State(initialValue: media ? AVPlayer(url: url) : nil)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -86,12 +92,12 @@ struct SourcePreviewSheet: View {
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
-            if let player { VideoPlayer(player: player).frame(maxWidth: .infinity, maxHeight: .infinity) }
+            if let player { StudioVideoPlayer(player: player, takesKeys: true).frame(maxWidth: .infinity, maxHeight: .infinity) }
             else { NativeSourcePreview(url: url).frame(maxWidth: .infinity, maxHeight: .infinity) }
         }.padding(20).frame(width: 760, height: 520)
             .task(id: url) {
                 info = await SourceInfo.load(url)
-                if info?.isMedia == true { player = AVPlayer(url: url) }
+                if info?.isMedia == true, player == nil { player = AVPlayer(url: url) }
             }
             .onDisappear { player?.pause() }
     }

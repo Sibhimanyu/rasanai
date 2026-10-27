@@ -20,7 +20,7 @@ import StudioCore
 
     private func host() -> FlowHost {
         FlowHost(addFiles: { _ in true }, chooseFiles: {}, removeSource: { _ in }, pickOption: { _ in }, undoAutoPick: {}, settleFormat: {},
-                 briefPlaceholder: "Tell RasanAI about it", moreSettings: AnyView(Text("Pace, models, brand")), runButton: AnyView(Button("Start film") {}),
+                 briefPlaceholder: "Tell RasanAI about it", runButton: AnyView(Button("Start film") {}),
                  footerActions: AnyView(EmptyView()))
     }
 

@@ -1,0 +1,42 @@
+name: Studio prebuild
+# Compiles the release binary as soon as Studio code lands on master, so studio-release-candidate.yml can reuse it
+# instead of compiling for ~5 minutes during a release. Both workflows share the cache keys below.
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/macos/Sources/**'
+      - 'apps/macos/Package.swift'
+      - 'apps/macos/Package.resolved'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: studio-prebuild
+  cancel-in-progress: true
+jobs:
+  prebuild:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Apple Silicon and Swift toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          swift --version
+          echo "SWIFT_ID=$(swift --version 2>&1 | shasum -a 256 | cut -c1-16)" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: apps/macos/.build
+          key: studio-build-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Package.resolved') }}-${{ github.run_id }}
+          restore-keys: |
+            studio-build-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Package.resolved') }}-
+      - id: bin
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/studio-prebuilt
+          key: studio-bin-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Sources/**', 'apps/macos/Package.swift', 'apps/macos/Package.resolved') }}
+      - name: Compile the release binary
+        if: steps.bin.outputs.cache-hit != 'true'
+        env:
+          STUDIO_PREBUILT_DIR: ${{ runner.temp }}/studio-prebuilt
+        run: bash apps/macos/scripts/build-app.sh release

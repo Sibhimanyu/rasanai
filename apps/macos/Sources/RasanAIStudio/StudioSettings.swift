@@ -1,4 +1,5 @@
 import AppKit
+import Heresay
 import Observation
 import StudioCore
 import SwiftUI
@@ -16,12 +17,14 @@ final class StudioSettings {
     var codexModel = UserDefaults.standard.string(forKey: "codexModel") ?? "" { didSet { defaults.set(codexModel, forKey: "codexModel") } }
     var nodePath = UserDefaults.standard.string(forKey: "nodePath") ?? "" { didSet { defaults.set(nodePath, forKey: "nodePath") } }
     var allowUnrestrictedTools = UserDefaults.standard.bool(forKey: "allowUnrestrictedTools") { didSet { defaults.set(allowUnrestrictedTools, forKey: "allowUnrestrictedTools") } }
-    /// Warn when one film's director spend passes this many dollars. 0 means off.
+    /// Pause the director when one film's spend passes this many dollars. 0 means off.
     var budgetPerFilm = UserDefaults.standard.double(forKey: "budgetPerFilm") { didSet { defaults.set(budgetPerFilm, forKey: "budgetPerFilm") } }
     /// How fast the director works (research time and build plan), for films that do not choose their own.
     var pace: FilmPace { didSet { defaults.set(pace.rawValue, forKey: "pace") } }
     /// Keeps the Mac from idle sleep while the director is working. On unless turned off.
     var keepAwakeWhileMaking: Bool { didSet { defaults.set(keepAwakeWhileMaking, forKey: "keepAwakeWhileMaking") } }
+    /// Pauses the director when it has looked stuck for a while, so a loop cannot keep spending tokens. On unless turned off.
+    var pauseWhenStuck: Bool { didSet { defaults.set(pauseWhenStuck, forKey: "pauseWhenStuck") } }
     /// Lets the director make images through the Codex CLI on the user's ChatGPT plan. On unless turned off.
     var generateImagesWithCodex: Bool { didSet { defaults.set(generateImagesWithCodex, forKey: "generateImagesWithCodex") } }
     /// The Codex CLI for image generation, whichever director is selected: the configured path, else discovery.
@@ -109,6 +112,7 @@ final class StudioSettings {
             ?? defaults.string(forKey: "researchDepth").flatMap(FilmPace.init(legacyResearchDepth:)) ?? .defaultForNewFilms
         generateImagesWithCodex = defaults.object(forKey: "generateImagesWithCodex") as? Bool ?? true
         keepAwakeWhileMaking = defaults.object(forKey: "keepAwakeWhileMaking") as? Bool ?? true
+        pauseWhenStuck = defaults.object(forKey: "pauseWhenStuck") as? Bool ?? true
         do { try library.prepare() } catch { self.error = error.localizedDescription }
         login.settings = self
     }
@@ -343,11 +347,39 @@ final class StudioSettings {
     }
 }
 
+private enum SettingsSection: String, CaseIterable, Identifiable {
+    case general, notifications, updates, rasan, library, about
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .general: "General"; case .notifications: "Notifications"; case .updates: "Updates"
+        case .rasan: "Rasan"; case .library: "Library & files"; case .about: "About"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .general: "slider.horizontal.3"; case .notifications: "bell.badge"; case .updates: "arrow.triangle.2.circlepath"
+        case .rasan: "sparkles"; case .library: "folder"; case .about: "info.circle"
+        }
+    }
+    var tint: Color {
+        switch self {
+        case .general: .rasan; case .notifications: .turmeric; case .updates: .green
+        case .rasan: .pink; case .library: .blue; case .about: .gray
+        }
+    }
+}
+
 struct StudioSettingsView: View {
     @Bindable var settings: StudioSettings
     @ObservedObject private var updater = StudioUpdater.shared
-    @State private var tab = "general"
+    @State private var section: SettingsSection = .general
     @State private var showAdvanced = false
+    @State private var tipsReset = false
+    @State private var pageWidth: CGFloat = 1000
+
+    private var wide: Bool { pageWidth >= 820 }
+    private var gridColumns: [GridItem] { [GridItem(.adaptive(minimum: 380, maximum: 640), spacing: 16, alignment: .top)] }
 
     var body: some View {
         pageBody
@@ -358,142 +390,239 @@ struct StudioSettingsView: View {
         } message: { Text(settings.error ?? "") }
     }
 
-    /// The page: one header (title, then the General / Director switch) on the same leading edge as the grouped forms, in a
-    /// centred column. The form owns the scrolling and its own background is hidden so the canvas runs through.
+    /// The page: a big title, a navigation on the left and the section's cards on the right, centred at a sensible width.
+    /// On a narrow window the navigation becomes a row of chips above the cards.
     private var pageBody: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Settings")
-                    .font(.system(size: 28, weight: .semibold)).tracking(-0.4)
+                    .font(.system(size: 34, weight: .bold)).tracking(-0.6)
                     .accessibilityAddTraits(.isHeader)
-                Picker("Settings", selection: $tab) {
-                    Text("General").tag("general")
-                    Text("Director").tag("director")
+                Text("Make RasanAI yours.").font(.system(size: 15)).foregroundStyle(.secondary)
+            }
+            .padding(.bottom, 24)
+            if wide {
+                HStack(alignment: .top, spacing: 32) {
+                    VStack(spacing: 2) { ForEach(SettingsSection.allCases) { navRow($0) } }
+                        .frame(width: 210)
+                    sectionScroll
                 }
-                .pickerStyle(.segmented).labelsHidden().fixedSize()
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) { ForEach(SettingsSection.allCases) { navChip($0) } }
+                }
+                .padding(.bottom, 16)
+                sectionScroll
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20).padding(.top, 32).padding(.bottom, 4)
-            .frame(maxWidth: 700)
-            .frame(maxWidth: .infinity)
-            Group {
-                if tab == "general" { general } else { director }
-            }
-            .scrollContentBackground(.hidden)
-            .buttonStyle(.bordered).controlSize(.small)   // native buttons inside the forms, not the page's brand style
-            .frame(maxWidth: 700)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .padding(.horizontal, wide ? 40 : 20).padding(.top, 32).padding(.bottom, 8)
+        .frame(maxWidth: 1200, maxHeight: .infinity, alignment: .topLeading)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.appBackground)
+        .background(GeometryReader { proxy in Color.clear.onChange(of: proxy.size.width, initial: true) { _, width in pageWidth = width } })
+        .buttonStyle(.bordered).controlSize(.small)   // native buttons inside the cards, not the page's brand style
         .pageHeader("Settings")
     }
 
-    private var general: some View {
-        Form {
-            Section {
-                LabeledContent("Library") {
-                    HStack(spacing: 8) {
-                        Text(abbreviated(settings.projectRoot)).lineLimit(1).truncationMode(.middle)
-                            .foregroundStyle(.secondary).textSelection(.enabled)
-                        Button("Change…") { settings.chooseLibrary() }
-                    }
-                }
+    private var sectionScroll: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                sectionContent
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(.bottom, 32)
+            .id(section)
+            .transition(.opacity)
+        }
+        .scrollIndicators(.never)
+        .animation(.easeOut(duration: 0.18), value: section)
+    }
+
+    private func navRow(_ item: SettingsSection) -> some View {
+        SettingsNavRow(item: item, selected: section == item) { section = item }
+    }
+
+    private func navChip(_ item: SettingsSection) -> some View {
+        Button { section = item } label: {
+            Label(item.title, systemImage: item.symbol).font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(Capsule().fill(section == item ? item.tint.opacity(0.22) : Color.primary.opacity(0.06)))
+                .foregroundStyle(section == item ? Color.primary : Color.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(item.title).accessibilityAddTraits(section == item ? .isSelected : [])
+    }
+
+    @ViewBuilder private var sectionContent: some View {
+        switch section {
+        case .general: generalCards
+        case .notifications: notificationCards
+        case .updates: updateCards
+        case .rasan: rasanCards
+        case .library: libraryCards
+        case .about: aboutCards
+        }
+    }
+
+    // MARK: Sections
+
+    private var generalCards: some View {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 16) {
+            SettingsCard(symbol: "circle.lefthalf.filled", tint: .rasan, title: "Appearance", detail: "Choose how RasanAI looks.") {
                 Picker("Appearance", selection: $settings.appearance) {
                     Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark")
+                }.pickerStyle(.segmented).labelsHidden()
+            }
+            SettingsCard(symbol: "lightbulb", tint: .turmeric, title: "Tips", detail: "Bring back the little hints that show you around.") {
+                HStack {
+                    Button("Show tips again") {
+                        UserDefaults.standard.removeObject(forKey: "askRasanHintSeen"); tipsReset = true
+                    }
+                    if tipsReset { Label("Done. You will see them again.", systemImage: "checkmark").font(.caption).foregroundStyle(.secondary) }
                 }
+            }
+            SettingsCard(symbol: "questionmark.bubble", tint: .blue, title: "Help", detail: "Learn how it works, or tell us what to fix.") {
+                VStack(spacing: 2) {
+                    SettingsActionRow(symbol: "book", title: "Open the guide", detail: "How RasanAI makes a film") { NSWorkspace.shared.open(guideURL) }
+                    SettingsActionRow(symbol: "exclamationmark.bubble", title: "Send feedback or report a problem", detail: "Tell the team what is broken or could be better") { StudioFeedback.present() }
+                }
+            }
+        }
+    }
+
+    private var notificationCards: some View {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 16) {
+            SettingsCard(symbol: "bell.badge", tint: .turmeric, title: "Notify me when RasanAI needs me", detail: "A film that is waiting on you should not wait quietly.") {
                 Toggle("Notify me when RasanAI needs me", isOn: Binding(
                     get: { settings.notificationsEnabled && settings.notificationsAllowed != .denied },
                     set: { enabled in Task { await settings.setNotificationsEnabled(enabled) } }))
+                    .toggleStyle(.switch).labelsHidden()
+                    .accessibilityLabel("Notify me when RasanAI needs me")
                 if settings.notificationsEnabled && settings.notificationsAllowed == .denied {
                     HStack {
                         Text("Notifications are off for RasanAI in macOS.").font(.caption).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Open Notification Settings…") { settings.openNotificationSettings() }.controlSize(.small)
+                        Button("Open Notification Settings…") { settings.openNotificationSettings() }
                     }
-                }
-            } header: { Text("Studio") } footer: {
-                Text("Films and brands live in the library as ordinary folders.")
-            }
-            Section("Updates") {
-                Toggle("Check automatically", isOn: Binding(get: { updater.automaticChecks }, set: { updater.setAutomaticChecks($0) }))
-                    .disabled(!updater.isConfigured)
-                LabeledContent("Last checked") {
-                    HStack(spacing: 8) {
-                        Text(updater.isConfigured ? updater.lastCheckedText : "Not available in this build").foregroundStyle(.secondary)
-                        Button("Check now") { updater.check() }.disabled(!updater.canCheck)
-                    }
-                }
-            }
-            Section("About") {
-                LabeledContent("Version", value: settings.appVersion)
-            }
-        }.formStyle(.grouped)
-    }
-
-    private var director: some View {
-        let agent = settings.agent
-        return Form {
-            Section {
-                Picker("Director", selection: $settings.defaultAgent) {
-                    Text("Claude Code").tag(LocalAgent.claude.id)
-                    Text("Codex").tag(LocalAgent.codex.id)
-                }.pickerStyle(.menu)
-                if agent != .custom {
-                    LabeledContent("Found at") {
-                        HStack(spacing: 8) {
-                            Text(settings.path(for: agent).isEmpty ? "Not found" : abbreviated(settings.path(for: agent)))
-                                .lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
-                            Button("Choose…") { settings.chooseExecutable(for: agent) }
-                        }
-                    }
-                    if agent == .claude {
-                        // New films use the plan chosen on New film; a typed model here would silently lose to it.
-                        LabeledContent("Models") { Text("Chosen for each film in New film").foregroundStyle(.secondary) }
-                    } else {
-                        TextField("Model", text: $settings.codexModel, prompt: Text("Default"))
-                    }
-                }
-                statusLine(agent)
-            } header: { Text("Director account") } footer: {
-                Text("RasanAI directs with your \(agent.title) account. Usage counts toward your plan.")
-            }
-            Section {
-                Picker("Pace", selection: $settings.pace) {
-                    ForEach(FilmPace.allCases) { Text($0.title).tag($0) }
-                }.pickerStyle(.menu)
-            } header: { Text("Film defaults") } footer: {
-                Text("How fast the director works. \(settings.pace.summary) You can change it for one film on the Pace button in New film.")
-            }
-            Section {
-                Toggle("Generate images with Codex", isOn: $settings.generateImagesWithCodex)
-            } footer: {
-                Text("Presenter films can use generated images. Each image is a Codex run on your ChatGPT plan, about a minute and a half.")
-            }
-            Section {
-                Toggle("Keep the Mac awake while a film is being made", isOn: $settings.keepAwakeWhileMaking)
-            } footer: {
-                Text("The screen can still sleep. Closing the lid on battery still sleeps the Mac; RasanAI picks the film back up when it wakes.")
-            }
-            Section {
-                BudgetSetting(settings: settings)
-            } header: { Text("Budget") } footer: {
-                Text("RasanAI shows the director's tokens and cost for each film. Dollar figures marked est. are calculated from list prices.")
-            }
-            Section("Advanced") {
-                DisclosureGroup("Developer options", isExpanded: $showAdvanced) {
-                    Toggle("Allow unrestricted tools", isOn: $settings.allowUnrestrictedTools)
-                    if settings.allowUnrestrictedTools {
-                        Text("The director can read and change files outside the film's folder. Only use this on films you trust.")
-                            .font(.caption).foregroundStyle(.red)
-                    }
-                    TextField("Claude model for “Same as Settings”", text: $settings.claudeModel, prompt: Text("Default"))
-                    TextField("Node path", text: $settings.nodePath, prompt: Text(settings.nodeURL?.path ?? "Automatic"))
-                    TextField("Custom executable", text: Binding(get: { settings.customPath }, set: { settings.setPath($0, for: .custom) }), prompt: Text("Optional"))
                 }
             }
         }
-        .formStyle(.grouped)
+    }
+
+    private var updateCards: some View {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 16) {
+            SettingsCard(symbol: "arrow.triangle.2.circlepath", tint: .green, title: "Keep RasanAI up to date", detail: "New features and fixes arrive on their own.") {
+                Toggle("Check automatically", isOn: Binding(get: { updater.automaticChecks }, set: { updater.setAutomaticChecks($0) }))
+                    .toggleStyle(.switch).disabled(!updater.isConfigured)
+            }
+            SettingsCard(symbol: "clock", tint: .green, title: "Last checked", detail: "See if a newer version is ready.") {
+                HStack(spacing: 10) {
+                    Text(updater.isConfigured ? updater.lastCheckedText : "Not available in this build").foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Check now") { updater.check() }.disabled(!updater.canCheck)
+                }
+            }
+        }
+    }
+
+    private var libraryCards: some View {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 16) {
+            SettingsCard(symbol: "folder.fill", tint: .blue, title: "Library folder", detail: "Films and brands live here as ordinary folders.") {
+                HStack(spacing: 10) {
+                    Image(systemName: "folder.fill").font(.system(size: 20)).foregroundStyle(Color.blue)
+                    Text(abbreviated(settings.projectRoot)).lineLimit(1).truncationMode(.middle)
+                        .textSelection(.enabled).accessibilityLabel("Library folder, \(abbreviated(settings.projectRoot))")
+                }
+                .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
+                HStack(spacing: 8) {
+                    Button("Show in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: settings.projectRoot, isDirectory: true)])
+                    }
+                    Button("Change…") { settings.chooseLibrary() }
+                }
+                Text("Changing it does not move or delete your existing films.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var aboutCards: some View {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 16) {
+            SettingsCard(symbol: "info.circle", tint: .gray, title: "RasanAI Studio", detail: "The version you are using.") {
+                HStack {
+                    Text("Version").foregroundStyle(.secondary)
+                    Spacer()
+                    Text(settings.appVersion).textSelection(.enabled)
+                }
+            }
+            SettingsCard(symbol: "questionmark.bubble", tint: .blue, title: "Help", detail: "Learn how it works, or tell us what to fix.") {
+                VStack(spacing: 2) {
+                    SettingsActionRow(symbol: "book", title: "Open the guide", detail: "How RasanAI makes a film") { NSWorkspace.shared.open(guideURL) }
+                    SettingsActionRow(symbol: "exclamationmark.bubble", title: "Send feedback or report a problem", detail: "Tell the team what is broken or could be better") { StudioFeedback.present() }
+                }
+            }
+        }
+    }
+
+    private var rasanCards: some View {
+        let agent = settings.agent
+        return VStack(alignment: .leading, spacing: 16) {
+            LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 16) {
+                SettingsCard(symbol: "person.crop.circle", tint: .pink, title: "Who directs your films", detail: "RasanAI directs with your \(agent.title) account. Usage counts toward your plan.") {
+                    Picker("Director", selection: $settings.defaultAgent) {
+                        Text("Claude Code").tag(LocalAgent.claude.id)
+                        Text("Codex").tag(LocalAgent.codex.id)
+                    }.pickerStyle(.segmented).labelsHidden().accessibilityLabel("Director")
+                    if agent != .custom {
+                        HStack(spacing: 8) {
+                            Text("Found at").foregroundStyle(.secondary)
+                            Text(settings.path(for: agent).isEmpty ? "Not found" : abbreviated(settings.path(for: agent)))
+                                .lineLimit(1).truncationMode(.middle)
+                            Spacer()
+                            Button("Choose…") { settings.chooseExecutable(for: agent) }
+                        }
+                        if agent == .claude {
+                            // New films use the plan chosen on New film; a typed model here would silently lose to it.
+                            Text("The model is chosen for each film in New film.").font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            TextField("Model", text: $settings.codexModel, prompt: Text("Default"))
+                        }
+                    }
+                    statusLine(agent)
+                }
+                SettingsCard(symbol: "speedometer", tint: .rasan, title: "Pace", detail: "How fast the director works. \(settings.pace.summary) You can change it for one film in New film.") {
+                    Picker("Pace", selection: $settings.pace) {
+                        ForEach(FilmPace.allCases) { Text($0.title).tag($0) }
+                    }.pickerStyle(.menu).labelsHidden().accessibilityLabel("Pace")
+                }
+                SettingsCard(symbol: "photo.on.rectangle.angled", tint: .purple, title: "Generated images", detail: "Presenter films can use images made with Codex on your ChatGPT plan, about a minute and a half each.") {
+                    Toggle("Generate images with Codex", isOn: $settings.generateImagesWithCodex).toggleStyle(.switch)
+                }
+                SettingsCard(symbol: "moon.zzz", tint: .teal, title: "Stay awake while working", detail: "The screen can still sleep. If the Mac sleeps, RasanAI picks the film back up when it wakes.") {
+                    Toggle("Keep the Mac awake while a film is being made", isOn: $settings.keepAwakeWhileMaking).toggleStyle(.switch)
+                }
+                SettingsCard(symbol: "pause.circle", tint: .orange, title: "Pause when stuck", detail: "If it repeats a step or shows nothing new for two minutes, RasanAI pauses it. Nothing is lost.") {
+                    Toggle("Pause the director when it looks stuck", isOn: $settings.pauseWhenStuck).toggleStyle(.switch)
+                }
+                SettingsCard(symbol: "dollarsign.circle", tint: .green, title: "Budget", detail: "RasanAI shows tokens and cost for each film, and pauses it when a film passes your limit. Figures marked est. use list prices.") {
+                    BudgetSetting(settings: settings)
+                }
+            }
+            SettingsCard(symbol: "wrench.and.screwdriver", tint: .gray, title: "Advanced", detail: "For people who know their way around. Safe to leave alone.") {
+                DisclosureGroup("Developer options", isExpanded: $showAdvanced) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle("Allow unrestricted tools", isOn: $settings.allowUnrestrictedTools).toggleStyle(.switch)
+                        if settings.allowUnrestrictedTools {
+                            Text("The director can read and change files outside the film's folder. Only use this on films you trust.")
+                                .font(.caption).foregroundStyle(.red)
+                        }
+                        TextField("Claude model for “Same as Settings”", text: $settings.claudeModel, prompt: Text("Default"))
+                        TextField("Node path", text: $settings.nodePath, prompt: Text(settings.nodeURL?.path ?? "Automatic"))
+                        TextField("Custom executable", text: Binding(get: { settings.customPath }, set: { settings.setPath($0, for: .custom) }), prompt: Text("Optional"))
+                    }.padding(.top, 8)
+                }
+            }
+        }
         .task(id: settings.defaultAgent) { await settings.check(agent) }
         // Back from the browser or Terminal after signing in: look again without a button press.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -501,6 +630,7 @@ struct StudioSettingsView: View {
             Task { await settings.check(agent) }
         }
     }
+
 
     @ViewBuilder private func statusLine(_ agent: LocalAgent) -> some View {
         let installed = settings.isInstalled(agent)
@@ -537,4 +667,89 @@ struct StudioSettingsView: View {
     }
 
     private func abbreviated(_ path: String) -> String { (path as NSString).abbreviatingWithTildeInPath }
+}
+
+// MARK: Settings pieces
+
+/// One row of the left navigation: icon in a tinted square, label, a soft highlight on hover and when selected.
+private struct SettingsNavRow: View {
+    let item: SettingsSection
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: item.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(item.tint)
+                    .frame(width: 26, height: 26)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(item.tint.opacity(0.16)))
+                Text(item.title).font(.system(size: 13, weight: selected ? .semibold : .regular))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(selected ? 0.10 : (hovering ? 0.05 : 0))))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityLabel(item.title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// A rounded card: tinted icon, short title, one plain line, then the controls.
+private struct SettingsCard<Content: View>: View {
+    let symbol: String
+    let tint: Color
+    let title: String
+    let detail: String
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(tint)
+                    .frame(width: 34, height: 34)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(tint.opacity(0.16)))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader)
+                    Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            content
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.primary.opacity(0.045)))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.primary.opacity(0.08)))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// A tappable row inside a card, with a hover highlight.
+private struct SettingsActionRow: View {
+    let symbol: String
+    let title: String
+    let detail: String
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol).font(.system(size: 13)).foregroundStyle(Color.rasan).frame(width: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 13, weight: .medium))
+                    Text(detail).font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(hovering ? 0.07 : 0)))
+            .contentShape(RoundedRectangle(cornerRadius: 9))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityLabel(title).accessibilityHint(detail)
+    }
 }

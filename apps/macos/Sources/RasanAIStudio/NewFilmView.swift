@@ -222,7 +222,7 @@ struct NewFilmView: View {
                     "One question at a time. Skip any of them: what you leave, RasanAI decides.",
                     "Add footage, images or documents on the material screen, or drop them anywhere on the page. Copies go into the film; originals stay put.",
                     "Drop an edit you like and RasanAI studies it, so the questions about captions, writing and layout are answered for you.",
-                    "Review shows every answer and where it came from. More settings holds pace, models, motion design, brand and Inspiration moves.",
+                    "The last page shows your whole film. Change anything right where it is; each part says whether you chose it or RasanAI decides.",
                     "Save as series… keeps the answers, brand and end card so the next episode asks less."])
             }
     }
@@ -237,25 +237,84 @@ struct NewFilmView: View {
         FlowHost(addFiles: { add($0) }, chooseFiles: { choose() }, removeSource: { url in sources.removeAll { $0 == url } },
                  pickOption: { option in if let catalog { choose(option, in: catalog) } }, undoAutoPick: { undoAutoPick() },
                  settleFormat: { await settleFormat() }, briefPlaceholder: briefPlaceholder,
-                 moreSettings: AnyView(moreSettings), runButton: AnyView(runButton), footerActions: AnyView(reviewFooterActions))
+                 howItWorks: AnyView(howItWorks), footageWell: AnyView(footageWell), referenceWell: AnyView(referenceWell),
+                 runButton: AnyView(runButton), footerActions: AnyView(reviewFooterActions))
     }
 
-    /// Everything that used to sit on the prompt box's chips and in the wells, behind "More settings" on Review.
-    private var moreSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            FlowLayout(spacing: ComposerLayout.gap) {
-                paceChip
-                if agent == .claude { modelsChip }
-                motionChip
-                brandChip
-            }
-            HStack(spacing: 4) {
-                Text(directorReady ? "Directed by \(agent.title) ·" : "No director set up yet ·")
-                Button(directorReady ? "Change" : "Set up…") { if directorReady { store.openSettingsPage() } else { store.settings.showWelcome = true } }
-                    .buttonStyle(.link)
-            }.font(.system(size: 12)).foregroundStyle(.secondary)
-            linkedWells
+    private var directorLine: some View {
+        HStack(spacing: 4) {
+            Text(directorReady ? "Directed by \(agent.title) ·" : "No director set up yet ·")
+            Button(directorReady ? "Change" : "Set up…") { if directorReady { store.openSettingsPage() } else { store.settings.showWelcome = true } }
+                .buttonStyle(.link)
+        }.font(.system(size: 12)).foregroundStyle(.secondary)
+    }
+
+    /// One setting in "How RasanAI works": its name, the control, and what the choice means for time, cost or look.
+    private func settingTile<Control: View>(_ title: String, _ symbol: String, _ note: String, @ViewBuilder control: () -> Control) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+            control()
+            Text(Self.sentence(note)).font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
         }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
+    }
+
+    /// A note as a sentence: a capital first letter and a full stop.
+    private static func sentence(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard let first = trimmed.first else { return trimmed }
+        let capped = first.uppercased() + trimmed.dropFirst()
+        return ".?!".contains(capped.last ?? ".") ? capped : capped + "."
+    }
+
+    /// The "How RasanAI works" card on the Ready page: every pick on show, the same bindings the old chips used.
+    private var howItWorks: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 12, alignment: .top)], alignment: .leading, spacing: 12) {
+                settingTile("Speed", "gauge.with.dots.needle.33percent", draft.pace.summary) {
+                    Picker("Speed", selection: $draft.pace) { ForEach(FilmPace.allCases) { Text($0.title).tag($0) } }
+                        .pickerStyle(.segmented).labelsHidden()
+                }
+                if agent == .claude {
+                    settingTile("Quality", "sparkles", draft.modelPlan.summary) {
+                        Picker("Quality", selection: $draft.modelPlan) { ForEach(ModelPlan.allCases) { Text($0.title).tag($0) } }
+                            .pickerStyle(.segmented).labelsHidden()
+                    }
+                }
+                settingTile("Motion", "wand.and.sparkles", MotionLevel.summary(draft.motionLevel)) {
+                    Picker("Motion", selection: $draft.motionLevel) { ForEach(MotionLevel.all, id: \.id) { Text($0.title).tag($0.id) } }
+                        .pickerStyle(.segmented).labelsHidden()
+                }
+                settingTile("Brand", "paintpalette", draft.brand == nil ? "No brand: RasanAI designs the look from your brief." : "Colours, type and logo come from this brand.") {
+                    HStack(spacing: 8) {
+                        Picker("Brand", selection: Binding(get: { draft.brand ?? "" }, set: { draft.brand = $0.isEmpty ? nil : $0 })) {
+                            Text("No brand").tag("")
+                            ForEach(brands) { Text($0.name).tag($0.name) }
+                        }.labelsHidden().pickerStyle(.menu).fixedSize()
+                        Button("New brand…") { store.openBrands() }.buttonStyle(.rasanSecondary).controlSize(.small)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "person.crop.circle.badge.checkmark").foregroundStyle(.secondary).accessibilityHidden(true)
+                directorLine
+                Text("The assistant on your Mac that makes the film.").font(.system(size: 11.5)).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var footageWell: some View {
+        LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, bare: true, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) }, screen: screenForBrandKits)
+    }
+    private var referenceWell: some View {
+        LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working, bare: true,
+                         moves: AnyView(momentThumbs), movesCount: draft.moments.count, onPickMoves: { showGallery = true })
     }
 
     /// Beside the run button on Review: discard, the note that the draft is kept, and Save to Library.
@@ -546,15 +605,6 @@ struct NewFilmView: View {
             .buttonStyle(.plain).help("Which Claude models make this film: \(draft.modelPlan.summary)")
             .accessibilityLabel("Models: \(draft.modelPlan.chipTitle)")
             .popover(isPresented: $showModels, arrowEdge: .bottom) { modelPicker }
-    }
-
-    /// Footage folders and a reference video, used where they are. Separate wells: footage is cut, a reference is only studied.
-    private var linkedWells: some View {
-        HStack(alignment: .top, spacing: 14) {
-            LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) }, screen: screenForBrandKits)
-            LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working,
-                             moves: AnyView(momentThumbs), movesCount: draft.moments.count, onPickMoves: { showGallery = true })
-        }
     }
 
     private var chipFill: Color { Color.primary.opacity(0.07) }

@@ -37,7 +37,7 @@ enum CrewThoughts {
         let skipped: Set<ProgressActivity.Kind> = [.warning, .ask, .answer]
         var seen = Set<String>()
         let items = (s.activity + s.recentTools)
-            .filter { $0.phase == phase && !skipped.contains($0.kind) && !$0.title.isEmpty }
+            .filter { $0.phase == phase && !skipped.contains($0.kind) && $0.severity == nil && !$0.title.isEmpty }
             .sorted { $0.time > $1.time }
             .filter { seen.insert($0.title).inserted }
         return items.prefix(maxOnScreen).map { CrewThought(id: $0.id, kind: .say, time: $0.time, text: $0.title, revising: $0.kind == .critic) }
@@ -65,6 +65,12 @@ enum BubbleMetrics {
     static var extraLeading: CGFloat { max(0, lineHeight - NSLayoutManager().defaultLineHeight(for: font)) }
     static let labelHeight: CGFloat = 14
     static let favicon: CGFloat = 34
+    /// The speech card: its tail's height, the widest it grows, and its side padding.
+    static let tailHeight: CGFloat = 8
+    static let sayMaxWidth: CGFloat = 300
+    static let sayPadX: CGFloat = 14
+    /// Where the tail's centre sits, from the card's left edge.
+    static let tailX: CGFloat = 28
 
     static func measure(_ text: String, width: CGFloat, font: NSFont = BubbleMetrics.font, lines: Int = 3) -> CGSize {
         guard !text.isEmpty else { return .zero }
@@ -76,10 +82,12 @@ enum BubbleMetrics {
 
     static func size(_ thought: CrewThought) -> CGSize {
         switch thought.kind {
-        case .dots: return CGSize(width: 110, height: 52)
+        case .dots: return CGSize(width: 76, height: 40 + tailHeight)
         case .say:
-            let text = measure(thought.text, width: 250)
-            return CGSize(width: min(290, max(110, text.width + 44)), height: 28 + labelHeight + text.height)
+            let font = NSFont.systemFont(ofSize: 14, weight: .medium)
+            let text = measure(thought.text, width: 1000, font: font, lines: 1).width
+            let caption = measure("59m ago", width: 200, font: .systemFont(ofSize: 11), lines: 1).width
+            return CGSize(width: min(sayMaxWidth, max(text, caption) + 2 * sayPadX + 2), height: 12 + 14 + 3 + 19 + 12 + tailHeight)
         case .find:
             let full = thought.text.isEmpty ? thought.source : thought.source + ": " + thought.text
             // Measured in the semibold weight (the host is bold), which is the wider of the two.
@@ -130,6 +138,30 @@ struct CloudShape: Shape {
     }
 }
 
+/// A continuous rounded card with a small rounded tail under its bottom-left, pointing at the speaker's head.
+struct SpeechCardShape: InsettableShape {
+    var tail = true
+    var inset: CGFloat = 0
+    func inset(by amount: CGFloat) -> SpeechCardShape { var s = self; s.inset += amount; return s }
+    func path(in rect: CGRect) -> Path {
+        let r = rect.insetBy(dx: inset, dy: inset)
+        let th = tail ? BubbleMetrics.tailHeight : 0
+        let card = CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height - th)
+        var p = Path(roundedRect: card, cornerRadius: 14, style: .continuous)
+        if tail {
+            let cx = r.minX + BubbleMetrics.tailX, y = card.maxY
+            var t = Path()
+            t.move(to: CGPoint(x: cx - 8, y: y - 1))
+            t.addQuadCurve(to: CGPoint(x: cx - 3, y: y + th - 1), control: CGPoint(x: cx - 4, y: y + 1))
+            t.addQuadCurve(to: CGPoint(x: cx + 4, y: y + th * 0.55), control: CGPoint(x: cx - 1, y: y + th + 1))
+            t.addQuadCurve(to: CGPoint(x: cx + 8, y: y - 1), control: CGPoint(x: cx + 5, y: y + 2))
+            t.closeSubpath()
+            p.addPath(t)
+        }
+        return p
+    }
+}
+
 enum StageColors {
     static let accent = Color(red: 0x4B / 255, green: 0x4A / 255, blue: 0xCF / 255)
     static let accentDark = Color(red: 0xA9 / 255, green: 0xA8 / 255, blue: 1)
@@ -163,8 +195,8 @@ struct CrewBubbleView: View {
     var body: some View {
         Group {
             switch thought.kind {
-            case .dots: cloud { dots }
-            case .say: cloud { sayContent }
+            case .dots: speechCard { dots }
+            case .say: speechCard { sayContent }
             case .find: card
             }
         }
@@ -197,13 +229,13 @@ struct CrewBubbleView: View {
     }
 
     private var sayContent: some View {
-        let t = typed(thought.text, after: 0.55)
-        return VStack(spacing: 3) {
-            label
-            if motion, live, age < 0.55 { dots }
-            else { (Text(t.text) + caret(t.done)).font(.system(size: 16)).lineSpacing(BubbleMetrics.extraLeading).lineLimit(3).multilineTextAlignment(.center).foregroundStyle(inkColor) }
+        VStack(alignment: .leading, spacing: 3) {
+            Text(ago).font(.system(size: 11)).foregroundStyle(StageColors.quiet).lineLimit(1)
+            Text(thought.text).font(.system(size: 14, weight: .medium)).foregroundStyle(inkColor)
+                .lineLimit(1).truncationMode(.tail)
         }
-        .frame(width: size.width - 40)
+        .padding(.horizontal, BubbleMetrics.sayPadX)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var dots: some View {
@@ -218,18 +250,17 @@ struct CrewBubbleView: View {
         .padding(.vertical, 4)
     }
 
-    private func cloud<C: View>(@ViewBuilder _ content: () -> C) -> some View {
-        content()
-            .frame(width: size.width, height: size.height)
-            .background {
-                let shape = CloudShape()
-                let edge: Color = dark ? (live ? Color(red: 130 / 255, green: 128 / 255, blue: 1).opacity(0.6) : .white.opacity(0.14)) : .clear
-                shape.fill(dark ? StageColors.darkGlass.opacity(0.82) : .white)
-                    .overlay { shape.stroke(edge, lineWidth: 1) }
-                    .frame(width: size.width + 4, height: size.height - 4)
-                    .shadow(color: dark ? (live ? Color(red: 110 / 255, green: 108 / 255, blue: 1).opacity(0.45) : .black.opacity(0.45)) : Color(red: 60 / 255, green: 50 / 255, blue: 110 / 255).opacity(0.14),
-                            radius: dark ? (live ? 12 : 10) : 9, y: dark && live ? 0 : 5)
-            }
+    /// The clean speech card: the app's glass in a continuous rounded shape, a hairline edge, a soft shadow, and a small tail
+    /// (only on the live one) toward the speaker's head.
+    private func speechCard<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        let shape = SpeechCardShape(tail: live)
+        return content()
+            .padding(.bottom, live ? BubbleMetrics.tailHeight : 0)
+            .frame(width: size.width, height: size.height - (live ? 0 : BubbleMetrics.tailHeight))
+            .glassPanel(in: shape)
+            .overlay { shape.strokeBorder(Color.white.opacity(dark ? 0.08 : 0.5), lineWidth: 0.5) }
+            .shadow(color: .black.opacity(dark ? 0.35 : 0.12), radius: 10, y: 4)
+            .frame(width: size.width, height: size.height, alignment: .top)
     }
 
     private var card: some View {
@@ -273,46 +304,164 @@ struct CrewBubbleView: View {
 
 // MARK: Speech bubble (asking)
 
-/// The asking character's one speech bubble: a rounded rectangle with a tail toward the head (not a cloud).
+/// The asking character's speech bubble ("Gradient Pill"): a large-radius dark body with a short tail on the left edge at mouth height, a gradient outline
+/// from the speaker's colour to the brand violet with a soft glow, the question (its last word tinted) and the context line inside.
 struct CrewSpeechBubble: View {
     let text: String
-    var tailY: CGFloat?
+    var subtitle: String?
+    /// The speaker's colour; nil falls back to the brand violet.
+    var tint: Color?
+    /// Where the tail meets the bubble, from its vertical centre; nil keeps the tail near the top.
+    var tailFromCenter: CGFloat?
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+    @State private var twinkle = false
+
+    private var speaker: Color { tint ?? .rasan }
+    /// The colour drawn on screen: on the dark bubble the character's colour is lifted until it reads (Kavi's indigo would vanish);
+    /// on white the original, darker colour keeps its contrast.
+    private var display: Color { scheme == .dark ? speaker.readableOnDark() : speaker }
+    private var subtitleText: String? { (subtitle?.isEmpty ?? true) ? nil : subtitle }
 
     var body: some View {
         let dark = scheme == .dark
-        Text(text)
-            .font(.system(size: 17, weight: .medium))
-            .foregroundStyle(dark ? Color(red: 0xF2 / 255, green: 0xF2 / 255, blue: 0xF5 / 255) : StageColors.ink)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 20).padding(.vertical, 14)
-            .background {
-                SpeechShape(tailY: tailY)
-                    .fill(dark ? Color(red: 44 / 255, green: 44 / 255, blue: 52 / 255) : .white)
-                    .overlay { SpeechShape(tailY: tailY).stroke(dark ? .white.opacity(0.12) : .clear, lineWidth: 1) }
-                    .shadow(color: dark ? .black.opacity(0.45) : Color(red: 60 / 255, green: 50 / 255, blue: 110 / 255).opacity(0.14), radius: dark ? 10 : 9, y: 4)
+        let shape = SpeechShape(tailFromCenter: tailFromCenter)
+        let ring = LinearGradient(colors: [display, .rasan], startPoint: .leading, endPoint: .trailing)
+        HugWidthLayout(cap: 520 - 48 - SpeechShape.tailOut) {
+            VStack(alignment: .leading, spacing: 5) {
+                title(dark: dark)
+                if let subtitleText {
+                    Text(subtitleText)
+                        .font(.system(size: 14))
+                        .lineSpacing(2)
+                        .foregroundStyle(dark ? Color.white.opacity(0.6) : Color.black.opacity(0.6))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            .padding(.leading, 11)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(text)
-            .accessibilityAddTraits(.isHeader)
+        }
+        .padding(.horizontal, 24).padding(.vertical, 18)
+        .padding(.leading, SpeechShape.tailOut)
+        .background {
+            ZStack {
+                shape.stroke(ring, lineWidth: 3).blur(radius: 11).opacity(dark ? 0.4 : 0.22)
+                shape.fill(dark
+                           ? LinearGradient(colors: [Color(red: 0x20 / 255, green: 0x20 / 255, blue: 0x2A / 255), Color(red: 0x1B / 255, green: 0x1B / 255, blue: 0x24 / 255)], startPoint: .top, endPoint: .bottom)
+                           : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
+                shape.stroke(ring, lineWidth: 1.5)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            Image(systemName: "sparkle")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(display)
+                .scaleEffect(reduceMotion ? 1 : (twinkle ? 1.12 : 0.82))
+                .opacity(reduceMotion ? 1 : (twinkle ? 1 : 0.55))
+                .offset(x: SpeechShape.tailOut - 12, y: -14)
+                .accessibilityHidden(true)
+        }
+        .scaleEffect(reduceMotion ? 1 : (shown ? 1 : 0.9), anchor: .topLeading)
+        .opacity(shown ? 1 : 0)
+        .onAppear {
+            pop()
+            if !reduceMotion { withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { twinkle = true } }
+        }
+        .onChange(of: text) { shown = false; pop() }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(subtitleText.map { "\(text). \($0)" } ?? text)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    /// The question with its last word (and trailing punctuation) in the speaker-to-violet gradient; a single word is all gradient.
+    private func title(dark: Bool) -> some View {
+        let ink = dark ? Color(red: 0xF4 / 255, green: 0xF4 / 255, blue: 0xF8 / 255) : StageColors.ink
+        let accent = LinearGradient(colors: [display, .rasan], startPoint: .leading, endPoint: .trailing)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let split = trimmed.lastIndex(of: " ")
+        let head = split.map { String(trimmed[..<$0]) + " " } ?? ""
+        let last = split.map { String(trimmed[trimmed.index(after: $0)...]) } ?? trimmed
+        return (Text(head).foregroundColor(ink) + Text(last).foregroundStyle(accent))
+            .font(.system(size: 22, weight: .semibold, design: .rounded))
+            .lineSpacing(2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func pop() {
+        DispatchQueue.main.async {
+            if reduceMotion { withAnimation(.easeOut(duration: 0.2)) { shown = true } }
+            else { withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }
+        }
     }
 }
 
-/// A rounded rectangle whose left edge carries a small triangular tail at `tailY`, pointing left.
+/// Sizes its one child to its own tight width, capped: short text gives a short bubble, long text wraps at the cap.
+private struct HugWidthLayout: Layout {
+    var cap: CGFloat
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        return child.sizeThatFits(ProposedViewSize(width: min(proposal.width ?? cap, cap), height: nil))
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let child = subviews.first else { return }
+        let size = child.sizeThatFits(ProposedViewSize(width: min(bounds.width, cap), height: nil))
+        child.place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(width: size.width, height: size.height))
+    }
+}
+
+/// One continuous outline: a large-radius body whose bottom-left corner sweeps down and left into a short curved tail.
 struct SpeechShape: Shape {
-    /// Nil puts the tail at the middle of the edge.
-    var tailY: CGFloat?
+    /// How far the tail reaches left of the body.
+    static let tailOut: CGFloat = 14
+    /// Where the tail meets the left edge, from the top: level with the speaker's mouth, not down at the feet.
+    static let tailY: CGFloat = 38
+    /// When set, the tail meets the left edge this far from the bubble's vertical centre (negative = above), instead of `tailY` from the top.
+    var tailFromCenter: CGFloat?
     func path(in rect: CGRect) -> Path {
-        let body = CGRect(x: rect.minX + 11, y: rect.minY, width: rect.width - 11, height: rect.height)
-        var path = Path(roundedRect: body, cornerRadius: 18, style: .continuous)
-        let y = min(max(tailY ?? rect.height / 2, 26), max(26, rect.height - 26))
-        var tail = Path()
-        tail.move(to: CGPoint(x: body.minX + 1, y: y - 11))
-        tail.addQuadCurve(to: CGPoint(x: rect.minX, y: y + 3), control: CGPoint(x: body.minX - 3, y: y - 2))
-        tail.addQuadCurve(to: CGPoint(x: body.minX + 1, y: y + 11), control: CGPoint(x: body.minX - 4, y: y + 8))
-        tail.closeSubpath()
-        path.addPath(tail)
-        return path
+        let l = rect.minX + Self.tailOut, rt = rect.maxX, t = rect.minY, b = rect.maxY
+        let r = max(10, min(28, (b - t) / 2))
+        let k: CGFloat = 0.5523 * r
+        let half: CGFloat = 9
+        // Keep the tail on the straight run of the left edge, clear of both corners.
+        let cy = min(max(tailFromCenter.map { (t + b) / 2 + $0 } ?? t + Self.tailY, t + r + half), max(t + r + half, b - r - half))
+        var p = Path()
+        p.move(to: CGPoint(x: l + r, y: t))
+        p.addLine(to: CGPoint(x: rt - r, y: t))
+        p.addCurve(to: CGPoint(x: rt, y: t + r), control1: CGPoint(x: rt - r + k, y: t), control2: CGPoint(x: rt, y: t + r - k))
+        p.addLine(to: CGPoint(x: rt, y: b - r))
+        p.addCurve(to: CGPoint(x: rt - r, y: b), control1: CGPoint(x: rt, y: b - r + k), control2: CGPoint(x: rt - r + k, y: b))
+        p.addLine(to: CGPoint(x: l + r, y: b))
+        p.addCurve(to: CGPoint(x: l, y: b - r), control1: CGPoint(x: l + r - k, y: b), control2: CGPoint(x: l, y: b - r + k))
+        // Up the left edge to the tail root, sweep out to a tip that dips a little toward the speaker, and curl back in.
+        p.addLine(to: CGPoint(x: l, y: cy + half))
+        p.addCurve(to: CGPoint(x: rect.minX, y: cy + half + 4),
+                   control1: CGPoint(x: l - 2, y: cy + half - 1), control2: CGPoint(x: rect.minX + 5, y: cy + half + 3))
+        p.addCurve(to: CGPoint(x: l, y: cy - half),
+                   control1: CGPoint(x: rect.minX + 7, y: cy + 2), control2: CGPoint(x: l - 2, y: cy - half + 3))
+        p.addLine(to: CGPoint(x: l, y: t + r))
+        p.addCurve(to: CGPoint(x: l + r, y: t), control1: CGPoint(x: l, y: t + r - k), control2: CGPoint(x: l + r - k, y: t))
+        p.closeSubpath()
+        return p
+    }
+}
+
+
+extension Color {
+    /// A display tint that always reads on a dark fill: brightness raised to at least 0.92, saturation capped at 0.75, then mixed
+    /// toward white until the relative luminance reaches about 0.4 (so deep indigo, navy and forest green all become legible).
+    func readableOnDark() -> Color {
+        guard let rgb = NSColor(self).usingColorSpace(.sRGB) else { return self }
+        var h: CGFloat = 0, sat: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        rgb.getHue(&h, saturation: &sat, brightness: &b, alpha: &a)
+        var color = NSColor(hue: h, saturation: min(sat, 0.75), brightness: max(b, 0.92), alpha: a)
+        func luminance(_ c: NSColor) -> CGFloat {
+            func lin(_ v: CGFloat) -> CGFloat { v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+            return 0.2126 * lin(c.redComponent) + 0.7152 * lin(c.greenComponent) + 0.0722 * lin(c.blueComponent)
+        }
+        var steps = 0
+        while luminance(color) < 0.4, steps < 20, let mixed = color.blended(withFraction: 0.08, of: .white) {
+            color = mixed.usingColorSpace(.sRGB) ?? mixed
+            steps += 1
+        }
+        return Color(nsColor: color)
     }
 }

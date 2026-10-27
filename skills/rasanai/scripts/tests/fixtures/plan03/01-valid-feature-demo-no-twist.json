@@ -1,0 +1,153 @@
+{
+  "_label": "SYNTHETIC EXAMPLE. Invented to exercise the story code. NOT a recording, a certification of any product's capabilities, or a claim source. Never reuse as a captured result in a real film.",
+  "_note": "authored, not run. A clear feature demonstration: no villain, no turn, no peak, no twist. Must ship: the old rules demanded all four.",
+  "context": {
+    "kind": "single-feature-announcement",
+    "duration_s": 24,
+    "evidence_file": "evidence-synthetic.json",
+    "must_show": [
+      {
+        "id": "ms1",
+        "claim_ref": "syn-f1"
+      }
+    ]
+  },
+  "treatment": {
+    "story_format": "v2",
+    "id": "t-feature",
+    "tag": "Sure",
+    "treatment_title": "Notes to a sendable email in one press",
+    "premise": "show the one new button doing its job on a real page of notes",
+    "logline": "A page of raw meeting notes becomes a short email draft when you press Summarize.",
+    "communication_kind": "single-feature-announcement",
+    "proposition": "Summarize turns raw meeting notes into an email draft in one press.",
+    "viewer_takeaway": "I can press one button and get a draft I can send.",
+    "perspective": "someone who writes the same follow-up email every week",
+    "takeaways": [
+      {
+        "id": "t1",
+        "text": "Summarize turns raw notes into an email draft",
+        "required": true
+      },
+      {
+        "id": "t2",
+        "text": "it is on the synthetic Plus plan",
+        "required": true
+      }
+    ],
+    "optional_tools": [],
+    "beats": [
+      {
+        "id": "beat-task",
+        "internal_beat_label": "The task",
+        "grammar_role": "task",
+        "viewer_takeaway": "You already copy meeting notes into an email by hand every week.",
+        "on_screen": "Notes to email, by hand.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "a blank email next to a page of notes",
+          "change": "the notes are copied across line by line",
+          "after": "a half-written email"
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "open",
+        "duration_provisional_s": 5,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-press",
+        "internal_beat_label": "Feature behaviour",
+        "grammar_role": "feature_behavior",
+        "viewer_takeaway": "Pressing Summarize turns raw meeting notes into an email draft.",
+        "on_screen": "Press Summarize.",
+        "voiceover": "One press.",
+        "visual_event": {
+          "before": "a page of raw meeting notes",
+          "change": "the Summarize button is pressed and a three-line draft fills the email",
+          "after": "a short draft ready to send"
+        },
+        "evidence_refs": [
+          "syn-f1"
+        ],
+        "relation_to_previous": "so",
+        "duration_provisional_s": 8,
+        "channel_role": {
+          "mode": "split",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-result",
+        "internal_beat_label": "Visible improvement",
+        "grammar_role": "visible_improvement",
+        "viewer_takeaway": "The draft is short enough to send without rewriting it.",
+        "on_screen": "Ready to send.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "the three-line draft",
+          "change": "the cursor moves to Send",
+          "after": "a sent email, the notes untouched"
+        },
+        "evidence_refs": [
+          "syn-f1"
+        ],
+        "relation_to_previous": "so",
+        "duration_provisional_s": 6,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-avail",
+        "internal_beat_label": "Availability",
+        "grammar_role": "availability",
+        "viewer_takeaway": "Summarize is available on the synthetic Plus plan.",
+        "on_screen": "Available on the synthetic Plus plan.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "the plan name on screen",
+          "change": "the Summarize label lights up beside it",
+          "after": "the label confirmed as included"
+        },
+        "evidence_refs": [
+          "syn-f2"
+        ],
+        "relation_to_previous": "so",
+        "duration_provisional_s": 5,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      }
+    ],
+    "coverage": {
+      "ledger": [
+        {
+          "takeaway_id": "t1",
+          "beat_id": "beat-press"
+        },
+        {
+          "takeaway_id": "t2",
+          "beat_id": "beat-avail"
+        }
+      ],
+      "excluded": [
+        {
+          "item": "syn-w",
+          "why": "a different feature; this film is about one button",
+          "approved": false
+        }
+      ]
+    }
+  },
+  "expected": {
+    "verdict": "ship",
+    "errors": 0,
+    "major": 0,
+    "notes": "no optional tool is required; the Plus-plan qualifier appears in the availability beat's on_screen"
+  }
+}

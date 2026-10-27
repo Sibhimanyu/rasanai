@@ -9,6 +9,8 @@ struct LinkedSourceWell: View {
     let kind: LinkedSource.Kind
     @Binding var sources: [LinkedSource]
     var disabled = false
+    /// Inside a card that already names it: no heading of its own, a quieter drop area.
+    var bare = false
     /// The picked format's own words for what it wants here (a footage well only); nil keeps the default hint.
     var prompt: String?
     /// The reference well also holds the moves picked from Inspiration: their thumbnails, and the button that opens the
@@ -40,16 +42,23 @@ struct LinkedSourceWell: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            if !bare { HStack(spacing: 8) {
                 Image(systemName: symbol).font(.system(size: 14, weight: .medium)).foregroundStyle(empty ? Color.secondary : kind == .footage ? Color.rasan : Color.primary.opacity(0.7))
                 Text(title).font(.system(size: 13, weight: .semibold))
                 // Footage is cut into the film; a reference is only studied. Say which, on the well itself.
                 Text(kind == .footage ? "Used in your film" : "Studied, never cut in")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
-            }
+            } }
             if empty {
-                Text(hint).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .top, spacing: 10) {
+                    if bare {
+                        Image(systemName: targeted ? "arrow.down.circle.fill" : kind == .footage ? "folder.badge.plus" : "arrow.down.circle")
+                            .font(.system(size: 18, weight: .light)).foregroundStyle(targeted ? Color.rasan : Color.secondary)
+                            .accessibilityHidden(true)
+                    }
+                    Text(hint).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
             } else {
                 ForEach(mine) { source in
                     LinkedSourceRow(source: source) { sources.removeAll { $0 == source } }
@@ -67,9 +76,9 @@ struct LinkedSourceWell: View {
             }
             .buttonStyle(.rasanSecondary).controlSize(.small).disabled(disabled)
         }
-        .padding(16)
+        .padding(bare ? 14 : 16)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(targeted ? Color.rasan.opacity(0.10) : Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
+        .background(targeted ? Color.rasan.opacity(0.10) : bare ? Color.primary.opacity(0.03) : Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous)
                 .strokeBorder(targeted ? Color.rasan : Workspace.hairline, style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: empty && !targeted ? [5, 4] : []))
@@ -116,11 +125,21 @@ struct LinkedSourceWell: View {
 struct LinkedSourceRow: View {
     let source: LinkedSource
     var onRemove: (() -> Void)?
+    /// Where the director writes reference-motion.json once it has studied the reference (nil before the film has a folder).
+    var motionRoot: URL?
     @State private var summary: String?
 
     private var exists: Bool { FileManager.default.fileExists(atPath: source.path) }
 
     var body: some View {
+        if source.kind == .reference && !source.isFolder {
+            LinkedReferenceMotionChip(source: source, root: motionRoot, onRemove: onRemove)
+        } else {
+            plainRow
+        }
+    }
+
+    private var plainRow: some View {
         HStack(spacing: 10) {
             Image(systemName: source.isFolder ? "folder.fill" : "play.rectangle.fill").foregroundStyle(exists ? Color.rasan : Color(nsColor: .systemOrange)).frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
@@ -144,5 +163,31 @@ struct LinkedSourceRow: View {
                 return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
             }.value
         }
+    }
+}
+
+/// A linked reference video as a Motion Studio chip: analyzing, ready or cannot analyze. The director runs the analysis;
+/// this only watches for reference-motion.json to appear.
+private struct LinkedReferenceMotionChip: View {
+    let source: LinkedSource
+    var root: URL?
+    var onRemove: (() -> Void)?
+    @State private var model = MotionReferenceModel()
+
+    var body: some View {
+        MotionReferenceChip(title: source.name, fileURL: source.url, durationS: model.durationS, rights: model.summary?.source?.rights,
+                            status: model.status, onRemove: onRemove)
+            .task(id: "\(source.path)|\(root?.path ?? "")") {
+                model.markAnalyzing()
+                guard let root else { return }
+                // Light poll, stopped when the view goes away or the file has appeared (up to about ten minutes).
+                for _ in 0..<200 {
+                    await model.load(projectRoot: root)
+                    if model.summary != nil || Task.isCancelled { return }
+                    model.markAnalyzing()
+                    try? await Task.sleep(for: .seconds(3))
+                    if Task.isCancelled { return }
+                }
+            }
     }
 }

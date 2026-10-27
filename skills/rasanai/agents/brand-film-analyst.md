@@ -30,6 +30,7 @@ You run on Sonnet and you are fast. The Director has already pulled the brand's 
    Also record the **opening** (what the first image is) and **UI treatment** (full screen, window, fragments).
 3. **Name the sources.** A `## Sources` section: each film read (url or the attached file name, year, length), which one was primary. No film found: write "Fallback: no official film found; read from the website and product screenshots" and say it at the top, so the Director tells the user.
 4. **Say what would make a film look off-brand** in `notes`: three or four plain lines the critics can test, about what the brand locks: a colour outside the palette, a second or wrong face, a drawn or approximated logo, invented UI, a tone the brand never takes (a joke brand gone solemn, a calm brand gone frantic). Never a finish, depth or camera effect: those are budgets, not brand.
+5. **Principles.** Write 2 to 4 `principles` into FILM-STYLE.json and the card's Principles section: what the film does that makes it work (`principle`), why it works on a viewer (`why`), the feeling it is for (`effect`), what a film needs for it to work (`prerequisites`), what is this brand's own and must not be copied (`distinctive`), and a `check` a critic can test on a strip. Never a technique name alone, never a copy of a shot.
 
 ## You return
 

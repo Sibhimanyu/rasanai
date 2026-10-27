@@ -10,6 +10,8 @@
 //       -> an edit plan that never loops audibly: shape (backtimed | head+tail | own-fade | button |
 //          fade | repeat), segments, joins, the film-time bar grid, the reveal/logo moved onto the
 //          music, and scene starts snapped to bars. needs_longer: true when the track is too short.
+//       Plan 07: analyze adds `estimates` (tempo detected | uncertain | undetected, never a made-up BPM); fit adds `estimates` and `guard` (track too short, an undeclared repeat,
+//       a music-led trim [--music-led, --trim-authorized], --user-track, --loop-declared); a failed guard exits 2 unless --allow-guard
 //   node sound.mjs render --plan plan.json --out bed.wav [--lufs -14]
 //       -> renders the edited bed (atrim/acrossfade/afade), -14 LUFS, true peak <= -1.5 dBTP
 //   node sound.mjs render --plan plan.json --out bed.wav --loop [--loop-xfade 0.35]      (idea from awesome-opus5-5-videos; our code)
@@ -19,6 +21,7 @@
 //          (quarter-sine) fade, so the tail runs into the head in the same bar phase and the audio seam is clean. The loop is L long:
 //          set the film's loop length to loop_s. Reported as {loop: {loop_s, cut_at_bar, xfade_s, ...}}
 //   node sound.mjs sfx-plan --scenes scenes.json|timeline.json [--events events.json] [--narrated]
+//        (--events also takes the derived film-event manifest from events.mjs export: its picture hits are the cues, stale ones are refused)
 //        [--format reel] [--bed bed.wav] [--plan plan.json] [--words audio_meta.json] [--project <dir>]
 //        [--pack glass|minimal|studio|soft|cinematic|scifi] [--no-library] [--library <dir>]
 //       -> samples come from library/sfx (CC0, index.json) first: one uisfx pack per film for the UI sounds,
@@ -60,6 +63,10 @@
 //   node sound.mjs master (--video <mp4> | --audio <file>) --out <file> [--lufs -14]
 //       -> the post-render fix for check's loudness/peak problems: static gain + true-peak limiter
 //          (-1.5 dBTP, -2 for AAC/MP3), picture copied untouched
+//   Plan 07 (all optional; a run without audio/direction.json behaves as before): --direction <file> (else <run>/audio/direction.json) gives sfx-plan the film's
+//   silence windows (auto-fill never lands in one) and lets a film with sfx role "none" or a silent deliverable pass check without no-sfx; an event may carry
+//   offset_s (the intended lead or lag of its accent, default +0.010 s); --profile <rasanai-house|ebu-r128|atsc-a85> sets the loudness target and true-peak limit
+//   (lib/mix-receipt.mjs PROFILES; --lufs still wins; the house profile is the old -14 LUFS / -1.5 dBTP). The records live in soundplan.mjs (references/sound.md "Sound direction").
 //   node sound.mjs probe <sfx files...>        -> sync point, lead silence, audible end, harshness
 import fs from "node:fs";
 import path from "node:path";
@@ -72,14 +79,39 @@ import { track } from "./lib/report.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { KEYS } from "./lib/music-lib.mjs";
+import { isManifest, loadManifest, legacyEvents } from "./lib/film-events.mjs";
+import { readSidecar, identityPlan } from "./lib/procedural-score.mjs";
 import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
   decode, findRepeats, onsetProfile, onsetTimes, cutOnsetShare, lowShare, windowDb, audioFingerprint, compareFingerprint, renderTexture, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
 } from "./lib/audio.mjs";
+// Plan 07: the audio direction (intentional silence, a silent deliverable), cue offsets and destination profiles. All optional: a run without audio/direction.json behaves as before.
+import { readDirection, sfxExpectation, silenceWindows } from "./lib/audio-direction.mjs";
+import { dropInSilence } from "./lib/cues.mjs";
+import { resolveProfile } from "./lib/mix-receipt.mjs";
+import { fitGuard, labelEstimates } from "./lib/music-fit.mjs";
+// Addendum 2 (revision 2 / mix_policy_revision 2 only; legacy runs never reach these): layered effects, one family, the arrangement and the bus plan
+import { effectsPolicy, scaledBudget, planCueLayers, eventDensity, resourceLayers, coherentFamily, pickVariation } from "./lib/sfx-layers.mjs";
+import { overlapReport } from "./lib/cues.mjs";
+import { planArrangement, stemBuses, arrangementImpact } from "./lib/music-arrangement.mjs";
+import { readAudioContract } from "./lib/audio-direction.mjs";
+import { mixRevisionOf, busPlanForRun, writeBusPlan } from "./lib/mix-bus.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
 const out = (o) => console.log(JSON.stringify(o, null, 2));
+// the audio direction: --direction <file>, else <run>/audio/direction.json; null for a legacy run
+function audioDirection() {
+  try {
+    if (args.direction && args.direction !== true) return JSON.parse(fs.readFileSync(path.resolve(String(args.direction)), "utf8"));
+    if (args.run && args.run !== true) return readDirection(String(args.run)).direction;
+  } catch {}
+  return null;
+}
+// --lufs wins; else --profile <id> (lib/mix-receipt.mjs PROFILES; "rasanai-house" = the old -14 LUFS / -1.5 dBTP default); else the house default
+const profileOf = () => resolveProfile(args.profile && args.profile !== true ? String(args.profile) : "rasanai-house");
+const targetLufs = () => (args.lufs != null ? Number(args.lufs) : profileOf().integrated_lufs);
+const limitTp = () => profileOf().true_peak_limit_db;
 const need = (k, hint) => {
   if (args[k] == null || args[k] === true) die(`--${k} ${hint} required`);
   return String(args[k]);
@@ -269,21 +301,37 @@ function eventsFromLines(text) {
   return out;
 }
 
+// an events file's rows. A derived film-event manifest (events.mjs export; stale ones are refused) is read through legacyEvents;
+// any other events.json is read exactly as before. cuesOnly: just the rows that can carry a sound (sfx-plan)
+function eventRows(file, cuesOnly = false) {
+  const raw = fs.readFileSync(file, "utf8");
+  if (!/^\s*[[{]/.test(raw)) return eventsFromLines(raw);
+  const E = JSON.parse(raw);
+  if (isManifest(E)) {
+    const r = loadManifest(file);
+    if (!r.ok) die(`--events ${file}: ${r.error}`);
+    return legacyEvents(r.manifest, { cuesOnly });
+  }
+  return Array.isArray(E) ? E : E.events || [];
+}
+
 function sfxPlan() {
   const sc = readScenes(need("scenes", "<scenes.json|timeline.json>"));
   const plan = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
   const narrated = args.narrated ? true : args["no-narration"] ? false : sc.narrated;
   const mode = sfxMode({ format: args.format, narrated });
-  const B = BUDGET[mode];
   const film = plan?.film_duration || sc.total;
+  // revision 2: the direction's effects choice is binding and scales the budget (sfx-layers scaledBudget); a legacy or revision-1 direction keeps the old row
+  const directionR = audioDirection();
+  const rev2 = !!(directionR && Number(directionR.mix_policy_revision) >= 2);
+  const sres = rev2 && directionR.sound && directionR.sound.resolved ? directionR.sound.resolved : null;
+  const sfxPolicy = rev2 ? effectsPolicy(sres && sres.effects ? { choice: sres.effects.choice } : "unset", { role: directionR.roles && directionR.roles.sfx && directionR.roles.sfx.role, silent: directionR.deliverable && directionR.deliverable.state === "silent_by_choice" }) : null;
+  const B = rev2 ? scaledBudget(BUDGET[mode], sfxPolicy) : BUDGET[mode];
+  const sigOnly = rev2 && B.signature_only === true;
   let events;
   if (args.events) {
     const ef = exists(path.resolve(String(args.events)), "events");
-    const raw = fs.readFileSync(ef, "utf8");
-    if (/^\s*[[{]/.test(raw)) {
-      const E = JSON.parse(raw);
-      events = (Array.isArray(E) ? E : E.events || []).map((e) => ({ ...e }));
-    } else events = eventsFromLines(raw); // the builders' "## Events" lines: "t=<film s> <what happens>"
+    events = eventRows(ef, true).map((e) => ({ ...e })); // a film-event manifest, an events.json, or the builders' "## Events" lines ("t=<film s> <what happens>")
   } else events = inferEvents(sc.scenes, plan);
   events = events.map((e, i) => {
     const kind = KINDS[e.kind] ? e.kind : ALIAS[e.kind] || null;
@@ -304,6 +352,23 @@ function sfxPlan() {
   // whooshes only on signature transitions
   for (const e of cand) if (e.kind === "whoosh" && !e.signature) { skipped.push({ event: e.id, t: e.t, why: "whoosh on an ordinary transition: only signature spatial moves get one" }); e._drop = true; }
   cand = cand.filter((e) => !e._drop);
+  // Plan 07 A1/A2: the audio direction can give effects no role (or choose a silent film) and can protect silence windows from auto-fill
+  const direction = audioDirection();
+  if (direction) {
+    const expect = sfxExpectation(direction);
+    if (rev2 && expect.role === "signature_only") {
+      // Minimal keeps its declared signature moves (revision 2); every other effect is off. Legacy still dropped everything here.
+      for (const e of cand.filter((x) => !x.signature)) skipped.push({ event: e.id, t: e.t, why: "effects choice Minimal: only declared signature moves carry a sound" });
+      cand = cand.filter((x) => x.signature);
+      const win = silenceWindows(direction, events.map((e) => ({ id: e.id, t: e.t }))).windows;
+      if (win.length) { const d = dropInSilence(cand, win); for (const x of d.dropped) skipped.push({ event: x.id, t: x.t, why: x.why }); cand = d.kept; }
+    }
+    else if (expect.required === false) { for (const e of cand) skipped.push({ event: e.id, t: e.t, why: `audio direction: ${expect.why}` }); cand = []; }
+    else {
+      const win = silenceWindows(direction, events.map((e) => ({ id: e.id, t: e.t }))).windows;
+      if (win.length) { const d = dropInSilence(cand, win); for (const x of d.dropped) skipped.push({ event: x.id, t: x.t, why: x.why }); cand = d.kept; }
+    }
+  }
 
   const bed = args.bed ? onsetProfile(exists(path.resolve(String(args.bed)), "bed")) : null;
   const words = [], wordSpans = [];
@@ -321,10 +386,10 @@ function sfxPlan() {
   }
 
   const notes_tex = [];
-  const maxCount = sfxLimit(mode, film);
+  const maxCount = rev2 ? (sigOnly ? B.heroMax : Math.max(B.perSec > 0 ? 1 : 0, Math.floor(film * B.perSec))) : sfxLimit(mode, film);
   // the share cap is over ALL visual events: only an events file lists those (inferred events are
   // already the sound-worthy ones)
-  const maxShare = args.events ? Math.max(1, Math.ceil(events.length * B.share)) : Infinity;
+  const maxShare = args.events && !sigOnly ? Math.max(1, Math.ceil(events.length * B.share)) : Infinity;
   const rank = (e) => (KINDS[e.kind].weight * (SIZE[e.size] || (KINDS[e.kind].cls === "hero" ? 3 : 1))) + (e.priority || 0);
   // a typing burst is one cue per line: key events less than TYPE_GAP s apart collapse to the first (kept: the loudest-ranked)
   const typed = cand.filter((e) => e.kind === "type").sort((a, b) => a.t - b.t);
@@ -402,7 +467,9 @@ function sfxPlan() {
   for (const e of placed) {
     const k = KINDS[e.kind];
     const uses = cues.filter((c) => c.kind === e.kind).length;
-    const rl = pickRasan(RL, e.kind, k.cls, history);
+    const rl0 = pickRasan(RL, e.kind, k.cls, history);
+    // revision 2: stay inside the one family/pack pickRasan chose and vary by least-recent use (sfx-layers pickVariation)
+    const rl = rev2 && rl0 ? pickVariation(RL.entries.filter((x) => x.category === rl0.category && x.pack === rl0.pack).sort((a, b) => (a.id < b.id ? -1 : 1)), history) || rl0 : rl0;
     let sample = rl ? rl.id : k.samples[uses % k.samples.length];
     let generated = false;
     if (!rl && !lib.files[sample]) {
@@ -419,11 +486,12 @@ function sfxPlan() {
     lastUse[sample] = { t: e.t, v };
     const rate = (k.rate || 1) * (k.cls === "hero" || k.cls === "riser" ? 1 : v.rate);
     const sync = p ? p.sync_point / rate : 0;
-    const start = Math.max(0, e.t - sync + 0.01); // never lead the picture; 10 ms late reads as natural
+    const off = Number.isFinite(Number(e.offset_s)) ? Number(e.offset_s) : 0.01; // the default: 10 ms after the picture reads as simultaneous. A cue event may carry its own intended offset (lib/cues.mjs): an intentional lead or lag is recorded, not corrected
+    const start = Math.max(0, e.t - sync + off);
     const volume = r3(k.vol * Math.pow(10, (e.gain + (k.cls === "hero" ? 0 : v.gain_db)) / 20));
     const scene = sc.scenes.find((s) => s.n === e.scene) || sc.scenes[0];
     const dur = p ? (p.audible_end - (p.lead_silence > 0.05 ? 0 : 0)) / rate : 1;
-    const cue = { event: e.id, kind: e.kind, class: k.cls, t: r3(e.t), start: r3(start), scene: e.scene, sample, file: rl ? rl.abs : lib.files[sample] || null, source: rl ? "rasan-sfx" : "media-use", pack: rl ? rl.pack : null, rate: r3(rate), volume, duration_s: r3(dur), sync_point: p ? r3(sync) : null, estimated: !!e.estimated, notes: e.notes };
+    const cue = { event: e.id, kind: e.kind, class: k.cls, t: r3(e.t), intended_offset_s: r3(off), start: r3(start), scene: e.scene, sample, file: rl ? rl.abs : lib.files[sample] || null, source: rl ? "rasan-sfx" : "media-use", pack: rl ? rl.pack : null, rate: r3(rate), volume, duration_s: r3(dur), sync_point: p ? r3(sync) : null, estimated: !!e.estimated, notes: e.notes };
     if (p && p.warnings.some((w) => /harsh|piercing/.test(w))) cue.notes.push("harsh sample: lowpass 9 kHz applied when rendered");
     if (e.t - sync < 0) cue.notes.push("crest would fall before the film starts: trimmed");
     cue._scene_start = scene.start;
@@ -458,7 +526,7 @@ function sfxPlan() {
       const af = [`atrim=start=${lead.toFixed(3)}:end=${p.audible_end.toFixed(3)}`, "asetpts=PTS-STARTPTS", c.rate !== 1 ? `asetrate=48000*${c.rate},aresample=48000` : null, lp ? `lowpass=f=${lp}` : null, c.class === "hero" || c.class === "riser" ? null : "highpass=f=100", "afade=t=out:st=0:d=0.001", `areverse,afade=t=in:d=0.02,areverse`, pan == null ? null : (() => { const a = ((pan + 1) * Math.PI) / 4; return `aformat=channel_layouts=mono,pan=stereo|c0=${(Math.SQRT2 * Math.cos(a)).toFixed(3)}*c0|c1=${(Math.SQRT2 * Math.sin(a)).toFixed(3)}*c0`; })()].filter(Boolean).join(",");
       if (!fs.existsSync(dest)) execFileSync("ffmpeg", ["-y", "-v", "error", "-i", c.file, "-ar", "48000", "-af", af, "-c:a", "pcm_s16le", dest]);
       c.sync_point = r3(Math.max(0, p.sync_point - lead) / c.rate);
-      c.start = r3(Math.max(0, c.t - c.sync_point + 0.01));
+      c.start = r3(Math.max(0, c.t - c.sync_point + (c.intended_offset_s ?? 0.01)));
       c.duration_s = r3((p.audible_end - lead) / c.rate);
       c.file = path.relative(project, dest).split(path.sep).join("/");
     }
@@ -480,7 +548,31 @@ function sfxPlan() {
       beds.push({ id, curve: c.kind || null, texture: r.texture, start: r.start, duration_s: r.duration_s, active_share: r.active_share, volume: vol, scene: sc0.n, file: project ? path.relative(project, dest).split(path.sep).join("/") : null });
     }
   }
-  const audio_meta_sfx = [...cues.filter((c) => c.file).map((c) => ({ frame: c.scene, file: c.file, offset_s: r3(c.start - c._scene_start), duration_s: c.duration_s, volume: c.volume })), ...beds.filter((b) => b.file).map((b) => ({ frame: b.scene, file: b.file, offset_s: r3(b.start - (sc.scenes.find((x) => x.n === b.scene) || sc.scenes[0]).start), duration_s: b.duration_s, volume: b.volume }))];
+  // revision 2: one perceptual event per cue, each with its own layers (sfx-layers planCueLayers); layer 0 carries the cue's sample, a further layer sounds only when
+  // it names an asset the library holds (no file is invented for a layer: unresolved layers are listed, not mounted). Ordinary cues carry no music reduction.
+  const layerMeta = [], layerGaps = [];
+  if (rev2) {
+    const ROLE_OF = { reveal: "impact", logo: "impact", whoosh: "transition", riser: "riser", click: "ui", key: "ui", type: "ui", toast: "stinger", count: "accent", error: "accent", glitch: "accent", land: "accent", snap: "accent", pop: "accent" };
+    for (const c of cues) {
+      const ev = placed.find((x) => x.id === c.event) || {};
+      const pl = planCueLayers({ id: c.event, event: c.event, role: ev.role || ROLE_OF[c.kind] || "accent", purpose: ev.purpose, family: ev.family, intensity: ev.intensity, layers: ev.layers, source: { asset: c.sample }, offset_s: c.intended_offset_s }, { sound_resolved: sres ? { effects: { choice: sres.effects && sres.effects.choice }, sfx_role: sres.sfx_role } : null, event: { id: c.event, signature: !!ev.signature }, narrated, family: ev.family });
+      c.perceptual_event_id = pl.perceptual_event_id;
+      c.layers = pl.layers.map((l) => ({ role: l.role, asset_ref: l.asset_ref, gain_db: l.gain_db, onset: l.onset, body_s: l.body_s, tail_s: l.tail_s }));
+      c.music_reduction = pl.music_reduction; // null for an ordinary cue; only a prominent event may request a bounded, reasoned reduction
+      // the cue's own sample belongs to the layer whose job it does: the accent of an impact, the movement of a whoosh or riser (a prominent event's other layers need their own asset)
+      if (!pl.layers.length) { if (c.file) layerMeta.push({ frame: c.scene, file: c.file, offset_s: r3(c.start - c._scene_start), duration_s: c.duration_s, volume: c.volume, event: pl.perceptual_event_id, layer: "accent" }); continue; } // the plan named no layer for a placed cue: it keeps its single legacy entry
+      const pi = Math.max(0, pl.layers.findIndex((l) => l.role === (c.class === "whoosh" || c.class === "riser" ? "movement" : "accent")));
+      const base = pl.layers[pi] ? pl.layers[pi].onset.offset_s : 0;
+      pl.layers.forEach((l, i) => {
+        const own = i === pi ? null : l.asset_ref && RL && RL.byId[l.asset_ref] ? RL.byId[l.asset_ref] : null;
+        if (i !== pi && !own) { layerGaps.push({ event: c.event, layer: l.role, why: l.asset_ref ? `asset ${l.asset_ref} is not in the library` : "no asset named for this layer: not mounted" }); return; }
+        if (i === pi && !c.file) return;
+        layerMeta.push({ frame: c.scene, file: i === pi ? c.file : path.relative(project || ".", own.abs).split(path.sep).join("/"), offset_s: r3(c.start + (l.onset.offset_s - base) - c._scene_start), duration_s: i === pi ? c.duration_s : r3((l.body_s || 0) + (l.tail_s || 0)), volume: i === pi ? c.volume : r3(c.volume * Math.pow(10, (l.gain_db - pl.layers[pi].gain_db) / 20)), event: pl.perceptual_event_id, layer: l.role });
+      });
+    }
+  }
+  const famSel = rev2 ? coherentFamily(cues.map((c) => ({ asset_ref: c.sample, pack: c.pack, role: c.class === "whoosh" ? "movement" : "accent", pan: c.pan }))) : null;
+  const audio_meta_sfx = [...(rev2 ? layerMeta : cues.filter((c) => c.file).map((c) => ({ frame: c.scene, file: c.file, offset_s: r3(c.start - c._scene_start), duration_s: c.duration_s, volume: c.volume }))), ...beds.filter((b) => b.file).map((b) => ({ frame: b.scene, file: b.file, offset_s: r3(b.start - (sc.scenes.find((x) => x.n === b.scene) || sc.scenes[0]).start), duration_s: b.duration_s, volume: b.volume }))];
   cues.forEach((c) => delete c._scene_start);
   const est = cues.filter((c) => c.estimated).length;
   out({
@@ -491,6 +583,7 @@ function sfxPlan() {
     texture_beds: beds,
     skipped,
     audio_meta_sfx,
+    ...(rev2 ? { effects_policy: sfxPolicy, family: famSel, layers_unmounted: layerGaps } : {}),
     library: RL ? { dir: LIB_DIR, ui_pack: RL.uiPack } : lib.dir,
     notes: [
       est ? `${est} cue time(s) are estimates from the scene text: pass --events with the real settle/contact times from the built composition before final mix` : null,
@@ -516,7 +609,7 @@ function sfxTimes(file) {
     return t;
   }
   const J = JSON.parse(txt);
-  if (Array.isArray(J.cues)) return J.cues.map((c) => ({ t: c.t ?? c.start, kind: c.kind || c.sample, file: c.file || null, volume: c.volume ?? 1, notes: c.notes || [], base: path.dirname(p) }));
+  if (Array.isArray(J.cues)) return J.cues.map((c) => ({ t: c.t ?? c.start, kind: c.kind || c.sample, file: c.file || null, volume: c.volume ?? 1, notes: c.notes || [], base: path.dirname(p), ...(c.layers ? { layers: c.layers, perceptual_event_id: c.perceptual_event_id || null, event: c.event || null, class: c.class || null } : {}) }));
   return [];
 }
 
@@ -532,10 +625,7 @@ function cutTimes(dur) {
 }
 function eventList() {
   if (!args.events || args.events === true) return [];
-  const raw = fs.readFileSync(exists(path.resolve(String(args.events)), "events"), "utf8");
-  if (!/^\s*[[{]/.test(raw)) return eventsFromLines(raw);
-  const E = JSON.parse(raw);
-  return Array.isArray(E) ? E : E.events || [];
+  return eventRows(exists(path.resolve(String(args.events)), "events"));
 }
 function filmWords() {
   if (!args.words || args.words === true || !args.scenes || args.scenes === true) return [];
@@ -550,11 +640,16 @@ function check() {
   const src = args.video || args.audio;
   if (!src) die("--video <mp4> or --audio <file> required");
   const file = exists(path.resolve(String(src)), "input");
+  const directionX = audioDirection(), expectX = sfxExpectation(directionX);
+  const rev2c = !!(directionX && Number(directionX.mix_policy_revision) >= 2), sresC = rev2c && directionX.sound && directionX.sound.resolved ? directionX.sound.resolved : null;
   if (!hasAudioStream(file)) {
+    // Plan 07 A1/A5: a silent deliverable chosen in the audio direction is complete; an audio failure is not
+    if (directionX && directionX.deliverable && directionX.deliverable.state === "silent_by_choice") { out({ ok: true, silent_by_choice: directionX.deliverable.reason || "silent deliverable", note: "the audio direction chose a silent film; loudness targets do not apply" }); process.exit(0); }
     out({ ok: false, problems: [{ what: "no audio track", fix: "the render has no sound: check that audio_meta.json has the bed and the index mounts it" }] });
     process.exit(2);
   }
-  const target = args.lufs != null ? Number(args.lufs) : -14;
+  const target = targetLufs();
+  if (expectX.required === false && !(args["silent-by-choice"] && args["silent-by-choice"] !== true)) args["silent-by-choice"] = expectX.silent_by_choice; // the direction gave effects no role: zero cues is intended
   const problems = [], warnings = [];
   const P = (what, measured, target, fix) => problems.push({ what, measured, target, fix });
   const L = loudness(file);
@@ -627,8 +722,7 @@ function check() {
   {
     let logoT = null;
     if (args.events) {
-      const E = readJSON(exists(path.resolve(String(args.events)), "events"));
-      const ts = (Array.isArray(E) ? E : E.events || []).filter((e) => /^(logo|cta|end)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
+      const ts = eventRows(exists(path.resolve(String(args.events)), "events")).filter((e) => /^(logo|cta|end)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
       if (ts.length) logoT = Math.max(...ts);
     }
     if (logoT == null && args.plan) {
@@ -653,7 +747,7 @@ function check() {
   {
     let payoffT = null, src = null;
     if (args.payoff != null && args.payoff !== true && Number.isFinite(Number(args.payoff))) { payoffT = Number(args.payoff); src = "--payoff"; }
-    const evs = args.events ? (() => { const E = readJSON(exists(path.resolve(String(args.events)), "events")); return (Array.isArray(E) ? E : E.events || []); })() : [];
+    const evs = args.events ? eventRows(exists(path.resolve(String(args.events)), "events")) : [];
     const evT = (re) => evs.filter((e) => re.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
     const pl = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
     // the score's music_arc.payoff_at (--score <score.json>, else the plan's own music_arc / score.music_arc)
@@ -714,7 +808,7 @@ function check() {
       let starts = sc ? sc.map((s) => s.start) : null;
       if (!starts && args.plan) { const pl = readJSON(exists(path.resolve(String(args.plan)), "plan")); if (Array.isArray(pl.scenes) && pl.scenes.length) starts = pl.scenes.map((s) => Number(s.start ?? s.start_s)).filter(Number.isFinite); }
       let cuts = starts ? starts.slice(1) : null;
-      if (!cuts && args.events) { const E = readJSON(exists(path.resolve(String(args.events)), "events")); cuts = (Array.isArray(E) ? E : E.events || []).filter((e) => /^(transition|cut|seam)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t)); }
+      if (!cuts && args.events) { cuts = eventRows(exists(path.resolve(String(args.events)), "events")).filter((e) => /^(transition|cut|seam)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t)); }
       cuts = (cuts || []).filter((c) => c > 0.5 && c < dur - 0.5).sort((a, b) => a - b);
       let phrases = null, from = null;
       if (args.words && sc) {
@@ -827,8 +921,19 @@ function check() {
       }
     } catch (e) { (measures.sync ||= {}).sfx_checks = { skipped: String(e.message).slice(0, 120) }; }
     Object.assign(measures, { sfx_count: cues.length, sfx_per_s: r3(cues.length / dur), sfx_max_in_1s: maxWin, whooshes });
-    if (sfxOver(cues.length, mode, dur)) P("SFX density", `${cues.length} SFX in ${r1(dur)} s`, `<= ${sfxLimit(mode, dur)}`, "keep only causal events (clicks, lands, the reveal): sound.mjs sfx-plan enforces the budget");
-    if (maxWin > B.perWindow) P("SFX pile-up", `${maxWin} sounds within one second`, `<= ${B.perWindow}`, "drop or spread the weakest cues");
+    // revision 2: a layered event counts ONCE for editorial density; every layer counts for the technical resources and the summed level (sfx-layers)
+    if (rev2c && cues.some((c) => c.layers)) {
+      const rc = cues.map((c, i) => ({ id: c.event || `c${i}`, perceptual_event_id: c.perceptual_event_id || null, event_id: c.event || null, resolved: true, t: c.t, role: c.class || "accent", layers: c.layers || null, timing: { picture_onset_s: c.t, sfx_onset_s: c.t } }));
+      const pol = effectsPolicy(sresC && sresC.effects ? { choice: sresC.effects.choice } : "unset", { role: directionX.roles && directionX.roles.sfx && directionX.roles.sfx.role });
+      const ed = eventDensity(rc, { film_s: dur, budget: B, policy: pol }), rl = resourceLayers(rc, { film_s: dur, budget: B, policy: pol }), ov = overlapReport(rc, { budget: scaledBudget(B, pol) });
+      measures.sfx_events = { perceptual_events: ed.events, multi_layer_events: ed.multi_layer_events, max_events_in_1s: ed.max_events_in_1s, layers: rl.layers, peak_simultaneous_layers: rl.peak_simultaneous, summed_peak_db: rl.summed_peak_db, overlap_groups_flagged: ov.flagged };
+      for (const f of [...ed.flags, ...rl.flags]) warnings.push(`${f.check}: ${f.message}`);
+      if (ov.message) warnings.push(`sfx-overlap: ${ov.message}`);
+      // the editorial limits count events, not layers
+      if (sfxOver(ed.events, mode, dur)) P("SFX density", `${ed.events} perceptual events (${rl.layers} layers) in ${r1(dur)} s`, `<= ${sfxLimit(mode, dur)} events`, "keep only causal events: sound.mjs sfx-plan enforces the budget");
+      if (ed.max_events_in_1s > B.perWindow) P("SFX pile-up", `${ed.max_events_in_1s} perceptual events within one second`, `<= ${B.perWindow}`, "drop or spread the weakest events");
+    } else if (sfxOver(cues.length, mode, dur)) P("SFX density", `${cues.length} SFX in ${r1(dur)} s`, `<= ${sfxLimit(mode, dur)}`, "keep only causal events (clicks, lands, the reveal): sound.mjs sfx-plan enforces the budget");
+    if (!(rev2c && cues.some((c) => c.layers)) && maxWin > B.perWindow) P("SFX pile-up", `${maxWin} sounds within one second`, `<= ${B.perWindow}`, "drop or spread the weakest cues");
     if (whooshes > Math.max(1, Math.ceil(dur / B.whooshEvery))) P("whoosh per cut", `${whooshes} whooshes`, `<= ${Math.max(1, Math.ceil(dur / B.whooshEvery))}`, "whooshes only on signature spatial transitions");
   }
   else if (dur >= 15 && !(args["silent-by-choice"] && args["silent-by-choice"] !== true)) warnings.push("no-sfx: no --sfx given, so no sound effects were measured (a film of 15 s or more needs cues: sound.mjs sfx-plan after the build, then --sfx <sfx-plan.json|index.html>)");
@@ -878,6 +983,7 @@ if (cmd === "analyze") {
   const A = analyzeTrack(f);
   const o = publicAnalysis(A, { full: !!args.full });
   o.summary = summarize(A);
+  o.estimates = labelEstimates(A); // Plan 07 A3: tempo detected | uncertain | undetected (bpm null when detection failed), meter assumed, sections estimated
   out(o);
 } else if (cmd === "fit") {
   track("Fitting the music to the film on bar lines", "Music edit planned");
@@ -891,9 +997,34 @@ if (cmd === "analyze") {
     const r = sc.scenes.find((s) => /product_intro|reveal/i.test(s.type) || /\breveal/i.test(s.title));
     if (r) reveal = r.start;
   }
-  const A = analyzeTrack(f, { quick: true });
-  const plan = fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
-  plan.track_summary = summarize(A);
+  // an original procedural score (original-score.mjs) is already the film's length and built to its events: its own plan goes through the
+  // same fit / render / check, never re-cut on bar lines (that would move its hits off the picture)
+  const side = readSidecar(f);
+  const exact = side && Math.abs(side.duration_s - film) <= 0.05 ? side : null;
+  const A = exact ? null : analyzeTrack(f, { quick: true });
+  const plan = exact ? { ...identityPlan(f, { duration_s: film, ending: exact.ending, hits: exact.hits }), track_summary: `original procedural score (${exact.key}, ${exact.bpm} BPM, seed ${exact.seed}), ${exact.sections.length} sections`, license: exact.license } : fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
+  if (!exact) plan.track_summary = summarize(A);
+  // Plan 07 A3: label what is estimated, and refuse what is not a fit: a track too short for the film (no endless loop), a repeat nobody declared, and a trim of a music-led film nobody authorized (an exact original score is already the film's length)
+  plan.estimates = exact ? [] : labelEstimates(A);
+  plan.guard = exact ? { ok: true, errors: [], warnings: [], repeats: [], material_s: film, film_s: film } : fitGuard(plan, A, { music_led: !!args["music-led"], trim_authorized: !!args["trim-authorized"], loop_declared: !!args.loop || plan.loop === true, film_s: film, user_track: !!args["user-track"] });
+  // revision 2: the arrangement (sections, permitted edits, ending, genuine stems) and the bus plan the routes will read. Both are records; nothing is rendered here.
+  if (args.run && args.run !== true && mixRevisionOf(path.resolve(String(args.run))) >= 2) {
+    try {
+      const R = path.resolve(String(args.run)), dirn = readDirection(R).direction, con = readAudioContract(R);
+      const arrg = planArrangement({ A, film_s: film, sound_resolved: dirn && dirn.sound || null, music_role: dirn && dirn.roles && dirn.roles.music && dirn.roles.music.role || null, music_led: !!args["music-led"] || !!(con && con.music_led), trim_authorized: !!args["trim-authorized"], plan, stems: con && con.stems && Object.keys(con.stems).length ? con.stems : null, scene_boundaries: sc ? sc.scenes.map((x) => x.start) : [], track_id: args["track-id"] && args["track-id"] !== true ? String(args["track-id"]) : path.basename(f), origin: exact ? "procedural" : undefined });
+      const af = path.join(R, "audio", "arrangement.json");
+      const prevArr = (() => { try { return JSON.parse(fs.readFileSync(af, "utf8")); } catch { return null; } })();
+      writeFile(af, JSON.stringify(arrg, null, 2) + "\n");
+      plan.arrangement = { file: "audio/arrangement.json", digest: arrg.digest, gain_digest: arrg.gain_digest, mode: arrg.mode };
+      // attach the digest to the chosen track's record (a post-hoc field outside trackRecord's own digest, so the record's identity does not move)
+      const tf = path.join(R, "audio", "music-track.json");
+      if (fs.existsSync(tf)) { const rec = JSON.parse(fs.readFileSync(tf, "utf8")); rec.arrangement_digest = arrg.digest; writeFile(tf, JSON.stringify(rec, null, 2) + "\n"); }
+      // a swap: what the change costs (music-arrangement arrangementImpact): a new edit is re-evaluated through trackChangeImpact (soundplan track --change); a gain-only change rebuilds no visuals
+      if (prevArr && prevArr.digest) plan.arrangement.impact = arrangementImpact(prevArr, arrg);
+      const bp = busPlanForRun(R, { film_s: film, stems: stemBuses(arrg) || {} });
+      plan.bus_plan = { ...writeBusPlan(R, bp), flags: bp.flags.map((x) => x.check) };
+    } catch (e) { plan.arrangement = { error: `arrangement not written: ${String(e && e.message || e).slice(0, 160)}` }; }
+  }
   if (args.out) {
     writeFile(path.resolve(String(args.out)), JSON.stringify(plan, null, 2) + "\n");
     plan.render = `node ${path.relative(process.cwd(), process.argv[1])} render --plan ${args.out} --out <bed.wav>`;
@@ -911,10 +1042,11 @@ if (cmd === "analyze") {
   }
   out(plan);
   if (plan.needs_longer && !plan.segments.length) process.exit(2);
+  if (!plan.guard.ok && !args["allow-guard"]) process.exit(2); // --allow-guard: the person saw the guard and wants the plan anyway
 } else if (cmd === "render") {
   track("Cutting the music bed", "Music bed rendered");
   const plan = readJSON(exists(path.resolve(need("plan", "<plan.json>")), "plan"));
-  const o = renderPlan(plan, String(need("out", "<bed.wav>")), { lufs: args.lufs != null ? Number(args.lufs) : -14 });
+  const o = renderPlan(plan, String(need("out", "<bed.wav>")), { lufs: targetLufs(), tp: limitTp() });
   o.shape = plan.shape;
   o.film_duration = plan.film_duration;
   if (args.loop || plan.loop === true) o.loop = loopBed(plan, path.resolve(String(args.out)), path.resolve(String(args.out)), args["loop-xfade"] != null ? Number(args["loop-xfade"]) : NaN);
@@ -931,7 +1063,7 @@ if (cmd === "analyze") {
 } else if (cmd === "master") {
   track("Mastering the sound to -14 LUFS", "Sound mastered");
   const src = exists(path.resolve(String(args.video || args.audio || need("audio", "<file> (or --video <mp4>)"))), "input");
-  out(masterFile(src, String(need("out", "<file>")), { lufs: args.lufs != null ? Number(args.lufs) : -14 }));
+  out(masterFile(src, String(need("out", "<file>")), { lufs: targetLufs(), tp: limitTp() }));
 } else if (cmd === "probe") {
   const files = args._.slice(1);
   if (!files.length) die("usage: sound.mjs probe <sfx files...>");

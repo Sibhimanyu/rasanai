@@ -1,0 +1,90 @@
+{
+  "plan": 9,
+  "note": "Authored fixtures, not run. Synthetic. Real overlap, 1/2/4-worker comparison, clean vs incremental output, out-of-order seeking, shared-font change, transition boundary edits, interrupted writes, disk exhaustion, pause/resume and late-worker rejection wait for Plan 14 and the user's explicit testing approval.",
+  "cases": [
+    {
+      "id": "plan09/P01",
+      "file": "01-dependency-readiness.json",
+      "title": "Dependency readiness: only ready nodes run; user waits are real barriers; storyboard needs chosen Story+Look; scene builds need the approved storyboard",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P02",
+      "file": "02-useful-parallelism.json",
+      "title": "Useful parallelism: continuity groups, boundary contracts, a sting is one builder, workers grow only with evidence",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P03",
+      "file": "03-resource-limits.json",
+      "title": "Resource limits: separate pools, internal renderer workers accounted, pause and throttle block admission, no LLM polling",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P04",
+      "file": "04-lease-fencing.json",
+      "title": "Lease fencing: only the current generation commits; a late stale worker is rejected and its log kept",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P05",
+      "file": "05-transitive-keys.json",
+      "title": "Transitive keys: shared font and component changes reach every consumer; time changes reach neighbours; unknown dynamic dependencies are conservative",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P06",
+      "file": "06-atomic-cache.json",
+      "title": "Atomic cache: private temp + commit marker, pins, in-use entries and disk limits",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P07",
+      "file": "07-boundary-handles.json",
+      "title": "Boundary handles: transition overlaps, motion-blur shutter and global-time signals",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P08",
+      "file": "08-media-assembly.json",
+      "title": "Media assembly: one time base, verified frame counts, no blind concat, audio continuity, finish once",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P09",
+      "file": "09-fallback-truth.json",
+      "title": "Fallback truth: slower paths are visible, never disguised; no instant success from an overlay",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P10",
+      "file": "10-measured-throughput.json",
+      "title": "Measured throughput: evidence hooks record cold vs warm, critical path and failures, claim nothing",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P11",
+      "file": "11-slot-failure-and-memory-timeout.json",
+      "title": "Slot failure and memory timeout: fail closed in the managed path, legacy behaviour unchanged elsewhere",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P12",
+      "file": "12-concurrent-budget-reservation.json",
+      "title": "Concurrent budget reservation: one remaining allowance, idempotent, unknown stays unknown",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P13",
+      "file": "13-bundle-deadlock-and-stale-owner.json",
+      "title": "Bundle deadlock and stale owner: stable order, all or nothing, identity-based reclaim, fairness across films",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan09/P14",
+      "file": "14-cache-reuse-is-not-approval.json",
+      "title": "Cache reuse is not approval; side effects are never replayed; reuse is explainable",
+      "status": "authored_not_run"
+    }
+  ]
+}

@@ -19,7 +19,7 @@ public enum ProgressPhase: String, CaseIterable, Codable, Sendable, Identifiable
         case .script: "Story"
         case .look: "Look"
         case .plan: "Plan"
-        case .animatic: "Animatic"
+        case .animatic: "Storyboard"
         case .build: "Build"
         case .check: "Check"
         case .render: "Render"
@@ -104,6 +104,8 @@ public struct PhaseSummary: Identifiable, Codable, Equatable, Sendable {
     public var endedAt: Date?
     /// Seconds spent waiting on the person inside this phase's window (a question or a pick). Not work time.
     public var waitingSeconds: TimeInterval = 0
+    /// Seconds inside this phase's window when no director ran (a plan limit, a pause, the app closed), on top of `waitingSeconds`.
+    public var pausedSeconds: TimeInterval = 0
     public var tokens = TokenTotals()
     /// Dollars (reported by the CLI where known, else estimated from the price table).
     public var costUSD: Double = 0
@@ -125,8 +127,8 @@ public struct PhaseSummary: Identifiable, Codable, Equatable, Sendable {
         guard let startedAt else { return 0 }
         return max(0, (endedAt ?? now).timeIntervalSince(startedAt))
     }
-    /// Wall-clock time minus time spent waiting for the person.
-    public func workSeconds(now: Date) -> TimeInterval { max(0, wallSeconds(now: now) - waitingSeconds) }
+    /// Wall-clock time minus time spent waiting for the person and time the director was not running.
+    public func workSeconds(now: Date) -> TimeInterval { max(0, wallSeconds(now: now) - waitingSeconds - pausedSeconds) }
 
     /// "Research · 1m 52s · $0.84" for rail rows and VoiceOver. Costless and timeless phases drop those parts.
     public func railText(now: Date) -> String {
@@ -331,8 +333,13 @@ public struct ProgressActivity: Identifiable, Codable, Equatable, Sendable {
     public var kind: Kind
     public var title: String
     public var detail: String?
+    /// Set on lines that were a warning or a fallback (ActivityNotes): how much they ask of the person. `title` is then the plain sentence.
+    public var severity: ActivitySeverity? = nil
+    /// The message exactly as the director logged it (and a fallback's fields), for "Show original message".
+    public var original: String? = nil
     public var symbolName: String {
-        switch kind {
+        if let severity, !severity.isAlerting { return "info.circle" }
+        return switch kind {
         case .milestone: "flag.fill"
         case .source: "globe"
         case .crew: "person.2"
@@ -370,6 +377,10 @@ public struct FilmProgressSnapshot: Codable, Equatable, Sendable {
     /// How the film is set up (kind, length, pace, scenes, skipped phases): what the estimates and the timing history use.
     public var timingContext: FilmTimingContext?
     public var isWaitingForYou = false
+    /// Time inside the film's window when nothing ran or the person was deciding (merged), left out of `elapsed`.
+    public var idleSeconds: TimeInterval = 0
+    /// True while the director is not working and it is not the person's turn (paused, a plan limit wait, stopped).
+    public var directorIdle = false
     /// The director's latest plain-words tool calls (commands run, files written), newest last, capped at 80. For the "Details" disclosure.
     public var recentTools: [ProgressActivity] = []
 
@@ -400,9 +411,11 @@ public struct FilmProgressSnapshot: Codable, Equatable, Sendable {
     public func crew(in phase: ProgressPhase, running: Bool? = nil) -> [CrewMember] {
         crew.filter { $0.phase == phase && (running == nil || ($0.state == .running) == running!) }
     }
+    /// Working time: the clock stops while nothing runs or the person decides, and does not tick between snapshots.
     public func elapsed(now: Date) -> TimeInterval {
         guard let startedAt else { return 0 }
-        return max(0, (finishedAt ?? now).timeIntervalSince(startedAt))
+        let end = finishedAt ?? (directorIdle || isWaitingForYou ? asOf : now)
+        return max(0, end.timeIntervalSince(startedAt) - idleSeconds)
     }
     /// Research elapsed time against the budget (for the budget agent): nil before research starts.
     public func researchElapsed(now: Date) -> TimeInterval? { research.startedAt == nil ? nil : research.elapsed(now: now) }

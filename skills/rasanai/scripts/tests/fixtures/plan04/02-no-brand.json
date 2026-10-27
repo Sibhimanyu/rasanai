@@ -1,0 +1,116 @@
+{
+  "case": "no brand",
+  "synthetic": true,
+  "covers": [
+    "L01",
+    "L07"
+  ],
+  "inputs": {
+    "treatment": {
+      "story_format": "v2",
+      "id": "invite-writer",
+      "treatment_title": "Rough notes become the invitation",
+      "premise": "a few typed lines become a finished, sendable invitation",
+      "communication_kind": "single-feature-announcement",
+      "proposition": "The writing assistant turns rough notes into a usable invitation in one step.",
+      "viewer_takeaway": "I can go from notes to a sendable invite without rewriting.",
+      "beats": [
+        {
+          "id": "beat-open",
+          "viewer_takeaway": "notes are messy",
+          "on_screen": "Notes, half a sentence",
+          "visual_event": {
+            "before": "empty page",
+            "change": "rough notes appear",
+            "after": "notes visible"
+          },
+          "evidence_refs": []
+        },
+        {
+          "id": "beat-writing",
+          "viewer_takeaway": "the invitation is written",
+          "on_screen": "Dinner Friday at 7, bring a dish",
+          "visual_event": {
+            "before": "rough notes in the product UI",
+            "change": "the product screen rewrites them",
+            "after": "a readable invitation"
+          },
+          "evidence_refs": [
+            "ev-ui-1"
+          ]
+        },
+        {
+          "id": "beat-send",
+          "viewer_takeaway": "send it",
+          "on_screen": "Send",
+          "visual_event": {
+            "before": "invitation",
+            "change": "sent",
+            "after": "confirmation"
+          },
+          "evidence_refs": []
+        }
+      ]
+    },
+    "looks": [
+      {
+        "label": "Sure",
+        "axes": {
+          "hierarchy": "one giant headline, UI small",
+          "density": "sparse, one object",
+          "material": "matte paper",
+          "framing": "locked wide",
+          "motion_character": "calm settles"
+        }
+      },
+      {
+        "label": "Bold",
+        "axes": {
+          "hierarchy": "UI first, headline as caption",
+          "density": "dense, layered panels",
+          "material": "glass and rim light",
+          "framing": "tight close crops",
+          "motion_character": "snappy staggered"
+        }
+      },
+      {
+        "label": "Wild",
+        "axes": {
+          "hierarchy": "type collides with the product screen",
+          "density": "medium, cut-out collage",
+          "material": "printed halftone",
+          "framing": "tilted oblique",
+          "motion_character": "stepped, rhythmic"
+        }
+      }
+    ],
+    "brand": {
+      "locked": false
+    },
+    "expected": 3
+  },
+  "expect": {
+    "comparison": {
+      "frames_per_look": 1,
+      "wild_outside_brand": true
+    },
+    "differences": {
+      "distinct": true,
+      "color_swap_pairs": []
+    },
+    "bible": {
+      "hard_constraints": [],
+      "defaults_cover": [
+        "palette",
+        "type",
+        "motion"
+      ]
+    },
+    "negative": {
+      "recoloured_looks": {
+        "description": "three looks whose axes are identical but palettes differ",
+        "expect": "look-axes-repeat error from check-systems; lookDifferences color_swap_pairs lists every pair"
+      }
+    }
+  }
+}

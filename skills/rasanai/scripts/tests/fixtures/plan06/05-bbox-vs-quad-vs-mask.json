@@ -1,0 +1,141 @@
+{
+  "case": "V05",
+  "title": "A bounding box is not a perspective track and not a silhouette",
+  "calls": [
+    "validateTrack",
+    "planTreatment"
+  ],
+  "tracks": {
+    "bbox": {
+      "schema_version": 1,
+      "id": "t1",
+      "asset_id": "clip-phone",
+      "track_type": "bbox",
+      "source_digest": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+      "timebase": "source_pts_seconds",
+      "source": {
+        "rotation_deg": 90,
+        "display_width": 1080,
+        "display_height": 1920,
+        "time_base": "source_pts_seconds",
+        "duration_s": 2.0
+      },
+      "frames": [
+        {
+          "t_s": 0,
+          "bbox_norm": [
+            0.3,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "confidence": 0.9,
+          "origin": "vision"
+        }
+      ],
+      "corrections": [],
+      "status": "tracked"
+    },
+    "quad": {
+      "schema_version": 1,
+      "id": "t1",
+      "asset_id": "clip-phone",
+      "track_type": "planar-quad",
+      "source_digest": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+      "timebase": "source_pts_seconds",
+      "source": {
+        "rotation_deg": 90,
+        "display_width": 1080,
+        "display_height": 1920,
+        "time_base": "source_pts_seconds",
+        "duration_s": 2.0
+      },
+      "frames": [
+        {
+          "t_s": 0,
+          "quad_norm": [
+            [
+              0.3,
+              0.2
+            ],
+            [
+              0.6,
+              0.2
+            ],
+            [
+              0.6,
+              0.7
+            ],
+            [
+              0.3,
+              0.7
+            ]
+          ],
+          "confidence": 0.9,
+          "origin": "vision"
+        }
+      ],
+      "corrections": [],
+      "status": "tracked"
+    },
+    "mask": {
+      "schema_version": 1,
+      "id": "t1",
+      "asset_id": "clip-phone",
+      "track_type": "mask",
+      "source_digest": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+      "timebase": "source_pts_seconds",
+      "source": {
+        "rotation_deg": 90,
+        "display_width": 1080,
+        "display_height": 1920,
+        "time_base": "source_pts_seconds",
+        "duration_s": 2.0
+      },
+      "frames": [
+        {
+          "t_s": 0,
+          "confidence": 0.8,
+          "origin": "vision"
+        }
+      ],
+      "corrections": [],
+      "status": "tracked",
+      "mask": {
+        "asset": "hybrid/masks/person.mov",
+        "alpha_mode": "straight",
+        "color_space": "srgb",
+        "producer": "vision"
+      }
+    }
+  },
+  "expect_plan": {
+    "screen_replacement|bbox": {
+      "mode": "limited_fallback",
+      "label_contains": "approximate flat overlay"
+    },
+    "screen_replacement|quad": {
+      "mode": "exact",
+      "occlusion": "none"
+    },
+    "screen_replacement|mask": {
+      "mode": "refused"
+    },
+    "text_behind_subject|bbox": {
+      "mode": "limited_fallback",
+      "label_contains": "NOT behind the person",
+      "reason": "a bounding box is not a silhouette"
+    },
+    "text_behind_subject|mask": {
+      "mode": "exact"
+    },
+    "pin|bbox": {
+      "mode": "exact"
+    }
+  },
+  "mask_missing_alpha_mode": {
+    "drop": "mask.alpha_mode",
+    "expect_error": "mask.alpha_mode must be straight or premultiplied"
+  },
+  "deferred_to": "plan 14: real tilted-phone clip; a bbox treatment must visibly not line up and must be labelled as such"
+}

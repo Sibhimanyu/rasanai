@@ -2,7 +2,7 @@ import StudioCore
 import SwiftUI
 
 /// The build: the newest built still large, the scene strip filling in, the pipeline's stage chips and a log.
-/// Nothing to decide here (the director builds; Tell Claude and Decisions live in the window chrome), so no action bar.
+/// Nothing to decide here (the director builds; the Rasan chat and Decisions live in the window chrome), so no action bar.
 struct BuildStage: View {
     let model: FilmSessionModel
     let step: String
@@ -148,7 +148,7 @@ struct BuildStage: View {
                 if let building { Text("· building \(building.title)").font(.system(size: 11)).opacity(0.8) }
             }
             .padding(.horizontal, 11).padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
+            .softGlass(in: Capsule(), opacity: 0.9)
             .padding(14)
         }
         .aspectRatio(aspect, contentMode: .fit)

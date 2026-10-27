@@ -133,7 +133,7 @@ The ledger has one row per beat; the **chain** is finer: every transformation of
            { "t": 1.1, "change": "the dot drops and grows into the composer's send button" } ]
 ```
 
-Density is enforced: at least `ceil(film_seconds / 1.5)` entries (`chain-sparse`), and no gap over 3.0 s between consecutive entries, from 0 to the first, or from the last to the film's end (`chain-gap`). Film length is the sum of the pitch's beat `duration_s`. The house bar is a new idea about every 1.2 s.
+Density is enforced: at least `ceil(film_seconds / 1.5)` entries (`chain-sparse`), and no gap over 3.0 s between consecutive entries, from 0 to the first, or from the last to the film's end (`chain-gap`). Film length is the sum of the pitch's beat `duration_s`. The house bar is a new idea about every 1.2 s. **Plan 05:** that density is one style's rhythm, not a law: a pitch that declares `rhythm_waiver` (12+ characters saying why this film holds or breathes) turns `chain-sparse`/`chain-gap` into warnings, and a gap inside a declared hold (`holds: [{t0, t1, why}]`) is not a gap. Without either, the legacy errors stand.
 
 ### Worked example: the Tiago ledger
 
@@ -232,6 +232,14 @@ The Director runs `moves.mjs pack --run "$RUN" --label <L>` before dispatching y
 ## 4. The showreel checklist and the competent tells
 
 A film is showreel-level when it has: idea density, an unbroken eye-trace, a carried motif, a payoff that rhymes with the opening and at least one personality beat. Competent means every beat is correct and none is surprising.
+
+**Profiles, not universal laws (new creative policy).** On a run under the new creative policy (`creative_policy_revision` in `creative/brief.json`, or `creative` on the score) the quotas in this section and in §3 (a chain entry every 1.5 s, a bridge at every boundary, a full-frame type or shape hero, 8 atoms mined, a carrier in half the beats) are **profiles** a film selects, not floors. The file lists the ones it takes in `profiles` (`dense-chain`, `bridged`, `full-frame-hero`, `atom-mining`); `lib/moves-lib.mjs` keeps them errors only for a selected profile and warns otherwise. Each states the viewer effect it serves, so a film can choose it or have a better way:
+- `dense-chain`: a continuously transforming object that never rests. Effect: the eye is led without a decision. Good: the dot becomes the button becomes the cursor, one clause each. Bad: ten arbitrary wipes to fill the 1.5 s count. A held proof (`holds`, a `rhythm_waiver`, `seam.editorial.hold`) is a different, equally valid profile.
+- `bridged`: one carried object per boundary. Effect: the film reads as one thing. Good: the receipt's tear line becomes the divider. Bad: a morph across two separate contexts that implies one process. A hard cut between separate contexts is declared as one, and is often clearer.
+- `full-frame-hero`: type or a shape is the stage once. Effect: a peak nobody misses. Bad: scale added to a beat whose point is a small, exact detail.
+- `atom-mining`: the full atoms and affordance ritual. Use it for a fresh carrier hunt, never as a token cost on a compact run that already has a chosen signature event.
+
+Moves under the new policy start from the approved signature event (`creative/brief.json`, `signature_events`): one event gets the deep construction pass (atoms, mining, candidates), the rest reuse the chosen visual grammar. Do not regenerate twenty ideas for every scene. Legacy deep-mode data stays readable and keeps its errors.
 
 **Checklist** (numbers are tunable defaults):
 

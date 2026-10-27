@@ -1,0 +1,601 @@
+{
+ "generated_for": "M09",
+ "status": "authored, not run: awaiting_test_approval",
+ "gate": "Each file skips unless STYLE_PART2_APPROVED=<lane|all>; the variable is a latch, not approval.",
+ "files": {
+  "pure": "pure.test.mjs",
+  "scene": "scene.synthetic.test.mjs",
+  "journey": "journey.side-effects.test.mjs",
+  "static": "governance.static.test.mjs",
+  "fixtures": "fixtures.mjs"
+ },
+ "registry": "docs/plans/style-intelligence-part2/CASE_REGISTRY.json",
+ "note": "Per-case input/expected/commands/unknowns live in CASE_REGISTRY.json (single source); this manifest lists lane files and global unknowns.",
+ "unknowns": [
+  "All lane APIs besides 01_CONTRACTS names; exact result envelopes",
+  "M04/M05/M06/M08 module names (fixtures.API intentionally empty; cases fail with UNKNOWN until mapped)",
+  "Existing gate/job symbols (look.lookCommitted, jobs stale check)",
+  "Profile metadata dir (library/styles/meta assumed) and examples dir",
+  "Whether scene state can be read without a browser harness",
+  "MS-63/MS-64 need authorized comparison runs; only their protocol is checked"
+ ],
+ "cases": [
+  {
+   "id": "MS-01",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-02",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-03",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-04",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-05",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-06",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-07",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-08",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-09",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-10",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-11",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-12",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-13",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-14",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-15",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-16",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-17",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-18",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-19",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-20",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-21",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-22",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-23",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-24",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-25",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-26",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-27",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-28",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-29",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-30",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-31",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-32",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-33",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-34",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-35",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-36",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-37",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-38",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 2
+  },
+  {
+   "id": "MS-39",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-40",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-41",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-42",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-43",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-44",
+   "lane": "scene",
+   "files": [
+    "scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-45",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-46",
+   "lane": "journey",
+   "files": [
+    "journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-47",
+   "lane": "journey",
+   "files": [
+    "journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-48",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-49",
+   "lane": "pure+journey",
+   "files": [
+    "pure.test.mjs",
+    "journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 2
+  },
+  {
+   "id": "MS-50",
+   "lane": "journey",
+   "files": [
+    "journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-51",
+   "lane": "journey",
+   "files": [
+    "journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-52",
+   "lane": "journey",
+   "files": [
+    "journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-53",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-54",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-55",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-56",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-57",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-58",
+   "lane": "pure",
+   "files": [
+    "pure.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-59",
+   "lane": "static",
+   "files": [
+    "governance.static.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 0
+  },
+  {
+   "id": "MS-60",
+   "lane": "static",
+   "files": [
+    "governance.static.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 0
+  },
+  {
+   "id": "MS-61",
+   "lane": "static",
+   "files": [
+    "governance.static.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-62",
+   "lane": "static",
+   "files": [
+    "governance.static.test.mjs"
+   ],
+   "status": "not_run",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-63",
+   "lane": "static",
+   "files": [
+    "governance.static.test.mjs"
+   ],
+   "status": "blocked_until_separate_approval",
+   "unknowns": 1
+  },
+  {
+   "id": "MS-64",
+   "lane": "static",
+   "files": [
+    "governance.static.test.mjs"
+   ],
+   "status": "blocked_until_separate_approval",
+   "unknowns": 1
+  }
+ ]
+}

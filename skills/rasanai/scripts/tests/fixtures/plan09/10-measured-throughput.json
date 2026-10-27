@@ -1,0 +1,30 @@
+{
+  "id": "plan09/P10",
+  "title": "Measured throughput: evidence hooks record cold vs warm, critical path and failures, claim nothing",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "perf-evidence.recordPerf",
+      "case": "node rows for 4 scene groups (cold) then the same after a one-scene edit (warm), one failed worker with usage"
+    },
+    {
+      "fn": "perf-evidence.criticalPath",
+      "case": "graph with a 3-node chain and a parallel branch; one node unmeasured"
+    },
+    {
+      "fn": "perf-evidence.summarize",
+      "case": "rows with peak_rss_mb null on some renders"
+    },
+    {
+      "fn": "graph.readObserved + chooseWorkers",
+      "case": "crew.mjs perf throughput rows (workers, items, window_s, queue wait) written after batches; then chooseWorkers reads them"
+    }
+  ],
+  "expect": [
+    "cold and warm are summarized separately, never averaged together",
+    "the critical path is the longest chain of measured durations and lists the unmeasured nodes",
+    "failed worker time and tokens are included; a counter nobody reported is null, never 0; peak memory is null when not observable",
+    "the summary note says no linear speedup is claimed; defaults come from Plan 14 measurements on matched tasks"
+  ]
+}

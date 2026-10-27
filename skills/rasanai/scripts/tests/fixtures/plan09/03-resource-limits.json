@@ -1,0 +1,40 @@
+{
+  "id": "plan09/P03",
+  "title": "Resource limits: separate pools, internal renderer workers accounted, pause and throttle block admission, no LLM polling",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "resource-pools.renderUnits",
+      "case": "workers 4 with RASANAI_WORKERS_PER_RENDER_UNIT unset; workers unset"
+    },
+    {
+      "fn": "resource-pools.preAdmission",
+      "case": "crew/pause.json paused true"
+    },
+    {
+      "fn": "resource-pools.preAdmission",
+      "case": "crew/throttle.json model_job until 60 s from now"
+    },
+    {
+      "fn": "resource-pools.tryBundle",
+      "case": "needs browser_capture 1 + video_render 2 on a machine whose render pool has 2 slots"
+    },
+    {
+      "fn": "resource-pools.superviseProcess",
+      "case": "a child process that exits 0 after 40 s, then one killed by shouldCancel"
+    },
+    {
+      "fn": "slot.runInSlot",
+      "case": "managed child launched under a held slot"
+    }
+  ],
+  "expect": [
+    "4 workers = 2 units; unset workers = 1 unit with internal_workers unknown and unaccounted true (never a precise-looking number)",
+    "paused: state paused, reason_code user_paused, no slot touched",
+    "throttled: state queued, reason_code provider_throttled with retry-after seconds",
+    "two render units fit exactly in a 2-slot pool; a third unit would be demand_exceeds_pool (resource_blocked), not clamped",
+    "the supervisor emits queued, admitted (queue wait and fencing generations), started, heartbeat (rss from ps, no model), finished with duration and peak_rss_mb; a cancelled child is reported cancelled and its slots released",
+    "the child sees RASANAI_MANAGED=1 and RASANAI_SLOT_OWNER; an agent cap above the pool size never disables the render limiter"
+  ]
+}

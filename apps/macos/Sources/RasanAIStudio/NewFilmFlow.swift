@@ -14,8 +14,11 @@ struct FlowHost {
     /// Runs the automatic format match now (the page debounces it while typing), so the first screen already knows.
     var settleFormat: () async -> Void
     var briefPlaceholder: String
-    /// Pace, models, motion design, brand, director, footage folders and the moves from Inspiration.
-    var moreSettings: AnyView
+    /// Speed, quality, motion, brand and the director, as visible controls (the "How RasanAI works" card).
+    var howItWorks: AnyView = AnyView(EmptyView())
+    /// The footage folder well and the "Make it like this" well, drawn inside the Ready page's cards.
+    var footageWell: AnyView = AnyView(EmptyView())
+    var referenceWell: AnyView = AnyView(EmptyView())
     /// Start film, Add to queue or Save changes: the page's own button, with its checks and its ⌘↩.
     var runButton: AnyView
     /// Discard, the "kept if you leave" note, and Save to Library.
@@ -135,9 +138,14 @@ struct NewFilmFlow: View {
     @State private var showSaveSeries = false
     @State private var seriesTitle = ""
     @State private var customLength = false
+    @State private var reviewBriefFocused = false
+    @State private var formatOpen = false
+    @State private var pageWidth: CGFloat = 900
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var tilesFocused: Bool
 
     private static let lengths = [15, 30, 45, 60, 90, 120]
+    private static let reviewWidth: CGFloat = 1100
     private static let shapes: [(id: String, title: String, symbol: String, detail: String)] = [
         ("16:9", "Landscape", "rectangle", "Wide, for YouTube, sites and slides."),
         ("9:16", "Portrait", "rectangle.portrait", "Tall, for Reels, Shorts and TikTok."),
@@ -180,15 +188,15 @@ struct NewFilmFlow: View {
         if model.returnToReview { model.returnToReview = false; model.go(to: .review); return }
         model.go(to: nextStep())
     }
-    private func jump(_ step: FlowStep) { model.returnToReview = true; model.go(to: step) }
 
     // MARK: Body
 
     var body: some View {
         VStack(spacing: 0) {
-            if scrolls { ScrollView { page } } else { page.frame(maxHeight: .infinity, alignment: .top) }
-            footer
+            if scrolls { ScrollView { page }} else { page.frame(maxHeight: .infinity, alignment: .top) }
+            if model.step != .review { footer }
         }
+        .overlay(alignment: .bottom) { if model.step == .review { reviewBar.transition(.move(edge: .bottom).combined(with: .opacity)) } }
         .background(Color.appBackground)
         .animation(.snappy(duration: 0.2), value: model.step)
         .task(id: ready) {
@@ -230,8 +238,8 @@ struct NewFilmFlow: View {
             content
         }
         .disabled(working)
-        .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 28)
-        .frame(maxWidth: 940, alignment: .leading).frame(maxWidth: .infinity)
+        .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, model.step == .review ? 110 : 28)
+        .frame(maxWidth: model.step == .review ? Self.reviewWidth + 64 : 940, alignment: .leading).frame(maxWidth: .infinity)
         .id(model.step)
     }
 
@@ -594,89 +602,394 @@ struct NewFilmFlow: View {
         }
     }
 
-    // MARK: 8 Review
+    // MARK: 8 Review: the film on one page
 
-    private struct Row: Identifiable {
-        var id: String
-        var label: String
-        var value: String
-        var detail: String?
-        var source: AnswerSource
-        var step: FlowStep
-    }
+    /// Every part of the film is on this page and is changed right where it is: no sheet, nothing behind "more".
+    private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.86) }
 
     private func label(_ question: String, _ choice: String?) -> String {
         guard let choice else { return "Not chosen" }
         return questions?.label(question: question, choice: choice) ?? choice
     }
 
-    private var rows: [Row] {
-        var out: [Row] = []
-        if let series = model.series { out.append(Row(id: "series", label: "Series", value: series.name, source: .series, step: .series)) }
-        else if model.startingSeries { out.append(Row(id: "series", label: "Series", value: "A new series", detail: "Saved when you start the film", source: .you, step: .series)) }
-        else if !store.seriesList.isEmpty { out.append(Row(id: "series", label: "Series", value: "Just this film", source: .you, step: .series)) }
-        if let option { out.append(Row(id: "format", label: "Making", value: option.title, detail: model.provenance["format"] == nil ? draft.format?.why : nil,
-                                      source: model.provenance["format"] ?? (draft.format?.why != nil ? .auto : .you), step: .kind)) }
-        else { out.append(Row(id: "format", label: "Making", value: "RasanAI decides from your words", source: .auto, step: .kind)) }
-        out.append(Row(id: "material", label: "Material", value: materialSummary, source: .you, step: .material))
-        out.append(Row(id: "brief", label: "Brief", value: trimmedBrief.isEmpty ? "Nothing yet" : String(trimmedBrief.prefix(140)),
-                       source: model.provenance["brief"] == .series ? .series : .you, step: .brief))
-        let facts = "\(draft.duration) seconds · \(Self.shapeName(draft.aspect))"
-        let measured = readsClip && model.clipFacts != nil
-        out.append(Row(id: "shape", label: "Length and shape", value: facts,
-                       source: measured ? .clip : model.provenance["length"] ?? model.provenance["shape"] ?? .auto, step: .shape))
-        for question in asked where !(question.askIf == "marks-found" && !model.marksFound && draft.preferences[question.id] == nil) {
-            let choice = draft.preferences[question.id]
-            var detail = model.evidence[question.id]
-            if question.id == "ending", choice == "card" { detail = draft.endingFile.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Choose a file" }
-            out.append(Row(id: question.id, label: question.question.trimmingCharacters(in: CharacterSet(charactersIn: "?")), value: label(question.id, choice),
-                           detail: detail, source: choice == nil ? .auto : model.provenance[question.id] ?? .you, step: .question(question.id)))
-        }
-        return out
+    private var fileCount: Int { newSources.count + existingSources.count }
+    private var footageFolders: [LinkedSource] { draft.linked.filter { $0.kind == .footage } }
+    private var displayName: String {
+        let typed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !typed.isEmpty { return typed }
+        return trimmedBrief.isEmpty ? "Your film" : FilmTitle.fromBrief(trimmedBrief)
     }
 
-    private var materialSummary: String {
-        let files = newSources + existingSources
-        let folders = draft.linked.filter { $0.kind == .footage }
-        if files.isEmpty && folders.isEmpty { return "Words only" }
-        let names = (files.map(\.lastPathComponent) + folders.map(\.name))
-        return names.count <= 2 ? names.joined(separator: ", ") : "\(names.count) items: \(names.prefix(2).joined(separator: ", ")) and more"
+    /// The film in one sentence, from what is chosen right now.
+    private var summaryLine: String {
+        let length = draft.duration >= 60 && draft.duration % 60 == 0 ? "\(draft.duration / 60)-minute" : "\(draft.duration)-second"
+        let article = ["8", "11", "18"].contains(where: { length.hasPrefix($0 + "-") }) || length.hasPrefix("8") ? "an" : "a"
+        let from = !footageFolders.isEmpty ? "cut from your footage" : fileCount > 0 ? "from your words and \(fileCount) file\(fileCount == 1 ? "" : "s")" : "from your words"
+        let core = "\(length) \(Self.shapeName(draft.aspect).lowercased()) film \(from)"
+        if let option { return "\(option.title): \(article) \(core)." }
+        return "\(article.capitalized) \(core). RasanAI picks what kind."
+    }
+
+    private var visibleQuestions: [TasteQuestions.Question] {
+        asked.filter { !($0.askIf == "marks-found" && !model.marksFound && draft.preferences[$0.id] == nil) }
     }
 
     private var reviewScreen: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header("Ready when you are", "Click any answer to change it. Anything left to RasanAI, it decides.")
-            TextField("Name your film", text: $name, prompt: Text(trimmedBrief.isEmpty ? "Name your film" : FilmTitle.fromBrief(trimmedBrief)))
-                .textFieldStyle(.plain).font(.system(size: 22, weight: .semibold, design: .rounded))
-                .disabled(editing)
-                .help(editing ? "Rename this film from the Library" : "Rename your film")
-            if model.startingSeries {
-                HStack(spacing: 10) {
-                    Image(systemName: "rectangle.stack").foregroundStyle(Color.rasan)
-                    TextField("Name the new series", text: $model.seriesName).textFieldStyle(.roundedBorder).frame(maxWidth: 320)
-                    Text("Saved when you start this film.").font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-            }
-            if let message = model.message { Label(message, systemImage: "checkmark.circle").font(.system(size: 12.5)).foregroundStyle(.secondary) }
-            VStack(spacing: 0) {
-                let all = rows
-                ForEach(Array(all.enumerated()), id: \.element.id) { index, row in
-                    if index > 0 { Divider().padding(.leading, 14) }
-                    ReviewRow(label: row.label, value: row.value, detail: row.detail, source: row.source) { jump(row.step) }
-                }
-            }
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
+        VStack(alignment: .leading, spacing: 16) {
+            hero
             if model.learner.isRunning {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Still studying your example. Its answers will appear here.").font(.system(size: 12.5)).foregroundStyle(.secondary) }
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Still studying your example. Its answers will appear below.").font(.system(size: 12.5)).foregroundStyle(.secondary) }
             }
-            DisclosureGroup {
-                host.moreSettings.padding(.top, 10)
-            } label: {
-                Text("More settings").font(.system(size: 13, weight: .semibold))
-            }
-            .accessibilityLabel("More settings: pace, models, motion design, brand, director and inspiration moments")
+            cardGrid
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { pageWidth = $0 }
+        .animation(spring, value: formatOpen)
+        .animation(spring, value: customLength)
+        .animation(spring, value: model.startingSeries)
+    }
+
+    // MARK: Hero
+
+    private var hero: some View {
+        let wide = pageWidth >= 720
+        let layout = wide ? AnyLayout(HStackLayout(alignment: .center, spacing: 28)) : AnyLayout(VStackLayout(alignment: .leading, spacing: 20))
+        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        return layout {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Ready when you are").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.rasan)
+                    .accessibilityAddTraits(.isHeader)
+                TextField("Name your film", text: $name, prompt: Text(trimmedBrief.isEmpty ? "Name your film" : FilmTitle.fromBrief(trimmedBrief)))
+                    .textFieldStyle(.plain).font(.system(size: 30, weight: .semibold, design: .rounded))
+                    .disabled(editing)
+                    .help(editing ? "Rename this film from the Library" : "Click to rename your film")
+                    .accessibilityLabel("Film name")
+                Text(summaryLine).font(.system(size: 15)).foregroundStyle(.primary.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .contentTransition(.opacity)
+                    .animation(spring, value: summaryLine)
+                    .accessibilityLabel("Summary: \(summaryLine)")
+                Text("Change anything below, right where it is. What you leave, RasanAI decides.")
+                    .font(.system(size: 12.5)).foregroundStyle(.secondary)
+                if model.startingSeries {
+                    HStack(spacing: 10) {
+                        Image(systemName: "rectangle.stack").foregroundStyle(Color.rasan)
+                        TextField("Name the new series", text: $model.seriesName).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
+                        Text("Saved when you start this film.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+                if let message = model.message { Label(message, systemImage: "checkmark.circle").font(.system(size: 12.5)).foregroundStyle(.secondary) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            FilmShapePreview(aspect: draft.aspect, seconds: draft.duration, title: displayName, reduceMotion: reduceMotion)
+                .frame(maxWidth: wide ? nil : .infinity)
+        }
+        .padding(.horizontal, 26).padding(.vertical, 22)
+        .background {
+            shape.fill(Workspace.panel)
+                .overlay { shape.fill(RadialGradient(colors: [Color.rasan.opacity(0.16), .clear], center: .topTrailing, startRadius: 10, endRadius: 520)) }
+        }
+        .overlay { shape.strokeBorder(Color.primary.opacity(0.09), lineWidth: 1) }
+    }
+
+    // MARK: Cards
+
+    private struct Slot: Identifiable { let id: String; let wide: Bool; let view: AnyView }
+    private struct SlotRow: Identifiable { let slots: [Slot]; var id: String { slots.map(\.id).joined(separator: "+") } }
+
+    private var slots: [Slot] {
+        var out: [Slot] = [
+            Slot(id: "format", wide: formatOpen, view: AnyView(formatCard)),
+            Slot(id: "shape", wide: false, view: AnyView(shapeCard)),
+            Slot(id: "brief", wide: false, view: AnyView(briefCard)),
+            Slot(id: "material", wide: false, view: AnyView(materialCard)),
+            Slot(id: "reference", wide: false, view: AnyView(referenceCard)),
+        ]
+        if !store.seriesList.isEmpty || model.series != nil || model.startingSeries { out.append(Slot(id: "series", wide: false, view: AnyView(seriesCard))) }
+        out.append(Slot(id: "how", wide: true, view: AnyView(howCard)))
+        if !visibleQuestions.isEmpty { out.append(Slot(id: "style", wide: true, view: AnyView(styleCard))) }
+        return out
+    }
+
+    /// Two columns when there is room, one when there is not. Between wide cards, the others alternate left and right and
+    /// each column keeps its own heights, so no card is stretched into empty space. A wide card takes the whole row.
+    private var rows: [SlotRow] {
+        let columns = pageWidth >= 760 ? 2 : 1
+        var out: [SlotRow] = [], run: [Slot] = []
+        func flush() { if !run.isEmpty { out.append(SlotRow(slots: run)); run = [] } }
+        for slot in slots {
+            if slot.wide || columns == 1 { flush(); out.append(SlotRow(slots: [slot])) } else { run.append(slot) }
+        }
+        flush()
+        return out
+    }
+
+    private var cardGrid: some View {
+        VStack(spacing: 16) {
+            ForEach(rows) { row in
+                if row.slots.count > 1 {
+                    let left = row.slots.enumerated().filter { $0.offset % 2 == 0 }.map(\.element)
+                    let right = row.slots.enumerated().filter { $0.offset % 2 == 1 }.map(\.element)
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(spacing: 16) { ForEach(left) { $0.view.fixedSize(horizontal: false, vertical: true) } }
+                        VStack(spacing: 16) { ForEach(right) { $0.view.fixedSize(horizontal: false, vertical: true) } }
+                    }
+                } else if let slot = row.slots.first { slot.view }
+            }
+        }
+    }
+
+    private var formatSource: AnswerSource {
+        guard option != nil else { return .auto }
+        return model.provenance["format"] ?? (draft.format?.why != nil ? .auto : .you)
+    }
+    private var lengthSource: AnswerSource { readsClip && model.clipFacts != nil ? .clip : model.provenance["length"] ?? .auto }
+    private var shapeSource: AnswerSource { readsClip && model.clipFacts != nil ? .clip : model.provenance["shape"] ?? .auto }
+    private var briefSource: AnswerSource { model.provenance["brief"] == .series ? .series : trimmedBrief.isEmpty ? .auto : .you }
+
+    private var formatCard: some View {
+        ReviewCard(title: "What you're making", symbol: "film", source: formatSource,
+                   decide: draft.format == nil ? nil : { withAnimation(spring) { model.provenance["format"] = nil; host.undoAutoPick() } }) {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: option.map { FormatPickerView.symbol($0.tile) } ?? "sparkles")
+                    .font(.system(size: 22, weight: .light)).foregroundStyle(Color.rasan)
+                    .frame(width: 52, height: 52).background(Color.rasan.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(option?.title ?? "RasanAI picks from your words").font(.system(size: 17, weight: .semibold))
+                    if let why = draft.format?.why, !why.isEmpty {
+                        Text(why.hasSuffix(".") ? why : why + ".").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                    } else if option == nil {
+                        Text("Or choose one yourself.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 8)
+                Button { formatOpen.toggle() } label: {
+                    Label(formatOpen ? "Done" : "Change", systemImage: formatOpen ? "chevron.up" : "chevron.down")
+                }
+                .buttonStyle(.rasanSecondary).controlSize(.small).disabled(working || catalog == nil)
+                .accessibilityLabel(formatOpen ? "Close the list of formats" : "Change what you're making")
+            }
+            if option?.status == .soon {
+                Text("This format is coming soon. Choose another.").font(.system(size: 12)).foregroundStyle(Color(nsColor: .systemOrange))
+            }
+            if formatOpen, let catalog {
+                FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
+                                 onPick: { picked in host.pickOption(picked); if picked.status != .soon { formatOpen = false } },
+                                 onScope: { draft.format?.scope = $0 }, changing: .constant(true), showsChip: false, alwaysGrid: true, showsHeading: false)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private var shapeCard: some View {
+        ReviewCard(title: "Length and shape", symbol: "rectangle.ratio.16.to.9",
+                   subtitle: model.clipFacts != nil ? "Read from your clip. Change it only if you want something different." : nil) {
+            VStack(alignment: .leading, spacing: 10) {
+                ReviewFieldHeader(title: "How long", source: lengthSource, decide: { model.provenance["length"] = nil })
+                FlowLayout(spacing: 8) {
+                    ForEach(Self.lengths, id: \.self) { seconds in
+                        ChoicePill(title: ComposerLayout.shortLength(seconds), selected: !customLength && draft.duration == seconds) {
+                            customLength = false; draft.duration = seconds; model.provenance["length"] = .you
+                        }
+                    }
+                    ChoicePill(title: "Custom", selected: customLength) { customLength = true; model.provenance["length"] = .you }
+                    if customLength {
+                        Stepper(value: Binding(get: { draft.duration }, set: { draft.duration = $0; model.provenance["length"] = .you }), in: 5...600, step: 5) {
+                            Text("\(draft.duration) s").monospacedDigit().font(.system(size: 13))
+                        }
+                        .fixedSize().frame(height: 32)
+                        .accessibilityLabel("Length in seconds")
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                ReviewFieldHeader(title: "What shape", source: shapeSource, decide: { model.provenance["shape"] = nil })
+                HStack(spacing: 8) {
+                    ForEach(Self.shapes, id: \.id) { shape in
+                        ShapePill(id: shape.id, title: shape.title, detail: shape.detail, selected: draft.aspect == shape.id) {
+                            draft.aspect = shape.id; model.provenance["shape"] = .you
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var briefCard: some View {
+        ReviewCard(title: "Your words", symbol: "text.quote", subtitle: "What it is, who it is for, how it should feel.", source: briefSource) {
+            ComposerTextView(text: $draft.brief, placeholder: host.briefPlaceholder, minLines: 4, maxLines: 10, focused: $reviewBriefFocused, focusRequest: 0)
+                .frame(maxWidth: .infinity).padding(12)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(reviewBriefFocused ? Color.rasan.opacity(0.7) : Color.primary.opacity(0.10), lineWidth: reviewBriefFocused ? 1.5 : 1))
+                .animation(.easeOut(duration: 0.15), value: reviewBriefFocused)
+                .accessibilityLabel("Brief")
+            HStack(spacing: 10) {
+                Button { addLink() } label: { Label("Add a link", systemImage: "link") }.buttonStyle(.rasanSecondary).controlSize(.small)
+                    .help("Adds the link on your clipboard, or a blank one to fill in")
+                if model.series != nil, model.source("brief") == .series {
+                    Text("This is the standing brief from your series. Say what is different about this episode.").font(.system(size: 11.5)).foregroundStyle(.secondary)
+                } else if trimmedBrief.isEmpty {
+                    Text("A sentence is enough. The film can't start without one.").font(.system(size: 11.5)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .onChange(of: draft.brief) { if model.provenance["brief"] == .series, trimmedBrief != model.series?.brief { model.provenance["brief"] = nil } }
+    }
+
+    private var materialCard: some View {
+        ReviewCard(title: "Your material", symbol: "folder", subtitle: "Used in your film. Optional: words are enough.") {
+            host.footageWell
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(fileCount == 0 ? "No files" : "\(fileCount) file\(fileCount == 1 ? "" : "s")").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Add files…") { host.chooseFiles() }.buttonStyle(.rasanSecondary).controlSize(.small).disabled(working)
+                        .help("Footage, images or documents. Copies go into the film; your originals stay put.")
+                }
+                ForEach(existingSources, id: \.self) { FlowFileChip(url: $0) }
+                ForEach(newSources, id: \.self) { url in FlowFileChip(url: url) { host.removeSource(url) } }
+            }
+            if let facts = model.clipFacts, readsClip {
+                Label("\(facts.seconds) seconds, \(Self.shapeName(facts.aspect).lowercased()), read from \(facts.name).", systemImage: "waveform.badge.magnifyingglass")
+                    .font(.system(size: 11.5)).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var referenceCard: some View {
+        ReviewCard(title: "Make it like this", symbol: "film.stack", subtitle: "Studied for pace, type, colour and camera. Never cut in.") {
+            host.referenceWell
+            if model.example != nil { learnStatus }
+        }
+    }
+
+    private var seriesCard: some View {
+        ReviewCard(title: "Series", symbol: "rectangle.stack", subtitle: "A series remembers the answers, the brand and the end card.",
+                   source: model.series != nil ? .series : .you) {
+            FlowLayout(spacing: 8) {
+                ForEach(store.seriesList, id: \.id) { series in
+                    ChoicePill(title: series.name, symbol: "rectangle.stack", selected: model.series?.id == series.id, help: series.summaryLine) {
+                        withAnimation(spring) { fill(series) }
+                    }
+                }
+                ChoicePill(title: "Just this film", selected: model.series == nil && !model.startingSeries, help: "Nothing is remembered for next time.") {
+                    withAnimation(spring) { model.clearSeriesAnswers(&draft); model.startingSeries = false }
+                }
+                ChoicePill(title: "Start a series", symbol: "plus", selected: model.startingSeries, help: "Saved when you start this film.") {
+                    withAnimation(spring) { model.clearSeriesAnswers(&draft); model.startingSeries = true }
+                }
+            }
+        }
+    }
+
+    private var howCard: some View {
+        ReviewCard(title: "How RasanAI works", symbol: "slider.horizontal.3",
+                   subtitle: "How long it takes, what it costs and how it looks. Each choice says what it means.") {
+            host.howItWorks
+        }
+    }
+
+    private var styleCard: some View {
+        ReviewCard(title: "Your style", symbol: "paintbrush.pointed",
+                   subtitle: "The questions RasanAI would ask on the way. Answer any here, or leave them to RasanAI.") {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(visibleQuestions.enumerated()), id: \.element.id) { index, question in
+                    if index > 0 { Divider().padding(.vertical, 12) }
+                    styleRow(question)
+                }
+            }
+        }
+    }
+
+    private func styleRow(_ question: TasteQuestions.Question) -> some View {
+        let current = draft.preferences[question.id]
+        let source: AnswerSource = current == nil ? .auto : model.provenance[question.id] ?? .you
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(question.question).font(.system(size: 13, weight: .semibold))
+                SourceTag(source: source)
+                Spacer(minLength: 0)
+            }
+            if let evidence = model.evidence[question.id], !evidence.isEmpty {
+                Text(evidence).font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(2)
+            }
+            FlowLayout(spacing: 8) {
+                ForEach(question.choices) { choice in
+                    ChoicePill(title: choice.label, symbol: TasteThumb.symbol(choice.thumb), selected: current == choice.id, help: choice.description) {
+                        setAnswer(question, choice)
+                    }
+                }
+                ChoicePill(title: question.unsure, symbol: "sparkles", selected: current == nil, help: "RasanAI chooses, the way it does today.") {
+                    setAnswer(question, nil)
+                }
+            }
+            if question.id == "ending", current == "card" { endingCardPicker.transition(.opacity) }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(question.question)
+    }
+
+    /// The same rules as the question screens, without walking on.
+    private func setAnswer(_ question: TasteQuestions.Question, _ choice: TasteQuestions.Choice?) {
+        withAnimation(spring) {
+            if let choice {
+                draft.preferences[question.id] = choice.id
+                model.provenance[question.id] = .you
+                model.evidence[question.id] = nil
+                if question.id == "ending", choice.id != "card" { draft.endingFile = nil }
+                model.needsEndingFile = choice.needsFile && draft.endingFile == nil
+            } else {
+                draft.preferences[question.id] = nil
+                model.provenance[question.id] = nil
+                model.evidence[question.id] = nil
+                if question.id == "ending" { draft.endingFile = nil }
+                model.needsEndingFile = false
+            }
+        }
+    }
+
+    private func addLink() {
+        let clip = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let link = clip.flatMap { URL(string: $0) }.flatMap { ["http", "https"].contains($0.scheme?.lowercased() ?? "") ? $0.absoluteString : nil } ?? "https://"
+        draft.brief += (trimmedBrief.isEmpty ? "" : "\n") + link
+        reviewBriefFocused = true
+    }
+
+    // MARK: Ready bar
+
+    /// The bar that floats over the bottom of the Ready page: what you are about to start, and the buttons to start it.
+    private var reviewBar: some View {
+        let compact = pageWidth < 760
+        return HStack(spacing: 12) {
+            Button { model.back() } label: { Image(systemName: "chevron.left").frame(width: 12) }
+                .buttonStyle(.rasanSecondary).disabled(!model.canGoBack || working)
+                .keyboardShortcut("[", modifiers: .command)
+                .help("Back (⌘[)").accessibilityLabel("Back")
+            if !compact {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(ComposerLayout.shortLength(draft.duration)) · \(Self.shapeName(draft.aspect))\(option.map { " · \($0.title)" } ?? "")")
+                        .font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    Text("You check the brief, story, look, storyboard and final as it goes.")
+                        .font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(1)
+                }
+                .frame(minWidth: 0, alignment: .leading).layoutPriority(-1)
+            }
+            Spacer(minLength: 8)
+            host.footerActions
+            if draft.series == nil, !model.startingSeries {
+                Button("Save as series…") { seriesTitle = name; showSaveSeries = true }
+                    .buttonStyle(.rasanSecondary).disabled(working || trimmedBrief.isEmpty && draft.format == nil)
+                    .help("Keep these answers, the brand and the end card for the next episode")
+            }
+            host.runButton
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .glassPanel()
+        .shadow(color: .black.opacity(0.25), radius: 18, y: 6)
+        .frame(maxWidth: Self.reviewWidth)
+        .padding(.horizontal, 24).padding(.bottom, 16)
     }
 
     // MARK: Footer
@@ -684,7 +997,6 @@ struct NewFilmFlow: View {
     private var footer: some View {
         let list = steps
         let index = list.firstIndex(of: model.step)
-        let onReview = model.step == .review
         return HStack(spacing: 14) {
             Button { model.back() } label: { Label("Back", systemImage: "chevron.left") }
                 .buttonStyle(.rasanSecondary).disabled(!model.canGoBack || working)
@@ -698,30 +1010,20 @@ struct NewFilmFlow: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Step \((index ?? 0) + 1) of \(list.count)")
-            if model.learner.isRunning, model.step != .example, model.step != .review {
+            if model.learner.isRunning, model.step != .example {
                 HStack(spacing: 6) { ProgressView().controlSize(.mini); Text("Studying your example…").font(.system(size: 11.5)).foregroundStyle(.secondary) }
             }
             Spacer(minLength: 8)
-            if onReview {
-                host.footerActions
-                if draft.series == nil, !model.startingSeries {
-                    Button("Save as series…") { seriesTitle = name; showSaveSeries = true }
-                        .buttonStyle(.rasanSecondary).disabled(working || trimmedBrief.isEmpty && draft.format == nil)
-                        .help("Keep these answers, the brand and the end card for the next episode")
-                }
-                host.runButton
-            } else {
-                if working { ProgressView().controlSize(.small) }
-                Text("⌘↩ starts now").font(.system(size: 11)).foregroundStyle(.tertiary)
-                if model.step == .example || model.step == .material || isQuestion {
-                    Button(skipTitle) { skip() }.buttonStyle(.rasanSecondary).disabled(working)
-                }
-                Button { advance() } label: { Text("Continue") }
-                    .buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction).disabled(working)
-                    .help("Next (Return)")
-                // ⌘↩ starts the film from any screen: the page's own button, kept off screen until Review shows it.
-                host.runButton.frame(width: 0, height: 0).clipped().opacity(0).accessibilityHidden(true)
+            if working { ProgressView().controlSize(.small) }
+            Text("⌘↩ starts now").font(.system(size: 11)).foregroundStyle(.tertiary)
+            if model.step == .example || model.step == .material || isQuestion {
+                Button(skipTitle) { skip() }.buttonStyle(.rasanSecondary).disabled(working)
             }
+            Button { advance() } label: { Text("Continue") }
+                .buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction).disabled(working)
+                .help("Next (Return)")
+            // ⌘↩ starts the film from any screen: the page's own button, kept off screen until Review shows it.
+            host.runButton.frame(width: 0, height: 0).clipped().opacity(0).accessibilityHidden(true)
         }
         .padding(.horizontal, 32).padding(.vertical, 12)
         .frame(maxWidth: .infinity)

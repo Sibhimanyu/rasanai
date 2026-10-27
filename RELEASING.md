@@ -17,6 +17,10 @@ Put the notes under `## Unreleased` in `CHANGELOG.md` (skill) or `apps/macos/CHA
 
 All repo edits happen in a temporary worktree off `origin/master`; your working tree is never touched. A branch is deleted only after its PR is MERGED.
 
+Each step prints how long it took, and the run ends with a `== timings` summary.
+
+Agents run releases through the `release-runner` agent (Haiku, `.claude/agents/release-runner.md`) in the background.
+
 ## Resume
 
 Every step checks whether it is already done (PR merged, tag, release, appcast item, feed live) and skips. Progress is kept in `.release-state/<kind>-<version>.json` (gitignored). If a step fails, the script prints the exact command; run it again. A failed build run is dropped from the state, so resuming re-dispatches it.

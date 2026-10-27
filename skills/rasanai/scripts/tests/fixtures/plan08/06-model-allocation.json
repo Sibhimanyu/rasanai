@@ -1,0 +1,51 @@
+{
+  "id": "plan08/K06",
+  "title": "Model allocation by task: no silent downgrade, no max effort for bookkeeping, focused repair then bounded escalation",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "models.allocate",
+      "args": {
+        "role": "treatment-writer",
+        "profile": "session is a frontier Claude profile"
+      }
+    },
+    {
+      "fn": "models.allocate",
+      "args": {
+        "role": "footage-logger",
+        "profile": "gpt-frontier"
+      }
+    },
+    {
+      "fn": "models.allocate",
+      "args": {
+        "role": "product-researcher",
+        "attempt": 2,
+        "failed": {
+          "reason": "claims missing sources"
+        },
+        "policy": "no pinned model"
+      }
+    },
+    {
+      "fn": "models.allocate",
+      "args": {
+        "role": "product-researcher",
+        "attempt": 2,
+        "failed": {
+          "reason": "x"
+        },
+        "policy": "resources.model.choice set"
+      }
+    }
+  ],
+  "expect": [
+    "story/visual-direction roles never get fast:true or a downgrade model; silent_downgrade false",
+    "bookkeeping role on a gpt profile gets effort low",
+    "attempt 2 returns repair.packet focused and rerun_full_crew false; escalation is set only when no model is pinned, with its reason",
+    "a pinned model is never escalated; the note says so",
+    "no model id string is hardcoded in the module"
+  ]
+}

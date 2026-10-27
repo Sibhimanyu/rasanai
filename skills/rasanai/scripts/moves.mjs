@@ -329,7 +329,16 @@ if (cmd === "pack") {
   const label = str(obj && obj.label) || (path.basename(f).match(/^moves-(.+)\.json$/) || [])[1] || "";
   const pitch = pitchBeatsOf(path.resolve(String(args.pitch)), label);
   const pack = jsonMaybe(path.join(path.dirname(f), `moves-pack-${label}.json`)) || null;
-  const r = validateMoves(obj, { beats: pitch.beats, productFirst: !!args["product-first"], shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack });
+  // Part 2 (medium Looks only): the run is --run, else the folder above story/ the file sits in; a chosen medium contract may qualify the bridge-per-boundary (handoff) quota. No contract: nothing is read or changed.
+  let mediumSkip = [];
+  try {
+    const runGuess = args.run && args.run !== true ? path.resolve(String(args.run)) : path.basename(path.dirname(f)) === "story" ? path.dirname(path.dirname(f)) : null;
+    if (runGuess) {
+      const MW = await import("./lib/medium-wiring.mjs"), c = MW.mediumContractFor(runGuess);
+      if (MW.isMediumContract(c)) mediumSkip = [...MW.scopedSkips(c, ["handoff-continuity"]).skip];
+    }
+  } catch { mediumSkip = []; }
+  const r = validateMoves(obj, { beats: pitch.beats, productFirst: !!args["product-first"], shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack, ...(mediumSkip.length ? { mediumSkip } : {}) });
   out({ ok: !r.errors.length, errors: r.errors, warnings: r.warnings }, r.errors.length ? 2 : 0);
 } else if (cmd === "check-verdict") {
   const run = runDir();

@@ -15,9 +15,11 @@ Words are whitespace-separated tokens; "no `and`" means the whole word, any case
 | `length_s` | number | the film's length |
 | `proposition` | string | one sentence, 12 words at most, no `and`. Every beat carries, proves or pays it off |
 | `page` | object | `{problem, audience, goal, emotion}`, all non-empty. Write `emotion` as "from <feeling> to <feeling>": the distance is the payload |
-| `villain` | object | `{what, picture}`. `what`: the one object or problem to blame (the viewer's real pain; never a competitor, never the product). `picture`: how it is visible on screen |
+| `villain` | object (opt) | OPTIONAL since Plan 03 (validated only when present). `{what, picture}`. `what`: the one object or problem to blame (the viewer's real pain; never a competitor, never the product). `picture`: how it is visible on screen |
 | `felt_numbers` | array | 1 to 3 of `{value, source}`: `value` holds a digit; `source` a claim id from `research/claims.json`, or `"prop"` (a story detail, also in the pitch's `props`) |
-| `ending_first` | object | `{line, last_frame, echo, echoes_beat (opt)}`: the last line and frame, written first; `echo` what of the opening they answer; `echoes_beat` the beat it answers (usually 1) |
+| `story_format` | string (opt) | `"v2"` for a sheet derived from a format-aware treatment (`lib/treatment.mjs toIntent`): villain, ending_first and a peak are then all optional |
+| `ending_first` | object | required for legacy sheets, optional for `story_format: "v2"`. `{line, last_frame, echo, echoes_beat (opt)}`: the last line and frame, written first; `echo` what of the opening they answer; `echoes_beat` the beat it answers (usually 1) |
+| `character` | object (opt) | `{want, obstacle, behaviour, change, acting}` for mascot, brand-character and animated-story films; `acting` is how the body shows the change (cautious early, decisive late) |
 | `muted_hook` | string | what the first 2 s say with the sound off (picture plus any words) |
 | `beats` | array | one per pitch beat, same order and count (3 at least) |
 | `emphasis_curve` | derived | written by the validator, never by hand |
@@ -41,14 +43,14 @@ Each beat:
 Film-level rules:
 
 1. Importance 3 on at most 25% of the beats. At least one beat at importance 1: emphasis is spent, not spread.
-2. The peak beat has importance 3 and starts between 60% and 75% of the running time (58% to 75% at 10 s) (a lyric treatment: on the song's own climax, 55% to 90%).
-3. The beat right before the peak has `rest_after: true`.
-4. The pitch's turn beat (`turn: true`, stated in `pitch.turn`) has relation `but`. Engine placement (references/story.md, Plot engines): `reversal`: the turn starts at 15% to 45%, before the peak; `refrain-break`: the turn IS the peak (the break); `before-after`: the turn (the cause made visible) comes before the peak.
-5. The payoff is a beat with relation `answer`, at or after the peak, and it answers what `ending_first.echo` names.
+2. A peak is optional (none is valid; two are an error). When there is one, it has importance 3, and the legacy guidance puts it between 60% and 75% of the running time (58% to 75% at 10 s) (a lyric treatment: on the song's own climax, 55% to 90%).
+3. The beat right before a peak has `rest_after: true` (legacy guidance, a warning, not checked for `story_format: "v2"`).
+4. When the pitch declares a turn (optional), its turn beat (`turn: true`, stated in `pitch.turn`) has relation `but`. Engine placement (references/story.md, Plot engines): `reversal`: the turn starts at 15% to 45%, before the peak; `refrain-break`: the turn IS the peak (the break); `before-after`: the turn (the cause made visible) comes before the peak.
+5. When the sheet has an `ending_first`, the payoff is a beat with relation `answer`, at or after the peak, and it answers what `ending_first.echo` names.
 6. No two beats share a `buys`.
-7. The peak holds longest: the peak beat's `duration_s` is at least every other beat's (error `peak-not-longest`). At a 10 s film the peak window is 58% to 75% (a 10 s film rounds hard); elsewhere 60% to 75%.
+7. A peak, when there is one, holds longest: the peak beat's `duration_s` is at least every other beat's (error `peak-not-longest`). At a 10 s film the peak window is 58% to 75% (a 10 s film rounds hard); elsewhere 60% to 75%.
 
-Errors: the proposition, `page`, `villain`, `ending_first`, each beat's buys, before, after, relation, importance and read, the 25% budget, the one peak at importance 3, the peak holding longest (`peak-not-longest`). Warnings (uncalibrated): `muted_hook`, felt numbers, the form of a buys (`buys-form`, `buys-and`), `no-change`, `no-valley`, `peak-place`, `no-rest-before-peak`, `read-short`, repeated buys.
+Errors (Plan 03: `villain` and a peak are optional; `ending_first` is optional for v2 sheets): the proposition, `page`, a malformed `villain` when present, `ending_first` (legacy), each beat's buys, before, after, relation, importance and read, the 25% budget, at most one peak (importance 3), the peak holding longest (`peak-not-longest`). Warnings (uncalibrated): `muted_hook`, `logo-only-ending`, `character-arc-thin`, `character-no-change`, felt numbers, the form of a buys (`buys-form`, `buys-and`), `no-change`, `no-valley`, `peak-place`, `no-rest-before-peak`, `read-short`, repeated buys.
 
 Timings follow the intent, never the reverse: `scenes.mjs --intent story/intent.json --retime` sizes each beat from its `read` and `importance` (the peak and the payoff hold longest, the beats before the peak shorten, a `rest_after` adds air). The draft `duration_s` is only where that starts.
 
@@ -57,10 +59,10 @@ Timings follow the intent, never the reverse: `scenes.mjs --intent story/intent.
 1. **Proposition.** The one thing a viewer could say back. Subject, verb, benefit. If it needs `and`, there are two films: pick one.
 2. **PAGE.** Problem, audience, goal, emotion; name both ends of the emotion.
 3. **Villain and felt numbers.** One concrete object doing one wrong thing (an unread badge climbing, a 14-reply thread), never an abstraction. On a product film it is the viewer's real pain, and the hero is the real product UI.
-4. **Ending first.** The last line and frame, then what of the opening they answer. Write the middle only after this.
-5. **Engine and turn** (in the pitch: `engine`, `turn: {line, reverses, payoff}`). If nothing reverses, it is a list.
+4. **Ending first (optional for v2).** The last line and frame, then what of the opening they answer. Write the middle only after this when the film sets up a question; a demonstration or manifesto may skip it.
+5. **Engine and turn, only if you use them** (in the pitch: `engine`, `turn: {line, reverses, payoff}`). A declared turn that reverses nothing is a list; no turn is fine.
 6. **Beats.** For each: what it buys, the viewer before and after, the relation word, importance, the one read. A beat with no relation word, or whose before equals its after, is cut, not shortened.
-7. **Peak and rest.** The one peak at 60 to 75%, a rest right before it; count the 3s. Then `muted_hook`.
+7. **Peak and rest (optional).** If the film has a peak: one, at 60 to 75% in the legacy sheets, a rest right before it; count the 3s. Then `muted_hook`.
 
 ## Worked example (a 30 s launch of Plover, a scheduling app; numbers are props, never copy them)
 

@@ -1,0 +1,117 @@
+{
+  "format": "medium-family@1",
+  "note": "Families are classification metadata. A family with no implemented execution profile is never buildable and never verified.",
+  "families": [
+    {
+      "id": "flat-vector-geometric",
+      "name": "Flat vector and geometric animation",
+      "strength": "Shapes, paths and transformations make a relationship visible.",
+      "existing_reference_candidates": [
+        "flat-vector",
+        "line-art",
+        "morph",
+        "bauhaus"
+      ]
+    },
+    {
+      "id": "illustrated-cel",
+      "name": "Illustrated and cel character performance",
+      "strength": "Acting and reactions carry meaning beyond labels.",
+      "existing_reference_candidates": [
+        "cel-boil"
+      ]
+    },
+    {
+      "id": "pixel-retro",
+      "name": "Pixel and retro-computing language",
+      "strength": "Discrete objects, sprites and deliberate resolution become a visual language.",
+      "existing_reference_candidates": [
+        "pixel",
+        "living-screencast",
+        "ascii-crt"
+      ]
+    },
+    {
+      "id": "paper-collage",
+      "name": "Paper, cutout and collage",
+      "strength": "Layering, rearranging, revealing and folding material express the idea.",
+      "existing_reference_candidates": [
+        "collage",
+        "halftone-collage",
+        "paperclip",
+        "halftone-dossier"
+      ]
+    },
+    {
+      "id": "painterly-ink",
+      "name": "Painterly, ink and drawn media",
+      "strength": "Strokes, washes and evolving drawings make the image.",
+      "existing_reference_candidates": [
+        "sketchbook",
+        "riso"
+      ]
+    },
+    {
+      "id": "clay-stopmotion",
+      "name": "Clay and stop-motion-inspired materials",
+      "strength": "Tactile objects have weight, deformation and deliberate poses.",
+      "existing_reference_candidates": [
+        "3d-render"
+      ]
+    },
+    {
+      "id": "isometric-worlds",
+      "name": "Isometric and miniature systems",
+      "strength": "Spatial construction and routes explain a system.",
+      "existing_reference_candidates": [
+        "isometric",
+        "iso-infographic"
+      ]
+    },
+    {
+      "id": "dimensional-product",
+      "name": "Dimensional product animation",
+      "strength": "Actual geometry and materials reveal physical construction.",
+      "existing_reference_candidates": [
+        "glass-product",
+        "3d-render"
+      ]
+    },
+    {
+      "id": "diagram-data",
+      "name": "Diagrammatic and evidence-driven animation",
+      "strength": "Quantities and relationships determine the picture.",
+      "existing_reference_candidates": [
+        "dataviz",
+        "blueprint",
+        "manim-math"
+      ]
+    },
+    {
+      "id": "footage-graphics",
+      "name": "Real footage with integrated graphics",
+      "strength": "Real actions are clarified by anchored annotations and edits.",
+      "existing_reference_candidates": []
+    },
+    {
+      "id": "expressive-type",
+      "name": "Expressive typography",
+      "strength": "Language itself carries the visual idea.",
+      "existing_reference_candidates": [
+        "swiss-motion",
+        "hanazi",
+        "dark-keynote"
+      ]
+    },
+    {
+      "id": "abstract-procedural",
+      "name": "Abstract and procedural graphics",
+      "strength": "A pattern or field expresses an approved identity or thematic idea.",
+      "existing_reference_candidates": [
+        "liquid",
+        "aurora-glass",
+        "hud"
+      ]
+    }
+  ]
+}

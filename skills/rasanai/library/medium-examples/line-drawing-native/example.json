@@ -1,0 +1,70 @@
+{
+  "$comment": "creative-example@1 rows wrapping this directory's original examples (Part 2 integration; the lane's own metadata uses other shapes). Not rendered, previewed or run: evidence original-unreviewed, state implemented_unvalidated. Guidance only; no authority over a user's task.",
+  "examples": [
+    {
+      "format": "creative-example@1",
+      "id": "line-drawing-line-reveals-relation",
+      "profile_ids": [
+        "line-art",
+        "line-drawing-native"
+      ],
+      "problem": "a drawn line shows a supported relationship (draft, review, approved)",
+      "native_action": "path-reveal / branch / point-attend",
+      "kind": "positive",
+      "source_ref": "library/medium-examples/line-drawing-native/positive-line-reveals-relation.js",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-graphic.js",
+      "learn": [
+        "the label follows the line, not the reverse",
+        "construction lines stay faint until the real stroke completes"
+      ],
+      "do_not_copy": [
+        "the path data and wording"
+      ],
+      "not_for": [
+        "a relationship the content does not support"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction",
+        "workflow-demo"
+      ]
+    },
+    {
+      "format": "creative-example@1",
+      "id": "line-drawing-unsupported-connector",
+      "profile_ids": [
+        "line-art",
+        "line-drawing-native"
+      ],
+      "problem": "a connector must not imply a data flow the product does not have",
+      "native_action": "path-reveal",
+      "kind": "boundary",
+      "source_ref": "library/medium-examples/line-drawing-native/boundary-unsupported-connector.js",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-graphic.js",
+      "learn": [
+        "a connector declares supported or illustrative; illustrative draws dashed",
+        "dense diagrams disclose progressively"
+      ],
+      "do_not_copy": [
+        "the connector as an integration claim"
+      ],
+      "not_for": [
+        "any real integration or data transfer"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ]
+    }
+  ]
+}

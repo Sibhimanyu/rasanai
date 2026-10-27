@@ -1,0 +1,360 @@
+{
+  "schema_version": 1,
+  "purpose": "Distinct licence records per kind of thing RasanAI ships, bundles, fetches or studies. Missing licence = unresolved, never permission. Rechecked against the actual files by lib/license-register.mjs inventory().",
+  "kinds": [
+    "code",
+    "bundled_runtime",
+    "plugin",
+    "model_weights",
+    "font",
+    "stock_generated_media",
+    "reference_material",
+    "brand_asset"
+  ],
+  "statuses": [
+    "cleared",
+    "conditional",
+    "unresolved",
+    "ideas_only",
+    "not_bundled",
+    "blocked"
+  ],
+  "distribution_blockers": [
+    {
+      "id": "gsap-standard-license-no-code-visual-animation-builder",
+      "status": "open",
+      "scope": "project-wide distribution of RasanAI (skill, Studio bundle, website copy) while it ships and writes against GSAP and exposes direct element editing",
+      "reason": "GSAP's Standard License includes a restriction aimed at competing no-code visual animation builders. Applicability to RasanAI's actual product (Studio's element inspector writes source through typed edits; it is not a timeline builder, but that reading is ours, not a licensor's) has not been assessed with licensing advice or written permission.",
+      "not_resolved_by": [
+        "removing a feature",
+        "an AI-generated-code label",
+        "an opt-in checkbox",
+        "a feature flag or environment variable",
+        "the repository's own MIT licence"
+      ],
+      "cleared_by": "recorded licensing advice or written permission, then a dated edit here and in docs/plans/motion-studio-licenses.md",
+      "runtime": "kept; not removed",
+      "opened": "2026-10-24 (motion-studio-licenses.md row 13)"
+    }
+  ],
+  "records": [
+    {
+      "id": "rasanai-code",
+      "kind": "code",
+      "name": "RasanAI skill and engine code",
+      "version": "repo HEAD",
+      "licence_spdx": "MIT",
+      "licence_file": "LICENSE",
+      "holder": "Sibhimanyu 2026",
+      "status": "cleared",
+      "scope": "our own code only; the MIT licence does not cover the other records in this register, and an MIT repository badge does not license external assets or a separately sold skill pack",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "gsap-core",
+      "kind": "bundled_runtime",
+      "name": "GSAP core",
+      "version": "3.14.2",
+      "files": [
+        "scripts/vendor/gsap.min.js"
+      ],
+      "also_at": [
+        "docs/assets/gsap.min.js (website copy, outside the skill)"
+      ],
+      "licence_spdx": null,
+      "licence_name": "GreenSock Standard License (proprietary, not SPDX)",
+      "licence_file": null,
+      "header_evidence": "@license Copyright 2025, GreenSock. All rights reserved. Subject to the terms at https://gsap.com/standard-license",
+      "status": "unresolved",
+      "blocker": "gsap-standard-license-no-code-visual-animation-builder",
+      "restrictions": [
+        "the Standard License restricts use inside a no-code visual animation builder that competes with GSAP's own tools",
+        "the same page permits AI-generated code and distinguishes noncompeting visual tools"
+      ],
+      "redistribution": "vendored unmodified, header kept; the full licence text was NOT verified in this repository (gsap.com returned a marketing page on 2026-10-24)",
+      "action": "a project-wide review with licensing advice or written permission from GreenSock for RasanAI's actual product and distribution; the runtime is NOT removed and no flag, label or checkbox is treated as resolving it",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "gsap-plugins",
+      "kind": "plugin",
+      "name": "GSAP plugins (13)",
+      "version": "3.14.2",
+      "files": [
+        "scripts/vendor/gsap-plugins/*.min.js",
+        "scripts/vendor/gsap-plugins.min.js"
+      ],
+      "licence_spdx": null,
+      "licence_name": "GreenSock Standard License (proprietary, not SPDX)",
+      "header_evidence": "each file: @license Copyright 2025, GreenSock. Subject to the terms at https://gsap.com/standard-license",
+      "status": "unresolved",
+      "blocker": "gsap-standard-license-no-code-visual-animation-builder",
+      "restrictions": [
+        "same as gsap-core",
+        "whether the concatenated gsap-plugins.min.js keeps every per-file header is not verified"
+      ],
+      "action": "same decision as gsap-core",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "three-js",
+      "kind": "bundled_runtime",
+      "name": "three.js (core, module, addons)",
+      "version": "header: 2010-2025 Three.js Authors (release number not read from the minified file)",
+      "files": [
+        "stage3d/three.core.min.js",
+        "stage3d/three.module.min.js",
+        "stage3d/addons/"
+      ],
+      "licence_spdx": "MIT",
+      "licence_file": "stage3d/LICENSE-three",
+      "holder": "three.js authors 2010-2025",
+      "status": "cleared",
+      "scope": "library use through stage3d; per-addon headers not individually read",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "flubber",
+      "kind": "bundled_runtime",
+      "name": "flubber",
+      "version": "0.4.2",
+      "files": [
+        "runtime/vendor/flubber.min.js"
+      ],
+      "licence_spdx": "MIT",
+      "licence_file": "runtime/vendor/FLUBBER-LICENSE.txt",
+      "holder": "Noah Veltman 2017",
+      "status": "cleared",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "imagetracerjs",
+      "kind": "code",
+      "name": "imagetracerjs",
+      "version": "1.2.6",
+      "files": [
+        "scripts/vendor/imagetracer.js"
+      ],
+      "licence_spdx": "Unlicense",
+      "licence_file": null,
+      "header_evidence": "header kept in the file; npm licence field Unlicense (vendor/README.md)",
+      "status": "cleared",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "hershey-fonts",
+      "kind": "font",
+      "name": "Hershey single-stroke fonts (JSON)",
+      "files": [
+        "scripts/vendor/hershey/"
+      ],
+      "licence_spdx": null,
+      "licence_name": "attribution-only (not formally public domain)",
+      "licence_file": "scripts/vendor/hershey/README.md",
+      "status": "conditional",
+      "restrictions": [
+        "keep the attribution"
+      ],
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "fonts-fetched",
+      "kind": "font",
+      "name": "Fonts fetched or staged for a film (Google Fonts via lib/fonts.mjs, user brand fonts)",
+      "licence_spdx": null,
+      "status": "unresolved",
+      "scope": "each family has its own licence (often OFL or Apache-2.0); a user's brand font belongs to its foundry",
+      "action": "record the family's licence in the film's brand manifest when it is fetched or imported; a font without a recorded licence stays unresolved and is not redistributed in an export package",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "sfx-library",
+      "kind": "stock_generated_media",
+      "name": "SFX library (uisfx, Kenney, atomcut packs)",
+      "files": [
+        "library/sfx/"
+      ],
+      "licence_spdx": "CC0-1.0",
+      "licence_file": "library/sfx/LICENSES/",
+      "status": "cleared",
+      "scope": "licence copies kept per pack (CREDITS.md); re-read at download 2026-10-11",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "music-tracks",
+      "kind": "stock_generated_media",
+      "name": "Music tracks resolved by music.mjs (mirrors, CC-BY and similar)",
+      "licence_spdx": null,
+      "status": "conditional",
+      "scope": "each track keeps its own licence and attribution duty; the catalog row, not the repository licence, decides",
+      "action": "a track without a recorded licence is unresolved and is not delivered",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "generated-media",
+      "kind": "stock_generated_media",
+      "name": "Audio, image and video produced by hosted generators (ElevenLabs, Stability, others)",
+      "licence_spdx": null,
+      "status": "unresolved",
+      "scope": "output rights depend on the provider's terms and the person's plan; not read here",
+      "action": "record the plan and terms version per project before commercial delivery",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "model-weights",
+      "kind": "model_weights",
+      "name": "Generation model weights for the optional ComfyUI path",
+      "licence_spdx": null,
+      "status": "unresolved",
+      "scope": "no weights are bundled or downloaded by RasanAI; each film records hybrid/model-licences.json by hand (lib/provider-jobs.mjs modelLicense); no record means unreviewed",
+      "action": "never inferred from a model's name",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "remotion",
+      "kind": "code",
+      "name": "Remotion framework",
+      "licence_spdx": null,
+      "licence_name": "Remotion License (custom; free tier by entity size, Company License above)",
+      "status": "not_bundled",
+      "scope": "not shipped; the adapter is off by default. Remocn components (MIT) depend on Remotion and do not grant Remotion rights",
+      "action": "read the current terms for the actual company size and use before enabling any adapter; no purchase or activation without authorization",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "rive",
+      "kind": "plugin",
+      "name": "Rive editor, exports and runtimes",
+      "licence_spdx": null,
+      "status": "not_bundled",
+      "scope": "rive-wasm runtime is MIT; the editor and its exports are SaaS with tier terms (free exports carry a splash); adapter off by default",
+      "action": "check the plan and export terms per project before use",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "third-party-animate",
+      "kind": "code",
+      "name": "third_party/animate (adapted with credit)",
+      "files": [
+        "third_party/animate/"
+      ],
+      "licence_spdx": "MIT",
+      "licence_file": "third_party/animate/LICENSE",
+      "holder": "cth9191",
+      "status": "cleared",
+      "scope": "only what SOURCES.md lists as taken; keep LICENSE and NOTICE",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "third-party-cooked",
+      "kind": "code",
+      "name": "third_party/cooked (adapted with credit)",
+      "files": [
+        "third_party/cooked/"
+      ],
+      "licence_spdx": "MIT",
+      "licence_file": "third_party/cooked/LICENSE",
+      "holder": "NextWork",
+      "status": "cleared",
+      "scope": "only what SOURCES.md lists as taken; keep LICENSE and NOTICE",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "third-party-gbro",
+      "kind": "code",
+      "name": "third_party/gbro (adapted with credit)",
+      "files": [
+        "third_party/gbro/"
+      ],
+      "licence_spdx": "MIT",
+      "licence_file": "third_party/gbro/LICENSE",
+      "holder": "狗哥笔记",
+      "status": "cleared",
+      "scope": "only what SOURCES.md lists as taken; keep LICENSE and NOTICE",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "third-party-lemo-opuscar",
+      "kind": "code",
+      "name": "third_party/lemo-opuscar (adapted with credit)",
+      "files": [
+        "third_party/lemo-opuscar/"
+      ],
+      "licence_spdx": "MIT",
+      "licence_file": "third_party/lemo-opuscar/LICENSE",
+      "holder": "LemoLab",
+      "status": "cleared",
+      "scope": "only what SOURCES.md lists as taken; keep LICENSE and NOTICE",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "third-party-mg-styles-15",
+      "kind": "code",
+      "name": "third_party/mg-styles-15 (adapted with credit)",
+      "files": [
+        "third_party/mg-styles-15/"
+      ],
+      "licence_spdx": "MIT",
+      "licence_file": "third_party/mg-styles-15/LICENSE",
+      "holder": "Vincentwei1021",
+      "status": "cleared",
+      "scope": "only what SOURCES.md lists as taken; keep LICENSE and NOTICE",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "third-party-motionmaxxing",
+      "kind": "code",
+      "name": "third_party/motionmaxxing (adapted with credit)",
+      "files": [
+        "third_party/motionmaxxing/"
+      ],
+      "licence_spdx": "Apache-2.0",
+      "licence_file": "third_party/motionmaxxing/LICENSE",
+      "holder": "see third_party/motionmaxxing/LICENSE",
+      "status": "cleared",
+      "scope": "only what SOURCES.md lists as taken; keep LICENSE and NOTICE",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "third-party-thinking-orbs",
+      "kind": "code",
+      "name": "third_party/thinking-orbs (adapted with credit)",
+      "files": [
+        "third_party/thinking-orbs/"
+      ],
+      "licence_spdx": "MIT",
+      "licence_file": "third_party/thinking-orbs/LICENSE",
+      "holder": "Jakub Antalik",
+      "status": "cleared",
+      "scope": "only what SOURCES.md lists as taken; keep LICENSE and NOTICE",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "reference-material",
+      "kind": "reference_material",
+      "name": "Reference films, repositories and articles studied for ideas",
+      "licence_spdx": null,
+      "status": "ideas_only",
+      "scope": "SOURCES.md and INTAKE.md: where copying rights are not established we write original glue and summaries; AGPL, GPL, noncommercial, no-licence and unreadable sources are ideas only; inspiration is not permission to reuse footage, music, typefaces or code",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "brand-assets-user",
+      "kind": "brand_asset",
+      "name": "A person's own brand kit (logos, fonts, media)",
+      "licence_spdx": null,
+      "status": "conditional",
+      "scope": "rights belong to the brand owner who supplied them; each asset carries its approved role, clear space and modification limits",
+      "checked_at": "2026-10-25"
+    },
+    {
+      "id": "brand-marks-researched",
+      "kind": "brand_asset",
+      "name": "Third-party marks fetched by logos.mjs (svgl, simple-icons, a brand's own site)",
+      "licence_spdx": null,
+      "status": "conditional",
+      "scope": "an icon-set licence covers the artwork, not the trademark; use is limited to the film the person asked for about that brand, with the brand's own guidelines applying",
+      "checked_at": "2026-10-25"
+    }
+  ]
+}

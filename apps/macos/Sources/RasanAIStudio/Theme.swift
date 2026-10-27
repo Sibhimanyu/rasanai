@@ -1,6 +1,7 @@
 import AppKit
 import ImageIO
 import SwiftUI
+import Heresay
 
 // MARK: Colour
 
@@ -252,30 +253,25 @@ enum StatusTone { case good, warn, bad, quiet }
 
 // MARK: Help
 
-let guideURL = URL(string: "https://sibhimanyu.github.io/rasanai/guide.html")!
+let guideURL = URL(string: "https://sibhimanyu.github.io/rasanai/how-it-works.html")!
 
 /// The `?` in every toolbar: two to four friendly lines about this screen, plus a link to the guide.
 struct HelpButton: View {
     let title: String
     let lines: [String]
-    @State private var shown = false
+    /// A menu, not a popover: a popover anchored in a toolbar item has no anchor once the item collapses into the toolbar's
+    /// overflow, and the button then does nothing. A menu always opens, and carries the way to tell the team (Heresay).
     var body: some View {
-        Button { shown.toggle() } label: { Label("Help", systemImage: "questionmark.circle") }
-            .help("Help for this screen")
-            // Help is the last tool in the toolbar, close to the window's right edge. Pointed at the button's centre, the popover
-            // is slid left to fit and its arrow lands in the rounded corner; pointed at the button's leading edge, it clears it.
-            .popover(isPresented: $shown, attachmentAnchor: .point(.bottomLeading), arrowEdge: .bottom) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(title).font(.system(size: 13, weight: .semibold))
-                    ForEach(lines, id: \.self) { line in
-                        Text(line).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
-                    Divider()
-                    Link(destination: guideURL) { Label("Open the guide", systemImage: "arrow.up.right.square") }
-                        .font(.system(size: 12))
-                }
-                .padding(16).frame(width: 280, alignment: .leading)
+        Menu {
+            Section(title) {
+                ForEach(lines, id: \.self) { line in Text(line) }
             }
+            Divider()
+            Link(destination: guideURL) { Label("Open the guide", systemImage: "arrow.up.right.square") }
+            Button { StudioFeedback.present() } label: { Label("Report a Problem…", systemImage: "exclamationmark.bubble") }
+        } label: { Label("Help", systemImage: "questionmark.circle") }
+        .menuIndicator(.hidden)
+        .help("Help for this screen")
     }
 }
 

@@ -7,8 +7,8 @@
 //   node video.mjs capture --project-dir <dir> (--url <https://...> | --no-capture --title "..." --text-file <brief.txt>)
 //   node video.mjs write   --project-dir <dir> --decisions <video-decisions.json> [--revise]
 //        (a font that cannot be staged falls back to Inter, and every such fallback is logged to downgrades.jsonl and printed in `downgrades`)
-//   node video.mjs inject  --project-dir <dir> [--runtime]  (after the workflow's frame-packets.mjs, before dispatching frame workers;
-//        installs RasanShape / RasanCamera when referenced and the GSAP plugins bundle; --runtime installs all)
+//   node video.mjs inject  --project-dir <dir> [--runtime] [--run <run> | --medium <medium.json>]  (after the workflow's frame-packets.mjs, before dispatching frame workers;
+//        installs RasanShape / RasanCamera when referenced and the GSAP plugins bundle; --runtime installs all; a medium Look's contract (--run) also installs assets/rasan-medium/)
 //   node video.mjs audio-lock --project-dir <dir> --music <file>   (after audio.mjs fetch-sfx, before assemble-index)
 //   node video.mjs carriers --project-dir <dir>   (after assemble-index: mounts compositions/carriers/*.html, the objects
 //        that cross a cut, as their own tracks in index.html; idempotent)
@@ -29,6 +29,7 @@ import { installLook, installDirection, directionSection, upsertMarked, DIRECTIO
 import { readDesignMd, toTokensJson } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { mixRevisionOf, busPlanForRun, writeBusPlan, renderBoundary } from "./lib/mix-bus.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
@@ -38,7 +39,9 @@ track(
   { capture: "Capture done", write: "Plan written: brief, storyboard, design system, motion rules", inject: "Every scene has its brief", init: "Project ready", deliver: "Delivery folder ready" }[cmd]
 );
 const STORY_ROUTES = ["product-launch-video", "faceless-explainer", "pr-to-video", "general-video"];
-const ALL_ROUTES = [...STORY_ROUTES, "music-to-video", "talking-head-recut", "embedded-captions"];
+// RasanAI's own routes that HyperFrames has no workflow for: init uses the named HyperFrames workflow, explicitly (never an unknown --skill)
+const HF_ALIAS = { "character-cartoon": "general-video" };
+const ALL_ROUTES = [...STORY_ROUTES, "music-to-video", "talking-head-recut", "embedded-captions", "character-cartoon"];
 const RESOLUTION = { "1920x1080": "landscape", "1080x1920": "portrait", "1080x1080": "square" };
 const q = (s) => JSON.stringify(String(s));
 // a fallback is never silent: one row in the run's downgrades.jsonl (the drawer's "Working without") and a line in this command's output
@@ -65,13 +68,13 @@ if (cmd === "init") {
   else if (!fs.existsSync(path.join(dir, "hyperframes.json"))) {
     fs.mkdirSync(path.dirname(dir), { recursive: true });
     try {
-      run("npx", ["--yes", "hyperframes", "init", dir, "--non-interactive", "--example=blank", `--skill=${route}`, ...(RESOLUTION[aspect] ? [`--resolution=${RESOLUTION[aspect]}`] : [])], { cwd: ws });
+      run("npx", ["--yes", "hyperframes", "init", dir, "--non-interactive", "--example=blank", `--skill=${HF_ALIAS[route] || route}`, ...(RESOLUTION[aspect] ? [`--resolution=${RESOLUTION[aspect]}`] : [])], { cwd: ws });
     } catch (e) {
       if (!fs.existsSync(path.join(dir, "hyperframes.json"))) die(`hyperframes init failed:\n${e.stderr || e.message}`);
     }
     initialized = true;
   }
-  console.log(JSON.stringify({ ok: true, route, project_dir: dir, aspect, initialized }, null, 2));
+  console.log(JSON.stringify({ ok: true, route, ...(HF_ALIAS[route] ? { hyperframes_workflow: HF_ALIAS[route] } : {}), project_dir: dir, aspect, initialized }, null, 2));
 } else if (cmd === "capture") {
   const dir = projectDir();
   const cap = path.join(dir, "capture");
@@ -158,8 +161,54 @@ if (cmd === "init") {
     if (!fs.existsSync(of) || !fs.readFileSync(of).equals(body)) fs.writeFileSync(of, body);
     orbs = { dir: od, script: "assets/rasan-orbs/rasan-orbs.js" };
   }
+  // Motion Studio: the motion kit (assets/rasan-motion-kit/: runtime + catalog.json) only when a composition carries data-motion-kit=
+  let motionKit = null;
+  if (shp.collect(dir).some((f) => !/[/\\]rasan-motion-kit[/\\]/.test(f) && /\bdata-motion-kit=/.test(fs.readFileSync(f, "utf8")))) {
+    const kd = path.join(dir, "assets", "rasan-motion-kit");
+    fs.mkdirSync(kd, { recursive: true });
+    for (const [from, to] of [["runtime/rasan-motion-kit.js", "rasan-motion-kit.js"], ["motion-kit/catalog.json", "catalog.json"]]) {
+      const src = path.join(HERE, "..", from), dst = path.join(kd, to);
+      if (!fs.existsSync(src)) continue;
+      const body = fs.readFileSync(src);
+      if (!fs.existsSync(dst) || !fs.readFileSync(dst).equals(body)) fs.writeFileSync(dst, body);
+    }
+    motionKit = { dir: kd, script: "assets/rasan-motion-kit/rasan-motion-kit.js" };
+  }
+  // painted 2D characters (assets/rasan2d/) when a composition, the storyboard or a cartoon score names Rasan2D
+  const s2d = await import("./lib/stage2d.mjs");
+  const twoD = args.runtime || /Rasan2D|space: 2d-character/.test(sb) || s2d.projectUsesRasan2d(dir) ? s2d.install(dir) : null;
+  // Part 2 (medium-native films only): the chosen Look's medium contract (--run <run>: look/medium.json, else the chosen label's candidate; or --medium <medium.json>)
+  // names the runtime files the scenes call; they land in assets/rasan-medium/ with only that execution's examples (and assets/rasan2d/ for a cel contract). No contract: nothing is copied.
+  let mediumRt = null;
+  // no --run / --medium, but the project sits under <run>/videos/ and that run has look/medium.json: the run is the project's run
+  let runArg = args.run && args.run !== true ? String(args.run) : null;
+  if (!runArg && !(args.medium && args.medium !== true)) {
+    const parent = path.dirname(dir), cand = path.dirname(parent);
+    if (path.basename(parent) === "videos" && fs.existsSync(path.join(cand, "look", "medium.json"))) runArg = cand;
+  }
+  if ((args.medium && args.medium !== true) || runArg) {
+    let MW = null, mc = null;
+    try {
+      MW = await import("./lib/medium-wiring.mjs");
+      if (args.medium && args.medium !== true) mc = JSON.parse(fs.readFileSync(path.resolve(String(args.medium)), "utf8"));
+      else if (runArg) mc = MW.mediumContractFor(path.resolve(runArg));
+    } catch { mc = null; }
+    if (MW && MW.isMediumContract(mc) && MW.RUNTIME_FILES[mc.execution_id]) {
+      const sk = path.join(HERE, ".."), md = path.join(dir, "assets", "rasan-medium"), copied = [], missing = [];
+      const put = (src, dst) => { if (!fs.existsSync(src)) { missing.push(path.relative(sk, src)); return; } const body = fs.readFileSync(src); fs.mkdirSync(path.dirname(dst), { recursive: true }); if (!fs.existsSync(dst) || !fs.readFileSync(dst).equals(body)) fs.writeFileSync(dst, body); copied.push(path.relative(dir, dst)); };
+      // V3: a revision >= 2 run also gets the shared text/anchor helpers (runtimeFilesWith adds them only when asked, so revision 1 copies exactly what it did before)
+      let rev2 = false;
+      try { const pl = runArg ? JSON.parse(fs.readFileSync(path.join(path.resolve(runArg), "crew", "plan.json"), "utf8")) : null; rev2 = !!pl && Number(pl.creative_policy_revision) >= 2; } catch { rev2 = false; }
+      const rtFiles = typeof MW.runtimeFilesWith === "function" ? MW.runtimeFilesWith(mc, { common: rev2, spatial: rev2 && typeof MW.spatialPlanned === "function" && MW.spatialPlanned(path.resolve(runArg)) }) : MW.RUNTIME_FILES[mc.execution_id];
+      for (const f of rtFiles) put(path.join(sk, "runtime", f), path.join(md, f));
+      const exDir = path.join(sk, "library", "medium-examples", mc.execution_id);
+      if (fs.existsSync(exDir)) { const walk = (d, rel = "") => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.isDirectory()) walk(path.join(d, e.name), path.join(rel, e.name)); else put(path.join(d, e.name), path.join(md, "examples", rel, e.name)); } }; walk(exDir); }
+      const r2 = MW.needsRasan2d(mc) && !twoD ? s2d.install(dir) : null; // a cel contract needs Rasan2D even when no composition names it yet
+      mediumRt = { execution_id: mc.execution_id, dir: "assets/rasan-medium/", copied, ...(missing.length ? { missing } : {}), ...(r2 ? { rasan2d: r2.scripts } : {}) };
+    }
+  }
   const tagged = cam.tagCompositions(dir, { camera: !!camera, plugins: !!plugins });
-  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
+  console.log(JSON.stringify({ ok: true, injected: done, ...(mediumRt ? { medium: mediumRt } : {}), direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(motionKit ? { motion_kit: { runtime: path.relative(process.cwd(), motionKit.dir), script: motionKit.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(twoD ? { rasan2d: { runtime: path.relative(process.cwd(), twoD.dir), scripts: twoD.scripts } } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
 } else if (cmd === "audio-lock") {
   const dir = projectDir();
   if (!args.music) die("--music <file> required");
@@ -184,15 +233,26 @@ if (cmd === "init") {
     const p = path.join(dir, file);
     const meta = fs.existsSync(p) ? readJSON(p) : {};
     const voiced = Array.isArray(meta.voices) && meta.voices.length > 0;
-    meta.bgm = { ...(meta.bgm || {}), path: rel.split(path.sep).join("/"), volume: mastered ? (voiced ? 0.2 : 1.0) : voiced ? 0.12 : 0.9, query: "locked by RasanAI", duration_s: dur };
+    let volume = mastered ? (voiced ? 0.2 : 1.0) : voiced ? 0.12 : 0.9;
+    const bgmExtra = {};
+    // revision 2: the bed level is the bus plan's value, converted at the one boundary (renderBoundary "hyperframes"), and the plan is written to audio/automation.json so the
+    // mix receipt has its writer. audio_meta carries one static level and no lane, so no voice reduction is added here: the legacy level already is the under-voice level.
+    if (runR && mixRevisionOf(runR) >= 2) {
+      const plan = busPlanForRun(runR, { music: { volume }, voice_spans: [], film_s: dur });
+      const bed = renderBoundary(plan, "hyperframes").elements.find((e) => e.role === "music");
+      if (bed && Number.isFinite(bed["data-volume"]) && bed["data-volume"] > 0) { volume = bed["data-volume"]; bgmExtra.bus_plan_digest = plan.digest; busWrite = busWrite || writeBusPlan(runR, plan); }
+    }
+    meta.bgm = { ...(meta.bgm || {}), path: rel.split(path.sep).join("/"), volume, ...bgmExtra, query: "locked by RasanAI", duration_s: dur };
     delete meta.bgm_pending;
     fs.writeFileSync(p, JSON.stringify(meta, null, 2) + "\n");
     return file;
   };
+  const runR = args.run && args.run !== true ? path.resolve(String(args.run)) : path.basename(path.dirname(dir)) === "videos" ? path.dirname(path.dirname(dir)) : null;
+  let busWrite = null;
   const patched = [patch("audio_meta.json")];
   if (fs.existsSync(path.join(dir, "audio_engine_meta.json"))) patched.push(patch("audio_engine_meta.json"));
   if (downgrades.length) console.error("downgrade: " + downgrades.join("; "));
-  console.log(JSON.stringify({ ok: true, music: rel, duration_s: dur, lufs: Number.isFinite(lufs) ? lufs : null, mastered, patched }, null, 2));
+  console.log(JSON.stringify({ ok: true, music: rel, duration_s: dur, lufs: Number.isFinite(lufs) ? lufs : null, mastered, patched, ...(busWrite ? { bus_plan: busWrite } : {}) }, null, 2));
 } else if (cmd === "carriers") {
   // mount every carrier (an object that crosses a cut: compositions/carriers/<name>.html, root timed by its own
   // data-start / data-duration in film seconds) as its own track in index.html, so it is one object on one tween
@@ -300,7 +360,7 @@ async function write() {
   };
 
   // ---- frame.md (the one file every frame worker reads) + the motion contract in it
-  const workflowDir = findSkill(route);
+  const workflowDir = findSkill(HF_ALIAS[route] || route);
   let stepTwo = "";
   const lookNotes = [];
   const runDir = fs.existsSync(path.join(base, "session.json")) ? base : undefined;

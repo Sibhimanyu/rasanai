@@ -12,7 +12,10 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { SKILL_DIR } from "./common.mjs";
+import { finalCompletion } from "./final-label.mjs";
 import { readDowngrades } from "./downgrade.mjs";
+import { presentManifest, wordsOf, publicManifest, serialize } from "./film-events.mjs";
+import { evidenceCredits, evidenceRecipeLines, publicEvidence } from "./evidence.mjs";
 
 const jm = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
 const tm = (f) => { try { return fs.readFileSync(f, "utf8"); } catch { return null; } };
@@ -88,7 +91,9 @@ function poster(mp4, dur, scenes, dest) {
 // --- srt -------------------------------------------------------------------------------------------------------------------------
 const stamp = (t) => { const ms = Math.max(0, Math.round(t * 1000)); const p = (n, l = 2) => String(n).padStart(l, "0"); return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`; };
 // film-time words: audio_meta voices (their times are seconds into the beat `frame` = scene n), else a film-time transcript.json
-export function filmWords(project, scenes) {
+// manifest: the run's derived film-event manifest (present and fresh), whose word_start events are the same word times in film seconds
+export function filmWords(project, scenes, manifest = null) {
+  if (manifest) { const w = wordsOf(manifest).filter((x) => String(x.text || "").trim()); if (w.length) return { words: w.map((x) => ({ text: String(x.text).trim(), start: x.start, end: x.end })).sort((a, b) => a.start - b.start), source: "motion/events.json (the film-event manifest's word times)" }; }
   const am = jm(path.join(project, "audio_meta.json"));
   const out = [];
   for (const v of (am && am.voices) || []) {
@@ -155,6 +160,9 @@ function creditsText({ run, project, missing }) {
   // reference moments (technique only)
   const mc = jm(path.join(run, "references", "moments", "credits.json"));
   if (mc && Array.isArray(mc.moments) && mc.moments.length) L.push("MOTION REFERENCES", `Technique only, nothing shipped: ${mc.moments.map((c) => `${c.handle || c.name || "unknown"}${c.film ? ` ("${c.film}")` : ""}${c.source_url ? ` ${c.source_url}` : ""}`).join("; ")}.`, "");
+  // evidence sources (W9): origin, source type, permission and content hash of each ingested object; never a local path; a synthetic fixture says so
+  const evc = evidenceCredits(run);
+  if (evc) L.push(evc);
   // fonts
   const fonts = ls(path.join(project, "assets", "fonts")).filter((f) => /\.(woff2?|ttf|otf)$/i.test(f));
   if (fonts.length) { const fams = [...new Set(fonts.map((f) => f.replace(/\.[a-z0-9]+$/i, "").replace(/-(Thin|Light|Regular|Medium|SemiBold|Bold|ExtraBold|Black|Italic|\d+).*$/i, "")))]; L.push("FONTS", `${fams.join(", ")} (files: ${fonts.join(", ")}). Their licences are the foundries': not recorded here.`, ""); missing.push("font licences: the fonts are listed by file, but the run does not record where each came from or its licence"); }
@@ -273,7 +281,8 @@ function noteMd({ run, project, name, render, posterPick, srt, extra, missing, r
   out.push("## Decision history (calls that were replaced)");
   const sess = jm(path.join(run, "session.json")) || {};
   const hist = Object.entries(sess.steps || {}).flatMap(([step, s]) => (s.decisions_history || []).map((h) => `- ${step}: "${String(h.decision).slice(0, 140)}" was replaced by "${String(h.replaced_by).slice(0, 140)}" because ${h.because}`));
-  out.push(...(hist.length ? hist : ["- none: no call was swapped after it was closed"]), "");
+  const lockLines = [...(sess.lock_breaks || []).map((b) => `- ${b.layer}: ${b.file} changed by a ${(b.ids || []).join(", ") || "note"} fix scoped to ${(b.layers || []).join(", ")} (not relocked)`), ...(sess.relocks || []).map((r) => `- ${r.layer} relocked: ${r.why}`)];
+  out.push(...(hist.length || lockLines.length ? [...hist, ...lockLines] : ["- none: no call was swapped after it was closed"]), "");
 
   out.push("## Delivery checks (warnings)");
   out.push(...(checks.length ? checks.map((c) => `- ${c}`) : ["- the delivered file matches the brief and no account path or key was found in the package"]), "");
@@ -356,6 +365,8 @@ function recipeMd({ run, project, name, render, brief, score, scenes, dest, used
   L.push(...(steps.length ? steps.map(([k, s]) => `- ${k}: ${String(s.decision).replace(/\s+/g, " ").slice(0, 300)}`) : ["- none recorded in session.json"]));
   const hist = Object.entries(sess.steps || {}).flatMap(([k, s]) => (s.decisions_history || []).map((h) => `- ${k}: "${String(h.decision).slice(0, 100)}" lost to "${String(h.replaced_by).slice(0, 100)}" because ${h.because}`));
   if (hist.length) L.push("", "Calls that were replaced (do not re-try them):", ...hist);
+  const lockLines = [...(sess.lock_breaks || []).map((b) => `- ${b.layer}: ${b.file} changed by a ${(b.ids || []).join(", ") || "note"} fix scoped to ${(b.layers || []).join(", ")} (not relocked)`), ...(sess.relocks || []).map((r) => `- ${r.layer} relocked: ${r.why}`)];
+  if (lockLines.length) L.push("", "Locked calls a fix changed, and relocks:", ...lockLines);
   L.push("", "## How it is built");
   const comps = ls(path.join(project, "compositions", "frames")).filter((f) => f.endsWith(".html"));
   const fonts = [...new Set(ls(path.join(project, "assets", "fonts")).filter((f) => /\.(woff2?|ttf|otf)$/i.test(f)).map((f) => f.replace(/\.[a-z0-9]+$/i, "").replace(/-(\d+|Thin|Light|Regular|Medium|SemiBold|Bold|ExtraBold|Black|Italic).*$/i, "")))];
@@ -417,7 +428,8 @@ export function deliver({ run, project, out, rerun = false }) {
 
   const brief = jm(path.join(run, "brief.json")) || {};
   const narrated = !!(score && score.narration) || ((jm(path.join(project, "audio_meta.json")) || {}).voices || []).length > 0 || (!!brief.narration && !/^(none|no\b)/i.test(String(brief.narration)));
-  const fw = filmWords(project, scenes);
+  const ev = presentManifest(run);
+  const fw = filmWords(project, scenes, ev.manifest);
   let srt;
   if (fw.words.length) { const cues = srtCues(fw.words); fs.writeFileSync(path.join(dest, `${name}.srt`), srtText(cues)); files.srt = `${name}.srt`; srt = `\`${name}.srt\`, ${cues.length} cues from ${fw.source}, each held at least max(1.8 s, speech + 0.6 s)`; }
   else if (narrated) { srt = "none: the film is narrated but no word timings were found (audio_meta.json voices are empty)"; missing.push(".srt: narrated film with no voice word timings in audio_meta.json or a transcript.json"); }
@@ -432,8 +444,15 @@ export function deliver({ run, project, out, rerun = false }) {
   fs.writeFileSync(path.join(dest, "build.sh"), buildSh({ project, dest, name, usedFinish, hfVersion, ffArgs: "--samples 8 --grain 0.03 --halation 0.2 --vignette 0.2" }), { mode: 0o755 });
   files.build = "build.sh";
 
+  // the derived event timeline travels with the film's build metadata: ids, times, frames, kinds, scenes, words; never the score's free text or a local path
+  if (ev.manifest) { fs.writeFileSync(path.join(dest, "film-events.json"), serialize(publicManifest(ev.manifest))); files.events = "film-events.json"; }
+  else if (ev.reason) missing.push(`film-events.json: motion/events.json was not packed (${ev.reason})`);
+
   const projBrief = jm(path.join(project, "rasanai-brief.json")) || {};
-  fs.writeFileSync(path.join(dest, "RECIPE.md"), recipeMd({ run, project, name, render, brief: { ...brief, ...projBrief }, score, scenes, dest, usedFinish })); files.recipe = "RECIPE.md";
+  // evidence films (W9): the sources, hashes and measurement rows travel with the film's reproducibility metadata (public form: no paths, no file names, no EXIF)
+  const pubEv = publicEvidence(run), evLines = evidenceRecipeLines(run);
+  if (pubEv) { fs.writeFileSync(path.join(dest, "evidence.json"), JSON.stringify(pubEv, null, 2) + "\n"); files.evidence = "evidence.json"; }
+  fs.writeFileSync(path.join(dest, "RECIPE.md"), recipeMd({ run, project, name, render, brief: { ...brief, ...projBrief }, score, scenes, dest, usedFinish }) + (evLines ? "\n" + evLines : "")); files.recipe = "RECIPE.md";
 
   // delivery checks: all warnings, none stops the package
   const spec = specCheck(mp4, { brief: projBrief, runBrief: brief, score });
@@ -443,8 +462,10 @@ export function deliver({ run, project, out, rerun = false }) {
   checks.push(...leaks.map((l) => `leak: ${l.kind} in ${l.file}${l.line ? `:${l.line}` : ""} (${l.sample}): remove it before this folder is shared`));
 
   const rr = rerun ? rerunGates({ run, project, mp4: render.p, dur }) : [];
+  const completion = finalCompletion(run, render.p); // revision 2 only (null otherwise); draft stays allowed
+  if (completion) checks.push(completion.status_line || completion.error);
   fs.writeFileSync(path.join(dest, "NOTE.md"), noteMd({ run, project, name, render, posterPick, srt, extra: [], missing, rerun: rr, checks })); files.note = "NOTE.md";
   const noteLeaks = leakScan([path.join(dest, "NOTE.md")]);
   if (noteLeaks.length) { leaks = leaks.concat(noteLeaks); fs.appendFileSync(path.join(dest, "NOTE.md"), "\n" + noteLeaks.map((l) => `- leak: ${l.kind} in NOTE.md:${l.line} (${l.sample}): remove it before this folder is shared`).join("\n") + "\n"); checks.push(...noteLeaks.map((l) => `leak: ${l.kind} in NOTE.md:${l.line}`)); }
-  return { ok: true, out: dest, files, poster: posterPick, render: path.relative(project, render.p), draft: render.draft, missing: [...new Set(missing)], warnings: checks, leaks, spec: spec.facts && { ...spec.facts, tags: undefined } };
+  return { ok: true, out: dest, files, poster: posterPick, render: path.relative(project, render.p), draft: render.draft, completion: completion || undefined, missing: [...new Set(missing)], warnings: checks, leaks, spec: spec.facts && { ...spec.facts, tags: undefined } };
 }

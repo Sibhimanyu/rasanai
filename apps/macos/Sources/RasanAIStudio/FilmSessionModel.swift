@@ -4,7 +4,7 @@ import StudioCore
 
 /// The two tabs of the film page's right inspector.
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case notes = "Notes", decisions = "Decisions"
+    case chat = "Chat", decisions = "Decisions"
     var id: String { rawValue }
 }
 
@@ -48,9 +48,22 @@ final class FilmSessionModel {
     var tellStep: String?
     /// The unsent note in the inspector composer. The status bar's actions send it along with the call.
     var tellText = ""
+    /// A mark on the picture waiting in the chat composer; sending the message sends it as a timed note.
+    var pendingMark: FilmMark?
+    /// Marks that went out with a note, by `markKey`, so the chat can draw them on the note's chip (this session only).
+    var sentMarks: [String: FilmMark] = [:]
+    /// The note whose pin is lit on the player, and the note the chat should scroll to.
+    var focusedNoteID: String?
+    var scrollToNoteID: String?
     /// The right inspector (Notes and Decisions) is open.
     var decisionsPresented = false
-    var inspectorTab: InspectorTab = .notes
+    /// The Ask Rasan chat that grows up out of the bottom pill is open (hidden while the side panel is open).
+    var askCardPresented = false
+    /// The pill's Ask Rasan field has keyboard focus (a click outside never collapses the chat while a draft is being typed).
+    var askFieldFocused = false
+    /// The pill's Ask Rasan field is on screen (not on drafts or in full-screen video), so ⌘K can go to it.
+    var askFieldMounted = false
+    var inspectorTab: InspectorTab = .chat
     /// A note card in the inspector asks the player on the stage to jump to its moment (the stage watches `seekTick`).
     private(set) var seekTime: Double = 0
     private(set) var seekTick = 0
@@ -61,6 +74,32 @@ final class FilmSessionModel {
     /// Called after every snapshot, so the store can keep its own phase and badge in step.
     var onSnapshot: ((SessionSnapshot) -> Void)?
     var onConnection: ((Connection) -> Void)?
+    /// The film's progress snapshot (remaining time, current phase), for answering "how long will it take?". Set by the store.
+    var progressProvider: () -> FilmProgressSnapshot? = { nil }
+    /// Fills in what the store knows about the director (blocked, stalled, running, last error, recent events). Set by the store.
+    var contextExtras: (inout ChatContext) -> Void = { _ in }
+    /// Runs a quick status's one-tap action (Fix it, Restart Rasan, View activity…). Set by the store.
+    var quickActionHandler: (ChatQuickAction) -> Void = { _ in }
+    /// Bumped to ask the working screen to open "View activity".
+    private(set) var activityRequest = 0
+    func requestActivity() { activityRequest += 1 }
+    /// The person pressed Stop waiting on this message (its id): no thinking row for it any more.
+    private(set) var stoppedWaitingFor: String?
+    /// Texts being sent right now (normalized), so a second Return cannot send the same words twice.
+    private var inFlight: Set<String> = []
+    /// Where the stage's player is (set by the review player while it is on screen), so feedback can carry a moment and a scene.
+    struct Playhead: Equatable { var time: Double; var shotID: String? }
+    var playhead: Playhead?
+    /// Messages made on this Mac that never go to the engine: local answers and the engine's interpretation of a request.
+    private(set) var localThreads: [String: [ThreadMessage]] = [:]
+    /// An ambiguous request the engine wants confirmed (one interpretation, then Confirm or Change).
+    struct PendingConfirm: Equatable { var key: String, step: String, text: String, interpretation: String }
+    private(set) var pendingConfirm: PendingConfirm?
+    private var seenRevisions: Set<String> = []
+    private var revisionsBaselined = false
+    private var awaitingRevisions: [(step: String, text: String)] = []
+    /// A call was written for the director (`step`, `type`). Not called for fixtures.
+    var onSent: ((String, String) -> Void)?
 
     private var resolver: AssetResolver?
     private let transport: RunTransport?
@@ -80,6 +119,7 @@ final class FilmSessionModel {
         self.snapshot = snapshot
         self.resolver = AssetResolver(run: run, workspace: workspace)
         self.transport = RunTransport(run: run)
+        self.workspaceDirectory = workspace
         self.isFixture = false
     }
 
@@ -151,6 +191,7 @@ final class FilmSessionModel {
         if let incoming = next.raw["updated"].string, let current = snapshot.raw["updated"].string, incoming < current { return }
         let previous = snapshot.currentStep
         snapshot = next
+        absorbRevisionReplies(next)
         // The director moved on: a pinned past stage is no longer the thing to look at.
         if viewingStep != nil, previous != next.currentStep { viewingStep = nil }
         onSnapshot?(next)
@@ -179,6 +220,33 @@ final class FilmSessionModel {
             lastError = nil
             lastSent = "\(step)|\(type)"; sendCount += 1
             await reload()
+            onSent?(step, type)
+            return true
+        } catch {
+            lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
+    }
+
+    /// Motion Studio: the run folder (edits.jsonl, reference-motion.json) and the project folder (motion/element-index.json). Nil without a run.
+    var motionRun: URL? { resolver?.run }
+    var motionProject: URL? { resolver?.workspace }
+
+    /// Queues a Motion Studio edit through the same transport as every other call. Returns true when it was written.
+    @discardableResult
+    func sendMotionEdit(_ edit: MotionEditRequest, step: String = "final") async -> Bool {
+        if isFixture {
+            if let a = try? MotionEditEnvelope.action(edit, step: step) { fixtureLog.append(a); sendCount += 1; return true }
+            return false
+        }
+        guard let transport else { lastError = StudioError.noConnection.localizedDescription; return false }
+        do {
+            let queued = try await Task.detached { try MotionEditEnvelope.send(edit, via: transport, step: step) }.value
+            sentIDs.insert(queued.id)
+            lastError = nil
+            lastSent = "\(step)|\(MotionEditEnvelope.type)"; sendCount += 1
+            await reload()
+            onSent?(step, MotionEditEnvelope.type)
             return true
         } catch {
             lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -196,17 +264,245 @@ final class FilmSessionModel {
     func answer(_ ask: DirectorAsk, choice: String?, text: String) async -> Bool {
         await send(step: ask.step, type: "answer", value: .object(["ask": .string(ask.id), "choice": choice.map(JSONValue.string) ?? .null, "text": .string(text)]), note: text)
     }
-    /// Sends a note to a step's discussion (Tell Claude).
-    func tell(_ text: String, step: String? = nil) async -> Bool {
-        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// The composer's send. A question about the film's progress is answered here from real data and never reaches the director; anything else
+    /// is feedback: a `revision-request` (the engine reads the intent and scope) plus the plain note, so the chat keeps the person's words.
+    /// `fromStudio`: Studio's own instruction to the director (Retry step, a tool now installed): sent once per `key` within a short window,
+    /// never answered locally, and shown in the chat as `friendly` (a short system line), not as the person's words.
+    func tell(_ text: String, step: String? = nil, fromStudio: Bool = false, key: String? = nil, friendly: String? = nil) async -> Bool {
+        var text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return false }
-        return await send(step: step ?? shownStep, type: "note", note: text)
+        let step = step ?? shownStep
+        if fromStudio {
+            if !text.hasPrefix(ThreadMessage.studioPrefix) { text = ThreadMessage.studioPrefix + text }
+            let id = "\(step)|" + (key ?? Self.normalized(text))
+            if let at = studioSent[id], Date().timeIntervalSince(at) < Self.studioWindow { return true }   // already on its way: one logical message, one write
+            guard isFixture || isConnected else { lastError = "Not sent: this film's folder can't be read right now."; return false }
+            studioSent[id] = Date()
+            if let friendly { studioLines[Self.normalized(text)] = friendly }
+            let ok = await send(step: step, type: "note", value: .object(["studio": .object(["key": .string(id)])]), note: text)
+            if !ok { studioSent[id] = nil }
+            return ok
+        }
+        // The same words again while the first is still unanswered: not sent twice.
+        if isDuplicatePending(text) {
+            addLocal(step, fromUser: false, "You already asked that and it's still with Rasan, so I didn't send it again. You'll get one answer.")
+            return true
+        }
+        let context = chatContext()
+        // "What happened?", "is it stuck?", "how long?": Studio answers now from what it already knows. The director is not woken.
+        if ChatAnswerer.classify(text) == .statusQuestion {
+            addLocal(step, fromUser: true, text)
+            let quick = ChatAnswerer.quickStatus(text, context)
+            addLocal(step, fromUser: false, quick.text, after: 0.01, actions: quick.actions)
+            return true
+        }
+        if !isFixture && !isConnected {
+            lastError = "Not sent: this film's folder can't be read right now."
+            return false
+        }
+        let norm = Self.normalized(text)
+        inFlight.insert(norm)
+        defer { inFlight.remove(norm) }
+        let value = ChatAnswerer.revisionValue(text: text, step: step, film: snapshot.title.isEmpty ? nil : snapshot.title, playhead: playhead?.time, shotID: playhead?.shotID)
+        guard await send(step: step, type: "revision-request", value: value, note: text) else { return false }
+        awaitingRevisions.append((step, text))
+        // Keeps the words in the step's thread (a failure here does not undo the request), with the reply rules and a small context packet.
+        let packet = DirectorChatRules.packet(step: step, lookingAt: context.lookingAt, blocked: context.blocked, lastError: context.lastError, recentEvents: context.recentEvents)
+        await send(step: step, type: "note", value: packet, note: text)
+        guard !isFixture else { return true }
+        if ChatAnswerer.needsLocalAnswer(context) {
+            // Not queued silently behind a director that can't read it: say so now, and say what is going on.
+            let quick = ChatAnswerer.quickStatus(text, context)
+            addLocal(step, fromUser: false, "Your message is saved, but Rasan can't read it until it carries on. " + quick.text, after: 0.01, actions: quick.actions)
+        } else {
+            addLocal(step, fromUser: false, transportLine(), after: 0.01)
+        }
+        return true
     }
-    /// Opens the inspector on Notes for a step and focuses the composer, optionally with text already in it.
+
+    /// One Studio instruction per key in this window (Fix it pressed twice, the side panel and the pill, a retry and a Fix it).
+    static let studioWindow: TimeInterval = 60
+    private var studioSent: [String: Date] = [:]
+    /// The short line the chat shows for a Studio instruction, by its normalized text.
+    private var studioLines: [String: String] = [:]
+
+    /// What the chat shows for Studio's instruction: the line saved when it was sent, else a plain reading of it. Never the raw instruction.
+    func studioLine(for message: ThreadMessage) -> String {
+        if let line = studioLines[Self.normalized(message.text)] { return line }
+        let t = message.text.lowercased()
+        if t.contains("retry the step") { return "Studio asked Rasan to retry this step another way." }
+        if t.contains("is installed") { return "The tool is installed. Rasan carries on." }
+        return "Studio sent Rasan an instruction. View activity has the details."
+    }
+
+    /// Words compared for "the same message": case, spacing and end punctuation don't count.
+    static func normalized(_ text: String) -> String {
+        var t = text.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        while let last = t.last, "?!.…".contains(last) { t.removeLast() }
+        return t
+    }
+
+    // MARK: Waiting for a reply
+
+    /// What the store knows about the director right now, for deciding whether "Rasan is thinking" is still true.
+    struct DirectorLiveness: Equatable {
+        var running: Bool
+        var paused = false
+        var blocked = false
+        /// The director's latest output of any kind (a tool call, a message).
+        var lastActivity: Date?
+    }
+    var livenessProvider: () -> DirectorLiveness? = { nil }
+    /// No director activity for this long after a message: stop showing "thinking" and say it was not answered.
+    static let replyCeiling: TimeInterval = 180
+
+    enum ReplyState: Equatable {
+        case none
+        case thinking(since: Date?)
+        /// Rasan owes an answer but can't give one now (or went silent): why, in plain words.
+        case unanswered(String)
+    }
+
+    /// The person's latest message that still wants an answer: saved (written to the run), after Rasan's last saved reply, not one of
+    /// Studio's own instructions, and not one they stopped waiting for.
+    var lastUnanswered: ThreadMessage? {
+        let saved = snapshot.conversation.filter { !$0.isStudioInstruction }
+        guard let last = saved.last, last.fromUser, last.id != stoppedWaitingFor else { return nil }
+        return last
+    }
+
+    /// "Rasan is thinking" only on live evidence: an unanswered message, the director running, not blocked or paused, the run still
+    /// working on it, the same step, and director activity in the last few minutes. Anything else is "not answered" or nothing.
+    func replyState(now: Date = Date()) -> ReplyState {
+        guard let message = lastUnanswered, !isDone else { return .none }
+        // The run is not on it (no "working" status): nothing to wait for, so an old film never shows a stale row.
+        guard snapshot.raw["working"] != .null else { return .none }
+        let since = ActivityItem.parse(message.time)
+        if message.step != snapshot.currentStep, let s = since, now.timeIntervalSince(s) > 5 {
+            return .unanswered("Rasan moved on to \(StepCatalog.label(snapshot.currentStep)) without answering this.")
+        }
+        if let live = livenessProvider() {
+            if !live.running { return .unanswered("Rasan isn't running, so it can't answer right now.") }
+            if live.paused { return .unanswered("The film is paused, so Rasan can't answer until you resume.") }
+            if live.blocked { return .unanswered("Rasan is stopped by a block, so it can't answer until that's fixed.") }
+            let latest = [live.lastActivity, since].compactMap { $0 }.max()
+            if let latest, now.timeIntervalSince(latest) > Self.replyCeiling {
+                return .unanswered("No word from Rasan for over 3 minutes, so I stopped waiting.")
+            }
+        }
+        return .thinking(since: since)
+    }
+
+    var isReplying: Bool { if case .thinking = replyState() { return true } else { return false } }
+    /// When the latest unanswered message went in, while Rasan is thinking about it.
+    var replyPendingSince: Date? { if case .thinking(let since) = replyState() { return since } else { return nil } }
+
+    /// The person's unanswered messages while Rasan is thinking about them (once it is "not answered", asking again is allowed).
+    private var unansweredTexts: Set<String> {
+        guard isReplying else { return [] }
+        let saved = snapshot.conversation.filter { !$0.isStudioInstruction }
+        return Set(saved.reversed().prefix { $0.fromUser }.map { Self.normalized($0.text) })
+    }
+
+    /// These words were already sent and Rasan has not answered yet (or they are being sent right now).
+    func isDuplicatePending(_ text: String) -> Bool {
+        let key = Self.normalized(text)
+        guard !key.isEmpty else { return false }
+        return inFlight.contains(key) || unansweredTexts.contains(key)
+    }
+
+    /// "Ask for a short answer": Studio answers the waiting question now from what it knows.
+    func answerPendingLocally() {
+        guard let last = lastUnanswered else { return }
+        let quick = ChatAnswerer.quickStatus(last.text, chatContext())
+        addLocal(last.step, fromUser: false, "Here's the short answer from what Studio can see: " + quick.text, actions: quick.actions)
+    }
+
+    /// "Ask again" on a message that was not answered: the same words go to Rasan once more.
+    func askAgain() {
+        guard let last = lastUnanswered else { return }
+        stoppedWaitingFor = last.id
+        Task { _ = await tell(last.text, step: last.step) }
+    }
+
+    /// "Stop waiting": no thinking row and no "not answered" row for this message; the composer is free. Rasan may still answer later.
+    func stopWaiting() {
+        guard let last = lastUnanswered else { return }
+        stoppedWaitingFor = last.id
+        addLocal(last.step, fromUser: false, "Okay, I've stopped waiting here. If Rasan answers later, it shows up in this chat.")
+    }
+
+    /// "Ask Rasan why" on the blocked banner: opens the chat and answers right away from what Studio knows.
+    func askWhyBlocked() {
+        beginTell()
+        let step = shownStep
+        let question = "Why did Rasan stop?"
+        addLocal(step, fromUser: true, question)
+        let quick = ChatAnswerer.quickStatus(question, chatContext())
+        addLocal(step, fromUser: false, quick.text, after: 0.01, actions: quick.actions)
+    }
+
+    /// What is true about the request just queued: it is on the director's queue, and whether anything is running to read it.
+    private func transportLine() -> String {
+        let state = snapshot.raw["run_status"]["state"].string
+        switch state {
+        case "paused": return "Queued, not applied yet: the run is paused, so nothing reads this until you resume."
+        case "failed": return "Queued, not applied yet: a step failed, so nothing reads this until it is retried."
+        case "stopped": return "Queued, not applied yet: the director isn't running. It reads this when the film continues."
+        default: return "Queued for the director. I'll say how I read it once it's picked up."
+        }
+    }
+
+    /// The engine's reading of a request arrives in `session.revision_requests`; show it once, and ask to confirm an ambiguous one.
+    private func absorbRevisionReplies(_ next: SessionSnapshot) {
+        let revisions = EngineRevision.read(next.raw)
+        guard revisionsBaselined else { seenRevisions = Set(revisions.map(\.signature)); revisionsBaselined = true; return }
+        for r in revisions where !seenRevisions.contains(r.signature) {
+            seenRevisions.insert(r.signature)
+            if let p = pendingConfirm, p.key == r.key, r.status != "requested" { pendingConfirm = nil; continue }
+            guard !awaitingRevisions.isEmpty else { continue }
+            let origin = awaitingRevisions.removeFirst()
+            addLocal(origin.step, fromUser: false, r.message)
+            if r.needsConfirmation && r.status == "requested" { pendingConfirm = PendingConfirm(key: r.key, step: origin.step, text: origin.text, interpretation: r.interpretation) }
+        }
+    }
+
+    /// Confirm the engine's reading of an ambiguous request, or decline it and put the words back in the composer to change them.
+    func resolveConfirm(accept: Bool) async {
+        guard let p = pendingConfirm else { return }
+        pendingConfirm = nil
+        addLocal(p.step, fromUser: true, accept ? "Yes, that's right." : "No, not quite.")
+        await send(step: p.step, type: "revision-confirm", value: ChatAnswerer.confirmValue(key: p.key, accept: accept))
+        if !accept { beginTell(step: p.step, prefill: p.text) }
+    }
+
+    private func addLocal(_ step: String, fromUser: Bool, _ text: String, after: TimeInterval = 0, actions: [ChatQuickAction]? = nil) {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        localThreads[step, default: []].append(.local(step: step, fromUser: fromUser, text: text, time: f.string(from: Date().addingTimeInterval(after)), quickActions: actions))
+    }
+
+    /// What the answerer knows now: the progress snapshot, the run's own state, and how long the person's last message has waited.
+    func chatContext() -> ChatContext {
+        let rs = snapshot.raw["run_status"]
+        var pendingSince: Date?
+        if isReplyPending(for: shownStep), let t = snapshot.thread(for: shownStep).last?.time {
+            let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            pendingSince = f.date(from: t) ?? ISO8601DateFormatter().date(from: t)
+        }
+        var c = ChatContext(step: snapshot.currentStep, progress: progressProvider(), runState: rs["state"].string, runLabel: rs["label"].string, runReason: rs["reason"].string,
+                            isDone: isDone, isWaitingOnUser: isWaitingOnUser, workingMessage: workingMessage, isConnected: isFixture || isConnected, pendingSince: pendingSince)
+        let looking = StepCatalog.label(shownStep) + (isViewingPast ? " (an earlier step, read-only)" : "")
+        c.lookingAt = [looking, workingMessage].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        if let p = c.progress { c.recentEvents = p.activity.suffix(DirectorChatRules.maxEvents).map(\.title) }
+        if !isFixture { contextExtras(&c) }
+        return c
+    }
+    /// Opens the inspector on the chat with Rasan for a step and focuses the composer, optionally with text already in it.
     func beginTell(step: String? = nil, prefill: String = "") {
         tellStep = step ?? shownStep
         if !prefill.isEmpty || tellText.isEmpty { tellText = prefill }
-        inspectorTab = .notes
+        inspectorTab = .chat
         decisionsPresented = true
         tellPresented = true
     }
@@ -215,6 +511,12 @@ final class FilmSessionModel {
 
     /// A payload path (workspace-relative or absolute) as a local file, or nil when it isn't one of this film's files.
     func fileURL(_ path: String?) -> URL? { resolver?.resolve(path) }
+    /// The project folder (where motion/element-index.json and the scenes live).
+    private(set) var workspaceDirectory: URL?
+    /// The run folder this film's engine writes (Plan 10: revision events, jobs and edits are read from here). nil for a fixture without one.
+    var runDirectory: URL? { transport?.run }
+    /// The engine's answers to the edits Studio sent (session.edit_results): a rejected one restores the committed picture and explains why.
+    var editOutcomes: [EditOutcome] { EditOutcome.read(snapshot.raw) }
     /// The run's A/B verdicts and gate numbers, read from its crew/ and frames/ files (nil for a fixture with no run folder).
     func loadChecks() async -> RunChecks? {
         guard let run = resolver?.run else { return nil }
@@ -238,8 +540,26 @@ final class FilmSessionModel {
     var workingMessage: String? { snapshot.workingMessage }
     var ask: DirectorAsk? { snapshot.ask }
     var decisions: [DecisionRow] { snapshot.decisions }
-    func thread(for step: String) -> [ThreadMessage] { snapshot.thread(for: step) }
-    var conversation: [ThreadMessage] { snapshot.conversation }
+    /// The saved discussion plus this Mac's local messages, oldest first.
+    func thread(for step: String) -> [ThreadMessage] {
+        let saved = snapshot.thread(for: step), local = localThreads[step] ?? []
+        guard !local.isEmpty else { return saved }
+        return (saved + local).enumerated().sorted { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }.map(\.element)
+    }
+    /// The whole conversation, oldest first: the saved messages plus this Mac's local ones (quick status answers, "queued" lines).
+    /// The same message twice within a few seconds (one logical message written twice) is shown once.
+    var conversation: [ThreadMessage] {
+        let saved = snapshot.conversation
+        let local = localThreads.values.flatMap { $0 }
+        let all = local.isEmpty ? saved : (saved + local).enumerated().sorted { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }.map(\.element)
+        var shown: [ThreadMessage] = []
+        for message in all {
+            if let twin = shown.last(where: { $0.fromUser == message.fromUser && $0.step == message.step && Self.normalized($0.text) == Self.normalized(message.text) }),
+               let a = ActivityItem.parse(twin.time), let b = ActivityItem.parse(message.time), abs(b.timeIntervalSince(a)) < 5 { continue }
+            shown.append(message)
+        }
+        return shown
+    }
     /// Open (unapplied) notes, optionally for one step.
     func comments(step: String? = nil) -> [ReviewNote] { snapshot.openNotes(step: step) }
     var isDecideRest: Bool { snapshot.isDecideRest }
@@ -256,6 +576,22 @@ final class FilmSessionModel {
         // A delivered film (Final "done") still takes notes, Apply and versions, as the web console did.
         return status(step) == "awaiting" || (["render", "final"].contains(step) && status(step) == "done")
     }
+
+    /// Why a note can't be left on this step right now, in plain words; nil when it can. A delivered film takes notes even after the
+    /// director has moved on, so only a gone folder, a pinned past step or an unfinished send blocks it there.
+    func noteBlockReason(on step: String) -> String? {
+        if isViewingPast { return "You're looking at an earlier step. Go back to the live step to leave a note." }
+        if !isFixture && !isConnected { return "Rasan can't reach this film's folder right now, so notes can't be sent." }
+        if isSending { return "Finish or wait for your last message to send first." }
+        if ["render", "final"].contains(step) && isDone { return nil }
+        if hasSent(step) { return "Rasan is still working on your last answer. Notes open again when it's done." }
+        if snapshot.currentStep != step { return "This isn't the step Rasan is on, so notes can't be sent here." }
+        if !(status(step) == "awaiting" || (["render", "final"].contains(step) && status(step) == "done")) {
+            return "Rasan is still making this step. Notes open when it's ready."
+        }
+        return nil
+    }
+    func canNote(on step: String) -> Bool { noteBlockReason(on: step) == nil }
 
     /// The bottom action bar shows only when it is the person's move on this step, while looking back, or just after sending.
     func showsActions(for step: String) -> Bool {

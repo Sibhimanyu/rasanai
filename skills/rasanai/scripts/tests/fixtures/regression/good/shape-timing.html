@@ -1,0 +1,11 @@
+<!doctype html><meta charset=utf-8><title>regression: 2D shape + timing (synthetic fixture)</title><style>html,body{margin:0;width:320px;height:180px;overflow:hidden;background:#101820;font-family:sans-serif}#stage{position:absolute;inset:0}</style>
+<div id=stage data-composition-id=shape-timing><div id=box style="position:absolute;left:20px;top:60px;width:60px;height:60px;background:#e8a33d"></div>
+<div id=dot style="position:absolute;left:20px;top:130px;width:24px;height:24px;border-radius:12px;background:#4fc3a1"></div>
+<h1 id=t style="position:absolute;left:100px;top:20px;margin:0;font-size:34px;color:#f4efe6">RASAN</h1></div>
+<script src="../../../../vendor/gsap.min.js"></script><script>
+var tl=gsap.timeline({paused:true});
+tl.fromTo("#box",{x:0,rotation:0},{x:200,rotation:90,duration:2,ease:"power2.inOut"},0.2);
+tl.fromTo("#dot",{x:0},{x:260,duration:2.4,ease:"expo.out"},0.2);
+tl.fromTo("#t",{opacity:0,y:20},{opacity:1,y:0,duration:0.8,ease:"power3.out"},0);
+window.__timelines={"shape-timing":tl};tl.seek(0);
+</script>

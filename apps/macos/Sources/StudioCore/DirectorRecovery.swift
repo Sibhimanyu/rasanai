@@ -34,7 +34,9 @@ public enum DirectorRecovery: String, Sendable {
         let denied = permissionDenials(in: log)
         if !denied.isEmpty {
             let list = denied.prefix(3).map { "• " + $0 }.joined(separator: "\n")
-            return (.toolPermissions, "Blocked: \n\(list)")
+            let install = DirectorBlockScanner.blocks(in: log).first { $0.isInstall }
+            let hint = install.map { "\nIt tried to install software (`\($0.command)`). Studio never lets the director do that itself: choose Install for me when Studio offers it, or install it yourself and check again." } ?? ""
+            return (.toolPermissions, "Studio stopped Rasan because it asked to run something that isn't allowed here:\n\(list)\(hint)")
         }
         if exitCode != 0 {
             let known = classify(log: log)
@@ -61,12 +63,20 @@ public enum DirectorRecovery: String, Sendable {
                 for denial in denials {
                     let input = denial["tool_input"] as? [String: Any] ?? [:]
                     let what = (input["command"] as? String) ?? (input["file_path"] as? String) ?? (input["path"] as? String) ?? ""
-                    add("\(denial["tool_name"] as? String ?? "Tool") \(what)".trimmingCharacters(in: .whitespaces))
+                    add(describe(denial["tool_name"] as? String ?? "Tool", what))
                 }
             }
         }
+        // Refusals that only show up as a tool result (no final `permission_denials` list: the director was killed or is still running).
+        for block in DirectorBlockScanner.blocks(in: log) { add(describe(block.tool, block.command)) }
         if found.isEmpty, log.contains("haven't granted it yet") || log.contains("requires approval") { add("a tool call needed approval") }
         return found
+    }
+
+    /// "Bash npm test", or "Bash (command not recorded)": never a bare tool name with nothing after it.
+    static func describe(_ tool: String, _ what: String) -> String {
+        let w = what.trimmingCharacters(in: .whitespacesAndNewlines)
+        return w.isEmpty ? "\(tool) (command not recorded)" : "\(tool) \(w)"
     }
 
     public static func classify(log: String) -> Self {
@@ -92,7 +102,7 @@ public enum DirectorRecovery: String, Sendable {
         switch self {
         case .signIn: "Sign in again, recheck your director, then resume. Your completed work is saved."
         case .usageLimit: "Check your provider's limit or wait for it to reset, then resume. Your completed work is saved."
-        case .toolPermissions: "Your director was blocked from running a command or reading a file it needs, so it stopped. Update RasanAI, or turn on Settings → Director → Allow unrestricted tools, then resume. Your completed work is saved."
+        case .toolPermissions: "Rasan was blocked from running a command or reading a file it needs, so it stopped. The command is named above. If it was an install, Studio can install the tool for you (no password) from the director panel; otherwise update RasanAI, or turn on Settings → Director → Allow unrestricted tools, then use Restart Rasan. Your completed work is saved."
         case .stoppedEarly: "Open the log to see why it stopped, then resume. Your completed work is saved."
         case .permissions: "Check the affected file in the log and its access permissions, then resume. Your completed work is saved."
         case .missingTools: "The log names the missing tool. Set it up, then resume. Your completed work is saved."

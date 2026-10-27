@@ -1,0 +1,18 @@
+{
+  "schema": "rasanai-benchmark-fixtures/1",
+  "note": "Three fixed, unbranded fixture films generated locally from deterministic scripted scenes and SYNTHETIC, clearly labelled sources. They are test fixtures, not paid autonomous production trials: never publish them as a real product, claim or dataset. Generated media goes to scripts/tests/fixtures/benchmark/generated/ (gitignored).",
+  "fixtures": [
+    { "id": "character-story", "title": "Character story (Pim and the pear)", "duration_s": 15, "fps": 15, "width": 1920, "height": 1080, "audio": false,
+      "synthetic": "an original actor drawn in code (Rasan2D), a wordless 15 s scene; stage2d/fixtures/original-actor.json and demo-sequence.json",
+      "probes": ["identity in two shots and several views", "pose and face transition", "reaction hold", "prop contact", "purposeful camera"],
+      "still_times": [1, 3.8, 6, 9.8, 11.3, 13.5], "reuses": ["W5 Rasan2D film", "stage2d check and canon", "reads check", "motion-gate"] },
+    { "id": "product-launch", "title": "Product launch (synthetic Model P-1 desk lamp)", "duration_s": 30, "fps": 15, "width": 960, "height": 540, "audio": true,
+      "synthetic": "an invented product with no real counterpart, one value prop, three settings, an end card; an original procedural score",
+      "probes": ["value prop", "clean typography", "scale variation", "reveal", "a music peak on a picture event"],
+      "still_times": [3, 8.55, 14, 23.5, 24.2, 28], "reuses": ["W10 quick-film composition", "W3 events manifest", "W8 original score", "slop", "sound checks"] },
+    { "id": "evidence-explainer", "title": "Evidence explainer (synthetic pallet loads)", "duration_s": 45, "fps": 15, "width": 1280, "height": 720, "audio": false,
+      "synthetic": "invented CSV tables (pallet loads, heights, span options); every frame carries a SCHEMATIC badge and its source line",
+      "probes": ["data as clear measurement", "source labels", "units", "scene continuity across three recipes"],
+      "still_times": [2, 8, 16, 24, 33, 42], "reuses": ["W9 data-physical and engineering-briefing recipes", "evidence check"] }
+  ]
+}

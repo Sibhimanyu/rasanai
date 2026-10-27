@@ -13,7 +13,7 @@ final class HomeWorkspaceTests: XCTestCase {
 
     func testReviewActionNamesTheActualDecision() {
         let actions: [(ReviewStage, String)] = [(.brief, "Confirm brief"), (.story, "Choose story"), (.look, "Choose look"),
-                                              (.animatic, "Review preview"), (.final, "Review final")]
+                                              (.animatic, "Review storyboard"), (.final, "Review final")]
         for (stage, action) in actions {
             let summary = FilmSummary(phase: .yourTurn("review"), stage: stage)
             XCTAssertEqual(HomeWorkspaceRules.action(for: summary), action)

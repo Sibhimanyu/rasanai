@@ -17,8 +17,21 @@ import { parseArgs, die, readJSON, writeFile, normalizeAspect } from "./lib/comm
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { loadIntent, planDurations } from "./lib/intent.mjs";
+import { stateTimes } from "./lib/scene-contract.mjs";
 
+//   node scenes.mjs states --score <motion/score.json> [--file <draft.mp4>]   prints the strip command that renders each scene's `states` instants (times only without --file)
 const args = parseArgs();
+if (args._[0] === "states") {
+  if (!args.score || args.score === true) die("states: --score <motion/score.json> is required");
+  const score = readJSON(path.resolve(String(args.score)));
+  const rows = stateTimes(score);
+  if (!rows.length) console.log("no scene has states");
+  for (const r of rows) {
+    const at = r.at.join(",");
+    console.log(args.file && args.file !== true ? `node crew.mjs strip --file ${args.file} --at ${at} --out crew/states/${r.id}.png` : `scene ${r.scene} (${r.id}): film seconds ${at}`);
+  }
+  process.exit(0);
+}
 track("Timing the scenes into a storyboard", "Storyboard timing ready");
 if (!args.scenes || !args.out) die("--scenes <scenes.json> and --out <dir> are required");
 const ROUTES = ["product-launch-video", "faceless-explainer", "pr-to-video", "general-video"];

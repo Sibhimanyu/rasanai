@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "note": "SYNTHETIC deliberately bad fixtures. Each must be rejected; `expect` is the status the runner has to report.",
+  "width": 320,
+  "height": 180,
+  "scenes": [
+    { "id": "random", "file": "bad/random.html", "times": [0.5, 1.5], "threshold": 0.04, "expect": "nondeterministic" },
+    { "id": "random-build", "file": "bad/random-build.html", "times": [0.5, 1.5], "threshold": 0.04, "expect": "nondeterministic" },
+    { "id": "blank", "file": "bad/blank.html", "times": [0.5, 1.5], "threshold": 0.04, "expect": "blank" },
+    { "id": "broken", "file": "bad/broken.html", "times": [0.5], "threshold": 0.04, "expect": "could-not-run" },
+    { "id": "clipped", "file": "bad/clipped.html", "times": [0.5, 1.5], "threshold": 0.04, "expect": "clipped-text" },
+    { "id": "missing-asset", "file": "bad/missing-asset.html", "times": [0.5, 1.5], "threshold": 0.04, "expect": "missing-asset" }
+  ]
+}

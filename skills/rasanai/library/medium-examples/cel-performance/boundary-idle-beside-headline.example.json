@@ -1,0 +1,33 @@
+{
+  "format": "medium-example@1",
+  "id": "cel-performance/boundary-idle-beside-headline",
+  "kind": "boundary",
+  "profile_id": "cel-boil",
+  "execution_id": "cel-performance",
+  "module": "runtime/medium-cel.js",
+  "state": "authored_unexecuted",
+  "verified": false,
+  "provenance": "Original source written for this library.",
+  "describes": "A cheerful idle character beside a headline. The character does nothing that causes or answers an event, so it is decoration, not storytelling.",
+  "expected_compile": "rejected",
+  "expected_reason": "beat 'cheer': the action phase is only idle/breathe/blink",
+  "why_this_matters": "The profile only counts anticipate -> act -> react. A breathing mascot next to a title does not qualify for the cel-boil profile; use plain typography or a different medium if no event is worth acting out. Also: the headline must never be boiled; boil applies to the character's linework only.",
+  "needs": { "engine": "Rasan2D", "assets": { "canons": { "hero-01": "stage2d/fixtures/original-actor.json" } }, "network": false },
+  "eventBindings_example": { "ev-title-in": 0.5 },
+  "limitations": ["the headline is a separate evidence/type layer and is not part of this module"],
+  "createMediumScene_args": {
+    "width": 1920, "height": 1080, "seed": 7,
+    "content": {
+      "duration": 6,
+      "actors": [ { "id": "hero-01", "canonRef": "hero-01", "position": { "x": 0.8, "y": 0.78 }, "scale": 0.9, "yaw": "quarter", "emotion": "joyful" } ],
+      "beats": [
+        {
+          "id": "cheer", "event": "ev-title-in",
+          "anticipate": { "at": 0, "actions": [ { "actor": "hero-01", "kind": "breathe", "duration": 1 } ] },
+          "act": { "at": 1, "actions": [ { "actor": "hero-01", "kind": "idle", "duration": 3 } ] },
+          "react": { "at": 4, "actions": [ { "actor": "hero-01", "kind": "blink", "duration": 0.2 } ] }
+        }
+      ]
+    }
+  }
+}

@@ -14,6 +14,8 @@ struct NativeStageView: View {
     var pace: FilmPace?
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
+    /// Nothing is running and nobody paused it: the person resumes it by hand.
+    var onResume: (() -> Void)?
     /// The director is stopped: the working view says where it stopped and stops moving.
     var paused = false
 
@@ -34,7 +36,9 @@ struct NativeStageView: View {
         let route = model.route
         let progressShown = showsProgress
         VStack(spacing: 0) {
+            StudioUpdateBanner()
             UpdateNotice(model: model)
+            RevisionStrip(model: model)    // Plan 10 U5/U6: revision progress, run state and recovery controls, only while there is something to say
             if let ask = model.ask, model.dismissedAsks.contains(ask.id) { AskCard(model: model, ask: ask) }
             ZStack {
                 stage(route).id(progressShown ? AnyHashable("film-progress") : AnyHashable(route)).transition(.opacity)
@@ -44,6 +48,7 @@ struct NativeStageView: View {
         }
         .environment(model)
         .environment(\.crewCharacter, CrewCharacter(key: CrewRoles.character(forRoute: route)))
+        .onReceive(NotificationCenter.default.publisher(for: .studioCloseSheets)) { _ in askBinding.wrappedValue = nil }
         .sheet(item: askBinding) { ask in AskSheet(model: model, ask: ask).tint(.rasan) }
     }
 
@@ -54,7 +59,7 @@ struct NativeStageView: View {
 
     @ViewBuilder private func stage(_ route: StageRoute) -> some View {
         if showsProgress, let progress {
-            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, paused: paused)
+            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, onResume: onResume, paused: paused)
         } else { classic(route) }
     }
 
@@ -107,8 +112,9 @@ struct NativeFilmView: View {
     var pace: FilmPace?
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
+    var onResume: (() -> Void)?
     var paused = false
     var body: some View {
-        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, paused: paused)
+        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, onResume: onResume, paused: paused)
     }
 }

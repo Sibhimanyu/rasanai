@@ -1,0 +1,1 @@
+Synthetic fixture for scripts/tests/quick-film.mjs: a product-neutral three-beat film (title, a three-step mechanism, an end card). Every word is invented for the test; there is no product, brand or claim. The test generates its own audio (ffmpeg sine tones) and plants its own defects.

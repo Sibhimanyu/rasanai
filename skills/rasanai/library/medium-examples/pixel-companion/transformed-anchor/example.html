@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- ORIGINAL source example (invented brand "Tallybook"), profile living-screencast / pixel-companion. Boundary case: the anchor moves with a world camera
+     (zoom + pan), and a near-edge target leaves little room. original-unreviewed; NOT rendered, previewed or run. Guidance only.
+     Rule shown: bounds are measured ONCE in world coords at the world's first pose, then converted through world.map(T, ...) every frame.
+     No screen-space deltas are accumulated, no button position is hard-coded. -->
+<html lang="en"><head><meta charset="utf-8"><title>transformed anchor (pixel-companion)</title>
+<style>
+html,body{margin:0;background:#101319;color:#eef1f6;font:500 34px/1.3 system-ui,sans-serif}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden}
+#world{position:absolute;left:0;top:0;width:1920px;height:1080px}
+#panel{position:absolute;left:1180px;top:120px;width:640px;height:760px;background:#1b212c;border-radius:18px}
+#export{position:absolute;right:44px;bottom:44px;padding:18px 34px;background:#7fd1ae;color:#101319;border-radius:12px;font-weight:700}
+#note{position:absolute;left:44px;top:44px;right:44px;color:#f0b95e}
+</style></head><body><div id="stage"><div id="world">
+<div id="panel"><div id="note">Exports use the saved settings, including the date format.</div><div id="export">Export</div></div></div></div>
+<script src="../../../../runtime/medium-pixel.js"></script>
+<script src="../../../../runtime/medium-pixel-companion.js"></script>
+<script>
+var PX = window.RasanPixel, PC = window.RasanPixelCompanion;
+var stage = document.getElementById("stage");
+// world = RasanUI's U.world(...) in a real composition: poses keyed in time, { s, fx, fy }. Here the same shape, written out as data:
+//   t 0: s 1, centre (960, 540)   ->   t 2.5: s 1.8, centre (1500, 760) (pushing in on the Export button, near the right edge)
+var fit = PX.fit(1920, 1080, { base: [320, 180] });
+var C = PC.mount(stage, { fit: fit, W: 1920, H: 1080, palette: ["#14121f", "#f2e9d8", "#d9534f", "#4aa3a0"], world: /* U.world("#world", keys) */ null, seed: "tallybook/05" });
+C.anchor("export", document.getElementById("export"));                      // world coords at pose 0; cached under its layout digest
+C.reserve("proof", ["#note", "#export"]);                                   // the qualifier ("including the date format") must stay readable
+C.script([{ id: "attend", t: 3.2, kind: "point", anchor: "export", hold: 1.5 }]);
+// boundary expectations, documented not run:
+//  - at s 1.8 the Export box is ~ 2x larger on screen and close to the right frame edge: place() tries left, right (out of frame -> rejected), above, below.
+//  - if every side collides with #note or the frame, placement.ok is false and the sprite is NOT drawn on that beat (never covers the proof).
+//  - if the layout changes (font load, locale) C.refresh("export") returns true and the cached bounds are replaced; a stale digest is never followed.
+//  - the sprite grid is its own: its position snaps to whole base pixels AFTER the camera transform, so the UI glides and the sprite steps.
+</script></body></html>

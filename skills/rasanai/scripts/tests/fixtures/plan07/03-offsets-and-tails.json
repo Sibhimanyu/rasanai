@@ -1,0 +1,128 @@
+{
+  "case": "A03",
+  "title": "intended offsets, hard sync only where designated, tails preserved",
+  "calls": [
+    "normalizeCue",
+    "resolveCue",
+    "checkCue",
+    "tailsPreserved"
+  ],
+  "events": [
+    {
+      "id": "e1",
+      "t": 10
+    },
+    {
+      "id": "e2",
+      "t": 20
+    },
+    {
+      "id": "e3",
+      "t": 30
+    },
+    {
+      "id": "e4",
+      "t": 40
+    }
+  ],
+  "fps": 30,
+  "cues": [
+    {
+      "id": "c-default",
+      "event": "e1",
+      "role": "accent",
+      "source": {
+        "sample": "tap"
+      },
+      "measured": {
+        "peak_s": 0.04
+      }
+    },
+    {
+      "id": "c-anticipate",
+      "event": "e2",
+      "role": "riser",
+      "intent": "anticipate",
+      "offset_s": -0.25,
+      "measured": {
+        "peak_s": 0.5
+      },
+      "source": {
+        "sample": "swell"
+      }
+    },
+    {
+      "id": "c-sync-bad",
+      "event": "e3",
+      "role": "impact",
+      "synchronous": true,
+      "tolerance_s": 0.0167,
+      "measured": {
+        "peak_s": 0.02
+      },
+      "source": {
+        "sample": "thud"
+      },
+      "offset_s": 0,
+      "placed_onset_s": 30.1
+    },
+    {
+      "id": "c-trail",
+      "event": "e4",
+      "role": "foley",
+      "intent": "trail",
+      "offset_s": 0.3,
+      "measured": {
+        "peak_s": 0.1
+      },
+      "placed_onset_s": 40.3,
+      "source": {
+        "sample": "settle"
+      }
+    },
+    {
+      "id": "c-drift",
+      "event": "e1",
+      "role": "accent",
+      "intent": "trail",
+      "offset_s": 0.1,
+      "measured": {
+        "peak_s": 0.05
+      },
+      "placed_onset_s": 10.2,
+      "source": {
+        "sample": "tap2"
+      }
+    }
+  ],
+  "clips": [
+    {
+      "id": "vo-3",
+      "kind": "vo",
+      "audible_end_s": 41.2,
+      "assembled_end_s": 41.2
+    },
+    {
+      "id": "music",
+      "kind": "music",
+      "audible_end_s": 60,
+      "assembled_end_s": 58.9
+    },
+    {
+      "id": "music-fade",
+      "kind": "music",
+      "audible_end_s": 60,
+      "assembled_end_s": 58.9,
+      "ends_with": "fade"
+    }
+  ],
+  "film_s": 60,
+  "expect": {
+    "c_default": "intent on_picture, intended_offset_s 0.01; planned (no placement): sfx_onset_s 9.97 (10.0 + 0.01 - 0.04), acoustic_peak_s 10.01, measured_offset_s 0.01; no issue",
+    "c_anticipate": "intent anticipate, intended -0.25; sfx_onset_s 19.25 (20 - 0.25 - 0.5), acoustic_peak_s 19.75 = picture - 0.25: it matches its OWN target, so no issue (an intentional lead is recorded, not rejected)",
+    "c_sync_bad": "synchronous, intended 0, placed_onset_s 30.1: acoustic_peak_s 30.12, deviation +0.12 s against tolerance 0.0167 s -> sync-off-target ERROR (hard sync only because the cue designates it)",
+    "c_trail": "trail, intended +0.3, placed 40.3 with peak 0.1: acoustic_peak_s 40.4, measured_offset_s 0.4, deviation 0.1 s over the 2-frame tolerance (0.0667 s) -> offset-drift WARNING (never an error: the cue is not synchronous)",
+    "c_drift": "trail, intended +0.1, placed 10.2, peak 0.05 -> acoustic 10.25, measured_offset 0.25, deviation 0.15 -> offset-drift warning",
+    "tails": "music is cut 1.1 s before its audible end -> tail-cut ERROR; music-fade (declared ends_with fade) passes; vo-3 passes; a clip that rings past film_s 60 without a declared end -> tail-past-film warning"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "plan": "13",
+  "status": "implemented_unvalidated",
+  "note": "authored, not run; execution waits for explicitly approved Plan 14. Scenario files are executed by `node skills/rasanai/scripts/eval.mjs fixtures check --plan 13`, which refuses to start without a user approval record. corpus.json is the evaluation corpus manifest (synthetic, labelled; held-out kept separate).",
+  "corpus": "corpus.json",
+  "cases": [
+    {
+      "id": "plan13/Q01",
+      "name": "Case provenance",
+      "fixtures": [
+        "01-case-provenance.json"
+      ]
+    },
+    {
+      "id": "plan13/Q02",
+      "name": "Format rubrics",
+      "fixtures": [
+        "02-format-rubrics.json"
+      ]
+    },
+    {
+      "id": "plan13/Q03",
+      "name": "Grader failure sensitivity",
+      "fixtures": [
+        "03-grader-failure-sensitivity.json"
+      ]
+    },
+    {
+      "id": "plan13/Q04",
+      "name": "Blind review",
+      "fixtures": [
+        "04-blind-review.json"
+      ]
+    },
+    {
+      "id": "plan13/Q05",
+      "name": "Human distinction",
+      "fixtures": [
+        "05-human-distinction.json"
+      ]
+    },
+    {
+      "id": "plan13/Q06",
+      "name": "Fair baseline",
+      "fixtures": [
+        "06-fair-baseline.json"
+      ]
+    },
+    {
+      "id": "plan13/Q07",
+      "name": "Metrics completeness",
+      "fixtures": [
+        "07-metrics-completeness.json"
+      ]
+    },
+    {
+      "id": "plan13/Q08",
+      "name": "Scoped learning",
+      "fixtures": [
+        "08-scoped-learning.json"
+      ]
+    },
+    {
+      "id": "plan13/Q09",
+      "name": "Held-out valid calm films",
+      "fixtures": [
+        "09-heldout-valid-calm-films.json"
+      ]
+    },
+    {
+      "id": "plan13/Q10",
+      "name": "Controlled comparison attribution",
+      "fixtures": [
+        "10-controlled-comparison-attribution.json"
+      ]
+    }
+  ]
+}

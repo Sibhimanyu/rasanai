@@ -147,7 +147,7 @@ export async function analyse(file, { start = null, dur = null, series = false }
     }
     for (let b = 0; b < nb; b++) resSum += res[b];
     // distinct motions: connected peaks in an (angle x log-speed) histogram of moving blocks, weighted by changed pixels
-    let conc = 0;
+    let conc = 0, dom = null;
     if (movPx >= total * 0.0015) {
       let smin = Infinity;
       for (let b = 0; b < nb; b++) if (mov[b]) smin = Math.min(smin, Math.log(Math.hypot(vec[b * 2], vec[b * 2 + 1]) + 1e-6) / Math.log(1.6));
@@ -176,6 +176,13 @@ export async function analyse(file, { start = null, dur = null, series = false }
         }
       }
       conc = L;
+      // dominant motion's share of the labelled weight (0..1); series only, no scored statistic reads it
+      if (L > 0) {
+        const wl = new Float64Array(L + 1);
+        let wt = 0;
+        for (let i = 0; i < 256; i++) if (lab[i]) { wl[lab[i]] += Hh[i]; wt += Hh[i]; }
+        dom = wt > 0 ? Math.max(...wl) / wt : null;
+      }
     }
     // camera: one similarity transform (shift + zoom) explains most textured blocks and is not the identity
     let cam = 0;
@@ -225,7 +232,7 @@ export async function analyse(file, { start = null, dur = null, series = false }
     }
     compsPerFrame.push(mergeComoving(comps));
     let chgPx = 0; for (let b = 0; b < nb; b++) chgPx += chg[b];
-    rec.push({ t: fi / fps, energy: energy / total, moving: movPx / total, changed: chgPx / total, ad: adSum / total, resid: resSum / total, cam, conc });
+    rec.push({ t: fi / fps, energy: energy / total, moving: movPx / total, changed: chgPx / total, ad: adSum / total, resid: resSum / total, cam, conc, dom });
     prevVec.set(vec);
     prev = cur; prevL1 = L1; prevL2 = L2; fi++;
   });
@@ -358,7 +365,7 @@ function summarise(rec, compsPerFrame, { fps, k, W, file, series }) {
     cuts: cuts.length, cuts_per_min: rnd((cuts.length / secs) * 60, 1),
     cut_carry: cuts.length ? rnd(carry / cuts.length) : null, cut_still: cuts.length ? rnd(still / cuts.length) : null,
   };
-  if (series) out._series = { t: rec.map((r) => rnd(r.t, 3)), energy: E.map((e) => rnd(e, 2)), conc: rec.map((r) => r.conc), cam: rec.map((r) => r.cam), cuts: cuts.map((c) => rnd(c / fps, 3)), moves: M.map((m) => ({ t0: rnd(m.t0, 3), dur: rnd(m.dur, 3), net: rnd(m.net, 2), over: m.over, straight: rnd(m.straight, 3), t50: m.dur >= 0.3 && m.net >= 3 && !m.over ? rnd(t50(m.curve), 3) : null })) };
+  if (series) out._series = { t: rec.map((r) => rnd(r.t, 3)), energy: E.map((e) => rnd(e, 2)), conc: rec.map((r) => r.conc), dom: rec.map((r) => (r.dom == null ? null : rnd(r.dom, 2))), cam: rec.map((r) => r.cam), cuts: cuts.map((c) => rnd(c / fps, 3)), moves: M.map((m) => ({ t0: rnd(m.t0, 3), dur: rnd(m.dur, 3), net: rnd(m.net, 2), over: m.over, straight: rnd(m.straight, 3), t50: m.dur >= 0.3 && m.net >= 3 && !m.over ? rnd(t50(m.curve), 3) : null })) };
   return out;
 }
 

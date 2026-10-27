@@ -27,6 +27,8 @@ import { classify, SIGNATURES, bannedHits, num } from "./lib/signatures.mjs";
 import { shapeOf } from "./lib/fluent.mjs";
 import { readBudget, budgetLimit, effectOf } from "./lib/budget.mjs";
 import { track } from "./lib/report.mjs";
+import { readOpticsPlans, opticsOwns } from "./lib/optical-treatments.mjs";
+import { scoreRate } from "./lib/timing.mjs";
 
 const args = parseArgs();
 track("Checking the motion against your motion rules", "Motion check done");
@@ -210,6 +212,20 @@ const ENTER_MAX_S = Math.max(1.2, ((M.durations && Number(M.durations.max_ms)) |
 let SCORE = null;
 try { SCORE = args.score && args.score !== true ? JSON.parse(fs.readFileSync(path.resolve(String(args.score)), "utf8")) : args.run && args.run !== true ? JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "motion", "score.json"), "utf8")) : null; } catch { SCORE = null; }
 const BUDGETS = SCORE ? readBudget(SCORE) : [];
+// the px-per-frame test reads the score's own frame rate (score time, never an assumed 30); no score or no rate = the old 30. The other frame-count bands below keep FPS.
+const PXF_FPS = (() => { try { const f = SCORE ? Number(scoreRate(SCORE).fps) : NaN; return f > 0 ? f : FPS; } catch { return FPS; } })();
+// Creative recovery (W06): on the new creative policy (score.creative.policy_revision or creative_policy_revision) a curve-family COUNT is a profile, not a law: a restrained or
+// stepped film may sit on three families if no single curve dominates (dominant-ease and duration-grid still fail the machine tell). A legacy score is unchanged.
+const SC_CREATIVE = SCORE && SCORE.creative && typeof SCORE.creative === "object" ? SCORE.creative : {};
+// the crew plan also carries the revision (crew/plan.json creative_policy_revision) when the run is known
+let PLAN_REV = null;
+try { if (args.run && args.run !== true) PLAN_REV = JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "crew", "plan.json"), "utf8")).creative_policy_revision || null; } catch { PLAN_REV = null; }
+const NEW_POLICY = !!((SCORE && (SCORE.creative_policy_revision || SC_CREATIVE.policy_revision)) || PLAN_REV);
+// Optics scoping (Addendum 1 B): a motion_blur operation declared in the run's optics plan (creative/plans/*.json) puts the shutter on its own layers through RasanOptics, so
+// fast-no-shutter does not apply to those targets. Only on the new policy and only with a plan; every legacy run reads an empty list and is unchanged.
+let OPTICS_PLANS = [];
+try { if (NEW_POLICY && args.run && args.run !== true) OPTICS_PLANS = readOpticsPlans(path.resolve(String(args.run))); } catch { OPTICS_PLANS = []; }
+const PROFILES = [].concat(SC_CREATIVE.profiles || [], SCORE && SCORE.profiles || []).map(String);
 const LIMIT = budgetLimit(SCORE && SCORE.duration);
 const budgetUsed = {};
 // true when this banned hit is a budgeted hero use (and counts it); past the limit it is the uniform tell again
@@ -328,9 +344,9 @@ for (const file of files) {
     {
       const tf = t.from || {}, tt = t.to || {};
       const dist = Math.hypot((num(tt.x) ?? 0) - (num(tf.x) ?? 0), (num(tt.y) ?? 0) - (num(tf.y) ?? 0));
-      const pxf = dist / Math.max(1, t.dur * FPS) * (1920 / (width || 1920));
+      const pxf = dist / Math.max(1, t.dur * PXF_FPS) * (1920 / (width || 1920));
       const grammar = String((SCORE && SCORE.blur_grammar) || (M && M.blur_grammar) || "").toLowerCase();
-      if (pxf > 80 && !/shutter|smear|stepped|crisp/.test(grammar)) add({ severity: "warning", rule: "fast-no-shutter", ...where, message: `moves about ${Math.round(pxf)} px per frame (over 80) in a film whose blur grammar is "${grammar || "undeclared"}": it strobes without a shutter`, fix: 'declare blur_grammar: "shutter" (the delivery finish adds the shutter, finish.mjs all) or "smear" (draw the smear), or slow the move' });
+      if (pxf > 80 && !/shutter|smear|stepped|crisp/.test(grammar) && !(OPTICS_PLANS.length && opticsOwns(OPTICS_PLANS, t.target, ["motion_blur"]))) add({ severity: "warning", rule: "fast-no-shutter", ...where, message: `moves about ${Math.round(pxf)} px per frame (over 80) in a film whose blur grammar is "${grammar || "undeclared"}": it strobes without a shutter`, fix: 'declare blur_grammar: "shutter" (the delivery finish adds the shutter, finish.mjs all) or "smear" (draw the smear), or slow the move' });
     }
     gestures.push({ ...t, rel, where });
     (byTarget[`${t.tl}|${t.target}`] = byTarget[`${t.tl}|${t.target}`] || []).push(t);
@@ -374,7 +390,7 @@ else {
   const names = [...new Set(top.map((g) => easeLabel(g)))].slice(0, 3).join(", ");
   if (shaped.length && top.length / shaped.length > MIX.max_share) add({ severity: "error", rule: "dominant-ease", file: top[0].rel, message: `one curve (${names}) moves ${top.length} of ${shaped.length} gestures (${Math.round((top.length / shaped.length) * 100)}%; ${Math.round(MIX.max_share * 100)}% at most): every move has the same shape, the strongest machine tell`, fix: `give each kind of move its own curve: launch for entrances, glide or expressive for repositions, settle for hero landings, exit for leaves, drift for the camera (motion.md curves; RasanMotion picks them by role)` });
   const fams = Object.keys(byFam).length;
-  if (fams < MIX.min_families) add({ severity: "error", rule: "few-curves", file: gestures[0].rel, message: `${fams} curve families in the film (${Object.entries(byFam).map(([k, v]) => `${k} ${v}`).join(", ")}); ${MIX.min_families} at least`, fix: "add the missing roles: a long-tailed launch, a soft-start glide, a settle on a hero landing, an accelerating exit, a sine drift on the camera" });
+  if (fams < MIX.min_families) add({ severity: NEW_POLICY && !PROFILES.includes("curve-families") ? "warning" : "error", rule: "few-curves", file: gestures[0].rel, message: `${fams} curve families in the film (${Object.entries(byFam).map(([k, v]) => `${k} ${v}`).join(", ")}); ${MIX.min_families} at least`, fix: "add the missing roles: a long-tailed launch, a soft-start glide, a settle on a hero landing, an accelerating exit, a sine drift on the camera" });
   // role curves (motionmaxxing: about 58% of landings are ease-out, ease-in is the commonest exit): an entrance that accelerates in or an exit that decelerates out
   const ENTER_BAD = new Set(["accelerate", "linear"]), EXIT_BAD = new Set(["snap", "decelerate", "glide"]);
   for (const [cls, bad, rule, msg, fix] of [
@@ -464,6 +480,19 @@ else {
       if (shown++ < 6) add({ severity: "warning", rule: "twinning", file: a.g.rel, timeline: a.g.tl, target: twins.map((x) => x.g.target).join(" + "), at: `${a.g.start.toFixed(2)}s`, dur_ms: Math.round(a.g.dur * 1000), ease: easeLabel(a.g), message: `${twins.length} elements make the same move (${Object.keys(a.d).join(", ")}) together: same start (within a frame), length and curve; twins read as a template, not as two things with their own weight`, fix: "offset one by 2-4 frames, give it a different duration or curve (the lighter or smaller one lands first and settles less), or change what it does (one slides, the other scales)" });
     }
   }
+}
+
+// Part 2 medium consumer (optional, a warning): a run whose chosen Look carries a medium contract (look/medium.json) and whose compositions never reference assets/rasan-medium/ or a medium runtime global
+// is probably a moving-text fallback of the approved medium. No run or no contract: nothing is checked.
+if (args.run && args.run !== true && files.length) {
+  try {
+    const MW = await import("./lib/medium-wiring.mjs");
+    const mc = MW.mediumContractFor(path.resolve(String(args.run)));
+    if (mc && MW.isMediumContract(mc) && MW.RUNTIME_FILES[mc.execution_id]) {
+      const used = files.some((f) => /assets\/rasan-medium\/|RasanMedium(?:Surface|Graphic|Paper)|RasanPixel/.test(fs.readFileSync(f, "utf8")));
+      if (!used) add({ severity: "warning", rule: "medium-not-referenced", file: project, message: `the chosen Look has a medium contract (${mc.execution_id}) but no composition references assets/rasan-medium/ or its runtime global`, fix: "build the medium's objects with the registered runtime (run video.mjs inject --run <run>, then load assets/rasan-medium/) or tell the owner the film falls back to moving text" });
+    }
+  } catch { /* advisory */ }
 }
 
 if (!report.tweens && !couldNotRun.length) couldNotRun.push("no GSAP tweens found in any composition: nothing was checked (run obey after the build writes compositions/index.html)");

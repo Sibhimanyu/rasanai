@@ -80,6 +80,8 @@ public struct FilmProgressEngine: Sendable {
 
     var title = ""
     var sessionLines: [SessionLine] = []
+    /// `session.downgrades`: the fallbacks the director recorded, verbatim, so a "Working without" line can show its full fields.
+    var downgradeRecords: [DowngradeRecord] = []
     var steps: [String: StepFact] = [:]
     var sessionEvidence: [Evidence] = []
     var currentStep = "brief"
@@ -97,6 +99,13 @@ public struct FilmProgressEngine: Sendable {
     public var timingHistory: [FilmTimingRecord] = []
     public var timingFiles = FilmTimingContext()
     var finishedAt: Date?
+    /// The run's own start/freeze/thaw/exit record (`RunEvents.load`), handed in by the caller (never read here).
+    public var runEvents: [RunEvent] = []
+    /// Whether the director runs this film now. True by default so replays behave as before.
+    public var directorRunning = true
+    /// Gaps in director.log between a session's end and the next line with its own timestamp: the fallback for runs with no events file.
+    var logGaps: [(Date, Date)] = []
+    var sessionEndedAt: Date?
     var workingMessage: String?
     var finalVideoPath: String?
     var posterPath: String?
@@ -123,13 +132,19 @@ public struct FilmProgressEngine: Sendable {
         case .parse: break
         }
         guard let data = line.data(using: .utf8), let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
-        let time = (object["timestamp"] as? String).flatMap(DirectorTelemetry.parseDate) ?? lastLineTime ?? now
+        let stamp = (object["timestamp"] as? String).flatMap(DirectorTelemetry.parseDate)
+        let time = stamp ?? lastLineTime ?? now
         lastLineTime = time
+        // A long silence after a session's result is time nothing ran (a plan limit wait, the app closed). Only lines with a real timestamp count.
+        if let ended = sessionEndedAt, let stamp {
+            if stamp.timeIntervalSince(ended) > 60 { logGaps.append((ended, stamp)) }
+            sessionEndedAt = nil
+        }
         switch object["type"] as? String {
         case "assistant": ingestAssistant(object, time)
         case "user": ingestUser(object, time)
         case "system": ingestSystem(object, time)
-        case "result": telemetryIngest(object, time); redistributeHelperTokens(); touch(time)
+        case "result": telemetryIngest(object, time); redistributeHelperTokens(); touch(time); sessionEndedAt = time
         default: break
         }
     }
@@ -419,6 +434,11 @@ public struct FilmProgressEngine: Sendable {
             }
         }
         sessionLines = lines
+        downgradeRecords = session.raw["downgrades"].array.compactMap { row in
+            guard let what = row["what"].string, let instead = row["instead"].string else { return nil }
+            return DowngradeRecord(time: row["t"].string.flatMap(DirectorTelemetry.parseDate), what: what, instead: instead,
+                                   why: row["why"].string ?? "", impact: row["impact"].string ?? "", severity: row["severity"].string, kind: row["kind"].string)
+        }
         sessionEvidence = evidence
         if let first = lines.first?.time { firstEventAt = min(firstEventAt ?? first, first) }
 

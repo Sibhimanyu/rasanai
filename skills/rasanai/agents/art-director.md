@@ -26,6 +26,8 @@ RasanAI films have had no art department. The builders reached for CSS circles a
 
 ## How to work
 
+0. **Identity binds, observation does not.** Brand identity (the supplied logo, palette, type, declared limits) and the product's real surfaces are fixed. A layout or motion seen on the brand's site or in a screenshot is an observed trait: use it as a reference, never as the picture world's law, and never claim it measured. When `medium.json` carries a `resolution`, draw only what its state allows: `selected` and `custom-supported` build; `needs-direction` and `capability-blocked` mean stop and report, not a textured card under the medium's name.
+
 1. **Read the film before you draw anything.** The script's shows, the grammar, the DESIGN.md `## Imagery`. List every thing the film needs to *show* that is not type and not product UI. For each beat, ask what the picture could be that a viewer would stop on. A line about speed wants a smear, a line about memory wants a cut-out photograph in a faded grade, a line about three kinds of thing wants three drawn objects in a set.
 
 2. **Decide the world: one sentence, then the style block.** The world is one sentence a stranger could repeat ("fifteen pixel icons on warm paper, struck by ink"; "a single lily, cut out, in red and white, as a specimen"; "a drawn eye on a pale ground, one orange iris"). Then `style` in the plan, precise enough that two artists would draw the same set:
@@ -64,6 +66,10 @@ RasanAI films have had no art department. The builders reached for CSS circles a
 - **The film's colours only.** Art that brings its own palette fights the design system. A gradient map or duotone in the film's own hexes is how a photograph joins the world.
 - **Honest about the product.** The real product's UI and logo are captured files. Never draw them.
 - **No type in pictures.** Anything that must be read is set in the document or drawn with `hand`, never generated.
+
+## The visual bible and continuity (Plan 04)
+
+Read `look/visual-bible.json` (check its `source_digest` against the look: `design.mjs bible-check --run $RUN`) before you plan a picture: its `imagery` section gives the treatment and the limits, its `constraints.hard` are the brand's and never move, its `variation` says what stays constant across the film and what may vary. A picture of a recurring object, screen or character comes from the shared component the continuity contract (`look/continuity.json`) names, with its one owner; you request a change, you do not fork it. A treatment (grain, blur, vignette, 3D) is in the art plan only when the bible lists it with what it serves.
 
 ## Never
 

@@ -1,0 +1,159 @@
+{
+  "case": "plan10/U05",
+  "note": "numbers match Plan10Tests (authored, not run)",
+  "cases": [
+    {
+      "name": "letterbox",
+      "view": [
+        800,
+        600
+      ],
+      "frame": [
+        1920,
+        1080
+      ],
+      "backing_scale": 2,
+      "fit": "fit",
+      "point": [
+        400,
+        300
+      ],
+      "expect": {
+        "onPicture": true,
+        "frameNorm": [
+          0.5,
+          0.5
+        ],
+        "framePixel": [
+          960,
+          540
+        ],
+        "backingPixel": [
+          800,
+          600
+        ],
+        "contentRect": {
+          "x": 0,
+          "y": 75,
+          "w": 800,
+          "h": 450
+        }
+      }
+    },
+    {
+      "name": "on a bar",
+      "view": [
+        800,
+        600
+      ],
+      "frame": [
+        1920,
+        1080
+      ],
+      "point": [
+        400,
+        20
+      ],
+      "expect": {
+        "onPicture": false
+      }
+    },
+    {
+      "name": "vertical crop of a wide master",
+      "view": [
+        540,
+        540
+      ],
+      "frame": [
+        1920,
+        1080
+      ],
+      "visibleCrop": {
+        "x": 0.25,
+        "y": 0,
+        "w": 0.5,
+        "h": 1
+      },
+      "point": [
+        270,
+        270
+      ],
+      "expect": {
+        "frameNorm": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "name": "fill (overflow cut)",
+      "view": [
+        400,
+        400
+      ],
+      "frame": [
+        1000,
+        500
+      ],
+      "fit": "fill",
+      "point": [
+        0,
+        200
+      ],
+      "expect": {
+        "frameNorm": [
+          0.25,
+          0.5
+        ]
+      }
+    },
+    {
+      "name": "fullscreen overlay inset",
+      "view": [
+        800,
+        650
+      ],
+      "frame": [
+        1920,
+        1080
+      ],
+      "insets": {
+        "top": 50
+      },
+      "point": [
+        400,
+        350
+      ],
+      "expect": {
+        "frameNorm": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "name": "unusable geometry",
+      "view": [
+        0,
+        0
+      ],
+      "frame": [
+        10,
+        10
+      ],
+      "point": [
+        0,
+        0
+      ],
+      "expect": {
+        "mapped": null
+      }
+    }
+  ],
+  "drag": {
+    "events": 300,
+    "expect_transactions": 1,
+    "expect_action": "motion-edit with fields.position {dx,dy} as fractions of the frame, build_digest, render_revision_id",
+    "click_under_threshold": "no edit"
+  }
+}

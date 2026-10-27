@@ -1,0 +1,253 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R09",
+  "case": "claim ids and numbers across revisions, fitting and translation",
+  "targets": [
+    "lib/provenance.mjs carryCheck / numberDrift / stampClaim / mediaAuthority / brandAssetUse / referenceUse"
+  ],
+  "ledger_v1": [
+    {
+      "id": "c1",
+      "assertion": "Cuts render time by 40% for 1,200 projects",
+      "qualification": "measured on the 2026 benchmark set",
+      "type": "public",
+      "permitted_use": "claim",
+      "retrieved_at": "2026-10-20T00:00:00Z",
+      "fact_kind": "stable",
+      "source": {
+        "url": "https://example.invalid/bench"
+      }
+    }
+  ],
+  "ledger_v2": [
+    {
+      "id": "c1",
+      "assertion": "Cuts render time by 25% for 1,200 projects",
+      "qualification": "measured on the 2026 benchmark set",
+      "type": "public",
+      "permitted_use": "claim",
+      "retrieved_at": "2026-10-24T00:00:00Z",
+      "fact_kind": "stable",
+      "source": {
+        "url": "https://example.invalid/bench"
+      }
+    },
+    {
+      "id": "c2",
+      "assertion": "Free tier",
+      "type": "synthetic_example",
+      "permitted_use": "none",
+      "source": {
+        "file": "x"
+      }
+    }
+  ],
+  "items": {
+    "script_beats": [
+      {
+        "id": "b1",
+        "text": "Render time drops 40% across 1,200 projects.",
+        "claim_ids": [
+          "c1"
+        ],
+        "claim_digests": {
+          "c1": "<digest of ledger_v1 c1>"
+        }
+      },
+      {
+        "id": "b2",
+        "text": "Used by 5000 teams.",
+        "makes_claim": true
+      }
+    ],
+    "captions": [
+      {
+        "id": "k1",
+        "text": "40% faster",
+        "claim_ids": [
+          "c1"
+        ]
+      }
+    ],
+    "translations": [
+      {
+        "id": "t-ar",
+        "locale": "ar",
+        "text": "يقلل زمن التصيير بنسبة ٤٠٪ لـ 1.200 مشروع",
+        "source_text": "Cuts render time by 40% for 1,200 projects",
+        "claim_ids": [
+          "c1"
+        ]
+      },
+      {
+        "id": "t-bad",
+        "locale": "de",
+        "text": "Verkürzt die Renderzeit um 14% bei 1.200 Projekten",
+        "source_text": "Cuts render time by 40% for 1,200 projects",
+        "claim_ids": [
+          "c1"
+        ]
+      }
+    ],
+    "delivery": [
+      {
+        "id": "d1",
+        "text": "1,200 projects",
+        "claim_ids": [
+          "c9"
+        ]
+      }
+    ]
+  },
+  "expect_against_v1": {
+    "ok": false,
+    "problems": [
+      "b2 claim_without_ledger_id",
+      "t-bad number_drift",
+      "d1 unknown_claim_id"
+    ],
+    "must_not_include": [
+      "b1",
+      "k1",
+      "t-ar"
+    ]
+  },
+  "expect_against_v2": [
+    "b1 claim_changed_since_stamped",
+    "k1 and b1 number drift (40% vs 25%)",
+    "c2 claim_not_permitted when referenced"
+  ],
+  "number_cases": [
+    {
+      "source": "10x faster in 5 minutes",
+      "text": "10 times faster in 5 min",
+      "ok": true
+    },
+    {
+      "source": "10x faster in 5 minutes",
+      "text": "10x faster in 6 minutes",
+      "ok": false
+    },
+    {
+      "source": "1,200 users",
+      "text": "1.200 Nutzer",
+      "ok": true
+    },
+    {
+      "source": "1,200 users",
+      "text": "12,00 Nutzer",
+      "ok": false,
+      "note": "1,200 read as 1.2 would not equal 12.00"
+    },
+    {
+      "source": "99.9% uptime",
+      "text": "99,9 % de disponibilité",
+      "ok": true
+    }
+  ],
+  "media_authority": [
+    {
+      "layer": {
+        "id": "L1",
+        "source": "video_model",
+        "depicts": [
+          "logo"
+        ]
+      },
+      "expect": "generated_model_depicts_exact_asset"
+    },
+    {
+      "layer": {
+        "id": "L2",
+        "source": "deterministic",
+        "depicts": [
+          "logo"
+        ],
+        "brand_asset_id": "brand-mark"
+      },
+      "expect": "ok"
+    },
+    {
+      "layer": {
+        "id": "L3",
+        "source": "deterministic",
+        "depicts": [
+          "screenshot"
+        ],
+        "editorial_reconstruction": true
+      },
+      "expect": [
+        "exact_asset_without_source",
+        "reconstruction_unlabelled",
+        "reconstruction_behavior_unverified"
+      ]
+    },
+    {
+      "layer": {
+        "id": "L4",
+        "source": "image_model",
+        "depicts": [
+          "chart"
+        ]
+      },
+      "expect": "generated_model_depicts_exact_asset"
+    }
+  ],
+  "brand": [
+    {
+      "use": {
+        "asset_id": "brand-mark",
+        "role": "primary_mark",
+        "size_px": 12,
+        "clear_space_ratio": 0.2,
+        "modifications": [
+          "recolor"
+        ]
+      },
+      "asset": {
+        "id": "brand-mark",
+        "role": "primary_mark",
+        "min_size_px": 24,
+        "clear_space_ratio": 0.5,
+        "forbidden_modifications": [
+          "recolor",
+          "stretch"
+        ]
+      },
+      "expect": [
+        "size under minimum",
+        "clear space under required",
+        "forbidden modification without approval"
+      ]
+    },
+    {
+      "use": {
+        "modifications": [
+          "recolor"
+        ],
+        "override": {
+          "approval_id": "appr-7"
+        }
+      },
+      "expect": "modification allowed only with the owner's approval record"
+    }
+  ],
+  "references": [
+    {
+      "ref": {
+        "kind": "inspiration"
+      },
+      "expect": "ok, ideas only"
+    },
+    {
+      "ref": {
+        "kind": "reuse",
+        "asset_type": "music",
+        "rights": {}
+      },
+      "expect": "refused: needs recorded permission and source"
+    }
+  ]
+}

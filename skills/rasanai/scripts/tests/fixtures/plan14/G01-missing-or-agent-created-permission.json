@@ -1,0 +1,194 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan14/G01",
+  "case": "no job dispatches without actual explicit user authorization",
+  "targets": [
+    "lib/test-approval.mjs authorize"
+  ],
+  "scenarios": [
+    {
+      "name": "no approval record",
+      "call": "gate",
+      "input": {
+        "approval": null,
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~no_approval_record"
+      }
+    },
+    {
+      "name": "a JSON file with a forged seal is not consent",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        },
+        "seal": "forged"
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~seal_invalid"
+      }
+    },
+    {
+      "name": "a file with no seal key is not consent",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        },
+        "seal": "none"
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~seal_missing"
+      }
+    },
+    {
+      "name": "a record without the user's wording or message reference is incomplete",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "",
+            "message_ref": "",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~consent_incomplete"
+      }
+    },
+    {
+      "name": "a person-recorded approval inside scope is allowed",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        }
+      },
+      "expect": {
+        "allowed": true
+      }
+    }
+  ],
+  "note": "Fixture records are sealed in a throwaway temp folder by the runner; the real approval directory is never touched."
+}

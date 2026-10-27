@@ -33,7 +33,7 @@ const STUDIO_PLIST = "apps/macos/Info.plist";
 const STUDIO_CHANGELOG = "apps/macos/CHANGELOG.md";
 const APPCAST = "docs/studio/appcast.xml";
 const INSTALL_DOC = "apps/macos/COMMUNITY-INSTALL.md";
-const SITE_DOWNLOAD_PAGES = ["docs/index.html", "docs/guide.html"];
+const SITE_DOWNLOAD_PAGES = ["docs/index.html", "docs/how-it-works.html"];
 
 // Point the site's download links (DMG, checksum, release notes) and its version labels at a Studio release.
 // Studio releases are prereleases, so GitHub's releases/latest URL would serve the skill release instead.
@@ -150,6 +150,20 @@ function sectionBody(text, headRe) {
   let j = i + 1;
   while (j < lines.length && !/^## /.test(lines[j])) j++;
   return lines.slice(i + 1, j).join("\n").trim();
+}
+/** CHANGELOG bullets (markdown) as a plain <ul><li> list for the appcast: text escaped, **x** -> <b>, `x` -> <code>. */
+function bulletsToHtml(md) {
+  const inline = (t) =>
+    t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
+  const items = [];
+  for (const line of String(md || "").split("\n")) {
+    const m = line.match(/^\s*[-*]\s+(.*\S)\s*$/);
+    if (m) items.push(m[1]);
+    else if (items.length && line.trim()) items[items.length - 1] += " " + line.trim();
+  }
+  const html = `<ul>${items.map((i) => `<li>${inline(i)}</li>`).join("")}</ul>`;
+  return html.replace(/]]>/g, "]]]]><![CDATA[>");
 }
 function replaceHeading(text, headRe, newHeading) {
   const lines = text.split("\n");
@@ -311,8 +325,14 @@ function deleteBranchStep(keys) {
   };
 }
 
+const secs = (ms) => `${Math.round(ms / 1000)}s`;
+
+// Prints how long each step took, and a summary at the end, so slow releases show where the time went.
 async function runSteps(steps) {
+  const times = [];
+  const t0 = Date.now();
   for (const s of steps) {
+    const ts = Date.now();
     step(s.name);
     let d;
     try {
@@ -331,6 +351,12 @@ async function runSteps(steps) {
     }
     await s.run();
     save();
+    times.push([s.name, Date.now() - ts]);
+    log(`   took ${secs(Date.now() - ts)}`);
+  }
+  if (times.length) {
+    log(`\n== timings (total ${secs(Date.now() - t0)})`);
+    for (const [name, ms] of times) log(`   ${secs(ms).padStart(5)}  ${name}`);
   }
 }
 
@@ -701,7 +727,7 @@ async function releaseStudio(version) {
           "    <item>",
           `      <title>RasanAI Studio ${version} beta ${beta}</title>`,
           `      <pubDate>${pub}</pubDate>`,
-          `      <description sparkle:format="markdown"><![CDATA[${STATE.bullets}]]></description>`,
+          `      <description><![CDATA[${bulletsToHtml(STATE.bullets)}]]></description>`,
           `      <sparkle:version>${build}</sparkle:version>`,
           `      <sparkle:shortVersionString>${version}</sparkle:shortVersionString>`,
           `      <sparkle:minimumSystemVersion>${prev.minOS}</sparkle:minimumSystemVersion>`,

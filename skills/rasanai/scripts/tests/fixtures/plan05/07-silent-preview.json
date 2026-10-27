@@ -1,0 +1,88 @@
+{
+  "case": "E07",
+  "title": "a storyboard with no audio plays as an honestly labelled silent preview",
+  "calls": [
+    "animaticPlan",
+    "makeSnapshot",
+    "approveStoryboard"
+  ],
+  "storyboard": {
+    "revision": 1,
+    "timing_revision": "r1",
+    "frame_rate": 30,
+    "shots": [
+      {
+        "shot_id": "shot-a",
+        "beat_id": "beat-a",
+        "purpose": "",
+        "panels": [
+          {
+            "id": "p1",
+            "state": "a",
+            "image_ref": "a.png"
+          },
+          {
+            "id": "p2",
+            "state": "b",
+            "image_ref": "b.png"
+          }
+        ],
+        "copy_refs": [],
+        "focal_read": "",
+        "timing": {
+          "status": "provisional",
+          "duration_s": 4
+        },
+        "transition_out": {
+          "relation": "example",
+          "kind": "cut",
+          "carrier": null
+        },
+        "sound_intent": {
+          "role": "supportive",
+          "cue_refs": []
+        }
+      },
+      {
+        "shot_id": "shot-b",
+        "beat_id": "beat-b",
+        "purpose": "",
+        "panels": [
+          {
+            "id": "p1",
+            "state": "c",
+            "image_ref": "c.png"
+          }
+        ],
+        "copy_refs": [],
+        "focal_read": "",
+        "timing": {
+          "status": "provisional",
+          "duration_s": 3
+        },
+        "transition_out": {
+          "relation": "example",
+          "kind": "cut",
+          "carrier": null
+        },
+        "sound_intent": {
+          "role": "supportive",
+          "cue_refs": []
+        }
+      }
+    ]
+  },
+  "audio": {
+    "kind": "none"
+  },
+  "expect": {
+    "audio_label": "silent preview",
+    "fidelity_level": "timed_panels",
+    "fidelity_label_contains": "not the finished film",
+    "segments": 3,
+    "segment_intervals": "[start, end) tile 0..7 s",
+    "snapshot_audio_kind": "none",
+    "silent_preview_flag": true,
+    "not_a_failure": "a silent deliverable is not an audio-generation failure"
+  }
+}

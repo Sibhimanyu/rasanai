@@ -1,0 +1,45 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D11",
+  "case": "what interchange cannot carry is reported",
+  "targets": [
+    "lib/interchange.mjs lossReport"
+  ],
+  "checks": [
+    {
+      "name": "baked scene",
+      "setup": "gsap proxy clip with source_link",
+      "expect": "baked_proxy info with the engine and the link; without a link says none recorded"
+    },
+    {
+      "name": "time warp",
+      "setup": "retime {mode:'ramp', factor:0.5}",
+      "expect": "time_warp warning: not verified that an editor applies it"
+    },
+    {
+      "name": "effects",
+      "setup": "effects ['glow']",
+      "expect": "unsupported_effect: present only if baked"
+    },
+    {
+      "name": "transitions",
+      "setup": "unknown handles and a custom wipe",
+      "expect": "transition_handles_unknown and transition_kind entries"
+    },
+    {
+      "name": "subtitles",
+      "setup": "captions listed",
+      "expect": "subtitle_behaviour: sidecar files, no editor caption track"
+    },
+    {
+      "name": "alpha",
+      "expect": "alpha entry says it depends on codec and editor"
+    },
+    {
+      "name": "serialisation is not a round trip",
+      "expect": "the report and notes never say verified; exportOtio returns verified_editor_import false"
+    }
+  ]
+}

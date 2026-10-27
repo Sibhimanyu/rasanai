@@ -1,0 +1,11 @@
+{
+  "profile": "collage", "alsoCovers": ["halftone-collage (vector-cut fallback only)"], "family": "paper-collage", "owner": "M04", "status": "implemented_unvalidated",
+  "module": "runtime/medium-paper.js#createPaperCollageScene", "verified": false,
+  "examples": [
+    { "file": "positive-two-strips.js", "role": "positive", "mechanism": "layered strips, masked reveal, real fold, hinged tag, stepped posing; all conditions visible", "worksWithoutHeading": true },
+    { "file": "boundary-texture-sticker.js", "role": "boundary", "mechanism": "texture behind static card is not a paper mechanism; photo piece rejects missing asset", "worksWithoutHeading": false }
+  ],
+  "requiredAssets": ["none for vector-cut paper", "approved local resolver asset for photo pieces"], "editability": "paper-*, body-*, front-*, flap-*, text-* groups; text is real SVG text",
+  "limitations": ["flat polygons, single straight crease, no curved bend or cloth physics", "hard-offset layer shadows, only when content.shadows is true", "paper-cut is not stop-motion photography", "photo-based collage needs supplied/licensed images", "alpha: opaque paper, shadow uses opacity"],
+  "rendered": false, "receipts": []
+}

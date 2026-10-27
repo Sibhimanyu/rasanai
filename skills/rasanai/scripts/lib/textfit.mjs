@@ -71,6 +71,7 @@ import { gateValue, gateNotes } from "./gate-lessons.mjs";
 import { noteDowngrade } from "./downgrade.mjs";
 import { readTime, READ_BASE_S, READ_PER_WORD_S, SLACK_RENDER } from "./reading.mjs";
 import { decodePng } from "./png.mjs";
+import { destinationOf, zonesFor, boxInZones } from "./safezones.mjs";
 
 export const TEXT_FIT = { fps: 10, safe: 0.06, edge_s: 1.2, rest_s: 0.4, min_font_px: 20, rest_px: 1.5,
   statement: 0.035, read_base_s: READ_BASE_S, read_per_word_s: READ_PER_WORD_S, brief_min_words: 3, overlap_frac: 0.15, overlap_s: 0.3, read_slack: SLACK_RENDER, mask_hid: 0.12, mask_max: 0.6, mask_s: 0.3 };
@@ -314,7 +315,7 @@ export function analyze(byKey, dt, file) {
 }
 
 // block rows -> findings. byBlock: Map id -> [{t, w, v, f, t:text, s, o, a, r:[[l,t,r,b]]}] in time order
-export function analyzeBlocks(byBlock, dt, file, H, warn = []) {
+export function analyzeBlocks(byBlock, dt, file, H, warn = [], plat = null) {
   const findings = [], T = { ...TEXT_FIT, read_per_word_s: gateValue("text.read_per_word_s", TEXT_FIT.read_per_word_s) }, base = path.basename(file);
   const minH = gateValue("text.statement_min_h", null), lesson = gateNotes(["text.read_per_word_s", "text.statement_min_h"]);
   const tail = lesson.length ? ` [measured by ${lesson.join("; ")}]` : "";
@@ -359,6 +360,30 @@ export function analyzeBlocks(byBlock, dt, file, H, warn = []) {
         message: `"${text.slice(0, 40)}" is readable while a mask or inset cuts off ${Math.round(worst.m * 100)}% of a word's box, from ${r2(run[0])} to ${r2(run[1])} s (${r2(run[1] - run[0])} s; ${T.mask_s} s at most)`,
         fix: "widen the mask or inset (padding for the descenders and the overshoot, not the line box), or let the line finish rising before the next words show; a reveal through a mask is fine, a readable line with cut-off letters is not (references/craft.md section 10)",
       });
+    }
+    // text-under-platform-ui (warning, uncalibrated; only with an explicit destination): a line at rest (0.4 s or more) under the platform's overlay UI
+    if (plat && plat.zones && plat.W > 0 && ok.length) {
+      const bx = (r) => r.r && r.r.length ? r.r.reduce((a, q) => [Math.min(a[0], q[0]), Math.min(a[1], q[1]), Math.max(a[2], q[2]), Math.max(a[3], q[3])], [1e9, 1e9, -1e9, -1e9]) : null;
+      const still = (a, c) => a.every((v, i) => Math.abs(v - c[i]) <= T.rest_px);
+      let run = [];
+      const judge = () => {
+        if (run.length < Math.ceil(T.rest_s / dt - 1e-9) || run[run.length - 1].t + dt - run[0].t < T.rest_s - 1e-9) return false;
+        const b = run[0].b, box = { x: b[0] / plat.W, y: b[1] / H, w: (b[2] - b[0]) / plat.W, h: (b[3] - b[1]) / H };
+        const hit = boxInZones(box, plat.zones, { minShare: 0.2 }).filter((z) => z.zone !== "margin").sort((p, q) => q.share - p.share)[0];
+        if (!hit) return false;
+        warn.push({ check: "text-under-platform-ui", severity: "warning", at: r2(run[0].t), from: r2(run[0].t), to: r2(run[run.length - 1].t + dt), text: text.slice(0, 40), file: base, region: hit.zone,
+          message: `"${text.slice(0, 40)}" sits under the ${hit.zone} on ${plat.dest} (${Math.round(hit.share * 100)}% of the line, ${r2(run[0].t)}-${r2(run[run.length - 1].t + dt)} s)`,
+          fix: "move it inside the safe area" });
+        return true;
+      };
+      let done = false;
+      for (const r of ok) {
+        const b = bx(r); if (!b) continue;
+        const prev = run[run.length - 1];
+        if (prev && r.t - prev.t <= dt * 1.5 && still(prev.b, b)) run.push({ t: r.t, b });
+        else { if (!done) done = judge(); run = [{ t: r.t, b }]; }
+      }
+      if (!done) judge();
     }
     // text-moves-before-read (warning): once the line is whole and its box has stopped, it holds still for its reading time before any travel, scale or camera push
     if (w >= T.brief_min_words && !rows.some((r) => r.s) && rows.every((r) => r.x === rows[0].x && r.r && r.r.length)) {
@@ -693,7 +718,7 @@ function sweepFindings(acc) {
   return out;
 }
 
-export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.safe, heroIds = [] } = {}) {
+export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.safe, heroIds = [], destination = null, aspect = null } = {}) {
   const res = { findings: [], warnings: [], texts: [], hook: { text: null, visual: null, meaning: null }, pages: 0, samples: 0, skipped: [], could_not_run: [], script_errors: [] }; // warnings: the uncalibrated extras (contrast, assets, glyphs, upscaled media, rtl): same shape as findings, never errors
   const acc = { bad: new Map(), media: new Map(), glyphs: new Map() };
   const root = path.resolve(project);
@@ -701,6 +726,8 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
   if (!pages.length) { res.skipped.push("text-fit: no compositions with a duration to sample (index.html, compositions/)"); return res; }
   const { W, H } = sizeOf(root);
   const dt = 1 / fps;
+  // platform UI check: only when a destination was passed explicitly
+  const plat = destination ? (() => { const g = (a, c) => (c ? g(c, a % c) : a), d = g(W, H), asp = aspect || `${W / d}:${H / d}`, dest = destinationOf({ destination, aspect: asp }); return { W, dest, zones: zonesFor(dest, asp) }; })() : null;
   // chromePath() exits the process when no Chrome exists; a gate must report that, not die
   { const realExit = process.exit; process.exit = () => { throw new Error("no Chrome found (npx hyperframes browser ensure, or set RASANAI_CHROME)"); };
     try { chromePath(); } catch (e) { res.could_not_run.push(`text-fit: ${e.message}`); noteDowngrade({ what: "the text-fit check", instead: "no text measurement", why: String(e.message).slice(0, 200), impact: "overflowing or clipped text is not caught" }); return res; } finally { process.exit = realExit; } }
@@ -738,7 +765,7 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
         res.script_errors.push(...(await scriptErrors(b, pg.file, root)));
         res.samples += times.length;
         res.pages++;
-        res.findings.push(...analyze(byKey, dt, pg.file), ...analyzeBlocks(byBlock, dt, pg.file, H, res.warnings));
+        res.findings.push(...analyze(byKey, dt, pg.file), ...analyzeBlocks(byBlock, dt, pg.file, H, res.warnings, plat));
         res.warnings.push(...analyzeHero(byHero, dt, pg.file, W, H, safe));
         res.texts.push(...textStates(byBlock, dt, pg.file));
         try { await sweepPass(b, pg, acc, root); await contrastPass(b, pg, byBlock, res.warnings, W, H, path.basename(pg.file)); } catch (e) { res.skipped.push(`text-fit extras (contrast, assets, glyphs): ${path.relative(root, pg.file)}: ${String(e.message).slice(0, 120)}`); }

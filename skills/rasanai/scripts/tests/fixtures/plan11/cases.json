@@ -1,0 +1,91 @@
+{
+  "plan": "11",
+  "status": "implemented_unvalidated",
+  "note": "authored, not run; execution waits for explicitly approved Plan 14, and only in disposable runs and folders (never the user's real library). All fixtures are synthetic: every key, path and name is fake and certifies nothing. Destructive scenarios (kill -9, fault hooks, symlinks, disk fill) are set up by the Plan 14 harness in a temp folder.",
+  "cases": [
+    {
+      "id": "plan11/R01",
+      "name": "crash recovery and resume of the smallest unfinished job",
+      "fixtures": [
+        "01-crash-recovery.json"
+      ]
+    },
+    {
+      "id": "plan11/R02",
+      "name": "sleep, lease and PID replacement",
+      "fixtures": [
+        "02-sleep-lease-change.json"
+      ]
+    },
+    {
+      "id": "plan11/R03",
+      "name": "provider timeout and unknown outcome",
+      "fixtures": [
+        "03-external-timeout.json"
+      ]
+    },
+    {
+      "id": "plan11/R04",
+      "name": "spend limit, rate limit, repeated failure",
+      "fixtures": [
+        "04-budget-throttle.json"
+      ]
+    },
+    {
+      "id": "plan11/R05",
+      "name": "disk, log and partial-file faults",
+      "fixtures": [
+        "05-disk-log-faults.json"
+      ]
+    },
+    {
+      "id": "plan11/R06",
+      "name": "file, archive and media containment",
+      "fixtures": [
+        "06-file-containment.json"
+      ]
+    },
+    {
+      "id": "plan11/R07",
+      "name": "instruction isolation",
+      "fixtures": [
+        "07-instruction-isolation.json"
+      ]
+    },
+    {
+      "id": "plan11/R08",
+      "name": "privacy, redaction and URL policy",
+      "fixtures": [
+        "08-privacy-network.json"
+      ]
+    },
+    {
+      "id": "plan11/R09",
+      "name": "claims, numbers and brand authority across revisions",
+      "fixtures": [
+        "09-claims-across-revisions.json"
+      ]
+    },
+    {
+      "id": "plan11/R10",
+      "name": "licence inventory at actual versions",
+      "fixtures": [
+        "10-licence-inventory.json"
+      ]
+    },
+    {
+      "id": "plan11/R11",
+      "name": "interrupted multi-file transaction",
+      "fixtures": [
+        "11-interrupted-transaction.json"
+      ]
+    },
+    {
+      "id": "plan11/R12",
+      "name": "renderer credential and rights boundary",
+      "fixtures": [
+        "12-renderer-credential-rights.json"
+      ]
+    }
+  ]
+}

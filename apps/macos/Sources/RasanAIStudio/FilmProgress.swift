@@ -19,6 +19,8 @@ actor FilmProgressWorker {
     /// One live step: new log lines, the session, artifacts (every 2 s) and render output.
     func advance(run: URL, project: URL?, budget: ResearchBudget?, now: Date, running: Bool, wasRunning: Bool) -> FilmProgressSnapshot {
         engine.budget = budget
+        engine.runEvents = RunEvents.load(run: run)
+        engine.directorRunning = running
         // The history is read once per film, here (never inside the engine), and without this film's own partial record.
         let filmID = run.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent + "/" + run.lastPathComponent
         if history == nil { history = timingStore.load() }
@@ -52,7 +54,7 @@ actor FilmProgressWorker {
         }
         if wasRunning && !running { engine.directorStopped(at: now) }
         var snapshot = engine.snapshot(now: now)
-        snapshot.remaining = smoother.apply(snapshot.remaining, now: now)
+        snapshot.remaining = smoother.apply(snapshot.remaining, now: now, hold: snapshot.directorIdle || snapshot.isWaitingForYou)
         record(snapshot, id: filmID)
         return snapshot
     }
@@ -65,7 +67,7 @@ actor FilmProgressWorker {
         if let artifacts { engine.update(artifacts: artifacts, now: now) }
         for (toolID, text) in renderChunks { engine.ingest(renderOutput: text, toolID: toolID, now: now) }
         var snapshot = engine.snapshot(now: now)
-        snapshot.remaining = smoother.apply(snapshot.remaining, now: now)
+        snapshot.remaining = smoother.apply(snapshot.remaining, now: now, hold: snapshot.directorIdle || snapshot.isWaitingForYou)
         return snapshot
     }
 
@@ -146,6 +148,8 @@ final class FilmProgress {
     // MARK: Replay (the DEBUG replay and tests drive the same model)
 
     func beginReplay() { stop(); isReplay = true; isLive = false }
+    /// The sample film's scripted working moment sets each beat itself (no run, no log).
+    func present(_ next: FilmProgressSnapshot, at time: Date) { now = time; snapshot = next }
     func resetForReplay() async { await worker.reset() }
     func feed(lines: [String], session: SessionSnapshot?, artifacts: FilmArtifacts?, renderChunks: [(String, String)], at time: Date) async {
         let result = await worker.feed(lines: lines, session: session, artifacts: artifacts, renderChunks: renderChunks, budget: researchBudget, now: time)

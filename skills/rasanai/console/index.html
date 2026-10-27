@@ -1815,7 +1815,7 @@
     if (d.angles !== false) chips.appendChild(h("button", { class: "chip2", onclick: function () { send(step, "more", { what: "angle" }); toast("Asked Claude for another story angle."); }, text: "Try another angle" }));
     body.appendChild(chips);
     var notes = openComments(step);
-    if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text })]); })));
+    if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text }), c.interpretation ? h("span", { class: "sub", text: " (" + (c.needs_confirmation ? "Is this what you mean? " : "Read as: ") + c.interpretation + ")" }) : null]); })));
     return {
       body: body, q: d.question || "Here's the whole film, rough",
       primary: notes.length ? { label: "Apply " + notes.length + " note" + (notes.length > 1 ? "s" : ""), run: function () { send(step, "apply", { ids: notes.map(function (c) { return c.id; }) }); } } : { label: "Looks right, build it", run: function () { send(step, "approve", null); } },
@@ -1858,7 +1858,7 @@
     if ((d.changes || []).length) body.appendChild(h("div", { class: "changes" }, [h("b", { text: "Changed in v" + (d.version || "") + ": " }), d.changes.join(" · ")]));
     if ((d.versions || []).length > 1) body.appendChild(h("div", { class: "versions" }, ["Versions:"].concat(d.versions.map(function (x) { return h("button", { class: "chip2", onclick: function () { send(step, "version", { restore: x.v }); }, text: "v" + x.v + (x.when ? " · " + x.when : "") }); }))));
     var notes = openComments(step);
-    if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text })]); })));
+    if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text }), c.interpretation ? h("span", { class: "sub", text: " (" + (c.needs_confirmation ? "Is this what you mean? " : "Read as: ") + c.interpretation + ")" }) : null]); })));
     var done = d.status === "done";
     return {
       body: body, q: d.question || (done ? "Your film" : "Here's your film"),
@@ -1899,12 +1899,12 @@
     p.appendChild(h("h4", { style: "margin-top:0", text: "Decisions" }));
     if (!rows.length) p.appendChild(h("p", { class: "qsub", text: "Every choice, yours and mine, collects here. Change any of them by telling me." }));
     rows.forEach(function (s) {
-      var d = S.steps[s[0]], you = d.sent && d.sent.type !== "decide" || d.by === "user";
-      var kids = [h("span", { class: "k", text: s[1] }), h("span", null, [d.decision, h("span", { class: "by", text: you ? "  · you" : "  · Claude" })]), h("button", { class: "link", onclick: function () { var inp = document.getElementById("tell"); inp.value = "Change the " + s[1].toLowerCase() + ": "; inp.focus(); }, text: "change" })];
+      var d = S.steps[s[0]], you = d.sent && d.sent.type !== "decide" || d.by === "user", via = (d.sent && d.sent.via) || d.by_via;
+      var kids = [h("span", { class: "k", text: s[1] }), h("span", null, [d.decision, h("span", { class: "by", text: you ? "  · you" + (via ? " (" + via + ")" : "") : "  · Claude" })]), h("button", { class: "link", onclick: function () { var inp = document.getElementById("tell"); inp.value = "Change the " + s[1].toLowerCase() + ": "; inp.focus(); }, text: "change" })];
       (d.decisions_history || []).slice().reverse().forEach(function (o) { kids.push(h("div", { class: "dd-old" }, [h("s", { text: o.decision }), " · " + (o.because || "")])); });
       p.appendChild(h("div", { class: "dd-row" }, kids));
     });
-    var dg = S.downgrades || [];
+    var dg = (S.downgrades || []).filter(function (g) { return !g.kind; }); // a row with a kind is a routine adjustment, not a downgrade
     if (dg.length) {
       p.appendChild(h("h4", { text: "Working without" }));
       dg.forEach(function (g) { p.appendChild(h("div", { class: "dd-row" }, [h("span", { class: "k", text: g.what }), h("span", null, ["Using " + g.instead + (g.why ? " because " + g.why : "") + (g.impact ? ". " + g.impact : "")]), h("span")])); });

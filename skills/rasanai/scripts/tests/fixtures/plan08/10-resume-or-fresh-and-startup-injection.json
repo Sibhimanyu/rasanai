@@ -1,0 +1,45 @@
+{
+  "id": "plan08/K10",
+  "title": "Resume vs fresh worker; no skill attached at worker startup; packet receipt records input digests",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "packets.workerChoice",
+      "args": {
+        "related": true,
+        "profile": "delegation agent-tool",
+        "inputs": "unchanged"
+      }
+    },
+    {
+      "fn": "packets.workerChoice",
+      "args": {
+        "related": true,
+        "profile": "delegation agent-tool",
+        "inputs": "one approved input digest moved"
+      }
+    },
+    {
+      "fn": "packets.workerChoice",
+      "args": {
+        "related": true,
+        "independent": true
+      }
+    },
+    {
+      "fn": "packets.workerChoice",
+      "args": {
+        "related": true,
+        "profile": "delegation codex-exec"
+      }
+    }
+  ],
+  "expect": [
+    "resume only for the first",
+    "second fresh with the moved path named",
+    "third fresh (independence)",
+    "fourth fresh (harness cannot continue an agent)",
+    "startup injection (project instructions, preloaded skills, tool schemas) is NOT measured here; it is measured in Plan 14 after testing is approved"
+  ]
+}

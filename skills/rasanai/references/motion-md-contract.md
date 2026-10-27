@@ -170,6 +170,12 @@ Applied left to right; a later one can override an earlier one. Durations follow
 
 Values round to 10 ms. The result is `personality: "custom"` with `parent` and `adjustments`, re-previewed before it is locked.
 
+## Creative policy and profiles (new creative policy only)
+
+`motion.md` stays the binding contract for curves, durations, staggers, settles and bans, and obey's uniform-pattern errors (`dominant-ease`, `duration-grid`, `even-stagger`, `uniform-cascade`) hold under every policy: they are the machine tell, not a taste. One count is a profile on the new creative policy: `few-curves` (fewer than `mix.min_families` curve families) is an error only when `score.creative.profiles` lists `curve-families`; otherwise a warning. The marker is `score.creative.policy_revision` (or `creative_policy_revision`); a score without it is legacy and unchanged. A restrained or stepped film is declared in `motion.md` (`stillness`, `mix`) and the score, never by silencing a check. The same `score.creative` block holds the profiles that `motion-gate.mjs` (`carried-seams`) and `lib/moves-lib.mjs` read (`references/craft.md` "Profiles").
+
+The optional output trace is `<run>/creative/execution-map.json` (`{events:[{event_id, beat_id, shot_ids, board_refs, source_files, sample_times_s, produced_artifact_refs, input_digest, declared_deviations}]}`), written by the Motion Director, completed by the builders. It owns no timing (the score does; sample times are film seconds from the score) and `motion-gate.mjs` reads it for traceability warnings only (`execution-map`).
+
 ## Waivers
 
 A violation the user accepts at the render gate is recorded with:

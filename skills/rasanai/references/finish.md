@@ -77,7 +77,7 @@ Motion blur averages sub-frames, which smears a look whose whole character is th
 
 Three ways to say it, any of which works:
 
-- on the scene's frame root: `<div data-composition-id="..." data-finish-blur="off" ...>` in `compositions/frames/<scene>.html` (the animator sets it when the score's technique is stepped or on twos);
+- on the scene's frame root: `<div data-composition-id="..." data-finish-blur="off" ...>` in `compositions/frames/<scene>.html` (the animator sets it when the score's technique is stepped or on twos); The Rasan2D scene template (`stage2d/templates/scene-2d.html`) already carries it on its root, because its painted boil is drawn on twos (12 drawings a second); `--no-auto-sharp` turns that off.
 - on the scene's clip in `index.html`: `data-finish-blur="off"`;
 - a list flag: `--sharp "12.0-16.5,30-33"` (seconds) or `--sharp-scenes 3,5` (1-based clip order in index.html). `--no-auto-sharp` ignores the markup attributes.
 

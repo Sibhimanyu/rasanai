@@ -1,0 +1,34 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D09",
+  "case": "capability states and the manual editor round trips (no compatibility claimed)",
+  "targets": [
+    "lib/capabilities.mjs interchange.* rows",
+    "lib/interchange.mjs capabilityStates / EDITOR_ROUND_TRIPS",
+    "delivery.mjs interchange capabilities|editors"
+  ],
+  "checks": [
+    {
+      "name": "capability truth",
+      "expect": "interchange.otio unavailable (flag off by default) or experimental when flag and python exist; verification unverified; licence unreviewed; fcpxml, aaf and edl implemented false with reason 'installed support not checked'"
+    },
+    {
+      "name": "UI wording",
+      "expect": "unavailable rows are explained, never offered as ready; no 'works with <editor>' text anywhere"
+    },
+    {
+      "name": "editor list",
+      "expect": "every EDITOR_ROUND_TRIPS status is not_run"
+    },
+    {
+      "name": "manual round trips for Plan 14",
+      "expect": "DaVinci Resolve (otio, fcpxml, aaf, edl), Final Cut Pro (fcpxml; otio path unknown), Adobe Premiere Pro (otio, aaf, edl, fcpxml), Avid Media Composer (aaf, edl, otio), OTIO reference viewer: each records import success, relinking after a move, transition handling, caption handling; unavailable editors stay not_run and no compatibility claim is made"
+    },
+    {
+      "name": "a valid .otio",
+      "expect": "never described as proof any editor imports it"
+    }
+  ]
+}

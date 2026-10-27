@@ -24,6 +24,23 @@ enum Workspace {
     /// The corners of the window's floating glass sidebar; the glass chrome on the film page matches them.
     static let glassRadius: CGFloat = 18
     static let gap: CGFloat = 12
+    /// The one outer gutter of the film page: left, right, top and bottom of everything on the canvas. The film page applies
+    /// it once around the stage, the inspector and the status bar, so no stage page adds outer padding of its own.
+    /// The space between the window's sidebar and the stage, between the stage and the inspector (`columnGap`) and between
+    /// the inspector and the window edge are all this one value.
+    static let pageInset: CGFloat = 20
+    /// Between a page's left and right columns, and between the stage and the open inspector. Equal to `pageInset`.
+    static let columnGap: CGFloat = pageInset
+    /// Inside a workspace panel (a card of content) that holds a page's main content.
+    static let panelPadding: CGFloat = 16
+    /// The one bottom bar (the shell's status bar and the film page's bar): the same minimum height, corner radius and
+    /// outer inset on every page, so swapping pages changes only what is inside it.
+    static let barHeight: CGFloat = 44
+    static let barRadius: CGFloat = 20
+    /// Distance from the bar to the left, right and bottom edges of the page (the film page's gutter).
+    static let barInset: CGFloat = pageInset
+    /// Room a page reserves below its content for a floating bar: the bar, its inset and the gap above it.
+    static let barReserve: CGFloat = barHeight + barInset + gap
 }
 
 struct WorkspacePanel: ViewModifier {
@@ -38,22 +55,31 @@ struct WorkspacePanel: ViewModifier {
     }
 }
 
-/// The sidebar, inspector and action chrome use the native untinted glass material.
-struct GlassPanel<S: Shape>: ViewModifier {
+/// The sidebar, inspector and action chrome use the shared soft glass (SoftGlass.swift).
+struct GlassPanel<S: InsettableShape>: ViewModifier {
     let shape: S
     func body(content: Content) -> some View {
-        if #available(macOS 26, *) {
-            content.clipShape(shape).glassEffect(.regular, in: shape)
-        } else {
-            content.background(.regularMaterial, in: shape).clipShape(shape).overlay { shape.stroke(Workspace.hairline, lineWidth: 1) }
-        }
+        content.softGlass(in: shape).clipShape(shape)
     }
+}
+
+extension Workspace {
+    /// The left column of the two-column stages (crew header over a panel). At least 440 wide, so the widest character
+    /// (Rasika, about 182) plus the speech bubble's minimum (240) always fits; an overflow there used to be centred and
+    /// pushed the whole column into the left gutter.
+    static func leftColumn(for width: CGFloat) -> CGFloat { min(480, max(440, width * 0.36)) }
 }
 
 extension View {
     func glassPanel(radius: CGFloat = Workspace.glassRadius) -> some View { modifier(GlassPanel(shape: RoundedRectangle(cornerRadius: radius, style: .continuous))) }
-    func glassPanel(in shape: some Shape) -> some View { modifier(GlassPanel(shape: shape)) }
+    func glassPanel(in shape: some InsettableShape) -> some View { modifier(GlassPanel(shape: shape)) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
+    /// The shared chrome of the bottom bar: full width, same minimum height, same glass and corners, same inner left edge.
+    func studioBottomBar(trailing: CGFloat = 7) -> some View {
+        padding(.leading, 16).padding(.trailing, trailing).padding(.vertical, 7)
+            .frame(maxWidth: .infinity, minHeight: Workspace.barHeight)
+            .glassPanel(radius: Workspace.barRadius)
+    }
 }
 
 // MARK: Filmstrip
@@ -130,4 +156,10 @@ private struct FilmstripCell: View {
         .accessibilityLabel("Scene \(number), \(scene.title), starts at \(reviewTime(scene.start))")
         .accessibilityAddTraits(current ? [.isSelected] : [])
     }
+}
+
+/// True while the page on screen draws its own bottom bar; the shell's status bar steps aside only then.
+struct PageOwnsBottomBarKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
 }

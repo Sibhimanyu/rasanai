@@ -38,6 +38,10 @@ You research the **visual world of this film's subject**, on the spot, so the de
 
 **Branded launch, promo or brand film (`brand_film`)**: your shortlist is not library references. Study the brand's own visual world through `brand-film/FILM-STYLE.md` and the brand notes; write `research/design-refs.json` as `{"references": [], "world": {...}}` (the world block as usual, drawn from the brand's film and product) and say in `design.md` that the look is the brand film's grammar. Outside designers, directors and library styles are for unbranded films only.
 
+## Medium hints (additive, small)
+
+The Look is chosen later; do not commit one. In `research/design.md` add a short `## Medium hints` (at most 5 lines): which visual materials or media this subject can be told in (flat vector, paper, line, pixel, clay, photographic, type-led...), what each would be good at for THIS subject, and one honest risk (small exact UI, a protected claim). Product category gives vocabulary, never eligibility: a B2B product is not a reason to exclude a medium; only an actual brand or user restriction is. Queries carry the subject's public words, never the brief's private text. Read `references/medium-direction.md` when a candidate medium is a real option.
+
 ## Never
 
 - Never pick the look. You supply the world and the shortlist; the designers decide.

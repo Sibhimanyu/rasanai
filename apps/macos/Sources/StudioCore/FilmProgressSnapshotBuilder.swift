@@ -41,6 +41,19 @@ extension FilmProgressEngine {
         return windows
     }
 
+    /// Spans when no director was working: from the run's events, else from gaps in the log. Clipped at the film's end.
+    func downtimeWindows(now: Date) -> [(Date, Date)] {
+        var windows: [(Date, Date)]
+        if let first = runEvents.first {
+            windows = RunEvents.downtime(runEvents, now: now, runningNow: directorRunning) + logGaps.filter { $0.1 <= first.t }
+        } else {
+            windows = logGaps
+            if !directorRunning || stoppedAt != nil, let from = sessionEndedAt ?? lastEventAt { windows.append((from, max(from, now))) }
+        }
+        if let finishedAt { windows = windows.compactMap { $0.0 < finishedAt ? ($0.0, min($0.1, finishedAt)) : nil } }
+        return windows
+    }
+
     var isOpenWindowCurrent: Bool {
         guard let lastAsk = sessionLines.last(where: { $0.level == "ask" }) else { return false }
         return !sessionLines.contains { $0.level == "you" && $0.time >= lastAsk.time }
@@ -57,11 +70,14 @@ extension FilmProgressEngine {
         let started = ProgressPhase.allCases.filter { line.starts[$0] != nil }
         let finished = finishedAt != nil
         let windows = waitingWindows(now: now)
+        let idle = TimeWindows.merge(windows + downtimeWindows(now: now))
         let waiting = !finished && (waitingOnUser || isOpenWindowCurrent)
         s.isWaitingForYou = waiting
+        s.directorIdle = !finished && !waiting && (!directorRunning || RunEvents.isFrozen(runEvents))
         s.currentPhase = line.frontier
         s.startedAt = firstEventAt ?? line.starts[.research]
         s.finishedAt = finishedAt
+        s.idleSeconds = s.startedAt.map { TimeWindows.covered(idle, from: $0, to: finishedAt ?? now) } ?? 0
         s.recentTools = recentTools.map { var item = $0; item.phase = line.phase(at: $0.time); return item }
 
         // Phase rows.
@@ -82,7 +98,8 @@ extension FilmProgressEngine {
             }
             if let start {
                 let end = row.endedAt ?? now
-                row.waitingSeconds = windows.reduce(0) { $0 + max(0, min($1.1, end).timeIntervalSince(max($1.0, start))) }
+                row.waitingSeconds = TimeWindows.covered(windows, from: start, to: end)
+                row.pausedSeconds = max(0, TimeWindows.covered(idle, from: start, to: end) - row.waitingSeconds)
             }
             let bucket = costs.buckets[phase] ?? (TokenTotals(), 0)
             row.tokens = bucket.0
@@ -108,10 +125,8 @@ extension FilmProgressEngine {
         research.budget = budget
         research.startedAt = researchStartedAt ?? line.starts[.research]
         research.endedAt = researchEnd
-        research.waitingSeconds = windows.reduce(0) { total, window in
-            guard let from = research.startedAt else { return total }
-            return total + max(0, min(window.1, researchEnd ?? now).timeIntervalSince(max(window.0, from)))
-        }
+        // Waiting and downtime both stay out of research time.
+        research.waitingSeconds = research.startedAt.map { TimeWindows.covered(idle, from: $0, to: researchEnd ?? now) } ?? 0
         s.research = research
 
         // Crew, newest first, with the phase each joined in.
@@ -140,7 +155,7 @@ extension FilmProgressEngine {
 
         s.activity = activityItems(line: line)
         s.now = nowLine(&s, now: now)
-        applyEstimates(&s, now: now)
+        applyEstimates(&s, now: now, idleWindows: idle)
         return s
     }
 
@@ -272,11 +287,21 @@ extension FilmProgressEngine {
     func activityItems(line: Timeline) -> [ProgressActivity] {
         var items: [ProgressActivity] = []
         for (index, entry) in sessionLines.enumerated() {
+            let record = DowngradeRecord.isFeedLine(entry.message) ? downgradeRecords.first { $0.matches(entry.message) } : nil
+            // Warnings and fallbacks are classified once (ActivityNotes): only what the person must act on, or a failed step, stays a warning.
+            if let severity = ActivityNotes.severity(level: entry.level, message: entry.message, record: record) {
+                var item = ProgressActivity(id: "session-\(index)", time: entry.time, phase: line.phase(at: entry.time), kind: severity.isAlerting ? .warning : .note,
+                                            title: ActivityNotes.title(severity: severity, message: entry.message, record: record))
+                item.severity = severity
+                let logged = "logged: \(ISO8601DateFormatter().string(from: entry.time))"
+                item.original = [entry.message, record?.original ?? logged].joined(separator: "\n\n")
+                items.append(item)
+                continue
+            }
             let kind: ProgressActivity.Kind = switch entry.level {
             case "ask": .ask
             case "you": .answer
             case "ok": .milestone
-            case "warn", "error": .warning
             default: .note
             }
             items.append(ProgressActivity(id: "session-\(index)", time: entry.time, phase: line.phase(at: entry.time), kind: kind, title: entry.message))
@@ -385,7 +410,7 @@ extension FilmProgressEngine {
         case "brief": "check the brief"
         case "story", "concept": "pick a script"
         case "look", "films", "direction": "pick a look"
-        case "animatic": "review the animatic"
+        case "animatic": "review the storyboard"
         case "render", "final": "press Render"
         default: "your call on the \(StepCatalog.label(currentStep).lowercased()) step"
         }
@@ -408,7 +433,7 @@ extension FilmProgressEngine {
         return c
     }
 
-    func applyEstimates(_ s: inout FilmProgressSnapshot, now: Date) {
+    func applyEstimates(_ s: inout FilmProgressSnapshot, now: Date, idleWindows: [(Date, Date)]) {
         let context = timingContext(s)
         s.timingContext = context
         var parts: [(guess: FilmTimeEstimator.Guess, measured: Bool)] = []
@@ -421,7 +446,7 @@ extension FilmProgressEngine {
             case .upcoming:
                 guess = FilmTimeEstimator.expected(row.phase, context, timingHistory)
             case .active:
-                (guess, measured) = activeEstimate(row, context: context, snapshot: s, now: now)
+                (guess, measured) = activeEstimate(row, context: context, snapshot: s, now: now, idleWindows: idleWindows)
             case .waitingForYou, .done, .skipped:
                 // A phase waiting for the person contributes nothing: the figure leaves out their calls.
                 guess = nil
@@ -437,7 +462,7 @@ extension FilmProgressEngine {
     }
 
     /// The active phase: a measured rate where there is a progress signal (blended in from the first item), else the conditional estimate.
-    func activeEstimate(_ row: PhaseSummary, context c: FilmTimingContext, snapshot s: FilmProgressSnapshot, now: Date) -> (FilmTimeEstimator.Guess?, Bool) {
+    func activeEstimate(_ row: PhaseSummary, context c: FilmTimingContext, snapshot s: FilmProgressSnapshot, now: Date, idleWindows: [(Date, Date)]) -> (FilmTimeEstimator.Guess?, Bool) {
         let worked = row.workSeconds(now: now)
         let fallback = FilmTimeEstimator.conditionalRemaining(row.phase, worked: worked, c, timingHistory)
         func guess(_ seconds: TimeInterval, spread: Double, samples: Int = 0) -> FilmTimeEstimator.Guess {
@@ -469,7 +494,8 @@ extension FilmProgressEngine {
             let frames = s.keyframes.filter { $0.kind == .keyframe }
             if let expected = s.keyframesExpected, frames.count >= 1, frames.count < expected, let first = frames.first?.addedAt {
                 let count = Double(frames.count)
-                let observed = now.timeIntervalSince(first) / count
+                // Idle time (a limit wait, a pause, the person's calls) is not drawing time.
+                let observed = max(0, now.timeIntervalSince(first) - TimeWindows.covered(idleWindows, from: first, to: now)) / count
                 let prior = FilmTimeEstimator.prior(.plan, c) / Double(expected)
                 let per = max(30, frames.count >= 2 ? observed : prior)
                 return (blend(per * Double(expected - frames.count), items: count), frames.count >= 2)

@@ -20,6 +20,13 @@ struct AskSheet: View {
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
+        // A tool-needed request (an `install-tool:<tool>` option) gets its own card: exact tool, "Install for me", and a checked manual path.
+        if let need = ToolNeed(ask: ask) {
+            ToolNeedCard(need: need, ask: ask, model: model, onLater: { model.dismissedAsks.insert(ask.id); dismiss() }).frame(width: 520).padding(10)
+        } else { generic }
+    }
+
+    private var generic: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
                 CrewAvatar(.ra, style: .full(height: 52), watching: true)

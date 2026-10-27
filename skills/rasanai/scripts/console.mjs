@@ -9,12 +9,19 @@
 //   node console.mjs push  --run <dir> --step <id> (--data '<json>' | --file f.json) [--status awaiting|working|done|skipped] [--current]
 //        a decision that replaces a different earlier one on a done step needs --because "<why the old call lost>" (else exit 2); the old call is kept in decisions_history
 //   node console.mjs downgrade --run <dir> --what "<what the plan asked>" --instead "<what is used>" --why "<reason>" [--impact "<what the film loses>"]   (a fallback, told to the user in the drawer)
+//        [--severity info|notice|needs-you|error]   (default info: a quiet line in Studio; only needs-you / error get a visible card)
+//        [--kind <fast-pace|...>]   (a routine, documented adjustment: told as "Adjusted (<kind>)", not listed under "Working without")
 //        (the brief push carries `budget`: the token budget crew.mjs plan wrote to <run>/crew/budget.json, added automatically when the push has none; see cleanBudget)
 //   node console.mjs activity --run <dir> --message "Reading your DESIGN.md" [--level info|ok|warn]   (what Claude is doing now)
 //   node console.mjs ask   --run <dir> --question "..." [--context "..."] [--options '[{"id","label","detail"}]'] [--recommended <id>] [--placeholder "..."]
 //        (any question outside the steps: missing material, a thin capture, an ambiguity; shown on the page, answered there)
 //   node console.mjs resolve --run <dir> --ids a,b [--note "what changed"]   (notes left on the animatic/final are done)
 //        a push of animatic/render with a higher version is refused (exit 2) while an applied note has no --note; --force "<reason>" overrides
+//        closing story or look (--status done) without the person's choice (their choose action, or "Just make it") records it by: "director", unconfirmed: true
+//        (Studio asks them to review it); [--auto series|prefs|brand] names a standing choice: series and prefs are not flagged, brand stays unconfirmed until the styleframes call
+//        --layers <story,look,timing,motion,sound,production> (default motion,timing): the layers the notes were about; a locked file outside them that changed is a warning (lock_breaks)
+//   node console.mjs locks  --run <dir>   (what Story, Look and the Animatic locked, what drifted since, lock_breaks, relocks; JSON)
+//   node console.mjs relock --run <dir> --layer <story|look|timing|motion> --because "<why, 8+ characters>"   (a meant change to a locked layer)
 //   node console.mjs reply --run <dir> --step <id> --message "..."   (Claude answers the user in that step's discussion)
 //   node console.mjs log   --run <dir> --message "..." [--level info|ok|warn|error] [--stage <id>] [--stage-status working|done|failed]
 //   node console.mjs wait  --run <dir> [--step <id>] [--timeout <sec, default 3000>]   -> prints the next action JSON (exit 2 on timeout)
@@ -22,10 +29,19 @@
 //        --type comment (a note given in chat: --note "<text>", --value '{"t":12.4,"scope":"scene"}') and --type apply (--value '{"ids":[...]}',
 //        or all the step's open notes) also enter session.comments / session.applied, so the revision refusal covers notes given in chat
 //   node console.mjs state --run <dir> | url --run <dir> | stop --run <dir>
+//   (internal) node console.mjs proxy --run <dir> --step animatic|render|final --video <path>: a push of one of those steps with a
+//        `video` (or `videos`, the newest last) starts this in the background; it writes a phone-sized copy in <run>/phone/
+//        (H.264 540p ~1.2 Mbit/s, AAC) with ffmpeg and adds `proxy` to the step. No ffmpeg, no proxy, no error.
+//        RASANAI_PHONE_PROXY=off turns it off.
 //
 // HEADLESS mode (env RASANAI_CONSOLE_HEADLESS=1, remembered in <run>/console.json): no server at all. RasanAI Studio
 // (the native Mac app) reads session.json itself and appends the user's actions to actions.jsonl; every command above
 // except serve/url works the same, and `wait` applies each action's effects to session.json as it consumes it.
+//
+// OTHER APPS (references/remote.md, the published contract): session.json carries `schema` (SESSION_SCHEMA) and console.json
+// `external_actions` (EXTERNAL_ACTIONS), in both modes. An app may append an action to actions.jsonl under actions.lock with
+// its `source` (SOURCES); `wait` validates and applies it in both modes, the way a POST is applied. The server marks the
+// lines it already applied (`applied: true`), so `wait` never applies one twice.
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
@@ -35,9 +51,21 @@ import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mjs";
 import { recordTaste } from "./memory.mjs";
+import { addLesson } from "./lessons.mjs"; // Plan 10: a "don't use this font" note is kept as a scoped user preference (never a universal rule)
 import { acquire, release, withLock } from "./lib/runlock.mjs";
-import { briefFormat } from "./lib/formats.mjs";
-import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
+import { briefFormat, loadFormats, SCOPES as FORMAT_SCOPES } from "./lib/formats.mjs";
+import { noteDowngrade, readDowngrades, downgradeFeed, SEVERITIES } from "./lib/downgrade.mjs";
+import { LAYERS, NOTE_LAYERS, snapshot, drift, relock } from "./lib/locks.mjs";
+import { noteToRevision } from "./lib/editorial.mjs"; // Plan 05 E6: a viewer note on the animatic is anchored and read as an editorial request
+import { readSoundChoices, writeSoundChoices, normalizeChoices, setChoice, applyPreset, resolveSound } from "./lib/sound-choices.mjs"; // Addendum 2: the Look sound action
+import { identityMap, soundIdentityParts, soundChangeImpact } from "./lib/impact.mjs";
+import { readDirection } from "./lib/audio-direction.mjs";
+import { soundNoteRevision, setMuteSolo } from "./lib/sound-controls.mjs"; // Plan 07 A6: a Studio sound note becomes a versioned targeted revision (no per-cue approval)
+import { handleMotionEditAction, restoreAsNewVersion } from "./lib/editor-patch/index.mjs"; // Plan 06 V8: Studio element edits go through the one edit authority (motion/edits.jsonl)
+import { atomicWrite, appendJsonl } from "./lib/recovery.mjs"; // Plan 11 R1: durable replace and torn-tail-safe appends for the console files
+import { handleJobControl, runStatus, redact } from "./lib/job-control.mjs"; // Plan 10 U6: Pause/Resume, cancel an owned job, logs, retry; never a global provider interrupt
+import { handleRevisionAction, classifyFeedback, latestRequests } from "./lib/revision-intent.mjs"; // Plan 10 U3: feedback becomes ONE scoped revision request, the same payload for Studio and this console
+import { snapshotRun, autoDecision, recordAutoDecision, boundary as storyboardBoundary, legacyAction } from "./lib/storyboard.mjs"; // Plan 05 E1/E7: one Storyboard stage; its approval snapshot and "Just make it" decision
 
 // this copy's version: a console started by an older copy is replaced, not reused
 const VERSION = (() => {
@@ -65,6 +93,17 @@ const F = {
   actionsLock: path.join(RUN, "actions.lock"),
   rejected: path.join(RUN, "rejected.json"),
 };
+// the published contract (references/remote.md): bump only for a change an outside reader would misread
+export const SESSION_SCHEMA = 1;
+// console.json: `wait` validates and applies actions another process appended to actions.jsonl, in both modes
+// 1: answer a call (choose, more, approve, comment, apply, note, answer, decide-rest). 2: a strict superset of 1, adds what a phone needs to run a film
+// (brief submit, decide, styleframes approve/comment/redo, a chat note in Studio's shape, tool-ready answers) and checks them on `wait` (checkExternal)
+export const EXTERNAL_ACTIONS = 2;
+// who answered: the console page, chat `record`, RasanAI Studio, or an app that speaks remote.md. The label is what the feed
+// and the decisions drawer say after "You" ("You (iPhone): picked the story: …"); a source not listed here is "console".
+export const SOURCES = { console: "", chat: "", studio: "", squeak: "Squeak", "squeak-phone": "iPhone" };
+export const cleanSource = (v) => (typeof v === "string" && /^[a-z-]{2,20}$/.test(v) && Object.hasOwn(SOURCES, v) ? v : "console");
+const youOf = (action) => (SOURCES[action.source] ? `You (${SOURCES[action.source]})` : "You");
 export const STEPS = ["brief", "research", "brand", "route", "footage", "story", "direction", "films", "concept", "scenes", "look", "motion", "styleframes", "animatic", "reel", "transitions", "voice", "music", "keyframes", "storyboard", "plan", "build", "render", "final"];
 
 // the Brief call's token budget, kept to the fields the page reads: {level: lean|standard|full, label, summary, fix_rounds, total, total_label, phases: [{phase, tokens, label}], levels: [{level, label, summary, fix_rounds, total, total_label}]}
@@ -84,21 +123,23 @@ const readJSON = (p, d) => {
 };
 // atomic write so the UI never reads half a file
 const writeJSON = (p, v) => {
-  const tmp = `${p}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(v, null, 2));
-  fs.renameSync(tmp, p);
+  atomicWrite(p, JSON.stringify(v, null, 2)); // Plan 11 R1: fsync of file and folder, the temp file is removed on failure
 };
 // headless: no console server in this run (RasanAI Studio reads the files). Set by env, then remembered in console.json.
 const HEADLESS = (() => {
   const c = readJSON(F.console, null);
-  if (c && c.headless === true) return true;
+  if (c && c.headless === true) {
+    // a run started before the flag existed: advertise that this copy's `wait` applies other apps' actions
+    if (c.external_actions !== EXTERNAL_ACTIONS) { try { writeJSON(F.console, { ...c, external_actions: EXTERNAL_ACTIONS }); } catch {} }
+    return true;
+  }
   if (process.env.RASANAI_CONSOLE_HEADLESS !== "1") return false;
   // a run an older Studio started has a console server: stop it and forget its address, then mark the run
   if (c && c.pid) {
     try { process.kill(c.pid); } catch {}
   }
   fs.rmSync(F.address, { force: true });
-  writeJSON(F.console, { headless: true, since: new Date().toISOString(), version: VERSION, skill: SKILL_DIR });
+  writeJSON(F.console, { headless: true, since: new Date().toISOString(), version: VERSION, skill: SKILL_DIR, external_actions: EXTERNAL_ACTIONS });
   return true;
 })();
 const now = () => new Date().toISOString();
@@ -106,6 +147,7 @@ function session() {
   return readJSON(F.session, { title: "RasanAI", current: "brief", steps: {}, updated: now() });
 }
 function saveSession(s) {
+  s.schema = SESSION_SCHEMA;
   s.updated = now();
   writeJSON(F.session, s);
 }
@@ -131,7 +173,8 @@ function mergeDowngrades(s) {
   for (const d of readDowngrades(RUN)) {
     if (have.has(`${d.t}|${d.what}|${d.instead}`)) continue;
     s.downgrades = (s.downgrades || []).concat(d).slice(-100);
-    activity(s, `Working without ${d.what}: using ${d.instead}${d.why ? " because " + d.why : ""}`, "warn", s.working && s.working.msg);
+    const feed = downgradeFeed(d);
+    activity(s, feed.msg, feed.level, s.working && s.working.msg);
   }
 }
 function parseData() {
@@ -145,35 +188,131 @@ function parseData() {
   }
   return {};
 }
-function readActions() {
-  if (!fs.existsSync(F.actions)) return [];
-  return fs
-    .readFileSync(F.actions, "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => {
-      try {
-        return JSON.parse(l);
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
-}
+// always under actions.lock: another app may be appending to the same file (references/remote.md)
 function appendAction(a) {
   const action = { id: crypto.randomBytes(5).toString("hex"), ts: now(), ...a };
-  if (HEADLESS) withLock(F.actionsLock, () => fs.appendFileSync(F.actions, JSON.stringify(action) + "\n"));
-  else fs.appendFileSync(F.actions, JSON.stringify(action) + "\n");
+  withLock(F.actionsLock, () => appendJsonl(F.actions, action)); // Plan 11 R1: an append after a torn final line starts a new line
   return action;
 }
 
 // What an action is allowed to be (the server's check on POST, and headless `wait`'s on every line it reads).
-// Returns the normalized action fields, or { error }.
-function validateAction(a) {
+// Returns the normalized action fields, or { error }. `getSession` (lazy) lets a line from another app (squeak, squeak-phone) be checked
+// against session.json as it is NOW (checkExternal); RasanAI Studio's own lines and the page's keep today's looser check.
+function validateAction(a, getSession = null) {
   if (!a || typeof a !== "object" || Array.isArray(a)) return { error: "expected an object" };
   const step = String(a.step || "");
   if (![...STEPS, "*"].includes(step) || !/^[a-z-]{2,20}$/.test(String(a.type || ""))) return { error: "unknown step or type" };
-  return { step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000) };
+  const v = { step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000) };
+  if (getSession && EXTERNAL_SOURCES.has(cleanSource(a.source))) {
+    const e = checkExternal(v, getSession());
+    if (e) return { error: e };
+  }
+  return v;
+}
+
+// references/remote.md, "Contract v2": what another app may send, checked against the session as it is now. Mutates `v` only to normalize
+// the shapes an app may use for the same thing (a nested brief {fields, format}, a frame comment's {frame, text}) into Studio's.
+const EXTERNAL_SOURCES = new Set(["squeak", "squeak-phone"]);
+const BRIEF_FIELD_TYPES = { length_s: "number", kind: "string", subject: "string", aspect: "string", destination: "string", narration: "text", brand_name: "string", use_brand: "boolean", sound: "object" };
+const ASPECTS = ["16:9", "9:16", "1:1"];
+const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+const isText = (x, max = 4000) => typeof x === "string" && x.length <= max;
+const safeKey = (k) => (/^[A-Za-z0-9_-]{1,30}$/.test(k) ? `: ${k}` : "");
+function checkExternal(v, s) {
+  const steps = isObj(s && s.steps) ? s.steps : {};
+  const step = isObj(steps[v.step]) ? steps[v.step] : null;
+  const waiting = !!step && step.status === "awaiting";
+  const val = v.value;
+  if (v.type === "decide-rest") return v.step === "*" && val === null ? null : "decide-rest is for step * with no value";
+  if (v.step === "*") return "step * is only for decide-rest";
+  if (v.type === "decide") return !waiting ? "that step is not waiting" : val !== null ? "decide takes no value" : null;
+  if (v.type === "submit" && v.step === "brief") {
+    if (!waiting) return "the brief is not waiting";
+    if (!isObj(val)) return "the brief answer must be an object";
+    // {fields, format} is accepted and flattened into the shape Studio sends (the fields at the top, `format` beside them)
+    let flat = val;
+    if (isObj(val.fields)) {
+      const extra = Object.keys(val).filter((k) => !["fields", "format"].includes(k));
+      if (extra.length) return `unknown brief field${safeKey(extra[0])}`;
+      flat = { ...val.fields, ...(val.format !== undefined ? { format: val.format } : {}) };
+    }
+    const own = isObj(step.fields) ? step.fields : {};
+    for (const [k, x] of Object.entries(flat)) {
+      if (k === "format" || k === "source") continue;
+      if (!Object.hasOwn(BRIEF_FIELD_TYPES, k) && !Object.hasOwn(own, k)) return `unknown brief field${safeKey(k)}`;
+      if (x === null) continue;
+      const have = own[k];
+      const want = have !== null && have !== undefined && ["string", "number", "boolean"].includes(typeof have) ? typeof have : BRIEF_FIELD_TYPES[k] === "text" ? null : BRIEF_FIELD_TYPES[k] || "string";
+      if (want ? typeof x !== want : !["string", "boolean"].includes(typeof x)) return `brief field has the wrong type${safeKey(k)}`;
+      if (typeof x === "string" && x.length > 4000) return `brief field is too long${safeKey(k)}`;
+      if (k === "length_s" && !(Number.isFinite(x) && x >= 5 && x <= 600)) return "length_s must be 5 to 600";
+      if (k === "aspect" && !ASPECTS.includes(x)) return "aspect must be 16:9, 9:16 or 1:1";
+    }
+    if (flat.source !== undefined && !isText(flat.source)) return "source must be text";
+    if (flat.format !== undefined && flat.format !== null) {
+      const f = flat.format;
+      if (!isObj(f) || typeof f.tile !== "string" || typeof f.option !== "string") return "format must be {tile, option}";
+      if (f.scope !== undefined && f.scope !== null && !FORMAT_SCOPES.includes(f.scope)) return "format scope is not one of universal, category, single-task";
+      let opt = null;
+      try { opt = loadFormats().options.find((o) => o.id === f.option && o.tile === f.tile); } catch { return "the format catalog could not be read"; }
+      if (!opt) return "that format is not in the catalog";
+      if (opt.status === "soon") return "that format is not available yet";
+      v.value = { ...flat, format: { tile: opt.tile, option: opt.id, ...(f.scope ? { scope: f.scope } : {}) }, kind: typeof flat.kind === "string" && flat.kind ? flat.kind : opt.kind };
+    } else v.value = { ...flat };
+    return null;
+  }
+  if (v.step === "styleframes" && ["approve", "comment", "redo"].includes(v.type)) {
+    if (!waiting) return "the style frames are not waiting";
+    const ids = new Set((Array.isArray(step.frames) ? step.frames : []).filter(isObj).map((f) => f.id));
+    if (v.type === "approve") return val === null ? null : "approve takes no value";
+    if (v.type === "comment") {
+      if (!isObj(val)) return "a frame comment must be {frame, text}";
+      const frame = val.frame ?? val.scene, text = v.note || val.text || "";
+      if (typeof frame !== "string" || !ids.has(frame)) return "that frame is not on this step";
+      if (!isText(text) || !text.trim()) return "a frame comment needs text";
+      v.value = { scene: frame, t: null, x: null, y: null, scope: "scene" };
+      v.note = String(text).slice(0, 4000);
+      return null;
+    }
+    if (!isObj(val) || !Array.isArray(val.ids) || !val.ids.length || val.ids.length > 50 || !val.ids.every((i) => typeof i === "string" && ids.has(i))) return "redo needs the ids of frames on this step";
+    const note = v.note || val.note || "";
+    if (!isText(note)) return "the redo note is not text";
+    v.value = { ids: [...new Set(val.ids)], note: String(note).slice(0, 4000) };
+    v.note = String(note).slice(0, 4000);
+    return null;
+  }
+  if (v.type === "answer") {
+    const ask = s && s.ask;
+    if (!isObj(ask) || ask.answered) return "there is no open question";
+    if (v.step !== ask.step) return "that question belongs to another step";
+    if (!isObj(val) || val.ask !== ask.id) return "that is not the open question";
+    const options = (Array.isArray(ask.options) ? ask.options : []).filter(isObj).map((o) => o.id);
+    const choice = val.choice ?? null;
+    // Studio's "Install for me" answers `tool-ready:<tool>` for an ask that offered `install-tool:<tool>`
+    const ready = typeof choice === "string" && /^tool-ready:([A-Za-z0-9._+-]{1,40})$/.exec(choice);
+    if (choice !== null && !(typeof choice === "string" && (options.includes(choice) || (ready && options.includes(`install-tool:${ready[1]}`))))) return "that is not one of the question's options";
+    if (val.text !== undefined && !isText(val.text)) return "the answer text is not text";
+    if (choice === null && !String(val.text || "").trim()) return "an answer needs a choice or text";
+    return null;
+  }
+  if (v.type === "note") {
+    if (val === null) return null;
+    // Studio's chat: {chat: {rules, max_sentences, max_tool_calls, context: {step, looking_at?, blocked?, last_error?, recent_events?}}}
+    if (!isObj(val) || Object.keys(val).length !== 1 || !isObj(val.chat)) return "a note carries no value, or {chat}";
+    const c = val.chat;
+    if (Object.keys(c).some((k) => !["rules", "max_sentences", "max_tool_calls", "context"].includes(k))) return "unknown chat field";
+    if (!isText(c.rules, 2000) || !c.rules.trim()) return "chat rules must be text";
+    for (const k of ["max_sentences", "max_tool_calls"]) if (!Number.isInteger(c[k]) || c[k] < 0 || c[k] > 10) return `chat ${k} must be 0 to 10`;
+    const x = c.context;
+    if (!isObj(x) || Object.keys(x).some((k) => !["step", "looking_at", "blocked", "last_error", "recent_events"].includes(k))) return "unknown chat context field";
+    if (typeof x.step !== "string" || !STEPS.includes(x.step)) return "chat context step is not a step";
+    for (const k of ["looking_at", "blocked", "last_error"]) if (x[k] !== undefined && !isText(x[k], 600)) return `chat context ${k} must be short text`;
+    if (x.recent_events !== undefined && !(Array.isArray(x.recent_events) && x.recent_events.length <= 5 && x.recent_events.every((e) => isText(e, 400)))) return "chat context recent_events must be up to 5 short lines";
+    if (!v.note.trim()) return "a chat message needs text";
+    if (!s || v.step !== s.current) return "a chat message goes on the current step";
+    return null;
+  }
+  return null;
 }
 
 // The user's notes on the animatic and the final also go to their local evidence ledger (taste.jsonl; the crew reads the one digest,
@@ -191,20 +330,208 @@ function tasteFrom(action) {
   recordTaste({ kind, film: path.basename(RUN), stage, note: text, scene: v.scene, t: typeof v.t === "number" ? v.t : undefined, ts: action.ts, action: action.id });
 }
 
+// Plan 05 E7 / E1: the legacy `animatic` step IS the Storyboard stage (one review, no sixth approval). Approving it pins a snapshot (panels, copy, look
+// revision, audio or declared scratch, timing revision) when the run has storyboard records; "Just make it" (decide on this step, or decide-rest) records
+// the auto-decision with the Final retained. Best effort: a run without storyboard/ records behaves exactly as before.
+function storyboardHooks(s, action) {
+  try {
+    if (legacyAction(action).stage !== "storyboard" && action.step !== "*") return;
+    if (action.type === "approve" && action.step === "animatic" && fs.existsSync(path.join(RUN, "storyboard", "storyboard.json"))) {
+      const r = snapshotRun(RUN, { approved_by: "user", source_action_id: action.id });
+      if (r.ok && r.record) { if (s.steps.animatic) s.steps.animatic.snapshot = { revision: r.record.revision, artifact_digest: r.record.artifact_digest, scratch_audio: !!r.record.scratch_audio, final_voice_approved: r.record.final_voice_approved }; }
+      else if (!r.ok) activity(s, `Storyboard snapshot not pinned: ${r.error}`, "warn", null);
+    } else if ((action.type === "decide" && action.step === "animatic") || (action.type === "decide-rest" && fs.existsSync(path.join(RUN, "storyboard")))) {
+      recordAutoDecision(RUN, autoDecision({ boundary: storyboardBoundary(RUN, { mode: "full" }), approval_mode: action.type === "decide-rest" ? "autonomous" : "key_stages" }));
+    }
+  } catch {}
+}
+
+// Plan 06 V8: a Studio element edit (an actions.jsonl line with kind "motion-edit" and the contract-D object under `edit`) is recorded by lib/editor-patch in
+// motion/edits.jsonl, keyed to a stable element id. It never rewrites a scene here; a regeneration must carry or reconcile it (production.mjs overrides). Best effort:
+// an edit that cannot be recorded is shown in the feed, not thrown.
+function motionEditHook(s, action) {
+  // Plan 10 U4: Studio's queue lines carry {step,type,value,note}, so the contract-D object may also arrive as value.edit (the same shape, one commit per drag)
+  const edit = action && (action.edit || (action.value && typeof action.value === "object" && action.value.edit));
+  // Plan 10 U7: "restore as a new version" after an undo conflict (value: { restore_of: <edit id> }): the current state is checkpointed first, then the earlier state is written as a new edit
+  if (action && (action.kind === "motion-edit" || action.type === "motion-edit") && action.value && typeof action.value === "object" && action.value.restore_of) {
+    try {
+      const r = restoreAsNewVersion(RUN, String(action.value.restore_of));
+      activity(s, r.ok ? `Restored as a new version (${r.restored_as}); the later state is kept as a checkpoint` : `Not restored: ${r.error || "unknown"}`, r.ok ? "you" : "warn", null);
+    } catch (e) { activity(s, `Not restored: ${redact(e.message)}`, "warn", null); }
+    return true;
+  }
+  if (!action || !edit || (action.kind !== "motion-edit" && action.type !== "motion-edit")) return false;
+  try {
+    const r = handleMotionEditAction({ ...action, edit, kind: "motion-edit" }, { run: RUN });
+    // the person's view restores the committed state and explains a rejection from this (Studio reads session.edit_results)
+    s.edit_results = [...(s.edit_results || []).filter((q) => q.id !== edit.id), { id: edit.id, ok: !!r.ok, status: r.status || null, conflict: !!r.conflict, duplicate: !!r.duplicate, error: r.ok ? null : String(r.error || r.reason || "refused").replace(/\/(?:Users|home|private|var)\/[^\s"']*/g, "a file in this film"), current: r.current || null, needs_reselect: !!r.needs_reselect, at: now() }].slice(-30);
+    activity(s, r.ok ? `Edit recorded${r.duplicate ? " (already had it)" : ""}: ${action.edit.element_id || "a region"} (${r.status || "requested"})${r.downgraded ? ", kept as a region note" : ""}` : `Edit not recorded: ${r.error || "unknown"}${r.conflict ? " (the scene changed; refresh and retry)" : ""}`, r.ok ? "you" : "warn", null);
+  } catch (e) { activity(s, `Edit not recorded: ${e.message}`, "warn", null); }
+  return true; // handled: it is not a step answer, so the generic "You: ..." line and the step's `sent` are skipped
+}
+
+// Plan 07 A6: a Studio sound action. `sound-note` ({note|text, value: {kind?, shot_id?, cue_id?, stem?, t?}}) is recorded as a versioned targeted revision in audio/revisions/rev-N.json
+// with its timing effect; `sound-control` ({value: {stem, muted?, solo?}}) sets AUDITION state only. Neither applies, retimes or regenerates anything here, and neither asks for a cue
+// approval. Best effort: a failure is shown in the feed, not thrown.
+function soundHook(s, action) {
+  if (!action || (action.kind !== "sound-note" && action.type !== "sound-note" && action.kind !== "sound-control" && action.type !== "sound-control")) return false;
+  try {
+    const v = action.value && typeof action.value === "object" ? action.value : {};
+    if (action.kind === "sound-control" || action.type === "sound-control") {
+      const r = setMuteSolo(RUN, { stem: v.stem, muted: v.muted, solo: v.solo });
+      activity(s, r.ok ? `Audition: ${v.stem} ${v.solo ? "solo" : v.muted ? "muted" : "on"}` : `Audition not changed: ${r.error}`, r.ok ? "info" : "warn", null);
+    } else {
+      const r = soundNoteRevision(RUN, { text: action.note || v.text || "", kind: v.kind || null, shot_id: v.shot_id || null, cue_id: v.cue_id || null, stem: v.stem || null, t: typeof v.t === "number" ? v.t : null, source: "studio" });
+      activity(s, r.ok ? `Sound note recorded as revision ${r.revision}: ${r.record.effect.summary}` : `Sound note not recorded: ${r.error}`, r.ok ? "info" : "warn", null);
+    }
+  } catch (e) { activity(s, `Sound action not recorded: ${e.message}`, "warn", null); }
+  return true;
+}
+
+// Addendum 2: the Look sound action. `sound-direction` value (any of): {key, value} | {choices:{key:value,...}} (setChoice: each becomes explicit, "recommend"/"unset" releases it),
+// {preset:<id>} (applyPreset: never touches an explicit choice), {revision_request:{kind: keep|more_like_this|warmer|less_corporate|less_percussion|calmer_section, track_id?}}
+// (music.mjs revise: re-ranks the stored shortlist, no network, no audio, no provider), {generation_consent: true|false} (the user's own consent record, audio/generation-consent.json;
+// nothing is generated or spent here). The result is echoed on the look step as `sound` (choices, explicit, preset, revision, source, candidates, conflicts, recommendations, impact).
+// Never touches approvals; best effort, a failure is shown in the feed. Only a user action creates audio/sound-choices.json (an old project is not given one by a read).
+const REVISE_ACTION = { keep: "keep", more_like_this: "more_like", warmer: "warmer", less_corporate: "less_corporate", less_percussion: "less_percussion", calmer_section: "calmer_section" };
+const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
+function soundIdentity(rec) {
+  const sl = readJ(path.join(RUN, "music", "shortlist.json"));
+  return identityMap(soundIdentityParts({ choices: rec && !rec.legacy ? rec : null, shortlist: sl ? { revision: sl.revision, selected: sl.selected } : null }));
+}
+export function lookSoundPayload(extra = {}) {
+  const sc = readSoundChoices(RUN);
+  if (sc.legacy) return null;
+  const rec = sc.record, dir = readDirection(RUN).direction, brief = readJSON(path.join(RUN, "creative", "brief.json"), null);
+  const res = resolveSound({ choices: rec, brief: brief || undefined, direction: dir });
+  const sl = readJ(path.join(RUN, "music", "shortlist.json"));
+  const candidates = (sl && Array.isArray(sl.options) ? sl.options : []).slice(0, 3).map((o) => ({ id: o.id, title: o.title || o.id, reason: Array.isArray(o.reasons) && o.reasons[0] ? String(o.reasons[0]) : "", family: Array.isArray(o.families) && o.families[0] ? o.families[0] : "", evidence_state: o.evidence_state || "metadata_reviewed", rights_note: o.rights && o.rights.by_use ? (o.rights.by_use.sync_into_film === false ? "not cleared to sync into the film" : o.rights.by_use.sync_into_film === true ? "cleared to sync into the film" : "sync rights not stated") : "rights not stated" }));
+  return { choices: rec.choices, explicit: rec.explicit, preset: rec.preset, revision: rec.revision || 0, source: rec.source, candidates, conflicts: res.conflicts || [], recommendations: res.recommendations || [], ...extra };
+}
+function soundDirectionHook(s, action) {
+  if (!action || (action.kind !== "sound-direction" && action.type !== "sound-direction")) return false;
+  try {
+    const v = action.value && typeof action.value === "object" ? action.value : {};
+    const cur = readSoundChoices(RUN);
+    let rec = cur.legacy ? normalizeChoices({}) : cur.record; // no record yet: the user's first choice starts one
+    const before = soundIdentity(cur.legacy ? null : cur.record);
+    const notes = [];
+    if (v.preset && !(isObj(v.choices) && Array.isArray(v.explicit))) { const a = applyPreset(rec, String(v.preset)); if (a.error) notes.push(a.error); else { rec = a.record; if (a.kept_explicit.length) notes.push(`kept your choices: ${a.kept_explicit.join(", ")}`); } }
+    // Studio sends its whole SoundDirection ({choices, explicit, preset, revision, source}): `explicit` is then the authority on what the person decided (a preset's values are not theirs), so the record is taken as sent
+    const whole = isObj(v.choices) && Array.isArray(v.explicit);
+    if (whole) rec = normalizeChoices({ choices: v.choices, explicit: v.explicit, preset: v.preset, source: ["user", "preset", "recommend"].includes(String(v.source)) ? v.source : "user" });
+    const pairs = whole ? [] : v.choices && typeof v.choices === "object" ? Object.entries(v.choices) : v.key ? [[String(v.key), v.value]] : [];
+    for (const [k, x] of pairs) rec = setChoice(rec, k, x);
+    let w = null;
+    if (v.preset || pairs.length || whole) { w = writeSoundChoices(RUN, rec); if (!w.ok) notes.push(`not saved: ${(w.errors || []).join("; ")}`); }
+    if (v.revision_request && typeof v.revision_request === "object") {
+      const act = REVISE_ACTION[String(v.revision_request.kind)];
+      if (!act) notes.push(`unknown revision ${JSON.stringify(v.revision_request.kind)} (${Object.keys(REVISE_ACTION).join(", ")})`);
+      else {
+        const argv = [path.join(path.dirname(fileURLToPath(import.meta.url)), "music.mjs"), "revise", "--run", RUN, "--action", act];
+        const rid = typeof v.revision_request.track_id === "string" && v.revision_request.track_id ? v.revision_request.track_id : typeof v.revision_request.candidate === "string" ? v.revision_request.candidate : ""; // Studio names it `candidate`
+        if (rid) argv.push("--track-id", rid);
+        try { execFileSync(process.execPath, argv, { stdio: ["ignore", "pipe", "pipe"], timeout: 60000 }); } catch (e) { notes.push(`music revision not applied: ${String((e.stderr || e.message) || "").trim().split("\n").pop().slice(0, 160)}`); }
+      }
+    }
+    if (typeof v.generation_consent === "boolean") {
+      fs.mkdirSync(path.join(RUN, "audio"), { recursive: true });
+      fs.writeFileSync(path.join(RUN, "audio", "generation-consent.json"), JSON.stringify({ consented: v.generation_consent, by: "user", at: new Date().toISOString(), note: "the user's own answer; a key in the environment or a recommendation is never consent" }, null, 2) + "\n");
+    }
+    const after = readSoundChoices(RUN), dir = readDirection(RUN).direction;
+    const afterMap = soundIdentity(after.legacy ? null : after.record);
+    const res = after.legacy ? null : resolveSound({ choices: after.record, direction: dir });
+    const impact = soundChangeImpact({ before, after: afterMap, music_led: !!(dir && dir.roles && dir.roles.music && dir.roles.music.role === "led"), narrated: !(res && res.resolved) || res.resolved.voice_role === "carrier" });
+    const payload = lookSoundPayload({ impact: { changes: impact.changes, stale: impact.stale, keep: impact.keep, visuals_rebuilt: impact.visuals_rebuilt, needs_user: impact.needs_user }, ...(notes.length ? { notes } : {}) });
+    if (payload && isObj(s.steps) && isObj(s.steps.look)) s.steps.look = { ...s.steps.look, sound: payload };
+    activity(s, notes.length ? `Sound direction: ${notes.join("; ")}` : `Sound direction updated${w && w.ok ? ` (revision ${w.revision})` : ""}${impact.visuals_rebuilt ? "; pictures would be rebuilt" : "; pictures are kept"}`, notes.length && !(w && w.ok) ? "warn" : "info", null);
+  } catch (e) { activity(s, `Sound direction not recorded: ${e.message}`, "warn", null); }
+  return true;
+}
+
+// Plan 10 U3/U6: `revision-request` (the person's words + where they pointed + the revision they were watching) is read once by lib/revision-intent.mjs into a scoped, pinned
+// request in <run>/revisions/requests.jsonl; an ambiguous one shows ONE interpretation and waits for `revision-confirm` ({idempotency_key, accept}). The current approval stays valid
+// meanwhile. Studio and the browser console send the same payload (docs/plans/PLAN10_NATIVE_DIRECTING.md). Best effort: a failure is shown in the feed, not thrown.
+function revisionHook(s, action) {
+  if (!action || (action.kind !== "revision-request" && action.type !== "revision-request" && action.kind !== "revision-confirm" && action.type !== "revision-confirm")) return false;
+  try {
+    const r = handleRevisionAction({ ...action, kind: action.kind || action.type }, { run: RUN });
+    if (r.ok && (action.kind || action.type) === "revision-confirm" && r.request && r.request.status === "accepted") { const full = latestRequests(RUN).find((q) => q.idempotency_key === r.request.idempotency_key); if (full) keepFontAvoid(s, full); }
+    activity(s, r.ok ? (r.needs_confirmation ? `Revision understood (confirm first): ${r.interpretation}` : `Revision ${r.request ? r.request.status : "recorded"}${r.duplicate ? " (already had it)" : ""}: ${r.request ? r.request.interpretation : ""}`) : `Revision not recorded: ${r.error || "unknown"}`, r.ok ? "you" : "warn", null);
+    if (r.ok && r.request) s.revision_requests = [...(s.revision_requests || []).filter((q) => q.idempotency_key !== r.request.idempotency_key), { idempotency_key: r.request.idempotency_key, status: r.request.status, interpretation: r.request.interpretation, scope: r.request.intent_category, needs_confirmation: !!r.needs_confirmation }].slice(-50);
+  } catch (e) { activity(s, `Revision not recorded: ${e.message}`, "warn", null); }
+  return true;
+}
+
+// Plan 10: the person's "don't use this font" is a scoped, sourced user preference (scope user, style, confidence by how sure the font is), never a global craft rule.
+// Only a named family is stored as a lesson (the visual-bible font_avoid check needs a family); a descriptor pointed at an element is a revision only.
+function keepFontAvoid(s, request) {
+  const av = request && request.avoid;
+  if (!av || av.kind !== "font" || !av.family || request.status === "requested") return;
+  try {
+    addLesson({ rule: `Avoid the font "${av.family}"`, quote: av.source_text, kind: "taste", area: "type", source: "user", run: path.basename(RUN), scope: "user", "scope-id": "local_user", rationale: "the person said not to use this font in a film's feedback", confidence: "high", nature: "style" });
+  } catch (e) { activity(s, `Font preference not kept: ${e.message}`, "warn", null); }
+}
+
+// Plan 10: a bare `note` at the animatic, render or final that classifyFeedback reads as typography (or a direct property edit) ALSO goes through the revision pipeline: one request keyed by the
+// action id (a replay never makes two), recorded in revisions/requests.jsonl. The note keeps its legacy path (taste.jsonl, feed, thread). Anything else returns null and behaves exactly as before.
+// Returns the reply text (scope, what stays, honest timing) or null.
+function typographyNoteHook(s, action) {
+  if (!action || action.type !== "note" || !["animatic", "render", "final"].includes(action.step) || !action.note) return null;
+  try {
+    const v = action.value && typeof action.value === "object" ? action.value : {};
+    const c = classifyFeedback(action.note, v.anchor || {});
+    if (!c.ok || !(c.category === "typography" || (c.category === "property_edit" && c.deterministic))) return null;
+    const r = handleRevisionAction({ kind: "revision-request", note: action.note, value: { anchor: v.anchor || {}, pinned: v.pinned || {}, idempotency_seed: action.id || null } }, { run: RUN });
+    if (!r.ok) { activity(s, `Revision not recorded: ${r.error || "unknown"}`, "warn", null); return null; }
+    keepFontAvoid(s, r.request);
+    s.revision_requests = [...(s.revision_requests || []).filter((q) => q.idempotency_key !== r.request.idempotency_key), { idempotency_key: r.request.idempotency_key, status: r.request.status, interpretation: r.request.interpretation, scope: r.request.intent_category, needs_confirmation: !!r.needs_confirmation }].slice(-50);
+    activity(s, r.needs_confirmation ? `Revision understood (confirm first): ${r.interpretation}` : `Revision ${r.request.status}${r.duplicate ? " (already had it)" : ""}: ${r.interpretation}`, "you", null);
+    const rev = r.request;
+    return r.needs_confirmation ? `${rev.interpretation} (Nothing is queued until you confirm.)`
+      : `${rev.interpretation} This revision is queued (scope: ${rev.target_ids.length ? rev.target_ids.join(", ") : "the whole film"}); there is no time estimate yet, and the current final stays as delivered until a new one is rendered.`;
+  } catch (e) { activity(s, `Revision not recorded: ${e.message}`, "warn", null); return null; }
+}
+
+// Plan 10 U6: `job-control` ({value:{op: pause|resume|cancel|retry|logs|capabilities, job_id?}}) acts on THIS run's jobs through lib/job-control.mjs (the Plan 09 job and pool state).
+// The answer is kept in session.job_control (redacted: no credentials or private paths) for Studio to show; session.run_status is the truthful Working/Waiting/Paused/... state.
+function jobControlHook(s, action) {
+  if (!action || (action.kind !== "job-control" && action.type !== "job-control")) return false;
+  try {
+    const r = handleJobControl(action, { run: RUN });
+    s.job_control = { op: r.op || (action.value && action.value.op) || null, ok: !!r.ok, note: redact(r.note || r.error || ""), job_id: r.job_id || null, lines: r.lines || undefined, at: now() };
+    s.run_status = runStatus(RUN);
+    activity(s, r.ok ? `Run control: ${s.job_control.op}${r.job_id ? " " + r.job_id : ""}` : `Run control refused: ${s.job_control.note}`, r.ok ? "you" : "warn", null);
+  } catch (e) { activity(s, `Run control failed: ${redact(e.message)}`, "warn", null); }
+  return true;
+}
+
 // What an action does to the session, besides being queued: the "sent" banner, the "You: ..." feed line, the note and
 // thread entries, an ask's answer. The server runs it on POST; headless `wait` runs it when it consumes the action, so
 // the session ends up the same either way. Mutates `s`; the caller saves it.
 function applyAction(s, action) {
   const step = action.step;
   tasteFrom(action);
+  storyboardHooks(s, action);
+  if (motionEditHook(s, action)) return;
+  if (soundHook(s, action)) return;
+  if (soundDirectionHook(s, action)) return;
+  // Addendum 2: a Brief submit may carry the user's sound choices (fields.sound); they are recorded as theirs (explicit where decided). Best effort, never blocks the answer.
+  if (action.step === "brief" && action.type === "submit" && isObj(action.value) && isObj(action.value.sound)) {
+    try { const rec = normalizeChoices(action.value.sound); if (!rec.legacy) { const w = writeSoundChoices(RUN, rec); if (!w.ok) activity(s, `Sound choices not saved: ${(w.errors || []).join("; ")}`, "warn", null); } } catch (e) { activity(s, `Sound choices not saved: ${e.message}`, "warn", null); }
+  }
+  if (revisionHook(s, action)) return;
+  const typoReply = typographyNoteHook(s, action);
+  if (jobControlHook(s, action)) return;
   if (step === "*") s.decide_rest = { ts: action.ts };
-  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts };
+  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit", "motion-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
+  const you = youOf(action);
   // an answer to an `ask` card: record it on the question and clear it from the page
   if (action.type === "answer" && s.ask && !s.ask.answered) {
     const v = action.value || {};
     const opt = (s.ask.options || []).find((o) => o.id === v.choice);
     s.ask.answered = { choice: v.choice || null, label: opt ? opt.label : null, text: v.text || "", t: action.ts };
-    activity(s, `You answered: ${opt ? opt.label : ""}${opt && v.text ? " · " : ""}${v.text ? "“" + String(v.text).slice(0, 120) + "”" : ""}`, "you", "Claude is reading your answer…");
+    activity(s, `${you} answered: ${opt ? opt.label : ""}${opt && v.text ? " · " : ""}${v.text ? "“" + String(v.text).slice(0, 120) + "”" : ""}`, "you", "Claude is reading your answer…");
     return;
   }
   // the user pressed Apply: remember which notes, so a revision can't go out with one unanswered
@@ -215,10 +542,36 @@ function applyAction(s, action) {
   // a note pinned to a moment of the animatic or the final: kept on the page until Claude resolves it
   if (action.type === "comment") {
     const v = action.value || {};
-    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
-    activity(s, `You left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
+    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, word_id: typeof v.word_id === "string" ? v.word_id : null, clip: typeof v.clip === "string" ? v.clip : null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
+    if (step === "animatic") { // Plan 05 E6: anchor to shot / panel / time / the storyboard revision watched; "hard to understand" is an editorial request, not more animation
+      try {
+        const last = s.comments[s.comments.length - 1], rev = ((s.steps && s.steps.animatic) || {}).storyboard_revision ?? null;
+        const nr = noteToRevision(last.text, { shot_id: v.shot_id ?? null, panel_id: v.panel_id ?? null, t: last.t, revision: v.revision ?? rev }, { revision: rev });
+        if (nr.ok) Object.assign(last, { shot_id: v.shot_id ?? null, panel_id: v.panel_id ?? null, anchor_revision: nr.anchor.revision, note_kind: nr.note_kind, editorial: nr.editorial || undefined, stale_anchor: nr.stale_anchor, revision_request: { stage: nr.request.stage, idempotency_key: nr.request.idempotency_key, ask: nr.ask } });
+      } catch {}
+    }
+    if (step !== "animatic") { // Plan 10 U3: a note on any other step (the Final, a Story card...) is read the same way, so the browser and Studio agree on what it asks for
+      try {
+        const last = s.comments[s.comments.length - 1], c = classifyFeedback(last.text, { shot_id: v.shot_id ?? null, element_id: v.element_id ?? null, t: last.t });
+        if (c.ok) Object.assign(last, { intent_category: c.category, interpretation: c.interpretation, needs_confirmation: c.needs_confirmation || undefined });
+      } catch {}
+    }
+    activity(s, `${you} left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
     return;
   }
+  // Motion Studio: a pinned edit from the final (value {kind:"motion-edit", edit}); editor-patch records it under its own lock,
+  // the status line goes to the feed and to session.motion_edits (latest per id)
+  if (action.type === "motion-edit") {
+    let r;
+    try { r = handleMotionEditAction({ kind: "motion-edit", edit: action.value && action.value.edit }, { run: RUN }); } catch (e) { r = { ok: false, error: e && e.message }; }
+    const eid = (r && r.id) || (action.value && action.value.edit && action.value.edit.id) || action.id;
+    const st = r && r.ok ? r.status || "requested" : "failed";
+    s.motion_edits = (s.motion_edits || []).filter((m) => m.id !== eid).concat({ id: String(eid), status: st, note: String((r && (r.note || r.error)) || "").slice(0, 300), ts: action.ts }).slice(-50);
+    activity(s, `${you} asked for a motion edit (${eid}): ${st}`, r && r.ok ? "you" : "warn", null);
+    return;
+  }
+  // a transcript edit in the Cut stage (Studio): a feed line only; it must not mark the reel step as answered
+  if (action.type === "cut-edit") { activity(s, `${you} edited the cut: ${(action.value && action.value.op) || "edit"}`, "you", null); return; }
   // a redo of some style frames ({ids, note}): name the frames
   const nm = action.type === "redo" && action.value && Array.isArray(action.value.ids) ? `frame${action.value.ids.length > 1 ? "s" : ""} ${action.value.ids.join(", ")}` : nameOf(s, step, action.value);
   const verb = { choose: "picked", submit: "sent", approve: "approved", adjust: "adjusted", more: "asked for more of", redo: "asked to redo" }[action.type] || action.type;
@@ -227,12 +580,15 @@ function applyAction(s, action) {
   // anything the user writes becomes part of that step's discussion
   const said2 = action.note || (action.type === "redo" && action.value && action.value.note ? String(action.value.note).slice(0, 4000) : "");
   if (said2 && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "you", text: said2, t: action.ts }).slice(-50);
-  activity(s, `You: ${said}`, "you", "Claude is reading your answer…");
+  if (typoReply && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "claude", text: typoReply.slice(0, 4000), t: now() }).slice(-50);
+  activity(s, `${you}: ${said}`, "you", "Claude is reading your answer…");
 }
 
-// headless `wait`: the next action for this wait, after applying (and consuming) what arrived. Runs under the actions
+// `wait`, in both modes: the next action for this wait, after applying (and consuming) what arrived. Runs under the actions
 // lock. Every line is validated like a POST would be; a bad one is consumed with its reason in rejected.json, never thrown on.
-function nextHeadlessAction(step) {
+// A line the console server wrote on POST carries `applied: true` (its effects are already in session.json) and is only
+// consumed; every other line (RasanAI Studio, another app, an older server's) gets applyAction here.
+function nextAction(step) {
   let found = null;
   withLock(F.actionsLock, () => {
     let text = "";
@@ -251,7 +607,7 @@ function nextHeadlessAction(step) {
       const goodId = raw && typeof raw === "object" && typeof raw.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(raw.id);
       const rid = goodId ? raw.id : "bad-" + crypto.createHash("sha1").update(line).digest("hex").slice(0, 10);
       if (done.has(rid)) continue;
-      const v = line.length > 1e6 ? { error: "action too large" } : raw === null ? { error: "not valid JSON" } : validateAction(raw);
+      const v = line.length > 1e6 ? { error: "action too large" } : raw === null ? { error: "not valid JSON" } : validateAction(raw, () => session());
       if (!v.error && !goodId) v.error = "missing or invalid id";
       if (v.error) {
         done.add(rid); consumed.push(rid); rejected.push({ id: rid, error: v.error, ts: now() });
@@ -259,15 +615,17 @@ function nextHeadlessAction(step) {
         continue;
       }
       if (step && v.step !== step && v.step !== "*") continue;
-      const action = { id: rid, ts: typeof raw.ts === "string" ? raw.ts : now(), step: v.step, type: v.type, value: v.value, note: v.note, source: raw.source === "chat" ? "chat" : "console" };
-      try {
-        withLock(F.sessionLock, () => {
-          const s = session();
-          applyAction(s, action);
-          saveSession(s);
-        });
-      } catch (e) {
-        rejected.push({ id: rid, error: `could not apply: ${e && e.message}`, ts: now(), delivered: true });
+      const action = { id: rid, ts: typeof raw.ts === "string" ? raw.ts : now(), step: v.step, type: v.type, value: v.value, note: v.note, source: cleanSource(raw.source) };
+      if (raw.applied !== true) {
+        try {
+          withLock(F.sessionLock, () => {
+            const s = session();
+            applyAction(s, action);
+            saveSession(s);
+          });
+        } catch (e) {
+          rejected.push({ id: rid, error: `could not apply: ${e && e.message}`, ts: now(), delivered: true });
+        }
       }
       consumed.push(rid); done.add(rid);
       changed = true;
@@ -313,12 +671,12 @@ function ensureServer() {
 // ---------------------------------------------------------------------------
 // headless: never a server; the session is rewritten under the run's lock for the whole command (parallel agents and
 // scripts push at once, and an unlocked read-modify-write would lose one of them)
-if (HEADLESS) {
-  if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade"].includes(cmd)) {
-    acquire(F.sessionLock, 8000);
-    process.on("exit", () => release(F.sessionLock));
-  }
-} else if (["push", "log", "activity", "reply", "ask", "downgrade"].includes(cmd)) ensureServer();
+// In server mode too: `wait` now applies other apps' actions to session.json, so every rewrite takes the same lock.
+if (!HEADLESS && ["push", "log", "activity", "reply", "ask", "downgrade"].includes(cmd)) ensureServer();
+if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade", "relock"].includes(cmd)) {
+  acquire(F.sessionLock, 8000);
+  process.on("exit", () => release(F.sessionLock));
+}
 if (cmd === "push") {
   if (!args.step || !STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);
   const s = session();
@@ -367,14 +725,77 @@ if (cmd === "push") {
     if (bud && typeof bud === "object") next.budget = cleanBudget(bud);
   }
   // closing a step the user answered keeps who made the call, so the Decisions drawer credits them, not Claude
-  if (next.status === "done" && !data.by && prev.sent && !["decide", "decide-rest", "note"].includes(prev.sent.type)) next.by = "user";
+  if (next.status === "done" && !data.by && prev.sent && !["decide", "decide-rest", "note"].includes(prev.sent.type)) {
+    next.by = "user";
+    // ... and where they made it from, when that was another app ("You · iPhone" in the drawer)
+    if (prev.sent.via) { next.by_source = cleanSource(prev.sent.source); next.by_via = String(prev.sent.via).slice(0, 40); }
+    else { delete next.by_source; delete next.by_via; }
+  }
+  // Story and Look are the person's calls: never decided for them. Closing one without a recorded user choice (their `choose`,
+  // or "Just make it" / decide-the-rest) is recorded as Claude's, unconfirmed, so Studio can show "Rasan chose ... without asking you".
+  // Series defaults (decision "From your series: ...", or --auto series) and answered preferences (--auto prefs) are the owner's own
+  // standing choices, so they are not flagged; --auto brand (a branded direct film's own look) stays unconfirmed until the person
+  // approves the styleframes call, which is that film's Look call.
+  if (["story", "look"].includes(args.step) && next.status === "done") {
+    const decidedForYou = !!s.decide_rest || (prev.sent && ["decide", "decide-rest"].includes(prev.sent.type));
+    const autoKind = args.auto && args.auto !== true ? String(args.auto).trim().toLowerCase() : (data.series || /^from your series/i.test(String(next.decision || "")) ? "series" : "");
+    if (next.by === "user") { delete next.unconfirmed; delete next.auto_reason; }
+    else {
+      next.by = data.by || "director";
+      if (decidedForYou) { next.decided_for_you = true; delete next.unconfirmed; delete next.auto_reason; }
+      else if (["series", "prefs"].includes(autoKind)) { next.auto = autoKind; delete next.unconfirmed; }
+      else {
+        next.unconfirmed = true;
+        if (autoKind) next.auto_reason = autoKind; // not `auto`: Studio reads `auto` as an inherited (series) call
+        const what = args.step === "look" ? "Look" : "Story";
+        console.error(`warning: the ${what} is the person's call and they did not make it (no choose action, no "Just make it"). It is recorded as yours, unconfirmed, and Studio will ask them to review it. Push ${args.step} --status awaiting and wait for their choice instead (console.mjs wait --step ${args.step}).`);
+        activity(s, `Rasan closed the ${what} without your choice: please review it`, "warn", null);
+      }
+    }
+  }
   // the step's discussion survives a re-push (Claude revising the options is the answer to it)
   if (prev.thread && !data.thread) next.thread = prev.thread;
   if (args.step === "build" && !args.merge) {
     next.log = data.log || prev.log || [];
     next.stages = data.stages || prev.stages || {};
   }
+  // the phone's copy of the newest video (references/remote.md): already made and fresh, said now; else made in the background
+  if (["animatic", "render", "final"].includes(args.step)) {
+    delete next.proxy;
+    const ph = phoneProxy(newestVideo(next));
+    if (ph && ph.fresh) next.proxy = ph.proxy;
+    else if (ph) spawnProxy(args.step, ph.video);
+  }
+  // V3 W09 (policy revision >= 2 only; revision 1 and legacy runs are untouched): the render/final push states what the output truly is. The assessment rides in the existing note slot
+  // and in creative_completion; the approve action, step order and controls are unchanged. Guarded: a missing helper never blocks a push.
+  if (["render", "final"].includes(args.step) && ["awaiting", "done"].includes(next.status)) {
+    try {
+      const CR = await import("./lib/creative-run.mjs");
+      const plan = CR.readPlan(RUN);
+      if (plan && Number(plan.creative_policy_revision) >= 2) {
+        const CC = await import("./lib/creative-completion.mjs");
+        const vf = newestVideo(next) ? payloadFile(newestVideo(next)) : null;
+        const brief = readJSON(path.join(RUN, "creative", "brief.json"), null);
+        const rv = CR.latestReview(RUN, "final");
+        const review = rv && rv.doc ? CR.normalizeReviewPaths(rv.doc, RUN) : null;
+        const pins = CR.approvalPins(RUN);
+        const digest = vf ? crypto.createHash("sha256").update(fs.readFileSync(vf)).digest("hex") : null;
+        const a = CC.assessCompletion({ approvals: { pins: Object.fromEntries(Object.entries(pins || {}).map(([k, v]) => [k, v && v.artifact_digest ? v.artifact_digest : v])) }, contract: { brief, stage: "final", ...(typeof CR.sequenceRecordsFor === "function" ? (() => { const q = CR.sequenceRecordsFor(RUN); return q ? { sequence: q } : {}; })() : {}) }, output: { digest, exists: !!vf, playable: !!vf, duration_s: Number(next.duration) || undefined }, review: review ? { ...review, round: Number.isInteger(review.round) ? review.round : rv.n } : null });
+        next.creative_completion = { state: a.state, allowed_labels: a.allowedLabels, reasons: (a.reasons || []).slice(0, 4), next_decisions: a.nextDecisions || [] };
+        if (!next.note) next.note = CC.completionStatusLine(a);
+      }
+    } catch (e) { /* completion is advisory at push time; crew.mjs creative gate is the gate */ }
+  }
+  // Addendum 2: the Look carries the user's sound direction (Studio's LookStage reads it, falling back to brief.fields.sound). A project with no sound record gets nothing.
+  if (args.step === "look" && !next.sound) { try { const sp = lookSoundPayload(); if (sp) next.sound = sp; } catch { /* the Look is unchanged */ } }
   s.steps[args.step] = next;
+  // closing a call locks what it approved (lib/locks.mjs); an identical re-push keeps the old lock
+  if (next.status === "done") for (const [layer, L] of Object.entries(LAYERS)) {
+    if (L.step !== args.step) continue;
+    const snap = snapshot(RUN, layer), old = (s.locks || {})[layer];
+    if (old && JSON.stringify(old.files) === JSON.stringify(snap.files)) continue;
+    s.locks = { ...(s.locks || {}), [layer]: snap };
+  }
   if (args.current || next.status === "awaiting" || (next.status === "working" && ["build", "render", "final"].includes(args.step))) s.current = args.step;
   const label = LABELS[args.step] || args.step;
   if (next.status === "awaiting") activity(s, `Ready for you: ${label}`, "ask");
@@ -418,10 +839,36 @@ if (cmd === "push") {
   const ids = String(args.ids || "").split(",").filter(Boolean);
   const s = session();
   let n = 0;
-  for (const c of s.comments || []) if (ids.includes(c.id) || args.all) { if (c.state !== "resolved") n++; c.state = "resolved"; c.resolved = now(); if (args.note) c.resolution = String(args.note); }
+  const layers = (args.layers === undefined || args.layers === true ? "motion,timing" : String(args.layers)).split(",").map((x) => x.trim()).filter(Boolean);
+  if (!layers.length || layers.some((l) => !NOTE_LAYERS.includes(l))) die(`--layers must be a comma list of ${NOTE_LAYERS.join(", ")}`);
+  const resolvedIds = [];
+  for (const c of s.comments || []) if (ids.includes(c.id) || args.all) { if (c.state !== "resolved") n++; c.state = "resolved"; c.resolved = now(); c.layers = layers; resolvedIds.push(c.id); if (args.note) c.resolution = String(args.note); }
+  // a fix that changed a locked file outside the notes' layers is a warning, not a stop (lib/locks.mjs)
+  for (const d of drift(RUN, s.locks)) {
+    if (layers.includes(d.layer)) { relock(RUN, s, d.layer, args.note ? String(args.note) : "notes scoped to " + layers.join(", ")); continue; }
+    console.error(`warning: ${d.file} (${d.layer}, approved at the ${LAYERS[d.layer].step} call) changed, but the notes were scoped to ${layers.join(", ")}. If the change is meant, say so: console.mjs relock --run <run> --layer ${d.layer} --because "<why>"`);
+    if (!(s.lock_breaks || []).some((b) => b.layer === d.layer && b.file === d.file && b.sha === d.now)) s.lock_breaks = (s.lock_breaks || []).concat({ at: now(), layer: d.layer, file: d.file, ids: resolvedIds, layers, note: args.note ? String(args.note) : "", sha: d.now }).slice(-100);
+  }
   if (n) activity(s, `Applied ${n} note${n > 1 ? "s" : ""}${args.note ? ": " + args.note : ""}`, "ok", null);
   saveSession(s);
   console.log(JSON.stringify({ ok: true, resolved: n }));
+} else if (cmd === "locks") {
+  const s = session();
+  console.log(JSON.stringify({ locks: s.locks || {}, drift: drift(RUN, s.locks), lock_breaks: s.lock_breaks || [], relocks: s.relocks || [] }, null, 2));
+} else if (cmd === "relock") {
+  const layer = String(args.layer || "");
+  if (!LAYERS[layer]) die(`--layer must be one of ${Object.keys(LAYERS).join(", ")}`);
+  const why = args.because === undefined || args.because === true ? "" : String(args.because).trim();
+  if (why.length < 8) die('--because "<why the change is meant, 8+ characters>" is required');
+  const s = session();
+  if (!(s.locks || {})[layer]) {
+    console.log(JSON.stringify({ ok: true, layer, relocked: false, note: "no lock yet: the call was not closed" }));
+  } else {
+    relock(RUN, s, layer, why);
+    s.lock_breaks = (s.lock_breaks || []).filter((b) => b.layer !== layer);
+    saveSession(s);
+    console.log(JSON.stringify({ ok: true, layer, relocked: true }));
+  }
 } else if (cmd === "reply") {
   // Claude's answer in a step's discussion thread, shown on the page under that step
   if (!args.step || !STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);
@@ -437,7 +884,8 @@ if (cmd === "push") {
 } else if (cmd === "downgrade") {
   // a fallback the director made by hand: always told to the user, never silent
   if (!args.what || !args.instead || !args.why) die('--what "<what the plan asked>", --instead "<what is used>" and --why "<reason>" are required');
-  noteDowngrade({ run: RUN, what: String(args.what), instead: String(args.instead), why: String(args.why), impact: args.impact ? String(args.impact) : undefined });
+  if (args.severity && !SEVERITIES.includes(String(args.severity))) die(`--severity must be one of ${SEVERITIES.join(", ")}`);
+  noteDowngrade({ run: RUN, what: String(args.what), instead: String(args.instead), why: String(args.why), impact: args.impact ? String(args.impact) : undefined, severity: args.severity ? String(args.severity) : undefined, kind: args.kind ? String(args.kind) : undefined });
   const s = session();
   mergeDowngrades(s);
   saveSession(s);
@@ -467,8 +915,7 @@ if (cmd === "push") {
     consumed.push(a.id);
     writeJSON(F.consumed, consumed);
   };
-  if (HEADLESS) withLock(F.actionsLock, markConsumed);
-  else markConsumed();
+  withLock(F.actionsLock, markConsumed);
   // a note or an Apply given in chat enters the notes rule like one clicked on the page (the page's own would be applied by the server or by `wait`)
   if (["comment", "apply"].includes(a.type)) {
     if (a.type === "comment" && !a.note && !(value && value.quick)) die("record --type comment needs --note \"<the note>\"");
@@ -484,32 +931,17 @@ if (cmd === "push") {
   const start = Date.now();
   let checks = 0;
   const tick = () => {
-    if (HEADLESS) {
-      let next = null;
-      try { next = nextHeadlessAction(args.step); } catch {}
-      if (next) {
-        console.log(JSON.stringify(next));
-        process.exit(0);
-      }
-      if (Date.now() - start > timeout) {
-        console.log(JSON.stringify({ timeout: true, step: args.step || null }));
-        process.exit(2);
-      }
-      return setTimeout(tick, 300);
-    }
     // every ~5s: if the console server died, say so instead of waiting forever
-    if (++checks % 12 === 0) {
+    if (!HEADLESS && ++checks % 12 === 0) {
       const c = readJSON(F.console, null);
       if ((!c || (c.pid && !alive(c.pid))) && readJSON(F.address, null) && !ensureServer()) {
         console.log(JSON.stringify({ console_down: true, hint: "it could not be restarted; run `console.mjs serve --run <dir> --open`; answers can also come from chat" }));
         process.exit(3);
       }
     }
-    const consumed = new Set(readJSON(F.consumed, []));
-    const next = readActions().find((a) => !consumed.has(a.id) && (!args.step || a.step === args.step || a.step === "*"));
+    let next = null;
+    try { next = nextAction(args.step); } catch {}
     if (next) {
-      consumed.add(next.id);
-      writeJSON(F.consumed, [...consumed]);
       console.log(JSON.stringify(next));
       process.exit(0);
     }
@@ -517,9 +949,21 @@ if (cmd === "push") {
       console.log(JSON.stringify({ timeout: true, step: args.step || null }));
       process.exit(2);
     }
-    setTimeout(tick, 400);
+    setTimeout(tick, HEADLESS ? 300 : 400);
   };
   tick();
+} else if (cmd === "proxy") {
+  // internal (see the header): never prints an error, never fails the film
+  const step = String(args.step || ""), video = String(args.video || "");
+  const ph = ["animatic", "render", "final"].includes(step) ? phoneProxy(video) : null;
+  if (ph && !ph.fresh && makeProxy(ph)) {
+    withLock(F.sessionLock, () => {
+      const s = session();
+      // only if the step still shows that video (a newer push may have replaced it)
+      if (s.steps[step] && newestVideo(s.steps[step]) === video) { s.steps[step].proxy = ph.proxy; saveSession(s); }
+    });
+  }
+  process.exit(0);
 } else if (cmd === "state") {
   console.log(JSON.stringify(session(), null, 2));
 } else if (cmd === "url") {
@@ -682,11 +1126,16 @@ function serve() {
         const v = validateAction(a);
         if (v.error) return send(400, { error: v.error });
         const step = v.step;
-        const action = appendAction({ step, type: v.type, value: v.value, note: v.note, source: "console" });
-        const s = session();
-        applyAction(s, action);
-        saveSession(s);
-        send(200, { ok: true, action });
+        // applied here, so the line says so and `wait` only consumes it; the session is rewritten under its lock
+        // (one lock at a time, never session.lock around actions.lock: `wait` takes them the other way round)
+        const action = appendAction({ step, type: v.type, value: v.value, note: v.note, source: "console", applied: true });
+        withLock(F.sessionLock, () => {
+          const s = session();
+          applyAction(s, action);
+          saveSession(s);
+        });
+        const { applied, ...shown } = action;
+        send(200, { ok: true, action: shown });
       });
       return;
     }
@@ -760,13 +1209,15 @@ function serve() {
     port = server.address().port;
     writeJSON(F.address, { port, token, root });
     const url = `http://127.0.0.1:${port}/?t=${token}`;
-    writeJSON(F.console, { url, port, pid: process.pid, root, started: now(), version: VERSION, skill: SKILL_DIR });
+    writeJSON(F.console, { url, port, pid: process.pid, root, started: now(), version: VERSION, skill: SKILL_DIR, external_actions: EXTERNAL_ACTIONS });
     // the page shows this copy's version and, from the last update check (no network here), a newer one
-    const s = session();
-    const upd = readJSON(path.join(STATE_DIR, "update-check.json"), null);
-    s.app = { version: VERSION, latest: upd && upd.latest ? upd.latest : VERSION };
-    if (!s.activity) activity(s, "Console open", "sys", "Getting started…");
-    saveSession(s);
+    withLock(F.sessionLock, () => {
+      const s = session();
+      const upd = readJSON(path.join(STATE_DIR, "update-check.json"), null);
+      s.app = { version: VERSION, latest: upd && upd.latest ? upd.latest : VERSION };
+      if (!s.activity) activity(s, "Console open", "sys", "Getting started…");
+      saveSession(s);
+    });
   });
   const bye = () => {
     const c = readJSON(F.console, null);
@@ -775,6 +1226,54 @@ function serve() {
   };
   process.on("SIGTERM", bye);
   process.on("SIGINT", bye);
+}
+
+// ---------------------------------------------------------------------------
+// phone proxies: a small H.264 copy of a step's video for a phone (references/remote.md, "Video for phones")
+function newestVideo(d) {
+  const v = d && (typeof d.video === "string" && d.video ? d.video : Array.isArray(d.videos) ? d.videos.filter((x) => typeof x === "string" && x).at(-1) : null);
+  return v && /\.(mp4|mov|m4v|webm)$/i.test(v) ? v : null;
+}
+// where a payload path is: absolute, else the project (the director's cwd, the console's root), else the run
+function payloadFile(p) {
+  if (path.isAbsolute(p)) return p;
+  const roots = [process.cwd(), (readJSON(F.console, {}) || {}).root, (readJSON(F.address, {}) || {}).root, RUN].filter(Boolean);
+  for (const r of roots) { const f = path.resolve(String(r), p); if (fs.existsSync(f)) return f; }
+  return null;
+}
+// {video, file, out (absolute), proxy (the payload path: relative to the project like other media), fresh} or null (no video,
+// off, missing file). Kept in the run folder, never beside the render, so nothing that looks for the newest render finds it.
+function phoneProxy(video) {
+  if (!video || process.env.RASANAI_PHONE_PROXY === "off") return null;
+  const file = payloadFile(video);
+  if (!file) return null;
+  const key = crypto.createHash("sha1").update(path.resolve(file)).digest("hex").slice(0, 8);
+  const out = path.join(RUN, "phone", `${path.basename(file).replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 60)}-${key}.mp4`);
+  let fresh = false;
+  try { fresh = fs.statSync(out).mtimeMs >= fs.statSync(file).mtimeMs; } catch {}
+  // by real path: macOS's /var is /private/var, and cwd comes back resolved
+  let rel = "";
+  try { rel = path.relative(fs.realpathSync(process.cwd()), path.join(fs.realpathSync(RUN), path.relative(RUN, out))); } catch {}
+  return { video, file, out, fresh, proxy: rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel : out };
+}
+function spawnProxy(step, video) {
+  try {
+    spawn(process.execPath, [fileURLToPath(import.meta.url), "proxy", "--run", RUN, "--step", step, "--video", video], { detached: true, stdio: "ignore", cwd: process.cwd() }).unref();
+  } catch {}
+}
+// 540 on the short side (never upscaled), ~1.2 Mbit/s, AAC, faststart; written to a temp name and renamed. False when ffmpeg is missing or fails.
+function makeProxy(ph) {
+  const tmp = path.join(path.dirname(ph.out), `.${path.basename(ph.out)}.${process.pid}.tmp`);
+  try { fs.mkdirSync(path.dirname(ph.out), { recursive: true }); } catch { return false; }
+  const scale = "scale='if(gt(iw,ih),-2,min(540,iw))':'if(gt(iw,ih),min(540,ih),-2)'";
+  try {
+    execFileSync("ffmpeg", ["-y", "-v", "error", "-i", ph.file, "-map", "0:v:0", "-map", "0:a:0?", "-vf", scale, "-c:v", "libx264", "-preset", "veryfast", "-profile:v", "main", "-pix_fmt", "yuv420p", "-b:v", "1200k", "-maxrate", "1500k", "-bufsize", "2400k", "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart", "-f", "mp4", tmp], { stdio: "ignore", timeout: 15 * 60 * 1000 });
+    fs.renameSync(tmp, ph.out);
+    return true;
+  } catch {
+    fs.rmSync(tmp, { force: true });
+    return false;
+  }
 }
 
 function alive(pid) {

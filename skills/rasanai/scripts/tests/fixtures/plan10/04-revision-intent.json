@@ -1,0 +1,167 @@
+{
+  "case": "plan10/U04",
+  "note": "synthetic; expectations come from lib/revision-intent.mjs classifyFeedback (read, not run)",
+  "ctx": {
+    "beats": [
+      {
+        "id": "b1",
+        "role": "hook"
+      },
+      {
+        "id": "b2",
+        "role": "proof"
+      },
+      {
+        "id": "b3",
+        "role": "close"
+      }
+    ]
+  },
+  "examples": [
+    {
+      "text": "The story feels generic",
+      "anchor": {},
+      "expect": {
+        "category": "story",
+        "route": "treatment_proposition",
+        "stage": "story",
+        "preserve": [
+          "look",
+          "palette",
+          "brief",
+          "facts"
+        ],
+        "stale_includes": [
+          "look",
+          "storyboard",
+          "build",
+          "final"
+        ],
+        "ambiguous": false
+      }
+    },
+    {
+      "text": "Keep this idea, make it less busy",
+      "anchor": {
+        "shot_id": "s2"
+      },
+      "expect": {
+        "category": "density",
+        "route": "density_hierarchy_motion",
+        "stage": "storyboard",
+        "target_ids": [
+          "s2"
+        ],
+        "preserve": [
+          "claims",
+          "proposition",
+          "story",
+          "look"
+        ],
+        "ambiguous": false
+      }
+    },
+    {
+      "text": "The ending is weak",
+      "anchor": {},
+      "expect": {
+        "category": "ending",
+        "route": "payoff_close",
+        "stage": "storyboard",
+        "target_ids": [
+          "b3"
+        ],
+        "include_dependents": [
+          "transitions_into_close",
+          "closing_audio_cue"
+        ],
+        "preserve": [
+          "earlier_beats",
+          "claims",
+          "look"
+        ]
+      }
+    },
+    {
+      "text": "Move this title up",
+      "anchor": {
+        "element_id": "scene-2.hero-title"
+      },
+      "expect": {
+        "category": "property_edit",
+        "route": "deterministic_patch",
+        "deterministic": true,
+        "no_writer_agent": true
+      }
+    },
+    {
+      "text": "Move this title up",
+      "anchor": {},
+      "expect": {
+        "route": "needs_element",
+        "ambiguous": true,
+        "needs_confirmation": true
+      }
+    },
+    {
+      "text": "Use this look instead",
+      "anchor": {
+        "look_id": "look-b"
+      },
+      "expect": {
+        "category": "look",
+        "route": "look_preview",
+        "stage": "look",
+        "invalidates_previews": true,
+        "story_preserved": true,
+        "stale_excludes": [
+          "brief",
+          "story"
+        ]
+      }
+    },
+    {
+      "text": "make it better",
+      "anchor": {},
+      "expect": {
+        "route": "confirm_first",
+        "ambiguous": true,
+        "needs_confirmation": true,
+        "destructive_broad": false,
+        "scope": "unspecified"
+      }
+    },
+    {
+      "text": "The story is generic, move the title up",
+      "anchor": {
+        "element_id": "scene-2.hero-title"
+      },
+      "expect": {
+        "route": "ambiguous",
+        "ambiguous": true,
+        "candidates_include": [
+          "property_edit",
+          "story"
+        ],
+        "changes_nothing_until_confirmed": true
+      }
+    }
+  ],
+  "request_fields": [
+    "pinned.film",
+    "pinned.approval_revision",
+    "pinned.build_revision",
+    "pinned.render_revision_id",
+    "target.beat_id",
+    "target.shot_id",
+    "target.element_id",
+    "target.time_range",
+    "note",
+    "annotation",
+    "intent_category",
+    "impact",
+    "status"
+  ],
+  "idempotency": "the same note on the same target at the same render revision is one request; same key with different content is a conflict",
+  "current_approval_stays_valid_until_new_choice": true
+}

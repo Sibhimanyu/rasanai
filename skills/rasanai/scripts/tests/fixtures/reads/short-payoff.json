@@ -1,0 +1,29 @@
+{
+  "_fixture": "SYNTHETIC test fixture: invented scene, no product claim",
+  "scenes": [
+    {
+      "n": 4,
+      "id": "04",
+      "start": 0,
+      "duration": 4.2,
+      "reads": [
+        {
+          "id": "action",
+          "t0": 0,
+          "t1": 3,
+          "kind": "action",
+          "subject": "actor throws",
+          "visual_cue": "arm release"
+        },
+        {
+          "id": "result",
+          "t0": 3,
+          "t1": 3.1,
+          "kind": "result",
+          "subject": "ball lands",
+          "visual_cue": "ball in the basket"
+        }
+      ]
+    }
+  ]
+}

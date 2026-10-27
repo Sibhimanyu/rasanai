@@ -1,0 +1,3 @@
+<!doctype html><meta charset=utf-8><title>regression: BAD, missing asset</title><style>html,body{margin:0;width:320px;height:180px;overflow:hidden;background:#101820;font-family:sans-serif}#stage{position:absolute;inset:0}</style>
+<div id=stage data-composition-id=missing-asset><img id=im src="assets/not-there.png" width=100 height=100 style="position:absolute;left:100px;top:40px"><h1 style="margin:10px;color:#f4efe6;font-size:20px">logo</h1></div>
+<script src="../../../../vendor/gsap.min.js"></script><script>var tl=gsap.timeline({paused:true});tl.to("#im",{x:20,duration:2});window.__timelines={"missing-asset":tl};</script>

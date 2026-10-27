@@ -16,12 +16,19 @@
 //   node research.mjs film (--url <video page> | --file <video>) --out <dir> [--keep] [--threshold 0.3]
 //        -> <dir>/film.json (every cut, shot lengths, pacing stats, loudness) + <dir>/sheet.jpg (one frame per
 //           shot). A downloaded film is for analysis only and is deleted afterwards unless --keep.
-//   node research.mjs deconstruct --video <ref.mp4> [--run <run> | --out <numbers.json>] [--only cuts,motion,camera,echo,bold,sound] [--print]
+//   node research.mjs deconstruct --video <ref.mp4> [--run <run> | --out <numbers.json>] [--only cuts,motion,camera,kinds,echo,bold,sound] [--look] [--words <words.json>] [--print]
 //        -> <run>/reference/numbers.json (default ./reference/numbers.json): a whole reference film as numbers to score against: the energy
 //           curve per 0.5 s and the still share, cuts (the robust detector: diff > max(8, 4x its rolling median +-12 frames), cuts inside
 //           stepped / flicker runs dropped) with bursts and the shot lengths, the median move and the curve family (lib/fluency), the
 //           boldness share, the echo, the camera kinds, and the sound arc (loudness median / p90 per second, onsets). lib/deconstruct.mjs.
 //           The Motion Director reads it; motion-gate can compare a draft's energy curve to it (energy-off-reference).
+//           Also: kinds (cut kinds and zoom punches, lib/cutkinds), and with --look the Vision look (faces, captions, text share; lib/reflook).
+//   node research.mjs profile --refs <a.mp4,b.mp4,...|folder> --run <run> [--words-dir <dir of <basename>.words.json>] [--no-look] [--force]
+//        -> 3 to 6 references of one kind (12 at most) measured once each (cached in <run>/reference/refs/<fingerprint>.numbers.json by
+//           content and analysis version), grouped by format, outliers left out with reasons, medians with confidence:
+//           <run>/reference/profile.json + PROFILE.md. Editing measurements only: no palette, type, logo or footage.
+//   node research.mjs profile-compare --profile <profile.json> --video <draft.mp4> [--brand-locked] [--words <words.json>] [--look] [--run <run>]
+//        -> re-measures a draft the same way and prints reference-deviation warnings (never an error; exit 0).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -33,9 +40,16 @@ import { classify, desksFor } from "./lib/sources.mjs";
 const args = parseArgs();
 const cmd = args._[0];
 track(
-  { "local-find": `Looking for ${args.name || "the product"} on this computer (folder names only)`, "local-inventory": "Listing what's in the folder you approved", film: "Measuring a reference film shot by shot", deconstruct: "Turning the reference film into numbers (cuts, energy, moves, camera, sound)", sources: "Working out what your film is made from (names and sizes only)" }[cmd],
-  { "local-find": "Local search done", "local-inventory": "Folder listed", film: "Film measured", deconstruct: "Reference measured", sources: "Sources listed" }[cmd]
+  { "local-find": `Looking for ${args.name || "the product"} on this computer (folder names only)`, "local-inventory": "Listing what's in the folder you approved", film: "Measuring a reference film shot by shot", deconstruct: "Turning the reference film into numbers (cuts, energy, moves, camera, sound)", profile: "Measuring your references into one editing profile", "profile-compare": "Comparing your draft with the reference profile", sources: "Working out what your film is made from (names and sizes only)" }[cmd],
+  { "local-find": "Local search done", "local-inventory": "Folder listed", film: "Film measured", deconstruct: "Reference measured", profile: "Reference profile written", "profile-compare": "Draft compared", sources: "Sources listed" }[cmd]
 );
+// words.json: an array of {text,start,end}, or {words:[...]}
+const readWords = (p, soft = false) => {
+  if (!p || p === true) return null;
+  const f = path.resolve(String(p));
+  if (!fs.existsSync(f)) { if (soft) return null; die(`not found: ${f}`); }
+  try { const j = JSON.parse(fs.readFileSync(f, "utf8")); const a = Array.isArray(j) ? j : j && j.words; return Array.isArray(a) ? a : null; } catch (e) { if (soft) return null; die(`could not read words: ${f}`); }
+};
 const out = (o, code = 0) => {
   console.log(JSON.stringify(o, null, 2));
   process.exit(code);
@@ -304,10 +318,79 @@ else if (cmd === "film") {
   const dest = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(args.run && args.run !== true ? path.resolve(String(args.run)) : process.cwd(), "reference", "numbers.json");
   const only = args.only && args.only !== true ? String(args.only).split(",").map((x) => x.trim()).filter(Boolean) : null;
   const { deconstruct } = await import("./lib/deconstruct.mjs");
-  const N = await deconstruct(video, { only, log: (m) => process.stderr.write(`deconstruct: ${m}\n`) });
+  const words = readWords(args.words);
+  const N = await deconstruct(video, { only, look: args.look === true || undefined, words, log: (m) => process.stderr.write(`deconstruct: ${m}\n`) });
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.writeFileSync(dest, JSON.stringify(N, null, 2));
-  out(args.print ? { ok: true, file: tilde(dest), ...N } : { ok: true, file: tilde(dest), duration_s: N.duration_s, cuts: N.cuts.count, cuts_per_min: N.cuts.per_min, bursts: N.cuts.bursts.length, dropped_cuts: N.cuts.dropped.length, shots: N.shots.shots, shot_median_s: N.shots.median_s, shot_spread_p90_p10: N.shots.spread_p90_p10, still_share: N.energy.still_share, median_move_frames: N.motion && N.motion.median_move_frames, dominant_curve: N.motion && N.motion.dominant_family, camera_kinds: N.camera && N.camera.kinds, boldness_share: N.boldness && N.boldness.share, sound: N.sound && N.sound.audio ? { median_db: N.sound.loudness.median_db, p90_db: N.sound.loudness.p90_db, onsets_per_s: N.sound.onset_rate } : "no audio", measured: N.measured, skipped: N.skipped });
+  out(args.print ? { ok: true, file: tilde(dest), ...N } : { ok: true, file: tilde(dest), duration_s: N.duration_s, cuts: N.cuts.count, cuts_per_min: N.cuts.per_min, bursts: N.cuts.bursts.length, dropped_cuts: N.cuts.dropped.length, shots: N.shots.shots, shot_median_s: N.shots.median_s, shot_spread_p90_p10: N.shots.spread_p90_p10, still_share: N.energy.still_share, median_move_frames: N.motion && N.motion.median_move_frames, dominant_curve: N.motion && N.motion.dominant_family, camera_kinds: N.camera && N.camera.kinds, cut_kinds: N.kinds && N.kinds.kind_share, zooms_per_min: N.kinds && N.kinds.zoom && N.kinds.zoom.per_min, face: N.look && N.look.face && N.look.face.present_pct, captions: N.look && N.look.captions, boldness_share: N.boldness && N.boldness.share, sound: N.sound && N.sound.audio ? { median_db: N.sound.loudness.median_db, p90_db: N.sound.loudness.p90_db, onsets_per_s: N.sound.onset_rate } : "no audio", measured: N.measured, skipped: N.skipped });
+} else if (cmd === "profile") {
+  const RP = await import("./lib/refprofile.mjs");
+  const { deconstruct, ANALYSIS_VERSION } = await import("./lib/deconstruct.mjs");
+  const { fingerprintFile } = await import("./lib/fingerprint.mjs");
+  if (!args.refs || args.refs === true) die("--refs <a.mp4,b.mp4,...|folder> required");
+  if (!args.run || args.run === true) die("--run <run folder> required");
+  const VIDEO_EXT = /\.(mp4|mov|m4v|webm|mkv|avi|mts)$/i;
+  let files = [];
+  for (const p of String(args.refs).split(",").map((x) => x.trim()).filter(Boolean).map((x) => path.resolve(x))) {
+    if (!fs.existsSync(p)) die(`not found: ${p}`);
+    if (fs.statSync(p).isDirectory()) files.push(...fs.readdirSync(p).filter((n) => !n.startsWith(".") && VIDEO_EXT.test(n)).sort().map((n) => path.join(p, n)));
+    else files.push(p);
+  }
+  if (!files.length) die("no reference videos found");
+  if (files.length > 12) die(`${files.length} references: 12 at most (3 to 6 of one kind give a usable profile)`);
+  const warns = [];
+  if (files.length < 3) warns.push("under 3 references: 3 to 6 refs of one kind give a usable profile; one works at low confidence");
+  const runDir = path.resolve(String(args.run)), refDir = path.join(runDir, "reference"), cacheDir = path.join(refDir, "refs");
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const wdir = args["words-dir"] && args["words-dir"] !== true ? path.resolve(String(args["words-dir"])) : null;
+  const log = (m) => process.stderr.write(`profile: ${m}\n`);
+  const refs = [], numbersById = {};
+  for (const file of files) {
+    let fp = null;
+    try {
+      fp = fingerprintFile(file);
+      const cache = path.join(cacheDir, `${fp}.numbers.json`);
+      let N = null;
+      if (!args.force && fs.existsSync(cache)) { try { const c = JSON.parse(fs.readFileSync(cache, "utf8")); if (c.analysis_version === ANALYSIS_VERSION && c.fingerprint === fp) N = c; } catch {} }
+      if (N) log(`${path.basename(file)}: cached (${fp})`);
+      else {
+        log(`${path.basename(file)}: measuring (${fp})`);
+        const words = wdir ? readWords(path.join(wdir, path.basename(file).replace(/\.[^.]+$/, "") + ".words.json"), true) : null;
+        N = await deconstruct(file, { look: !args["no-look"], words, log: (m) => log(`  ${m}`) });
+        N.fingerprint = N.fingerprint || fp;
+        fs.writeFileSync(cache, JSON.stringify(N, null, 2));
+      }
+      numbersById[fp] = N;
+      refs.push({ id: fp, file: path.basename(file), fingerprint: fp, included: true });
+    } catch (e) {
+      const why = `could not be read: ${String(e.message || e).split("\n")[0]}`;
+      refs.push({ id: fp || path.basename(file), file: path.basename(file), fingerprint: fp, included: false, why_left_out: why });
+      log(`${path.basename(file)}: ${why}`);
+    }
+  }
+  if (!Object.keys(numbersById).length) die("no readable references");
+  const pfile = path.join(refDir, "profile.json");
+  let previous = null; try { previous = JSON.parse(fs.readFileSync(pfile, "utf8")); } catch {}
+  const P = RP.buildProfile({ refs, numbersById, previous });
+  for (const w of warns) P.warnings.unshift(w);
+  fs.writeFileSync(pfile, JSON.stringify(P, null, 2));
+  const mdFile = path.join(refDir, "PROFILE.md");
+  fs.writeFileSync(mdFile, RP.profileMarkdown(P));
+  const metrics = {}; for (const k of RP.METRIC_KEYS) metrics[k] = P.metrics[k] && P.metrics[k].confidence !== "unmeasured" ? P.metrics[k].value : null;
+  out({ ok: true, file: tilde(pfile), md: tilde(mdFile), refs: P.references.length, kept: P.references.filter((r) => r.included).length, left_out: P.references.filter((r) => !r.included).map((r) => ({ id: r.id, file: r.file, why: r.why_left_out })), applied: P.format.applied, format: P.format.line, metrics, unmeasured: P.unmeasured, warnings: P.warnings });
+} else if (cmd === "profile-compare") {
+  const RP = await import("./lib/refprofile.mjs");
+  const { deconstruct } = await import("./lib/deconstruct.mjs");
+  const pf = args.profile && args.profile !== true ? path.resolve(String(args.profile)) : die("--profile <profile.json> required");
+  const video = args.video && args.video !== true ? path.resolve(String(args.video)) : die("--video <draft.mp4> required");
+  if (!fs.existsSync(pf)) die(`not found: ${pf}`);
+  if (!fs.existsSync(video)) die(`not found: ${video}`);
+  const profile = JSON.parse(fs.readFileSync(pf, "utf8"));
+  const N = await deconstruct(video, { look: args.look === true || undefined, words: readWords(args.words), log: (m) => process.stderr.write(`profile-compare: ${m}\n`) });
+  const oursFile = args.run && args.run !== true ? path.join(path.resolve(String(args.run)), "reference", "draft.numbers.json") : path.join(fs.mkdtempSync(path.join(os.tmpdir(), "rasanai-draft-")), "draft.numbers.json");
+  fs.mkdirSync(path.dirname(oursFile), { recursive: true });
+  fs.writeFileSync(oursFile, JSON.stringify(N, null, 2));
+  out({ ...RP.compareProfile(profile, N, { brandLocked: args["brand-locked"] === true }), ours_file: tilde(oursFile) });
 } else {
-  die("usage: research.mjs local-find|local-inventory|sources|film|deconstruct … (see the header)");
+  die("usage: research.mjs local-find|local-inventory|sources|film|deconstruct|profile|profile-compare … (see the header)");
 }

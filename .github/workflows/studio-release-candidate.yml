@@ -27,8 +27,25 @@ jobs:
         run: |
           test "$(uname -m)" = arm64
           swift --version
+          echo "SWIFT_ID=$(swift --version 2>&1 | shasum -a 256 | cut -c1-16)" >> "$GITHUB_ENV"
+      # Reuse the SwiftPM checkouts, Sparkle artifact, Node download and compiled dependencies from the last run, so a
+      # release only recompiles what changed. Keyed on the toolchain and Package.resolved. Read-only here:
+      # studio-prebuild.yml saves it on every master push, so a release skips the ~15 s upload.
+      - uses: actions/cache/restore@v4
+        with:
+          path: apps/macos/.build
+          key: studio-build-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Package.resolved') }}-${{ github.run_id }}
+          restore-keys: |
+            studio-build-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Package.resolved') }}-
+      # The compiled binary from studio-prebuild.yml (every master push) or an earlier candidate, when the Swift sources,
+      # packages and toolchain are identical. A release then only stamps the version, bundles, signs and packages.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/studio-prebuilt
+          key: studio-bin-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Sources/**', 'apps/macos/Package.swift', 'apps/macos/Package.resolved') }}
       - name: Build unnotarized Apple Silicon candidate
         env:
+          STUDIO_PREBUILT_DIR: ${{ runner.temp }}/studio-prebuilt
           STUDIO_VERSION: ${{ inputs.version }}
           STUDIO_BUILD: ${{ inputs.build }}
           STUDIO_ENABLE_UPDATES: ${{ inputs.enable_updates && '1' || '0' }}

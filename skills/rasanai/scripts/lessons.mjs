@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lessons the user taught, carried to every next film (see SKILL.md "Memory"; location: $RASANAI_HOME or ~/.rasanai):
+// Lessons the user taught, carried to every next film (see references/workflows/operations/series-and-preferences.md "Memory"; location: $RASANAI_HOME or ~/.rasanai):
 //   lessons.jsonl  one row per general rule distilled from a user's note ("the type is always too small",
 //                  "stop ending on a logo fade"). history.jsonl (memory.mjs) is picks for rotation; this is rules.
 //
@@ -12,6 +12,9 @@
 //        (same rule again: bumps seen and last. --gate makes the rule a measured check: the gate's threshold tightens to
 //         that number on every next film; keys, ranges and which way each tightens (a floor: larger is stricter; a ceiling: smaller is
 //         stricter): lib/gate-lessons.mjs, e.g. --gate text.statement_min_h=0.05, or motion.end_hold_min_s=1.0 for "the ending flashes by")
+//        (Plan 13 Q6, optional: --scope user|brand|series|format --scope-id <id> --rationale "<why>" --confidence low|medium|high [--nature fact_safety|style|deterministic]
+//         records the lesson with its source observation (the quote), scope, rationale and confidence; a style lesson expires after 180 days unless seen again;
+//         a scoped lesson reaches only a film in that scope (series dir, RASANAI_BRAND, RASANAI_FORMAT). Rows without --scope behave exactly as before. lib/lessons-scope.mjs)
 //   node lessons.mjs list [--json]   (shows the source: user or self)
 //   node lessons.mjs drop --id <id>
 //   node lessons.mjs brief --role <crew role> [--n 12] [--series <dir>]   -> the "Standing notes" markdown block for that role (nothing when empty);
@@ -28,6 +31,7 @@ import { parseArgs, die, STATE_DIR } from "./lib/common.mjs";
 import { parseGate, wayOf } from "./lib/gate-lessons.mjs";
 import { readLedger, recentVerdicts } from "./memory.mjs";
 import { seriesRulesBlock } from "./lib/series.mjs";
+import { buildLesson, applicable } from "./lib/lessons-scope.mjs"; // Plan 13 Q6: scope, rationale, confidence, expiry; old rows (no scope) read as before
 
 export const KINDS = ["error", "taste"];
 export const SOURCES = ["user", "self"];
@@ -75,7 +79,7 @@ function writeLessons(rows) {
 
 const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-export function addLesson({ rule, quote, kind, area, run, gate, source }) {
+export function addLesson({ rule, quote, kind, area, run, gate, source, scope, "scope-id": scopeId, rationale, confidence, nature }) {
   rule = String(rule || "").trim();
   if (!rule) throw new Error("--rule required");
   if (!KINDS.includes(kind)) throw new Error(`--kind must be ${KINDS.join(" or ")}`);
@@ -86,7 +90,17 @@ export function addLesson({ rule, quote, kind, area, run, gate, source }) {
   const g = gate == null || gate === false ? null : parseGate(gate === true ? "" : gate); // throws on a bad key, value or range
   const rows = readLessons();
   const now = new Date().toISOString();
-  const hit = rows.find((r) => norm(r.rule) === norm(rule));
+  // Plan 13 Q6: --scope user|brand|series|format --scope-id <id> --rationale <why> --confidence low|medium|high [--nature fact_safety|style|deterministic]
+  // adds the scoped record (source observation = the quote, else the rule). A scoped lesson dedupes only inside the same scope; without --scope the row is the legacy shape.
+  let sc = null;
+  if (scope != null && scope !== false) {
+    if (scope === true || !["user", "brand", "series", "format"].includes(String(scope))) throw new Error("--scope must be user, brand, series or format (a global craft change needs evidence and a human review, not a CLI flag)");
+    const b = buildLesson({ rule, observation: { text: quote ? String(quote) : rule, quote: quote ? String(quote) : null, source_type: source === "self" ? "self_observation" : "user_note", run: run && run !== true ? String(run) : null }, scope: { type: String(scope), id: scopeId === true ? "" : String(scopeId || "") }, rationale: rationale === true ? "" : rationale, confidence: confidence === true ? "" : confidence, nature: nature && nature !== true ? String(nature) : kind === "error" ? "fact_safety" : "style" });
+    if (!b.ok) throw new Error("scoped lesson: " + b.errors.join("; "));
+    sc = b.lesson;
+  }
+  const sameScope = (r) => (sc ? r.scope && r.scope.type === sc.scope.type && r.scope.id === sc.scope.id : !r.scope);
+  const hit = rows.find((r) => norm(r.rule) === norm(rule) && sameScope(r));
   if (hit) {
     if (g) hit.gate = g;
     if (source === "user" && hit.source === "self") { hit.source = "user"; if (quote) hit.quote = String(quote); } // the user says it too: it is theirs now
@@ -107,6 +121,7 @@ export function addLesson({ rule, quote, kind, area, run, gate, source }) {
     last: now,
     seen: 1,
     ...(g ? { gate: g } : {}),
+    ...(sc ? { scope: sc.scope, observation: sc.observation, rationale: sc.rationale, confidence: sc.confidence, nature: sc.nature, expires: sc.expires, review_after: sc.review_after, status: sc.status } : {}),
   };
   rows.push(row);
   writeLessons(rows);
@@ -140,7 +155,10 @@ export function lessonsBlock(role, n = 12, series = null) {
   const areas = role === "*" ? AREAS : ROLE_AREAS[role];
   if (!areas) return rules; // a role with no lesson areas (the visual writer) still obeys the series' rules
   const every = readLessons();
+  // Plan 13 Q6: a scoped lesson reaches only the film inside its scope (series path, RASANAI_BRAND, RASANAI_FORMAT); expired style lessons drop out; legacy rows pass unchanged
+  const live = new Set(applicable(every, { series: series || null, brand: process.env.RASANAI_BRAND || null, format: process.env.RASANAI_FORMAT || null, user: "*" }).map((r) => r.id));
   const all = every
+    .filter((r) => !r.scope || live.has(r.id))
     .filter((r) => areas.includes(r.area))
     .sort((a, b) => (b.seen || 1) - (a.seen || 1) || String(b.last).localeCompare(String(a.last)));
   const cap = Math.max(1, Number(n) || 12);

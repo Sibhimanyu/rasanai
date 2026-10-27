@@ -1,0 +1,14 @@
+{
+ "name": "rasanai",
+ "description": "RasanAI: creative direction for entire videos made with Claude and HyperFrames (launch films, explainers, PR videos, brand films, music videos, reels cut from a folder of raw footage with motion-graphics cards between clips and overlays/captions on top, green-screen talking heads put into generated image worlds, captioned talking heads, and short motion graphics). The user makes five calls in a local Director's Console: confirm the brief, pick one of three scripts (written by a dedicated script pass from the product's truth), pick one of three looks for that story (three bespoke design systems a design desk researches and blends for that very film, drawn live on its first line), leave notes on a timed animatic with the music, and review the final. Claude decides all the craft (story devices, scenes, pacing, motion, transitions, 2D and real 3D scenes, music edit, sound design) from a quantified playbook, shows every call in a decisions drawer, and runs a crew of agents (researchers on the web and, with permission, the local code; writers; a Motion Director; one film builder for a short film, scene animators in parallel for a long one; critics). It gates the film against AI-slop tells, a motion contract and a sound check before anything ships. Use when the user wants to make a video and choose how it looks, moves and sounds, has a folder of clips to cut into a reel, says \"/rasanai\", \"direct my video\", \"show me options first\", \"storyboard first\", or complains that AI video looks generic, tells the same story, loops its music or overuses effects. Builds with HyperFrames (/hyperframes and its workflows); does not replace them. Videos only: never slide decks or presentations (for a talk it makes the video that plays in it, not the deck).",
+ "bytes": 148196,
+ "triggers": [
+  "/rasanai",
+  "direct my video",
+  "show me options first",
+  "storyboard first",
+  "AI video looks generic",
+  "folder of clips",
+  "Videos only"
+ ]
+}
