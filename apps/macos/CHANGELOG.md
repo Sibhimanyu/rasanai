@@ -2,13 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.26.0 (build 67) — 2026-10-27
 
 - The crew stage speech cards are back to appearing at varied spots around the character and drifting away, now as clean glass cards that never overlap each other or cover the face.
 - The crew stage stops animating while the Studio window is hidden or covered, which should stop the window from briefly going blank.
 - **Sound direction on Brief and Look.** A compact Sound section for voiceover, pace, feeling, effects and music source, each with "Recommend for me", plus four starting points and a three-track music shortlist on Look with quick revisions. Choices are saved with the brief and passed to the director. Not built or tried in the app yet.
 - The Voiceover menu gains "Recommend for me" and defaults to it. The Look "Motion and sound" section now always shows.
 - **Bundles the next RasanAI skill:** connected sequences, music selection and layered effects (see the skill changelog). The reported music dropout is not repaired.
+- **Bundles RasanAI 1.31.0.**
 
 ## 0.25.0 (build 66) — 2026-10-27
 
