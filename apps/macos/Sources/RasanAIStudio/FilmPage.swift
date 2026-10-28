@@ -325,30 +325,44 @@ struct DirectorRecoveryView: View {
     @Bindable var store: StudioStore
     let recovery: DirectorRecovery
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 4) {
+        let detail = store.runtime.recoveryDetail.trimmingCharacters(in: .whitespacesAndNewlines)
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 14)).foregroundStyle(.orange).padding(.top, 2)
+            VStack(alignment: .leading, spacing: 3) {
                 Text(recovery.title).font(.system(size: 13, weight: .semibold))
-                Text(recovery.message).font(.system(size: 12)).foregroundStyle(.secondary)
-                if !store.runtime.recoveryDetail.isEmpty {
-                    Text(store.runtime.recoveryDetail).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(4).textSelection(.enabled)
+                if !detail.isEmpty {
+                    Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(3).textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if recovery.message != recovery.title {
+                    Text(recovery.message).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let at = store.runtime.autoResume?.resumesAt, store.runtime.autoResume?.isLimit == true {
-                    Text("Resumes by itself at \(at.formatted(date: .omitted, time: .shortened)) while RasanAI is open, or press Resume.").font(.system(size: 12, weight: .medium))
+                    Text("Resumes by itself at \(at.formatted(date: .omitted, time: .shortened)) while RasanAI is open, or press Resume.")
+                        .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).lineLimit(2)
                 }
             }
-            Spacer(minLength: 8)
-            Button("Show log") { store.sheet = .log }
-            if recovery == .signIn {
-                Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary)
-                Button("Resume") { store.resumeDirector() }.disabled(!store.canResume)
-            } else {
-                Button("Resume") { store.resumeDirector() }.buttonStyle(.rasanPrimary).disabled(!store.canResume)
+            Spacer(minLength: 4)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { actions }
+                VStack(alignment: .trailing, spacing: 6) { actions }
             }
         }
-        .padding(Workspace.panelPadding).background(Color.orange.opacity(0.08))
-        .overlay(alignment: .bottom) { Divider() }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.07), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.orange.opacity(0.2), lineWidth: 1) }
         .padding(.bottom, Workspace.gap)
+    }
+
+    @ViewBuilder private var actions: some View {
+        if recovery == .signIn {
+            Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary).controlSize(.small)
+            Button("Resume") { store.resumeDirector() }.buttonStyle(.rasanSecondary).controlSize(.small).disabled(!store.canResume)
+        } else {
+            Button("Resume") { store.resumeDirector() }.buttonStyle(.rasanPrimary).controlSize(.small).disabled(!store.canResume)
+        }
+        Button("Show log") { store.sheet = .log }.controlSize(.small)
     }
 }
 

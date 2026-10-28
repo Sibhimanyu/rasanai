@@ -2,11 +2,8 @@ import AppKit
 import StudioCore
 import SwiftUI
 
-/// The conversation with Rasan, grown up out of the bottom pill above its Ask Rasan field. No frame and no header: the
-/// messages float over the page on a soft scrim, newest nearest the pill, and the top of the area fades out so older
-/// messages dissolve; scrolling up brings them back through the fade (or the side panel shows the lot). The pill's field is
-/// the composer. Same rows and state as the side panel (`ConversationList`). Hidden while the side panel is open, in
-/// full-screen video, and when closed.
+/// A contained, scrollable conversation panel above the Ask Rasan field. The pill's field remains the composer and shares
+/// its draft with the side panel (`ConversationList`). Hidden while the side panel is open, in full-screen video, and when closed.
 struct AskRasanFloatingChat: View {
     @Bindable var model: FilmSessionModel
     var width: CGFloat
@@ -14,10 +11,8 @@ struct AskRasanFloatingChat: View {
     /// Registers the area so a click on it never counts as a click outside.
     var zones: AskClickZones?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @State private var listHeight: CGFloat = 0
     @State private var atBottom = true
-    @State private var hovering = false
 
     static func visible(_ model: FilmSessionModel) -> Bool {
         model.askCardPresented && !model.decisionsPresented && VideoStageOverlay.shared.playback == nil
@@ -26,11 +21,7 @@ struct AskRasanFloatingChat: View {
 
     private let restingTop: CGFloat = 30
     private let bottomPad: CGFloat = 10
-    private var overflows: Bool { listHeight + restingTop + bottomPad > maxHeight }
-    /// Where older messages dissolve: the top 35% once the conversation is taller than the area; otherwise just the
-    /// empty strip above the oldest message, so nothing that fits is ever faded.
-    private var fadeHeight: CGFloat { overflows ? maxHeight * 0.35 : restingTop }
-    private var topPad: CGFloat { overflows ? fadeHeight + 8 : restingTop }
+    private var topPad: CGFloat { restingTop }
     private var height: CGFloat { max(restingTop + bottomPad + 20, min(maxHeight, listHeight + topPad + bottomPad)) }
 
     var body: some View {
@@ -62,8 +53,13 @@ struct AskRasanFloatingChat: View {
             .scrollIndicators(.automatic)
             .defaultScrollAnchor(.bottom)
             .frame(width: width, height: height)
-            .mask(fade)
-            .background(alignment: .bottom) { scrim }
+            .background(Color.appBackground.opacity(0.97), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.13), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: .black.opacity(0.28), radius: 18, x: 0, y: 8)
             .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: height)
             .onAppear { atBottom = true; proxy.scrollTo("end", anchor: .bottom) }
             .onChange(of: model.conversationSignature) {
@@ -72,43 +68,12 @@ struct AskRasanFloatingChat: View {
             }
             .onChange(of: model.pendingMark?.id) { withAnimation(reduceMotion ? nil : .smooth) { proxy.scrollTo("end", anchor: .bottom) } }
         }
-        .overlay(alignment: .topTrailing) { controls }
+        .overlay(alignment: .top) { header }
         .background { if let zones { AskClickZone(zones: zones) } }
-        .onHover { hovering = $0 }
         .environment(\.colorScheme, .dark)
         .onExitCommand { model.askCardPresented = false }   // Esc tucks it back into the pill; the draft stays
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Conversation with Rasan")
-    }
-
-    /// Older messages dissolve into nothing towards the top.
-    private var fade: some View {
-        let edge = min(0.95, fadeHeight / max(height, 1))
-        return LinearGradient(stops: [.init(color: .clear, location: 0),
-                                      .init(color: .black.opacity(0.35), location: edge * 0.55),
-                                      .init(color: .black, location: edge),
-                                      .init(color: .black, location: 1)],
-                              startPoint: .top, endPoint: .bottom)
-    }
-
-    /// A soft, mostly see-through wash behind the messages so they read over any frame, with no edge of its own: it fades out
-    /// at the top and the sides and runs down to meet the pill.
-    private var scrim: some View {
-        // The wash is fully there a little before the messages are, so a half-faded message never sits on bare page.
-        let edge = min(0.9, (fadeHeight * 0.55) / max(height + 8, 1))
-        return ZStack {
-            Rectangle().fill(.regularMaterial)
-            Color.appBackground.opacity(0.78)
-        }
-        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: edge), .init(color: .black, location: 1)],
-                             startPoint: .top, endPoint: .bottom))
-        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.08),
-                                     .init(color: .black, location: 0.92), .init(color: .clear, location: 1)],
-                             startPoint: .leading, endPoint: .trailing))
-        .frame(width: width + 36, height: height + 8)
-        .offset(y: 8)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 
     /// Empty: one friendly line, as Rasan.
@@ -121,28 +86,26 @@ struct AskRasanFloatingChat: View {
         .padding(.vertical, 4)
     }
 
-    /// Open in the side panel, and tuck away: shown on hover or while typing (always with VoiceOver).
-    private var controls: some View {
-        let shown = hovering || model.askFieldFocused || voiceOver
-        return HStack(spacing: 2) {
+    /// A visible title and close action keep the panel's purpose and dismissal discoverable.
+    private var header: some View {
+        HStack(spacing: 8) {
+            RasanMark().fill(Color.rasanInk.opacity(0.9)).frame(width: 11, height: 14).accessibilityHidden(true)
+            Text("Ask Rasan").font(.system(size: 12, weight: .semibold))
+            Spacer(minLength: 4)
             control("sidebar.trailing", label: "Open in side panel (⌥⌘I)") {
                 model.inspectorTab = .chat
                 model.askCardPresented = false
                 model.decisionsPresented = true
             }
-            control("chevron.down", label: "Hide the conversation (Esc)") { model.askCardPresented = false }
+            control("xmark", label: "Close conversation (Esc)") { model.askCardPresented = false }
         }
-        .padding(2)
-        .softGlass(in: Capsule(), opacity: 0.8)
-        .opacity(shown ? 1 : 0)
-        .allowsHitTesting(shown)
-        .animation(.easeOut(duration: 0.15), value: shown)
-        .padding(.top, 2).padding(.trailing, 2)
+        .padding(.horizontal, 12).padding(.top, 8)
+        .accessibilityElement(children: .contain)
     }
 
     private func control(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+            Image(systemName: symbol).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
                 .frame(width: 24, height: 22).contentShape(Rectangle())
         }
         .buttonStyle(.plain).help(label).accessibilityLabel(label)
