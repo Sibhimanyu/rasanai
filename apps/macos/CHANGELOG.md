@@ -2,12 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.26.3 (build 70) — 2026-10-28
 
 - The sidebar has more room, and the Ask Rasan conversation panel now uses a solid background to keep messages readable.
 - Recovery messages avoid showing generic stop diagnostics in place of the guidance for the situation.
 - Final review uses a more compact crew header to leave more room for the film.
 - Media badges fit narrow status bars more cleanly without the extra proxy explanation.
+- **Bundles RasanAI 1.31.0.**
 
 
 ## 0.26.2 (build 69) — 2026-10-28
