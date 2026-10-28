@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.26.2 beta 1</title>
+      <pubDate>Wed, 28 Oct 2026 06:47:30 GMT</pubDate>
+      <description><![CDATA[<ul><li><b>Pause really stops the film.</b> Pause used to freeze the director in place, so Studio kept treating a paused film as running: it blocked starting another film, and it came back as running after a restart. Pause now ends the director cleanly. Nothing keeps running, Studio is free for another film, and Resume picks up where the film left off. Films that an older build left frozen are stopped the same way when Studio opens.</li><li>Pause is always in the bottom bar while a film is being made, including while Film progress is open and while it waits for you. Resume takes its place once the film is paused. The ••• menu item and ⌘. still work.</li><li>Home, New film, the queue and opening films now use the same check for whether a film is running, so they agree with each other.</li></ul>]]></description>
+      <sparkle:version>69</sparkle:version>
+      <sparkle:shortVersionString>0.26.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.26.2-beta.1/RasanAI-Studio-0.26.2.dmg" sparkle:edSignature="qehd1s9Pa4Wpcws8nIRNzLsZk8+9TQC6BAiMSipYLAH2/6ToNcJ2woLnelIUo0C3ksBkXGKSmGtxfsT5mDE5Dw==" length="28504119" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.26.1 beta 1</title>
       <pubDate>Wed, 28 Oct 2026 05:52:07 GMT</pubDate>
       <description><![CDATA[<ul><li>Ask Rasan now opens in a contained conversation panel with a clear title, close action and shortcut to the side panel.</li><li>The director recovery banner uses a compact, responsive layout, with clearer recovery details and actions at narrow window widths.</li><li>The Ask Rasan composer hides while the side panel is open, avoiding two composers on screen.</li><li>The open Ask Rasan panel has its own composer; ⌘K uses it when the bottom-bar composer is unavailable.</li></ul>]]></description>
