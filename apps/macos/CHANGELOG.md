@@ -2,11 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.26.1 (build 68) — 2026-10-28
 
 - Ask Rasan now opens in a contained conversation panel with a clear title, close action and shortcut to the side panel.
 - The director recovery banner uses a compact, responsive layout, with clearer recovery details and actions at narrow window widths.
 - The Ask Rasan composer hides while the side panel is open, avoiding two composers on screen.
+- **Bundles RasanAI 1.31.0.**
 
 
 ## 0.26.0 (build 67) — 2026-10-27
