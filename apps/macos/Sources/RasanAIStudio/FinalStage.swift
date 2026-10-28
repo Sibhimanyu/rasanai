@@ -57,7 +57,7 @@ struct FinalStage: View {
             let wide = outer.size.width >= reviewSplitThreshold && outer.size.height >= 500
             if wide {
                 // The Look page's arrangement: the crew header and the film's details on the left, the final on the right.
-                ReviewSplit(size: outer.size, question: question, context: context, step: step) {
+                ReviewSplit(size: outer.size, question: question, context: context, step: step, compactHeader: true) {
                     VStack(spacing: 0) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 8) {
@@ -83,7 +83,7 @@ struct FinalStage: View {
                 }
             } else {
                 VStack(spacing: Workspace.gap) {
-                    StageHeader(question: question, context: context, step: "final")
+                    StageHeader(question: question, context: context, step: "final", compact: true)
                         .padding(.bottom, 4)
                     withMotionInspector(player
                         .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 146 - (scenes.isEmpty ? 56 : 168) - Workspace.gap)))

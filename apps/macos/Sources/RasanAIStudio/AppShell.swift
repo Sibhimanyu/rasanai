@@ -122,7 +122,7 @@ struct AppSidebar: View {
             .focused($focused, equals: .settings)
             .padding(.horizontal, 10).padding(.vertical, 8)
         }
-        .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 280)
+        .navigationSplitViewColumnWidth(min: 190, ideal: 230, max: 300)
     }
 
     /// A place as a spacious, full-width button. No List selection is involved: the row is active when the path says so,

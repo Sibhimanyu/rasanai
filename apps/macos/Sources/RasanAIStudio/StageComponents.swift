@@ -136,6 +136,8 @@ struct StageHeader: View {
     var recommended: String?
     /// The step, for the crew credit line.
     var step: String?
+    /// Keeps the final player as the focus while retaining a small crew cue.
+    var compact = false
     @Environment(\.agentName) private var agent
     @Environment(\.crewCharacter) private var character
 
@@ -144,16 +146,28 @@ struct StageHeader: View {
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             if let character {
-                // The crew member asks it herself: the question is her speech bubble, so it is not repeated as a heading.
-                // Both are centred in the row, so the room above and below is equal and the row is only as tall as the taller one.
-                let stageHeight = CrewStage.height(mode: .ask, unit: Self.askUnit(character))
-                CrewStage(character: character, mode: .ask, unit: Self.askUnit(character))
-                // The bubble gets its room first, so a wide character never squeezes it into a tall column.
-                // Its tail meets the figure at mouth height (about 45% down), a little above the shared centre line.
-                CrewSpeechBubble(text: question, subtitle: contextText, tint: character.color,
-                                 tailFromCenter: (0.45 - 0.5) * stageHeight)
-                    .frame(minWidth: 240, alignment: .leading)
+                if compact {
+                    CrewStage(character: character, mode: .ask, unit: 58)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(question).font(.system(size: 22, weight: .semibold)).tracking(-0.4)
+                            .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+                        if let contextText {
+                            Text(contextText).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                     .layoutPriority(1)
+                } else {
+                    // The crew member asks it herself: the question is her speech bubble, so it is not repeated as a heading.
+                    let stageHeight = CrewStage.height(mode: .ask, unit: Self.askUnit(character))
+                    CrewStage(character: character, mode: .ask, unit: Self.askUnit(character))
+                    // The bubble gets its room first, so a wide character never squeezes it into a tall column.
+                    // Its tail meets the figure at mouth height (about 45% down), a little above the shared centre line.
+                    CrewSpeechBubble(text: question, subtitle: contextText, tint: character.color,
+                                     tailFromCenter: (0.45 - 0.5) * stageHeight)
+                        .frame(minWidth: 240, alignment: .leading)
+                        .layoutPriority(1)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(question)

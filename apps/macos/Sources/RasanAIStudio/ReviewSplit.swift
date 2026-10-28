@@ -12,6 +12,7 @@ struct ReviewSplit<Panel: View, Player: View>: View {
     let question: String
     var context: String?
     let step: String
+    var compactHeader = false
     @ViewBuilder var panel: Panel
     @ViewBuilder var player: Player
 
@@ -19,7 +20,7 @@ struct ReviewSplit<Panel: View, Player: View>: View {
         let left = Workspace.leftColumn(for: size.width)
         HStack(alignment: .top, spacing: Workspace.columnGap) {
             VStack(alignment: .leading, spacing: 0) {
-                StageHeader(question: question, context: context, step: step)
+                StageHeader(question: question, context: context, step: step, compact: compactHeader)
                     .padding(.bottom, 12)
                 panel
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
