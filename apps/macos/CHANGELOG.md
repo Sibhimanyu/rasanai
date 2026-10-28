@@ -2,6 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Film titles are cleaned for you instead of rejected: slashes and colons become " - ", odd characters drop out, and a title that is already taken gets " 2", " 3".
+- Error alerts now offer only buttons that fix that error: Resume Director and Show Log appear for director problems, and plain guidance messages just say OK.
+- The feedback report window no longer flickers open and closed over and over.
+
 ## 0.26.3 (build 70) — 2026-10-28
 
 - The sidebar has more room, and the Ask Rasan conversation panel now uses a solid background to keep messages readable.
