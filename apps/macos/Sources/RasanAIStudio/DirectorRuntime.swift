@@ -35,6 +35,9 @@ final class DirectorRuntime {
     /// When each run was last resumed automatically, so a second stop soon after is shown as a failure.
     var lastAutoResume: [String: Date] = [:]
     var onExit: ((Int32, Bool) -> Void)?
+    /// One occupancy rule: a director is live and not on its way out (a pause or stop is already ending it), or one is being prepared.
+    /// Every "a film is already running" check uses this, so Home, New film, the queue and opening films all agree.
+    var isOccupied: Bool { (isRunning && !stopRequested && !isFrozen) || isPreparing }
     var projectURL: URL? { activeProject }
     var runURL: URL? { activeRun }
     private var process: Process?
@@ -76,6 +79,8 @@ final class DirectorRuntime {
         return env
     }
     func start(project: URL, existingRun: URL? = nil, request: String, settings: StudioSettings, agent selectedAgent: LocalAgent? = nil, model: String? = nil, unrestrictedTools: Bool? = nil) async throws -> URL {
+        // A film that was just paused is still exiting for a moment: wait for it instead of reporting a running film.
+        if stopRequested, isRunning || isFinishing { for _ in 0..<60 where isRunning || isFinishing { try? await Task.sleep(for: .milliseconds(250)) } }
         guard !isRunning, !isPreparing, !isFinishing else { throw RuntimeError.busy }
         guard let engine = Self.engineURL, let driver = Self.driverURL else { throw RuntimeError.missingEngine }
         guard let node = settings.nodeURL else { throw RuntimeError.missingNode }
@@ -307,6 +312,8 @@ final class DirectorRuntime {
             isFrozen = true
             frozenAt = events.last { $0.event == .freeze }?.t
             status = "Paused · nothing runs until you resume"
+            // Legacy pause from an older build: the process is only frozen. End it for real so nothing is left running.
+            stop(pausing: true)
         } else {
             isFrozen = false; frozenAt = nil
             status = runningStatus
@@ -373,11 +380,11 @@ final class DirectorRuntime {
         startedAt = nil; recovery = nil; recoveryDetail = ""; autoResume = nil; autoResumeDecision = .none
         status = "Director stopped"
     }
-    func stop() {
+    func stop(pausing: Bool = false) {
         guard let pid = livePid else { return }
         stopRequested = true
         isFrozen = false; frozenAt = nil // The driver continues a frozen group itself so it can handle the stop.
-        status = "Stopping director and its child processes…"
+        status = pausing ? "Pausing · saving where it is…" : "Stopping director and its child processes…"
         kill(pid, SIGTERM)
     }
     func logTail() -> String {

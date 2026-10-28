@@ -604,7 +604,7 @@ struct AppStatusBar: View {
     /// Working: the film, what it is doing and the next call, and a click goes to it. Idle: ready, with the director and
     /// pace a new film will use. Not set up: the way to set it up.
     @ViewBuilder private var director: some View {
-        if (store.runtime.isRunning || store.runtime.isPreparing), let active = store.activeDirectorProject {
+        if store.runtime.isOccupied, let active = store.activeDirectorProject {
             HStack(spacing: 10) {
                 Button { store.showFilm(active) } label: {
                     HStack(spacing: 8) {
@@ -619,8 +619,8 @@ struct AppStatusBar: View {
                     }
                 }
                 .help("Open the film the director is working on")
-                Button { if store.runtime.isFrozen { store.resumeDirector() } else { store.pauseDirector() } } label: { Image(systemName: store.runtime.isFrozen ? "play.fill" : "pause.fill") }
-                    .foregroundStyle(.secondary).disabled(store.runtime.isPreparing).help(store.runtime.isFrozen ? "Resume the director" : "Pause the director")
+                Button { store.pauseDirector() } label: { Image(systemName: "pause.fill") }
+                    .foregroundStyle(.secondary).disabled(store.runtime.isPreparing || !store.canPause).help("Pause the director. Nothing keeps running; Resume picks up where it left off")
             }
         } else if store.settings.isReady(agent) {
             HStack(spacing: 8) {

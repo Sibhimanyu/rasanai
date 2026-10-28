@@ -27,7 +27,7 @@ extension TurnState {
         switch self {
         case .yourTurn(let what, _): "Your turn · \(what)"
         case .working(let activity, _, _): "\(agent) is working · \(activity)"
-        case .paused: "Paused · your files are kept. Resume when you're ready."
+        case .paused: "Paused · nothing is running. Resume picks up where it left off."
         case .attention(let text): text
         }
     }

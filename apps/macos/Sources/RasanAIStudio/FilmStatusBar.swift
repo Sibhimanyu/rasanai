@@ -26,8 +26,8 @@ struct FilmStatusBar<Usage: View>: View {
     private var hasNote: Bool { !model.tellText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     /// Paused or stuck: no call is waiting, so the bar's right side offers the way on.
     private var needsResume: Bool {
-        guard actions == nil, onResume != nil, let turn else { return false }
-        switch turn { case .paused, .attention: return true; default: return false }
+        guard onResume != nil, let turn else { return false }
+        switch turn { case .paused: return true; case .attention: return actions == nil; default: return false }
     }
 
     var body: some View {
@@ -43,8 +43,14 @@ struct FilmStatusBar<Usage: View>: View {
                 if !model.decisionsPresented && !AskRasanFloatingChat.visible(model) {
                     AskRasanField(model: model, compact: $askCompact)
                 }
-                if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
-                else if needsResume { resumeSlot }
+                // Pause stays in reach whenever a director is live for this film, whoever owns the page.
+                if let onPause, !model.isViewingPast {
+                    Button(action: onPause) { Label("Pause", systemImage: "pause.fill").font(.system(size: 12, weight: .medium)) }
+                        .buttonStyle(.rasanSecondary).controlSize(.regular)
+                        .help("Pause the director. Nothing keeps running; Resume picks up where it left off (⌘.)")
+                }
+                if needsResume { resumeSlot }
+                else if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
             }
         }
         .animation(.snappy(duration: 0.2), value: AskRasanFloatingChat.visible(model))
@@ -144,11 +150,6 @@ struct FilmStatusBar<Usage: View>: View {
                 }
                 Text(clockText(elapsed)).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
                 if let onDetails { Button(quiet ? "Show log" : "Details", action: onDetails).buttonStyle(.borderless).controlSize(.small) }
-                // The director is running here too, so the way to stop it stays in reach (⌘.).
-                if let onPause {
-                    Button("Pause", action: onPause).buttonStyle(.borderless).controlSize(.small)
-                        .help("Pause the director. Your files are kept; Resume carries on (⌘.)")
-                }
             }
         }
         .onAppear { sentSeenAt = Date() }
@@ -183,7 +184,6 @@ struct FilmStatusBar<Usage: View>: View {
                         Text(clockText(max(0, context.date.timeIntervalSince(since)))).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
                     }
                     if let onDetails { Button(quiet ? "Show log" : "Details", action: onDetails).buttonStyle(.borderless).controlSize(.small) }
-                    if let onPause { Button("Pause", action: onPause).buttonStyle(.borderless).controlSize(.small).help("Pause the director. Your files are kept; Resume carries on (⌘.)") }
                 }.help(quiet ? "No new activity for two minutes. Check the log, or pause and resume if needed." : full)
             }
         case .paused:

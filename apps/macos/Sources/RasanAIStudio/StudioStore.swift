@@ -223,7 +223,7 @@ final class StudioStore {
     }
     var activeDirectorProject: URL? { runtime.projectURL ?? (runtime.isPreparing ? selectedProjectURL : nil) }
     func shouldBrowseSeparately(_ url: URL) -> Bool {
-        (runtime.isRunning || runtime.isPreparing || runtime.isFinishing || queueStarting || queueHandlingExit) && url != activeDirectorProject && url != runtime.runURL
+        (runtime.isOccupied || runtime.isFinishing || queueStarting || queueHandlingExit) && url != activeDirectorProject && url != runtime.runURL
     }
     struct PendingConsent: Identifiable { let id = UUID(); let agent: LocalAgent; let proceed: () -> Void }
     var pendingConsent: PendingConsent?
@@ -290,10 +290,12 @@ final class StudioStore {
     /// Where the open film stands right now, from live runtime and console state.
     var phase: FilmPhase {
         guard !isSample else { return .inProgress }
-        guard runURL != nil else { return runtime.isPreparing || runtime.isRunning ? .starting : .draft }
+        guard runURL != nil else { return runtime.isOccupied ? .starting : .draft }
         let status = snapshot.step(snapshot.currentStep)["status"].string
         if hasPendingQuestion { return .yourTurn("answer a question") }
         if snapshot.stage == .final, finalURL != nil, status == "done", !runtime.isPreparing { return .finished(loadedVideoDuration > 0 ? loadedVideoDuration : snapshot.duration(for: .final)) }
+        // Paused (or pausing): nothing is working, whatever else is pending.
+        if runtime.stopRequested, !runtime.isPreparing, runtime.runURL == runURL { return .paused }
         if isConnected && snapshot.isFresh && !runtime.isRunning && !runtime.isPreparing { return .yourTurn("say what the film is about") }
         if isConnected && status == "awaiting" && !snapshot.hasSent(snapshot.currentStep) { return .yourTurn(FilmSummary.friendlyStep(snapshot.currentStep, in: snapshot)) }
         if runtime.isPreparing { return .starting }
@@ -334,7 +336,7 @@ final class StudioStore {
             live.phase = phase
             live.detail = CallNotices.homeDetail(snapshot)
             live.stage = runURL == nil ? nil : snapshot.stage
-            if runURL == nil { live.phase = activeDirectorProject == folder && (runtime.isRunning || runtime.isPreparing) ? .working : .draft }
+            if runURL == nil { live.phase = activeDirectorProject == folder && runtime.isOccupied ? .working : .draft }
             if case .finished(let seconds) = live.phase, seconds > 0 { live.duration = Int(seconds.rounded()) }
             return live
         }
@@ -480,12 +482,12 @@ final class StudioStore {
     @discardableResult func openFilm(_ project: URL) -> Bool {
         // Opening the film the director is working on is not a switch: attach to its run. Refusing it showed
         // "stop the director before switching films" on the running film's own page and closed the page.
-        if project.standardizedFileURL == runtime.projectURL?.standardizedFileURL, runtime.isRunning || runtime.isPreparing || runtime.isFinishing {
+        if project.standardizedFileURL == runtime.projectURL?.standardizedFileURL, runtime.isOccupied || runtime.isFinishing {
             selectedProjectURL = project
             if let run = runtime.runURL, runURL != run || loadedFilm != project { openRun(run, navigate: false) }
             return true
         }
-        guard !isTransferringProject, !runtime.isRunning, !runtime.isPreparing, !runtime.isFinishing, !queueStarting, !queueHandlingExit, !isManagingProject, !isImportingSources, !isSavingFilm else {
+        guard !isTransferringProject, !runtime.isOccupied, !runtime.isFinishing, !queueStarting, !queueHandlingExit, !isManagingProject, !isImportingSources, !isSavingFilm else {
             errorMessage = "Wait for file operations to finish and stop the director before switching films."; return false
         }
         selectedProjectURL = project
@@ -523,7 +525,7 @@ final class StudioStore {
     func manageProject(_ folder: URL, action: String, name: String? = nil) {
         guard !isTransferringProject, !queueStarting, !queueHandlingExit, !isManagingProject, !isImportingSources, !isSavingFilm,
               !settings.filmQueue.contains(where: { $0.project == folder }),
-              !((runtime.isRunning || runtime.isPreparing) && folder == activeDirectorProject) else {
+              !(runtime.isOccupied && folder == activeDirectorProject) else {
             errorMessage = "Remove this film from the queue and wait for file operations to finish before changing it."; return
         }
         isManagingProject = true
@@ -553,7 +555,7 @@ final class StudioStore {
                 }
                 if let newFolder {
                     showArchivedProjects = false; filmDraftProject = newFolder
-                    if !runtime.isRunning && !runtime.isPreparing { selectedProjectURL = newFolder; reloadSources() }
+                    if !runtime.isOccupied { selectedProjectURL = newFolder; reloadSources() }
                     path.append(.newFilm(newFolder))
                 }
                 reloadProjects()
@@ -573,7 +575,7 @@ final class StudioStore {
     func newFilm(prefill: String = "", moments: [FilmMoment] = []) {
         guard !isSavingFilm else { return }
         newFilmPrefillMoments = moments
-        if !runtime.isRunning && !runtime.isPreparing { runOpenGeneration = UUID() }
+        if !runtime.isOccupied { runOpenGeneration = UUID() }
         filmDraftProject = nil
         newFilmPrefill = prefill
         if case .newFilm(nil)? = path.last { return }
@@ -625,7 +627,7 @@ final class StudioStore {
         guard !urls.isEmpty else { return false }
         guard let project = target ?? selectedProjectURL else { errorMessage = "Create or open a project before importing source files."; return false }
         guard !isTransferringProject, !queueStarting, !queueHandlingExit, !isImportingSources, !isManagingProject, !isSavingFilm, !settings.filmQueue.contains(where: { $0.project == project }) else { errorMessage = "Remove this film from the queue before changing its source files."; return false }
-        guard old == nil || (!runtime.isRunning && !runtime.isPreparing) else {
+        guard old == nil || !runtime.isOccupied else {
             errorMessage = "Stop the director before replacing a file it may be using."; return false
         }
         isImportingSources = true
@@ -666,7 +668,7 @@ final class StudioStore {
         return true
     }
     func trashSource(_ file: URL) {
-        guard !isTransferringProject, let project = selectedProjectURL, !settings.filmQueue.contains(where: { $0.project == project }), !isImportingSources, !isManagingProject, !runtime.isRunning, !runtime.isPreparing else { return }
+        guard !isTransferringProject, let project = selectedProjectURL, !settings.filmQueue.contains(where: { $0.project == project }), !isImportingSources, !isManagingProject, !runtime.isOccupied else { return }
         isImportingSources = true
         Task {
             defer { isImportingSources = false }
@@ -679,13 +681,13 @@ final class StudioStore {
 
     func saveFilm(name: String, draft: FilmDraft, sources: [URL], existing: URL?, brand: Brand? = nil, start: Bool) async -> URL? {
         filmSourcesCopied = false
-        let busy = runtime.isRunning || runtime.isPreparing
+        let busy = runtime.isOccupied
         if settings.filmQueue.contains(where: { $0.project == existing }) {
             errorMessage = "Remove this film from the queue before editing or starting it separately."; return nil
         }
         guard !isTransferringProject, !queueStarting, !queueHandlingExit, !isImportingSources, !isManagingProject, !isSavingFilm,
               !(busy && (start || existing == activeDirectorProject)) else {
-            errorMessage = "Wait for file operations to finish. Save another draft while the director works; pause it before starting a second film or changing its active project."; return nil
+            errorMessage = "Wait for file operations to finish. Save another draft while the director works; finish or pause it before starting a second film or changing its active project."; return nil
         }
         isSavingFilm = true
         defer { isSavingFilm = false }
@@ -757,13 +759,13 @@ final class StudioStore {
     func openRun(_ url: URL, navigate: Bool = true) {
         guard replayRun == nil else { return }
         let run = url.lastPathComponent == "session.json" ? url.deletingLastPathComponent() : url
-        guard (!runtime.isRunning && !runtime.isPreparing && !runtime.isFinishing && !queueStarting) || run == runtime.runURL else { errorMessage = "Stop the director before switching films."; return }
+        guard (!runtime.isOccupied && !runtime.isFinishing && !queueStarting) || run == runtime.runURL else { errorMessage = "Stop the director before switching films."; return }
         let identity = UUID(); runOpenGeneration = identity
         Task {
         do {
             let state = try await Task.detached { try SessionSnapshot(data: Data(contentsOf: run.appendingPathComponent("session.json"))) }.value
             guard runOpenGeneration == identity else { return }
-            guard (!runtime.isRunning && !runtime.isPreparing) || run == runtime.runURL else { errorMessage = "Stop the director before switching films."; return }
+            guard !runtime.isOccupied || run == runtime.runURL else { errorMessage = "Stop the director before switching films."; return }
             // A director may still be working on this run (the app was closed or updated): take it over before anything resets.
             if runtime.runURL != run || !runtime.isRunning { adoptLiveDirector(run: run) }
             if runtime.runURL != run { runtime.clearPresentation() }
@@ -860,7 +862,7 @@ final class StudioStore {
     }
 
     func loadSample(reset: Bool = false) {
-        guard !runtime.isRunning, !runtime.isPreparing else { errorMessage = "Stop the director before opening the sample."; return }
+        guard !runtime.isOccupied else { errorMessage = "Stop the director before opening the sample."; return }
         runtime.clearPresentation()
         runOpenGeneration = UUID()
         resetConnection()
@@ -969,14 +971,14 @@ final class StudioStore {
         settings.giveConsent(pending.agent)
         pending.proceed()
     }
-    /// Freezes the director in place: nothing is stopped or redone, and Resume carries on mid-step.
+    /// Pause is a real stop: the director process ends, nothing runs and Studio is free for another film. Resume starts a fresh
+    /// director that picks the film up from its saved state.
     func pauseDirector() {
         cancelAutoResume()
-        guard runtime.isRunning, !runtime.isFrozen else { return }
+        guard runtime.isRunning, !runtime.stopRequested else { return }
         if queuePausedBeforeFreeze == nil { queuePausedBeforeFreeze = queuePaused }
         queuePaused = true; queueMessage = "Queue paused with the director."
-        sendCountAtFreeze = film?.sendCount
-        runtime.freeze()
+        runtime.stop(pausing: true)
     }
     /// The film's send count when it was frozen: anything the person sends while paused (an answer, a note) needs the director awake to read it.
     @ObservationIgnored private var sendCountAtFreeze: Int?
@@ -995,7 +997,7 @@ final class StudioStore {
     }
     /// Whether the queue was already paused when the director was frozen, so Resume restores it and not more.
     @ObservationIgnored private var queuePausedBeforeFreeze: Bool?
-    var canPause: Bool { runtime.isRunning && !runtime.isFrozen }
+    var canPause: Bool { runtime.isRunning && !runtime.stopRequested && !runtime.isFrozen }
     @ObservationIgnored private var autoResumeTask: Task<Void, Never>?
     /// Resumes the run that just stopped, once, unless the person got there first or did something else meanwhile.
     func scheduleAutoResume(after delay: TimeInterval, isLimit: Bool = false) {
@@ -1029,15 +1031,16 @@ final class StudioStore {
             monitor.noteResumed()
             return
         }
+        if let before = queuePausedBeforeFreeze { queuePaused = before }
         queuePausedBeforeFreeze = nil
         if settings.filmQueue.contains(where: { $0.project == selectedProjectURL }) { resumeQueue(); return }
-        guard !runtime.isRunning, !runtime.isPreparing, !isSavingFilm, !isManagingProject, !isImportingSources, runURL != nil else { return }
+        guard !runtime.isRunning || runtime.stopRequested, !runtime.isPreparing, !isSavingFilm, !isManagingProject, !isImportingSources, runURL != nil else { return }
         ensureConsent(for: settings.agent) { [self] in
             launchProject = nil
             Task { await startDirector(request: "Resume this existing run from its saved state. Preserve completed work and continue with the next pending step.") }
         }
     }
-    var canResume: Bool { !toolSetup.isRunning && !isTransferringProject && !queueStarting && !queueHandlingExit && !isSample && runURL != nil && (!runtime.isRunning || runtime.isFrozen) && !runtime.isPreparing && !isSavingFilm && !isManagingProject && !isImportingSources }
+    var canResume: Bool { !toolSetup.isRunning && !isTransferringProject && !queueStarting && !queueHandlingExit && !isSample && runURL != nil && (!runtime.isRunning || runtime.isFrozen || runtime.stopRequested) && !runtime.isPreparing && !isSavingFilm && !isManagingProject && !isImportingSources }
 
     func seek(to time: Double) {
         playhead = min(max(0, time), max(0, duration))

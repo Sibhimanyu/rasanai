@@ -238,7 +238,7 @@ struct FilmPage: View {
         case .draft: ["This film has not started yet. Check the brief, then press Start film."]
         case .finished: ["Your film is ready. Export it, or watch it and add notes where something should change."]
         case .yourTurn: ["RasanAI is waiting for you. Answer on the page, then press the button at the bottom right, and it carries on from there.", "You can leave the app; you will be notified if that is turned on."]
-        default: ["\(agent) is making this film. Each step it needs you for shows up here.", "Pause in the ••• menu freezes it in place. Resume carries on exactly where it was."]
+        default: ["\(agent) is making this film. Each step it needs you for shows up here.", "Pause (bottom bar or the ••• menu) stops it where it is, and nothing keeps running. Resume picks up where it left off."]
         }
     }
 }
