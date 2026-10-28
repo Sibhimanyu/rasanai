@@ -19,17 +19,41 @@ public struct ProjectLibrary: Sendable {
     public func prepare() throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
-    public static func validatedName(_ name: String) throws -> String {
-        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, name.count <= 100, name != ".", name != "..",
-              !name.contains("/"), !name.contains(":"), !name.contains("\\"),
-              !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
-            throw LibraryError.invalidName
+    /// Turns any title into a valid project name instead of rejecting it: slashes and colons become " - ", control
+    /// characters go (newlines become spaces), a leading dot is dropped, and it is capped at 100 characters.
+    public static func safeName(_ name: String) -> String {
+        var out = ""
+        for scalar in name.unicodeScalars {
+            if scalar == "/" || scalar == "\\" || scalar == ":" { out += " - " }
+            else if scalar == "\n" || scalar == "\r" || scalar == "\t" { out += " " }
+            else if CharacterSet.controlCharacters.contains(scalar) { continue }
+            else { out.unicodeScalars.append(scalar) }
         }
-        return name
+        // Collapse runs of spaces and repeated " - " separators.
+        var words = out.split(whereSeparator: { $0 == " " }).map(String.init)
+        var cleaned: [String] = []
+        for word in words {
+            if word == "-", cleaned.last == "-" { continue }
+            cleaned.append(word)
+        }
+        words = cleaned
+        while words.first == "-" { words.removeFirst() }
+        while words.last == "-" { words.removeLast() }
+        var result = words.joined(separator: " ")
+        while result.hasPrefix(".") { result.removeFirst() }
+        result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        if result.count > 100 {
+            let cut = String(result.prefix(100))
+            if let space = cut.lastIndex(of: " "), cut.distance(from: cut.startIndex, to: space) >= 50 { result = String(cut[..<space]) }
+            else { result = cut }
+            result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return result.isEmpty ? "Untitled film" : result
     }
+    /// Always returns a valid name; kept as `throws` for existing callers.
+    public static func validatedName(_ name: String) throws -> String { safeName(name) }
     public func create(name: String) throws -> URL {
-        let name = try Self.validatedName(name)
+        let name = Self.safeName(name)
         try prepare()
         let folder = root.appendingPathComponent(name, isDirectory: true)
         // Never merge into an existing project or follow an existing symlink.
@@ -40,6 +64,17 @@ public struct ProjectLibrary: Sendable {
         let project = LocalProject(id: UUID(), name: name, createdAt: Date(), lastOpenedAt: nil, archivedAt: nil)
         try JSONEncoder().encode(project).write(to: folder.appendingPathComponent("rasanai-project.json"), options: .atomic)
         return folder
+    }
+    /// Like `create`, but a folder that already exists gets " 2", " 3"... instead of an error.
+    public func createUnique(name: String) throws -> URL {
+        let base = Self.safeName(name)
+        for index in 1...500 {
+            let suffix = index == 1 ? "" : " \(index)"
+            let candidate = String(base.prefix(100 - suffix.count)).trimmingCharacters(in: .whitespaces) + suffix
+            do { return try create(name: candidate) }
+            catch let error as NSError where error.domain == NSPOSIXErrorDomain && error.code == Int(EEXIST) { continue }
+        }
+        throw LibraryError.noCopyName
     }
     public func read(_ folder: URL) throws -> LocalProject {
         guard folder.deletingLastPathComponent().resolvingSymlinksInPath().path == root.resolvingSymlinksInPath().path,
@@ -53,9 +88,7 @@ public struct ProjectLibrary: Sendable {
     public func update(_ folder: URL, name: String? = nil, archived: Bool? = nil, opened: Bool = false) throws {
         var project = try read(folder)
         if let name {
-            let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !clean.isEmpty, clean.count <= 100, !clean.contains("/"), !clean.contains(":"), !clean.contains("\\"),
-                  !clean.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { throw LibraryError.invalidName }
+            let clean = Self.safeName(name)
             // Rename the display name only: absolute run/source references must keep working.
             project.name = clean
         }

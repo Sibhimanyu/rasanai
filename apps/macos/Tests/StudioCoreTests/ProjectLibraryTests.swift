@@ -20,8 +20,11 @@ final class ProjectLibraryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let library = ProjectLibrary(root: root)
         for name in ["", ".", "..", "../outside", "a/b", "a:b", "a\\b", "a\nb"] {
-            XCTAssertThrowsError(try library.create(name: name))
+            let folder = try library.createUnique(name: name)
+            XCTAssertEqual(folder.deletingLastPathComponent().resolvingSymlinksInPath().path, root.resolvingSymlinksInPath().path)
         }
+        XCTAssertEqual(ProjectLibrary.safeName("Fable 5.1: Launch"), "Fable 5.1 - Launch")
+        XCTAssertEqual(ProjectLibrary.safeName(" "), "Untitled film")
         let folder = try library.create(name: "Keep me")
         let before = try Data(contentsOf: folder.appendingPathComponent("rasanai-project.json"))
         XCTAssertThrowsError(try library.create(name: "Keep me"))

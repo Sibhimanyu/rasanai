@@ -695,7 +695,7 @@ final class StudioStore {
             let library = settings.library
             let project = try await Task.detached {
                 if let existing { _ = try library.read(existing); return existing }
-                return try library.create(name: name)
+                return try library.createUnique(name: name)
             }.value
             // Remember the created folder even if importing or starting fails, so retry never creates duplicates.
             filmDraftProject = project
