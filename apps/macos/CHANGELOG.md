@@ -2,11 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.26.2 (build 69) — 2026-10-28
 
 - **Pause really stops the film.** Pause used to freeze the director in place, so Studio kept treating a paused film as running: it blocked starting another film, and it came back as running after a restart. Pause now ends the director cleanly. Nothing keeps running, Studio is free for another film, and Resume picks up where the film left off. Films that an older build left frozen are stopped the same way when Studio opens.
 - Pause is always in the bottom bar while a film is being made, including while Film progress is open and while it waits for you. Resume takes its place once the film is paused. The ••• menu item and ⌘. still work.
 - Home, New film, the queue and opening films now use the same check for whether a film is running, so they agree with each other.
+- **Bundles RasanAI 1.31.0.**
 
 ## 0.26.1 (build 68) — 2026-10-28
 
