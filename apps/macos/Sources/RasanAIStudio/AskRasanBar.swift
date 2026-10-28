@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// The Ask Rasan field inside the film's bottom pill: the one place to type to Rasan when the side panel is closed.
-/// Focusing it (click, Tab, ⌘K) opens the conversation above the pill (`AskRasanFloatingChat`). Return sends and keeps the
-/// chat open, Shift-Return adds a line (the field grows to four lines, the pill with it), Esc tucks the chat away. The draft is
-/// `model.tellText`, shared with the side panel's composer. When the pill is narrow the field shrinks to an icon; opening the
-/// chat then adds a full-width row with the field (`mode: .row`). Hidden in full-screen video.
+/// The Ask Rasan composer, shown in the bottom pill while the chat is closed and in the floating panel while open.
+/// Focusing the entry field opens the conversation. Return sends, Shift-Return adds a line, and Esc tucks the chat away.
+/// The draft is `model.tellText`, shared with the side panel's composer. In a narrow pill the entry field becomes an icon;
+/// the open panel always provides a full-width composer. Hidden in full-screen video.
 struct AskRasanField: View {
     enum Mode { case auto, row }
     @Bindable var model: FilmSessionModel
@@ -28,7 +27,9 @@ struct AskRasanField: View {
                 case .row:
                     field.frame(maxWidth: .infinity)
                         .onAppear { focused = true; model.tellPresented = false }
-                        .onDisappear { model.askFieldFocused = false }
+                        .onDisappear {
+                            if !model.askCardPresented { model.askFieldFocused = false }
+                        }
                 case .auto:
                     ViewThatFits(in: .horizontal) {
                         field.frame(minWidth: 160, idealWidth: 240, maxWidth: open ? 380 : 300)
@@ -39,8 +40,9 @@ struct AskRasanField: View {
                         if !hintSeen && !open { hint.fixedSize().offset(y: -46).transition(.opacity) }
                     }
                     .animation(.smooth, value: hintSeen)
-                    .onAppear { model.askFieldMounted = true }
-                    .onDisappear { model.askFieldMounted = false; model.askFieldFocused = false }
+                    .onDisappear {
+                        if !model.askCardPresented { model.askFieldFocused = false }
+                    }
                 }
             }
             .onChange(of: model.askCardPresented) { _, isOpen in
@@ -77,7 +79,7 @@ struct AskRasanField: View {
                     return .handled
                 }
                 .onChange(of: focused) { _, on in
-                    model.askFieldFocused = on
+                    if on || !model.askCardPresented { model.askFieldFocused = on }
                     if on { openChat() }
                 }
                 .onChange(of: model.tellText) { _, new in
@@ -181,9 +183,9 @@ extension FilmSessionModel {
         else { openAskCard() }
     }
 
-    /// ⌘K: the panel's composer when the side panel is open (or there is no pill on this page), else the pill's field.
+    /// ⌘K: the inspector composer when the sidebar is open or the page has no bottom-bar composer; otherwise the pill.
     func askRasan() {
-        if decisionsPresented || !askFieldMounted { beginTell() }
+        if decisionsPresented || !askComposerAvailable || VideoStageOverlay.shared.playback != nil { beginTell() }
         else { openAskCard() }
     }
 }

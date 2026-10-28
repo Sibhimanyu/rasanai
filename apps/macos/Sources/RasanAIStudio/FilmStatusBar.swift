@@ -39,21 +39,15 @@ struct FilmStatusBar<Usage: View>: View {
                 status
                 Spacer(minLength: 8)
                 usage.fixedSize().padding(.trailing, 4)
-                // The chat draft is shared with the inspector; omit this composer while that panel is open.
-                if !model.decisionsPresented {
+                // The chat owns its composer while open; this field is the entry point when it is closed.
+                if !model.decisionsPresented && !AskRasanFloatingChat.visible(model) {
                     AskRasanField(model: model, compact: $askCompact)
                 }
                 if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
                 else if needsResume { resumeSlot }
             }
-            // Too narrow for the field: the icon opens the chat and the pill grows a full-width row to type in.
-            if !model.decisionsPresented && askCompact && AskRasanFloatingChat.visible(model) {
-                AskRasanField(model: model, mode: .row, compact: .constant(true))
-                    .padding(.bottom, 2)
-                    .transition(.opacity)
-            }
         }
-        .animation(.snappy(duration: 0.2), value: askCompact && AskRasanFloatingChat.visible(model))
+        .animation(.snappy(duration: 0.2), value: AskRasanFloatingChat.visible(model))
         // A floating full-width pill of the same glass as the sidebar; content scrolls underneath it.
         .studioBottomBar()
         .onChange(of: turn) { lastActivityAt = Date() }
@@ -314,6 +308,9 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
                         }
                 }
             }
+        .onAppear { model.askComposerAvailable = visible }
+        .onChange(of: visible) { _, shown in model.askComposerAvailable = shown }
+        .onDisappear { model.askComposerAvailable = false }
         // A note goes out with whatever was accepted (the note itself, or the call it rode along with).
         .onChange(of: model.sendCount) { model.tellText = "" }
     }
