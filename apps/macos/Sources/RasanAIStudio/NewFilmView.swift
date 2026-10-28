@@ -50,7 +50,7 @@ struct NewFilmView: View {
     private var trimmedBrief: String { draft.brief.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var agent: LocalAgent { store.settings.agent }
     private var directorReady: Bool { store.settings.isReady(agent) }
-    private var directorBusy: Bool { store.runtime.isRunning || store.runtime.isPreparing }
+    private var directorBusy: Bool { store.runtime.isOccupied }
     private var editingQueued: Bool { project.map { store.isWaitingInQueue($0) } ?? false }
     private var checkingStart: Bool { StartGate.shared.isChecking }
     private var editorState: FilmEditorDraft { FilmEditorDraft(name: name, film: draft, sources: sources, project: recoveryProject) }

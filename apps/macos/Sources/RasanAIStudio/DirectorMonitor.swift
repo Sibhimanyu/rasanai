@@ -153,11 +153,11 @@ final class DirectorMonitor {
                                     exitCode: runtime.lastExitCode, stopRequested: runtime.stopRequested, awaitingUser: running && awaitingUser,
                                     lastConsoleUpdate: lastConsoleUpdate,
                                     endedEarlyReason: runtime.recovery.map { [$0.title, runtime.recoveryDetail].filter { !$0.isEmpty }.joined(separator: ". ") },
-                                    lastWake: lastWake, paused: runtime.isFrozen, blocked: scanner.open)
+                                    lastWake: lastWake, paused: runtime.isFrozen || runtime.stopRequested, blocked: scanner.open)
         health = DirectorHealth.evaluate(telemetry, context: context)
-        if autoPaused != nil, !runtime.isFrozen { autoPaused = nil }
+        if autoPaused != nil, !runtime.isFrozen, !runtime.stopRequested { autoPaused = nil }
         updateKeepAwake(running: running, store: store)
-        if running, let live = runtime.runURL, now.timeIntervalSince(lastBeat) > 5 { lastBeat = now; Self.beat(run: live) }
+        if running, !runtime.stopRequested, let live = runtime.runURL, now.timeIntervalSince(lastBeat) > 5 { lastBeat = now; Self.beat(run: live) }
         store.thawIfSentWhileFrozen()
         updateLedger()
         checkBudget(store: store)
@@ -331,11 +331,11 @@ final class DirectorMonitor {
         notify(store, title: "Rasan was blocked", body: block.message + " Open RasanAI Studio to decide.")
     }
 
-    /// Freezes the director on RasanAI's own call. Returns false when there was nothing to pause.
+    /// Pauses (really stops) the director on RasanAI's own call. Returns false when there was nothing to pause.
     private func pause(_ kind: AutoPause.Kind, reason: String, store: StudioStore) -> Bool {
         guard autoPaused == nil, store.canPause else { return false }
         store.pauseDirector()
-        guard store.runtime.isFrozen else { return false }
+        guard store.runtime.stopRequested else { return false }
         autoPaused = AutoPause(kind: kind, reason: reason, at: now)
         loopSince = nil
         return true

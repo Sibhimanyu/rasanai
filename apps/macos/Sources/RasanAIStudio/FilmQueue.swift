@@ -36,7 +36,7 @@ extension StudioStore {
         guard let first = settings.filmQueue.first, let agent = LocalAgent(rawValue: first.draft.agent) else { return }
         ensureConsent(for: agent) { [self] in
             queuePaused = false
-            queueMessage = runtime.isRunning ? "Waiting for the running film to finish." : "Starting the next film…"
+            queueMessage = runtime.isOccupied ? "Waiting for the running film to finish." : "Starting the next film…"
             Task { await startNextQueuedFilm() }
         }
     }
@@ -95,7 +95,7 @@ extension StudioStore {
     }
 
     func startNextQueuedFilm() async {
-        guard !isDemo, !queuePaused, !queueStarting, !queueHandlingExit, !runtime.isRunning, !runtime.isPreparing, !runtime.isFinishing,
+        guard !isDemo, !queuePaused, !queueStarting, !queueHandlingExit, !runtime.isOccupied, !runtime.isFinishing,
               !toolSetup.isRunning, !isTransferringProject, !isSavingFilm, !isManagingProject, !isImportingSources, !isSending, let entry = settings.filmQueue.first, entry.state != .running else { return }
         guard let agent = LocalAgent(rawValue: entry.draft.agent), agent != .custom, settings.hasConsent(agent) else {
             queuePaused = true; queueMessage = "Resume the queue to confirm use of this director account."; return

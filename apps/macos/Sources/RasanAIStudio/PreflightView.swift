@@ -88,7 +88,7 @@ struct PreflightView: View {
                 }
                 Text("Checked \(report.checkedAt.formatted(date: .omitted, time: .shortened)). Availability can change; launch checks run again automatically.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
-                if store.runtime.isRunning || store.runtime.isPreparing {
+                if store.runtime.isOccupied {
                     Text("Pause the director before installing tools.").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
             } else { Spacer() }

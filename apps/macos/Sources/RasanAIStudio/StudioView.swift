@@ -156,15 +156,14 @@ struct StudioView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             // Library pages say this in the status bar; this strip is for a film page showing another film.
-            if !showsStatusBar, (store.runtime.isRunning || store.runtime.isPreparing), let active = store.activeDirectorProject,
+            if !showsStatusBar, store.runtime.isOccupied, let active = store.activeDirectorProject,
                store.displayedFilmURL != active && store.displayedFilmURL != store.runtime.runURL {
                 HStack(spacing: 10) {
                     if store.phase.isBusy { ProgressView().controlSize(.small) }
                     Text("\(store.currentFilmTitle) · \(store.phase.homeLine)").font(.system(size: 12)).lineLimit(1)
                     Spacer()
                     Button("Back to running film") { store.showFilm(active) }
-                    if store.runtime.isFrozen { Button("Resume") { store.resumeDirector() } }
-                    else { Button("Pause") { store.pauseDirector() }.disabled(store.runtime.isPreparing) }
+                    Button("Pause") { store.pauseDirector() }.disabled(store.runtime.isPreparing || !store.canPause)
                 }.padding(.horizontal, 18).padding(.vertical, 10)
                     .background(.regularMaterial).overlay(alignment: .top) { Divider() }
             }
