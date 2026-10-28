@@ -59,10 +59,10 @@ final class FilmSessionModel {
     var decisionsPresented = false
     /// The Ask Rasan chat that grows up out of the bottom pill is open (hidden while the side panel is open).
     var askCardPresented = false
+    /// Set by the page's status-bar host, which owns whether the bottom-bar Ask composer is available.
+    var askComposerAvailable = false
     /// The pill's Ask Rasan field has keyboard focus (a click outside never collapses the chat while a draft is being typed).
     var askFieldFocused = false
-    /// The pill's Ask Rasan field is on screen (not on drafts or in full-screen video), so ⌘K can go to it.
-    var askFieldMounted = false
     var inspectorTab: InspectorTab = .chat
     /// A note card in the inspector asks the player on the stage to jump to its moment (the stage watches `seekTick`).
     private(set) var seekTime: Double = 0

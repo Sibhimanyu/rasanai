@@ -7,6 +7,7 @@ Desktop releases are separate from RasanAI skill releases.
 - Ask Rasan now opens in a contained conversation panel with a clear title, close action and shortcut to the side panel.
 - The director recovery banner uses a compact, responsive layout, with clearer recovery details and actions at narrow window widths.
 - The Ask Rasan composer hides while the side panel is open, avoiding two composers on screen.
+- The open Ask Rasan panel has its own composer; ⌘K uses it when the bottom-bar composer is unavailable.
 - **Bundles RasanAI 1.31.0.**
 
 
