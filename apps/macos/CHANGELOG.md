@@ -2,6 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- The sidebar has more room, and the Ask Rasan conversation panel now uses a solid background to keep messages readable.
+- Recovery messages avoid showing generic stop diagnostics in place of the guidance for the situation.
+- Final review uses a more compact crew header to leave more room for the film.
+- Media badges fit narrow status bars more cleanly without the extra proxy explanation.
+
+
 ## 0.26.2 (build 69) — 2026-10-28
 
 - **Pause really stops the film.** Pause used to freeze the director in place, so Studio kept treating a paused film as running: it blocked starting another film, and it came back as running after a restart. Pause now ends the director cleanly. Nothing keeps running, Studio is free for another film, and Resume picks up where the film left off. Films that an older build left frozen are stopped the same way when Studio opens.

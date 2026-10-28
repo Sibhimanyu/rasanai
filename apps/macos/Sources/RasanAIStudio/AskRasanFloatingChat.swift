@@ -73,7 +73,7 @@ struct AskRasanFloatingChat: View {
                 }
         }
         .frame(width: width, height: height)
-        .background(Color.appBackground.opacity(0.97), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.appBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.13), lineWidth: 1)

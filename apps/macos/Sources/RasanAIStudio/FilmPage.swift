@@ -326,14 +326,15 @@ struct DirectorRecoveryView: View {
     let recovery: DirectorRecovery
     var body: some View {
         let detail = store.runtime.recoveryDetail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let genericStopDetail = detail.hasPrefix("The director stopped before")
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 14)).foregroundStyle(.orange).padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 Text(recovery.title).font(.system(size: 13, weight: .semibold))
-                if !detail.isEmpty {
+                if !detail.isEmpty && !genericStopDetail {
                     Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(3).textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if recovery.message != recovery.title {
+                } else if !recovery.message.isEmpty {
                     Text(recovery.message).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
