@@ -39,13 +39,15 @@ struct FilmStatusBar<Usage: View>: View {
                 status
                 Spacer(minLength: 8)
                 usage.fixedSize().padding(.trailing, 4)
+                // The chat draft is shared with the inspector; omit this composer while that panel is open.
+                if !model.decisionsPresented {
+                    AskRasanField(model: model, compact: $askCompact)
+                }
                 if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
                 else if needsResume { resumeSlot }
-                // The one place to type to Rasan; focusing it grows the conversation up out of the pill.
-                AskRasanField(model: model, compact: $askCompact)
             }
             // Too narrow for the field: the icon opens the chat and the pill grows a full-width row to type in.
-            if askCompact && AskRasanFloatingChat.visible(model) {
+            if !model.decisionsPresented && askCompact && AskRasanFloatingChat.visible(model) {
                 AskRasanField(model: model, mode: .row, compact: .constant(true))
                     .padding(.bottom, 2)
                     .transition(.opacity)
