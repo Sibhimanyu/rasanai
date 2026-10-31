@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.32.0 (2026-10-31): A rebuilt creative engine
 
 A rebuilt creative engine, so launch films stop coming out as slideshows. Checked with syntax checks, smoke runs and a dry run of a scratch film through every phase; no real film has been made with it yet.
 
