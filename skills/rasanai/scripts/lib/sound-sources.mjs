@@ -146,38 +146,54 @@ export const localGen = (() => {
   return { HOME, VENV, MODELS, SRC, status, available, setup, generate };
 })();
 
-// ---- the prompt builder: the film's arc, BPM, mood, style world and (song-lyric) lyrics become ACE-Step's caption + a tagged lyrics field.
-// ACE-Step has no timestamps: structure comes from the ORDER and the length of the tagged sections (bars at the BPM), so each section gets as many
-// lines/bars as the arc gives it seconds. arc = { intro_until, drop_at, break: [from, to] | null, payoff_at, button_at } (music-lib readArc).
-//   buildLocalPrompt({arc, film, bpm, mood, style, lyrics, mode, narrated, exclusions}) -> {caption, lyrics, instrumental, bpm, duration, sections, notes}
-export function buildLocalPrompt({ arc, film, bpm = 120, mood = "", style = "", lyrics = "", mode = "instrumental-arc", narrated = false, exclusions = [], keyscale = "" } = {}) {
+// ---- the prompt builder: "generate long, then edit to picture". ACE-Step has no timestamps and only roughly obeys section lengths, so the clip is made
+// LONGER than the film (film + extra, 15-30 s) with a clear section plan (intro, [verse], build, drop/chorus, breakdown, final chorus, outro) at the asked BPM.
+// scripts/lib/music-edit.mjs then maps the take (bars, downbeats, energy) and cuts the sections that fit the arc onto the picture's marks.
+// What ACE-Step 1.5's own prompt guide (docs/en/Tutorial.md) says works, and what this builder does with it:
+//   - the CAPTION carries the whole story in one voice (style, mood, BPM, instruments, vocal type, the section-by-section energy), the LYRICS field carries only structure tags and sung text, and the two must agree
+//   - short section tags with ONE modifier ("[Chorus - explosive]", "[Breakdown - low energy]"), never stacked tags (the model sings them as lyrics); blank line between sections
+//   - [Drop] / [Build] / [Breakdown] are real tags; energy words ([low energy] [building energy] [explosive]) give the contrast; instrumental sections say [Instrumental]
+//   - singing: 6-10 syllables a line, one line per ~2 bars, the hook sung twice (repeated inside a long chorus and again in the final chorus), uppercase in the chorus for intensity, no energy modifier on a verse (a "soft" verse was mumbled), language set (vocal_language), a vocal descriptor in the caption (voice type, "clear crisp diction"), bpm + 4/4 as an anchor
+//   - duration: the vocal sections get at least 2 bars per line, and the whole clip stays under about 60 s (30-60 s is the stable range; longer repeats)
+//   buildLocalPrompt({arc, film, bpm, mood, style, lyrics, mode, narrated, exclusions, extra, voice, language}) -> {caption, lyrics, instrumental, bpm, duration, language, timesignature, sections, notes}
+export function buildLocalPrompt({ arc, film, bpm = 120, mood = "", style = "", lyrics = "", mode = "instrumental-arc", narrated = false, exclusions = [], keyscale = "", extra = 20, voice = "", language = "en" } = {}) {
   const T = Math.max(10, Math.round(Number(film) || 30));
+  bpm = Math.max(60, Math.min(180, Math.round(Number(bpm) || 120)));
   const a = arc || {};
-  const num = (v, d) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.min(T, Number(v)) : d);
-  const intro = num(a.intro_until, T * 0.2), drop = num(a.drop_at, Math.max(intro, T * 0.3)), payoff = num(a.payoff_at, T * 0.8), button = num(a.button_at, T - 1.5);
-  const br = Array.isArray(a.break) && a.break.length === 2 && Number(a.break[1]) > Number(a.break[0]) ? [Number(a.break[0]), Number(a.break[1])] : null;
-  const bars = (s) => Math.max(1, Math.round((s * bpm) / 240));
-  const sec = [];
-  const push = (tag, from, to, kind) => { if (to - from > 0.4) sec.push({ tag, from: +from.toFixed(2), to: +to.toFixed(2), bars: bars(to - from), kind }); };
-  push("Intro - sparse, soft pads and a single pulse, no drums", 0, Math.min(intro, drop), "intro");
-  if (drop - intro > 1.2) push("Build - rising tension, filtered drums enter", intro, drop, "build");
-  const afterDrop = br ? br[0] : payoff;
-  push("Drop - full beat, bass and lead enter, big energy release", drop, afterDrop, "drop");
-  if (br) { push("Breakdown - strip back to pads and air, drums out, space", br[0], br[1], "break"); push("Final Chorus - biggest section, everything returns, euphoric", br[1], Math.max(br[1] + 0.5, button), "payoff"); }
-  else if (payoff > afterDrop) push("Final Chorus - biggest section", afterDrop, button, "payoff");
-  push("Outro - one clean hit and a short tail", Math.max(button, sec.length ? sec[sec.length - 1].to : 0), T, "button");
+  const bar = 240 / bpm;
+  const G = T + Math.max(15, Math.min(30, Number(extra) || 20));
+  const total = Math.max(12, 2 * Math.round(G / bar / 2));
   const song = mode === "song-lyric" && String(lyrics).trim();
-  const lines = String(lyrics || "").split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  // sung lyrics: spread the lines over the vocal sections (drop onward) in order; the intro stays instrumental
-  const vocal = sec.filter((s) => s.kind === "drop" || s.kind === "payoff" || (s.kind === "break" && false));
-  const perSec = song && vocal.length ? Math.ceil(lines.length / vocal.length) : 0;
-  let li = 0;
+  const lines = String(lyrics || "").split(/\n+/).map((l) => l.trim().replace(/^\[.*\]$/, "")).filter(Boolean);
+  const hasBreak = Array.isArray(a.break) && a.break.length === 2 && Number(a.break[1]) > Number(a.break[0]);
+  // sections in order: [kind, tag, weight, min bars]; the verse exists only for a song (its first lines), a build always, a breakdown always (it is the film's breath before the end card)
+  const plan = song && lines.length >= 2
+    ? [["intro", "Intro - low energy", 0.08, 2], ["verse", "Verse", 0.14, 4], ["build", "Build - building energy", 0.06, 2], ["drop", "Chorus - explosive", 0.24, 4], ["break", "Breakdown - low energy", 0.1, 2], ["payoff", "Final Chorus - explosive", 0.24, 4], ["outro", "Outro - one last hit", 0.08, 2]]
+    : [["intro", "Intro - low energy", 0.12, 2], ["build", "Build - building energy", 0.14, 2], ["drop", song ? "Chorus - explosive" : "Drop - explosive", 0.26, 4], ["break", "Breakdown - low energy", 0.12, 2], ["payoff", song ? "Final Chorus - explosive" : "Final Drop - explosive", 0.26, 4], ["outro", "Outro - one last hit", 0.1, 2]];
+  const split = song && lines.length >= 2 ? Math.ceil(lines.length / 2) : 0;
+  const verseLines = split ? lines.slice(0, split) : [], hookLines = split ? lines.slice(split) : song ? lines : [];
+  const sec = plan.map(([kind, tag, w, min]) => ({ kind, tag, bars: Math.max(min, 2 * Math.round((w * total) / 2)) }));
+  const need = (k, n) => { const s = sec.find((x) => x.kind === k); if (s && n) s.bars = Math.max(s.bars, Math.max(4, 2 * n)); };
+  need("verse", verseLines.length); need("drop", hookLines.length); need("payoff", hookLines.length);
+  // bring the bar count back to the target by trimming/growing the two big sections (the drop and the final chorus), never under their minimums
+  const sum = () => sec.reduce((x, s) => x + s.bars, 0);
+  const big = ["drop", "payoff"].map((k) => sec.find((s) => s.kind === k));
+  for (let g = 0; sum() !== total && g < 200; g++) { const s = big[g % 2], d = total > sum() ? 2 : -2; const floor = Math.max(4, 2 * (hookLines.length || 0)); if (s.bars + d >= floor) s.bars += d; else if (sum() - total > 0 && g > 20) break; }
+  let t0 = 0;
+  for (const s of sec) { s.from = +t0.toFixed(2); t0 += s.bars * bar; s.to = +t0.toFixed(2); }
+  const duration = Math.ceil(t0);
+  const notes = [];
+  const syl = (l) => (l.toLowerCase().match(/[aeiouy]+/g) || []).length;
+  for (const l of lines) if (song && syl(l) > 10) notes.push("lyric line over 10 syllables (the guide says 6-10; a long line is rushed or dropped): " + l);
   const parts = sec.map((s) => {
-    const head = `[${s.tag}]`;
-    if (song && (s.kind === "drop" || s.kind === "payoff") && li < lines.length) { const take = lines.slice(li, li + perSec); li += take.length; return [head, ...take].join("\n"); }
-    return head + (s.kind === "intro" || s.kind === "build" || s.kind === "break" || s.kind === "button" ? "\n[Instrumental]" : "");
+    const head = "[" + s.tag + "]";
+    if (song && s.kind === "verse" && verseLines.length) return [head, ...verseLines].join("\n");
+    if (song && (s.kind === "drop" || s.kind === "payoff") && hookLines.length) { const hk = hookLines.map((l) => l.toUpperCase()), rep2 = s.bars >= 4 * hk.length; /* the hook sung twice in a long section: about 2 bars a line sings clearly, 4 bars a line is stretched into vowels */ return [head, ...hk, ...(rep2 ? hk : [])].join("\n"); }
+    return head + "\n[Instrumental]";
   });
-  const marks = [`sparse intro for the first ${intro.toFixed(0)} seconds`, `full drop at ${drop.toFixed(0)} seconds`, br ? `breakdown from ${br[0].toFixed(0)} to ${br[1].toFixed(0)} seconds` : null, `final peak by ${payoff.toFixed(0)} seconds`].filter(Boolean).join(", ");
-  const cap = [style || "modern electronic pop launch film score", mood, `${Math.round(bpm)} BPM`, song ? "clear lead vocal, catchy hook" : "instrumental, no vocals", "clean modern production, wide stereo, tight low end", marks, ...(exclusions || []).slice(0, 4).map((x) => "no " + x)].filter(Boolean).join(", ");
-  return { caption: cap.slice(0, 900), lyrics: song ? parts.join("\n\n") : parts.join("\n\n"), instrumental: !song, bpm: Math.round(bpm), keyscale, duration: T, sections: sec, notes: song ? [`${lines.length} lyric lines over ${vocal.length} vocal sections; force-align afterwards: node scripts/vo.mjs lyrics --track <song> --lyrics <file> --out <dir>`] : [] };
+  const contrast = ["a sparse intro, one soft pad and a quiet pulse, no drums", "a rising build with a riser and filtered drums", "a massive full-band drop, heavy kick, deep bass and a bright lead, much louder than the intro", "a stripped breakdown with only pads and air, drums out, far quieter", "a huge final chorus, even bigger than the first, ending on one clean final hit"];
+  const vox = voice || "female vocal, clear crisp diction, confident, catchy hook";
+  const langName = { en: "English", es: "Spanish", fr: "French", de: "German", hi: "Hindi", ja: "Japanese", ko: "Korean", zh: "Chinese", pt: "Portuguese", it: "Italian" }[language] || language;
+  const cap = [style || "modern electronic pop launch film score", mood, bpm + " BPM, 4/4, steady tempo", ...contrast, song ? vox + ", sung in " + langName + ", lyrics clearly sung and easy to understand" : "instrumental, no vocals", "clean modern production, wide stereo, tight low end", ...(exclusions || []).slice(0, 4).map((x) => "no " + x)].filter(Boolean).join(", ");
+  return { caption: cap.slice(0, 900), lyrics: parts.join("\n\n"), instrumental: !song, bpm, keyscale, timesignature: "4", language, duration, sections: sec.map((s) => ({ ...s, seconds: +(s.bars * bar).toFixed(1) })), notes: song ? [...notes, lines.length + " lyric lines: " + verseLines.length + " in the verse, " + hookLines.length + " in the chorus, sung again in the final chorus; force-align afterwards: node scripts/vo.mjs lyrics --track <song> --lyrics <file> --out <dir>"] : notes };
 }
