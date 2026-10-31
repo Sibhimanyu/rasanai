@@ -42,5 +42,16 @@
     "rasan-image-fx.js"
   ],
   "light": true,
-  "bundle_into": 19
+  "bundle_into": 19,
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.duotoneStockCluster",
+    "example": "RasanMoves.duotoneStockCluster(tl, 0.2, { target: stage, images: [photo, photo2, photo3], colourIndex: 3 });",
+    "params": [
+      "count",
+      "colourIndex",
+      "dark",
+      "light"
+    ]
+  }
 }

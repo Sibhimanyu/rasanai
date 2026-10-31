@@ -1,6 +1,9 @@
 {
-  "$comment": "Taste questions: the few choices that decide a film and that RasanAI can't infer. One source of truth for the Studio's setup flow (one question per screen) and for the skill (the PREFERENCES block, presenter.mjs check/build, learn.mjs infer). A format option lists the ids it asks in formats.json `questions`. `unsure` hands the call to RasanAI. `ask_if` limits a question to films where it means something. Answers are stored as { <question id>: <choice id> } in rasanai-brief.json `preferences` and in a series' series.json `preferences`.",
+  "$comment": "Taste questions: the few choices that decide a film and that RasanAI can't infer. One source of truth for the Studio's setup flow (one question per screen) and for the skill (the PREFERENCES block, presenter.mjs check/build, learn.mjs infer). A format option lists the ids it asks in formats.json `questions`. `unsure` hands the call to RasanAI. `ask_if` limits a question to films where it means something. Answers are stored as { <question id>: <choice id> } in rasanai-brief.json `preferences` and in a series' series.json `preferences`. `brief_fields` are optional free-text brief fields that are not taste choices (kept out of `questions`, so the setup flow and the preferences check never see them): reference_films feeds scripts/refs.mjs.",
   "version": 1,
+  "brief_fields": [
+    { "id": "reference_films", "question": "Any reference films you love?", "kind": "paths-or-urls", "optional": true, "description": "Video files, a folder of them, or links (YouTube/Vimeo). RasanAI measures them and reads how they are cut, paced and scored, then aims at those targets. They inform the film; nothing from them is ever copied in.", "stored_in": "rasanai-brief.json reference_films (array of strings)", "setup": "RasanAI Studio asks it as the Reference films screen (file and folder drops, a file picker, pasted links)", "consumers": "scripts/refs.mjs ingest, crew.mjs plan --refs" }
+  ],
   "questions": [
     {
       "id": "pictures",

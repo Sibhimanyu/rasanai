@@ -121,6 +121,7 @@ import { boundary as storyboardBoundary } from "./lib/storyboard.mjs"; // Plan 0
 import { creativeOn, planRevision, sequenceRecordsOf, commitmentReport, consentContexts, approvalPins, lookStyleOf, creativeLookProfile, prepareReferences, provisionalBrief, briefIsSkeleton, checkBrief, reviseCreative, latestReview, normalizeReviewPaths, boardDigests, creativeGate, completionFor, referencesDigest, sequenceCapabilities, sequenceGateFor, finalOutputOf } from "./lib/creative-run.mjs";
 import { creativeSlice, validateMotifBindings, treatmentMotifs } from "./lib/creative-contract.mjs";
 import { referencePacket } from "./lib/creative-references.mjs";
+import { checkBreakdown } from "./lib/ref-targets.mjs"; // the user's own reference films (refs.mjs ingest / summarize; agents/reference-analyst.md)
 import { validateProofContract, validateProofReview } from "./lib/proof-integrity.mjs";
 import { validateCreativeHandoff } from "./lib/creative-handoff.mjs";
 // Style Intelligence Part 2 (medium-native films): everything below is gated on the creative policy or on a medium contract (design/<label>/medium.json, medium-contract@1); a legacy run never reads it
@@ -239,6 +240,7 @@ const ROLES = {
   "selects-producer": { desk: "research", tier: "inherit", desc: () => "Finding the bites, the moments and the story in the footage" },
   "footage-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} paper edit from the footage`.replace("  ", " ") },
   "brand-kit-builder": { desk: "research", tier: "fast", desc: (p) => `Reading ${p.subject || "the brand"}'s own guidelines, fonts and logos into a design system` },
+  "reference-analyst": { desk: "research", tier: "fast", desc: (p, k) => `Reading the reference film ${k || ""} (sheets + measured numbers) into a breakdown`.replace("  ", " ") },
   "brand-film-analyst": { desk: "research", tier: "fast", desc: (p) => `Reading ${p.subject || p.brand || "the brand"}'s own films and writing down its film style` },
   "concept-critic": { desk: "story", tier: "fast", desc: () => "Scoring the chosen script and look against the literal brief, before any expensive work" },
   critic: { desk: "review", tier: "inherit", desc: (p, k) => `Reviewing the ${String(k || "film").split("-")[0]} with fresh eyes` },
@@ -256,7 +258,7 @@ export const TOKENS = {
   "scene-animator": 90000, "styleframe-designer": 60000, "frame-designer": 40000, "frame-juror": 30000,
   "product-researcher": 30000, "brand-researcher": 25000, "screens-researcher": 20000, "precedent-researcher": 30000, "local-scout": 25000, "research-lead": 30000,
   "move-inventor": 40000, "move-juror": 30000, "move-sketcher": 20000, "script-editor": 40000, "story-planner": 40000, "structure-critic": 30000, "concept-critic": 20000,
-  "art-director": 80000, "character-designer": 45000, "footage-logger": 25000, "selects-producer": 40000, "brand-kit-builder": 30000, "brand-film-analyst": 30000, retrospective: 15000,
+  "art-director": 80000, "character-designer": 45000, "footage-logger": 25000, "selects-producer": 40000, "brand-kit-builder": 30000, "brand-film-analyst": 30000, "reference-analyst": 40000, retrospective: 15000,
 };
 const TOKEN_KEYS = { "film-builder:lead": 120000, "motion-director:seams": 60000 }; // a key that costs differently from its role
 const FIX_ROUND = 60000; // the builder's fix pass per round (its critic pass and the A/B are counted separately)
@@ -587,6 +589,16 @@ function planCrew(p) {
   if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") phases.push({ phase: "stage3d-font", when: "before a beat sets BRAND TYPE in 3D (extruded text): only then", dispatch: [], director_steps: ["node scripts/stage3d.mjs font --project <dir> --family \"<Brand Font>\" --weight 700 (prints the staged font path)", "k.extrudeText(text, { font: \"<printed path>\" }) in the scene"], then: "the 3D type is the brand's own face, never a stand-in" });
   phases.push({ phase: "ab-review", when: lean ? "the fix round (lean: one), before it is accepted" : "every fix round after the first draft (" + FRT + " at most), before the round is accepted", dispatch: [], director_steps: ["node scripts/fixcheck.mjs --before <the previous render> --after <this round's render> --touched <the notes' windows> (read regression_runs and diff_pngs: a leak into frames the round did not touch is fixed or explained)", "crew.mjs ab --run <run> --a <the previous render> --b <this round's render> --plan motion/score.json (the juror's brief carries the critics' strengths[]: a round that loses one is a regression)", "crew.mjs brief --role ab-juror --key <k> (dispatch it; it sees X and Y, never which is newer)", "crew.mjs check --role ab-juror --key <k> prints keep or revert; revert = back to the previous version's project state (git, or the .superseded copy), keep only fixes that do not lose, and log the lost round with --because"], then: "a lost round is reverted, never accepted" });
   phases.push({ phase: "retrospective", when: "at delivery, after the Final", dispatch: [d("retrospective")], then: "crew.mjs check --role retrospective prints the lessons.mjs add --source self lines (at most 2); run them" });
+  // the user's own reference films (refs.mjs; "Any reference films you love?"): measured and read BEFORE the concept writers, who and whose jury read the breakdowns and the summary
+  if (Array.isArray(p.refs) && p.refs.length) {
+    const ids = p.refs_ids && p.refs_ids.length ? p.refs_ids : ["<id>"];
+    const ph = { phase: "references", when: "the brief names reference films the user loves: right after the brief is pushed (in parallel with the research desk) and BEFORE the concept writers, who read the breakdowns and refs/summary.json as the film's targets. References inform, never copy: no frame, sound or exact type of one is placed in the film",
+      director_steps: [`node scripts/refs.mjs ingest "${p.refs.join(",")}" --run <run>   (frames and 4x3 sheets, cuts, shot list, music map, loudness, bands, SFX, words, sound-mode guess, sync, hook -> refs/<id>/stats.json; URLs through yt-dlp)`, "re-run crew.mjs plan so the analysts are listed (one per ingested film)"],
+      dispatch: ids.map((id) => d("reference-analyst", id)),
+      then: "crew.mjs check --role reference-analyst --key <id> on each (breakdown.json + breakdown.md; the analyst never writes library/moves); then node scripts/refs.mjs summarize --run <run> (refs/summary.json: shared rules and bounded per-film targets for the gates). Moves in refs/moves-proposed/ wait for a person: node scripts/refs.mjs promote <id> --run <run> --approved" };
+    const at = phases.findIndex((x) => x.phase === "concepts"), st = phases.findIndex((x) => x.phase === "story");
+    if (at >= 0) phases.splice(at, 0, ph); else if (st >= 0) phases.splice(st, 0, ph); else phases.push(ph);
+  }
   for (const ph of phases) if (!Array.isArray(ph.dispatch)) ph.dispatch = []; // every phase has a dispatch list (a Director-only phase dispatches nobody); consumers iterate it
   if (creative) creativePhasePass(phases, { brandLook, seriesLook });
   return annotatePhases(phases); // Plan 04: tags every storyboard/production phase with the stages that must be committed first
@@ -1007,6 +1019,24 @@ function creativeContext(run, role, key, P, ctx, I, O) {
     }
   }
 }
+// The user's own reference films (refs/<id>/breakdown.* and refs/summary.json): read by the concept writers, the script writers and editor/jury and the style-frame juror.
+// They are targets and lessons, never material: references inform, never copy.
+const REFS_READERS = new Set(["concept-writer-story", "concept-writer-style", "concept-writer-wild", "script-writer", "script-editor", "style-frame-juror"]);
+function refsContext(run, role, ctx, I) {
+  const idx = jsonMaybe(R(run, "refs", "index.json"));
+  if (!idx || !Array.isArray(idx.refs) || !idx.refs.length) return;
+  const ids = idx.refs.map((x) => x.id);
+  ctx.reference_films = {
+    ids, rule: "REFERENCE FILMS the user loves. They inform, never copy: take principles (shot length, hook timing, where a world flip sits against the audio, carrier habits, sound mode, SFX sparseness) and never place their frames, audio, copy, logo or exact type in the film. Do not let two concepts share one reference's idea; the product's own truth still decides the idea.",
+    summary: exists(R(run, "refs", "summary.json")) ? "refs/summary.json (shared rules and targets for THIS film: aim at them)" : "not made yet (node scripts/refs.mjs summarize)",
+  };
+  I("the cross-reference summary (shared rules and per-film targets: shot length, SFX density, sound mode, hook, carriers)", R(run, "refs", "summary.json"));
+  for (const id of ids) I(`reference film ${id}: the analyst's breakdown (shots, carrier, story, image use, nearest style world, sound, what to take, what not to copy)`, R(run, "refs", id, "breakdown.md"));
+  if (role === "style-frame-juror") {
+    ctx.reference_bar = "THE BAR IS THE USER'S OWN REFERENCE FILMS: compare the concept frames with the stills in refs/<id>/bar-frames (full size, labelled references: they are not in the blind sheet). A concept frame must sit next to them without looking like the weaker sibling, for finish, depth, texture and scale. Fall back to the library's benchmark frames (library/benchmarks/reference-frames, already on the blind sheet) for anything the run's stills do not cover. Never ask for a reference's picture to be copied: judge the level, not the look.";
+    for (const id of ids) I(`reference film ${id}: the bar stills`, R(run, "refs", id, "bar-frames"));
+  }
+}
 function contextFor(run, role, key, plan) {
   const pj = projectDir(run);
   const P = plan || {};
@@ -1103,6 +1133,15 @@ function contextFor(run, role, key, plan) {
       Object.assign(ctx, { subject: P.subject, approved_paths: approved, may_run: !!entry.may_run });
       if (!approved.length) die("local-scout needs approved_paths (plan --local, after the user said yes in the console)");
       O(research("local.md")); O(research("local.claims.json")); O(research("local", "assets") + "/");
+      break;
+    }
+    case "reference-analyst": {
+      const rd = R(run, "refs", key || "");
+      Object.assign(ctx, { reference_id: key, rule: "references inform, never copy: nothing from this film (frame, sound, copy, logo, exact type or palette) goes into the new film; what_to_take is a principle", time_box: "keep it brisk: read every sheet, then write", check_cmd: `node "${path.join(SKILL_DIR, "scripts", "refs.mjs")}" check --run ${rel(run)}` });
+      I("the contact sheets (4x3 tiles at 2-3 fps: open every one)", R(rd, "sheets")); I("measured numbers (cuts, shots, music, loudness, bands, SFX, words, sound-mode guess, sync, hook)", R(rd, "stats.json")); I("bar frames (full-size stills)", R(rd, "bar-frames"));
+      I("the move library index (nearest move id per shot)", path.join(SKILL_DIR, "library", "moves", "index.json")); I("the style atlas index (nearest style world)", path.join(SKILL_DIR, "library", "styles", "atlas", "index.json"));
+      I("the music event map", R(rd, "audio", "music-map.json"));
+      O(R(rd, "breakdown.json")); O(R(rd, "breakdown.md")); O(R(run, "refs", "moves-proposed") + "/");
       break;
     }
     case "brand-film-analyst": {
@@ -1565,6 +1604,7 @@ function contextFor(run, role, key, plan) {
   if (role === "film-builder" && P.budget === "lean" && P.direct && key !== "lead" && !creativeOn(P)) {
     ctx.own_boards = "lean budget: no designer drew the boards. FIRST, before any animation, draw them yourself: frames/shots.json (one shot per beat: size, hero, light, ground, type sizes), then frames/<id>.html and its .png per beat (node scripts/frames.mjs init --run <run>, then node scripts/design.mjs stills --dir frames), LOOK at them against the score, and animate between them. Keep it to the beats' peak frames: one picture per beat, no variants";
   }
+  if (REFS_READERS.has(role)) refsContext(run, role, ctx, I);
   if (creativeOn(P)) creativeContext(run, role, key, P, ctx, I, O);
   if (creativeOn(P) || chosenMedium(run)) mediumContext(run, role, key, P, ctx, I, O);
   for (const kv of str(args.set).split(",").filter(Boolean)) {
@@ -2787,6 +2827,17 @@ async function checkRole(run, role, key) {
       });
       break;
     }
+    case "reference-analyst": {
+      const rd = R(run, "refs", key || "");
+      if (!key || !exists(R(rd, "stats.json"))) { P.push(`refs/${key || "<id>"}/stats.json is missing: run refs.mjs ingest first`); break; }
+      const b = jsonMaybe(R(rd, "breakdown.json")), mi = jsonMaybe(path.join(SKILL_DIR, "library", "moves", "index.json"));
+      const c = checkBreakdown(b, key, new Set(((mi && mi.moves) || []).map((m) => m.id)));
+      P.push(...c.P); W.push(...c.W);
+      if (!readMaybe(R(rd, "breakdown.md")).trim()) P.push(`refs/${key}/breakdown.md is missing`);
+      for (const pm of (b && Array.isArray(b.proposed_moves) ? b.proposed_moves : [])) if (pm && pm.id && !exists(R(run, "refs", "moves-proposed", `${pm.id}.json`))) W.push(`proposed move ${pm.id} has no refs/moves-proposed/${pm.id}.json`);
+      { const lib = jsonMaybe(path.join(SKILL_DIR, "library", "moves", "index.json")); for (const pm of (b && Array.isArray(b.proposed_moves) ? b.proposed_moves : [])) if (pm && lib && (lib.moves || []).some((m) => m.id === pm.id)) W.push(`proposed move ${pm.id} already exists in library/moves`); }
+      break;
+    }
     case "style-frame-juror": {
       const v = jsonMaybe(R(run, "style-frames", "verdict.json"));
       if (!v) { P.push(`style-frames/verdict.json is ${v === undefined ? "not valid JSON" : "missing"}`); break; }
@@ -3907,6 +3958,14 @@ if (cmd === "plan") {
   // multi = the three-writer room (story planner, Sure/Bold/Wild writers); deep = multi plus the Moves pass before the user reads the stories. --deep keeps meaning "deep".
   { const sm = str(args["story-mode"]).toLowerCase(); p.story_mode = ["balanced", "multi", "deep"].includes(sm) ? sm : args.deep ? "deep" : ["balanced", "multi", "deep"].includes(prev.story_mode) ? prev.story_mode : "balanced"; }
   p.branded = !!(p.brand || brandLocked(run));
+  // reference films the user loves (--refs "<path|url>,..." or the brief's reference_films): ingested by refs.mjs, read by the analysts, the concept writers, the jury and the style-frame juror
+  {
+    const bj = jsonMaybe(p.prefs_file || R(run, "rasanai-brief.json")), bref = bj && bj.reference_films;
+    const list = (v) => (Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,\n]/) : []).map((x) => String(x).trim()).filter(Boolean);
+    p.refs = args.refs && args.refs !== true ? list(String(args.refs)) : list(bref).length ? list(bref) : Array.isArray(prev.refs) ? prev.refs : [];
+    const ri = jsonMaybe(R(run, "refs", "index.json"));
+    p.refs_ids = ri && Array.isArray(ri.refs) ? ri.refs.map((x) => x.id) : [];
+  }
   // the token budget: --budget, --lean (= lean), else the previous plan's, else standard
   // Plan 08 K1: --budget wins, then --lean, then --pace (fast -> lean, standard -> standard, thorough -> full: how the Studio app's pace reaches the crew), else the previous plan's, else standard
   const paceArg = args.pace && args.pace !== true ? String(args.pace).toLowerCase() : null;

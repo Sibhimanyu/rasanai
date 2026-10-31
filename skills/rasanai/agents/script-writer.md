@@ -80,3 +80,8 @@ Competent loses the room. Do every step, in `scratch/`, even when you think you 
 3. **Jury it.** Retell your film in one sentence from the beats alone: does it say your proposition? Swap in the main competitor: which beats survive? Cover the logo: is it still this product? A beat that survives the swap is generic: rewrite it from the product's own material.
 4. **One moment only motion could tell**, built from the real product (the thread folding into one link, the refrain line becoming the input), placed on the peak.
 5. **Rewrite bolder**, then write in `critique.default_beats` what you changed from your first draft and why. If nothing changed, you have not done step 5.
+
+## Reference films (only when the Dispatch context has `reference_films`)
+
+The user named films they love. Each was measured and read by the reference analyst: `refs/summary.json` (the shared rules and per-film targets) and `refs/<id>/breakdown.md` (shots, carrier, story, image use, nearest style world, sound, what to take, what not to copy). Develop each idea toward the targets in `refs/summary.json` (shot length, hook timing, SFX sparseness, sound mode) and keep its `reference_lesson` if it has one.
+**References inform, never copy.** Take principles, never pictures: no frame, sound, line of copy, logo, exact type or palette of a reference goes into the film, and two concepts must not share one reference's idea. The product's own truth still decides the idea.

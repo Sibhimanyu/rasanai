@@ -61,7 +61,9 @@
     "grammars": [
       "catalogue-cards"
     ],
-    "grammars_planned": ["collage"],
+    "grammars_planned": [
+      "collage"
+    ],
     "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
   },
   "effects": [],
@@ -118,5 +120,218 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "sticker-pack",
+        "name": "Sticker pack",
+        "bg": "#FFF3CF",
+        "bg2": "#FFE08A",
+        "ink": "#16131F",
+        "accent": "#FF4D6D",
+        "accent2": "#3A86FF",
+        "words": "cream-yellow, ink black, hot pink, royal blue, mint, orange"
+      },
+      {
+        "id": "cotton-candy",
+        "name": "Cotton candy",
+        "bg": "#FFE5F1",
+        "bg2": "#FFC2DD",
+        "ink": "#241A33",
+        "accent": "#7B5CFF",
+        "accent2": "#00D4A6",
+        "words": "pale pink, deep purple ink, violet, mint"
+      },
+      {
+        "id": "sunburst",
+        "name": "Sunburst",
+        "bg": "#FFE14D",
+        "bg2": "#FFC21A",
+        "ink": "#1A1410",
+        "accent": "#FF3D00",
+        "accent2": "#2B59FF",
+        "words": "yellow, black, red-orange, blue"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the largest sticker and the title fill; other stickers pick from the style palette; the outline ink and the white sticker border stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "sticker-maximal-1",
+          "display": {
+            "family": "Rubik",
+            "google": "https://fonts.googleapis.com/css2?family=Rubik:wght@600..900&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Rubik",
+            "google": "https://fonts.googleapis.com/css2?family=Rubik:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Rubik', sans-serif",
+            "text": "'Rubik', sans-serif"
+          },
+          "case": "upper",
+          "weight": 900,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 3.6,
+            "caption_cqw": 1.7,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Heavy rounded sans with a 0.1em black outline and a 6 px offset shadow; a rotation of -4 to 6 degrees."
+        },
+        {
+          "id": "sticker-maximal-2",
+          "display": {
+            "family": "Lilita One",
+            "google": "https://fonts.googleapis.com/css2?family=Lilita+One&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Rubik",
+            "google": "https://fonts.googleapis.com/css2?family=Rubik:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Lilita One', sans-serif",
+            "text": "'Rubik', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 3.6,
+            "caption_cqw": 1.7,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.01em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Comic-weight."
+        }
+      ],
+      "default": "sticker-maximal-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [],
+      "css": [
+        "outline-text",
+        "sticker-shadow",
+        "m-sticker"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...). No shader pass: this style is clean by design; adding a pass is a mistake."
+    },
+    "composition": {
+      "grid": "dense collage of white-bordered stickers with a 3 px black outline, overlapping, rotated; one big sticker leads",
+      "safe_area": "4% margin, stickers may bleed",
+      "fill": "dense: 85% filled; one sticker is 40%",
+      "product_ui": "UI is its own sticker (rounded rect with a white border) with the real capture inside"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat graphic plate; stickers are 2D vectors, optional 3 degrees of peel curl. Lighting: none, flat; a tiny highlight corner on the peel. Material: die-cut vinyl stickers with a 6 px white border, 3 px black outline and flat fills. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: none; clean vector. Avoid: no text, no letters, no logos, no watermark, no photoreal, no gradients, no thin lines, no sad palettes, no readable tiny text, no soft shadows.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat graphic plate; stickers are 2D vectors, optional 3 degrees of peel curl",
+      "lighting": "none, flat; a tiny highlight corner on the peel",
+      "material": "die-cut vinyl stickers with a 6 px white border, 3 px black outline and flat fills",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "none; clean vector",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no photoreal",
+        "no gradients",
+        "no thin lines",
+        "no sad palettes",
+        "no readable tiny text",
+        "no soft shadows"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: die-cut vinyl stickers with a 6 px white border; flat graphic plate; stickers are 2D vectors; cream-yellow, ink black, hot pink, royal blue, mint, orange."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a die-cut sticker of a smiling pink robot with a thick white border",
+          "action": "surrounded by smaller star and lightning stickers",
+          "setting": "a pale yellow background with a faint dot grid",
+          "palette": "sticker-pack",
+          "prompt": "a die-cut sticker of a smiling pink robot with a thick white border surrounded by smaller star and lightning stickers, a pale yellow background with a faint dot grid. Camera and lens: flat graphic plate; stickers are 2D vectors, optional 3 degrees of peel curl. Lighting: none, flat; a tiny highlight corner on the peel. Material: die-cut vinyl stickers with a 6 px white border, 3 px black outline and flat fills. Colour, locked to the palette cream-yellow, ink black, hot pink, royal blue, mint, orange, and nothing outside it. Texture and finish: none; clean vector. Avoid: no text, no letters, no logos, no watermark, no photoreal, no gradients, no thin lines, no sad palettes, no readable tiny text, no soft shadows."
+        },
+        {
+          "subject": "a blue lightning bolt sticker and a mint heart sticker",
+          "action": "overlapping a bold red-orange label shape",
+          "setting": "a sunburst yellow background",
+          "palette": "sticker-pack",
+          "prompt": "a blue lightning bolt sticker and a mint heart sticker overlapping a bold red-orange label shape, a sunburst yellow background. Camera and lens: flat graphic plate; stickers are 2D vectors, optional 3 degrees of peel curl. Lighting: none, flat; a tiny highlight corner on the peel. Material: die-cut vinyl stickers with a 6 px white border, 3 px black outline and flat fills. Colour, locked to the palette cream-yellow, ink black, hot pink, royal blue, mint, orange, and nothing outside it. Texture and finish: none; clean vector. Avoid: no text, no letters, no logos, no watermark, no photoreal, no gradients, no thin lines, no sad palettes, no readable tiny text, no soft shadows."
+        }
+      ]
+    },
+    "do": [
+      "Every object has the same outline weight and white border",
+      "Overlap and rotate for rhythm",
+      "Let one sticker dominate"
+    ],
+    "dont": [
+      "No mixed outline widths",
+      "No gradients",
+      "No more than 6 hues"
+    ],
+    "cheap_ways": [
+      "Emoji pack look with no hierarchy",
+      "Drop shadows in different directions",
+      "Random sticker confetti"
+    ]
+  }
 }

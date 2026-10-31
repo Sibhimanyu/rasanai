@@ -58,5 +58,17 @@
   "needs": [
     "rasan-fx.js",
     "rasan-image-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.tornEdgeWipe",
+    "example": "RasanMoves.tornEdgeWipe(tl, 2, { target: stage, from: photo, to: photo2 });",
+    "params": [
+      "from",
+      "to",
+      "angle",
+      "roughness",
+      "rim"
+    ]
+  }
 }

@@ -159,5 +159,238 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "game-boy-dusk",
+        "name": "Game Boy dusk",
+        "bg": "#0F1B12",
+        "bg2": "#1E3A24",
+        "ink": "#D8F3C2",
+        "accent": "#8BE04E",
+        "accent2": "#F2C14E",
+        "words": "deep forest-black green, mint-cream, lime green, one coin-gold"
+      },
+      {
+        "id": "sweetie-night",
+        "name": "Sweetie night",
+        "bg": "#1A1C2C",
+        "bg2": "#333C57",
+        "ink": "#F4F4F4",
+        "accent": "#FFCD75",
+        "accent2": "#41A6F6",
+        "words": "midnight indigo, bone white, coin yellow, sky blue"
+      },
+      {
+        "id": "sunset-cart",
+        "name": "Sunset cart",
+        "bg": "#2B1B3D",
+        "bg2": "#5B2A6E",
+        "ink": "#FFF1D6",
+        "accent": "#FF6B4A",
+        "accent2": "#38D6C4",
+        "words": "plum-black, cream, flame orange, teal"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour becomes the player sprite, coin and UI highlight; the background and ink ramp stay inside the 16-colour palette (snap the brand colour to its nearest palette entry, keep the exact hex only in the real UI plate). Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "pixel-world-1",
+          "display": {
+            "family": "Press Start 2P",
+            "google": "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Press Start 2P', monospace",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 7.5,
+            "two_words": 6,
+            "long": 4.5,
+            "sub_cqw": 2.6,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.02em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Press Start 2P is wide: keep claims to 3 words per line; the real claim line sets in the brand face."
+        },
+        {
+          "id": "pixel-world-2",
+          "display": {
+            "family": "Silkscreen",
+            "google": "https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Pixelify Sans",
+            "google": "https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Silkscreen', monospace",
+            "text": "'Pixelify Sans', sans-serif"
+          },
+          "case": "upper",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.04em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Silkscreen for HUD chrome, Pixelify Sans for dialogue boxes."
+        }
+      ],
+      "default": "pixel-world-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "pixelate",
+          "params": {
+            "size": 4,
+            "dither": 0.3,
+            "snap": 1
+          },
+          "role": "low-res snap, integer steps"
+        },
+        {
+          "pass": "crt",
+          "params": {
+            "curve": 0.05,
+            "scan": 0.25,
+            "mask": 0.15,
+            "bloom": 0.2
+          },
+          "role": "optional light CRT on the hero shots only"
+        }
+      ],
+      "css": [
+        "pixel",
+        "scan:0.18"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "320x180 logical canvas scaled 6x; 8 px tile grid; everything on whole pixels",
+      "safe_area": "16 px logical margin, HUD hugs the top; keep claim above the ground line",
+      "fill": "fills the frame edge to edge: ground strip bottom third, sky and parallax above",
+      "product_ui": "real UI sits inside as a game screen or arcade-cabinet plate, scaled by an integer, never smoothed (image-rendering: pixelated on the frame, crisp on the capture)"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat side-on 2D view, no perspective, no depth of field. Lighting: flat, no cast shadows except a 1 px dark under-edge on tiles. Material: hard-edged sprites and tiles, no anti-aliasing, no gradients, 1 px outline in a darker shade of each fill. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: 2-colour ordered dither on sky and shadows only; no film grain. Avoid: no text, no letters, no logos, no watermark, no anti-aliasing, no smooth gradients, no blurry upscaled pixels, no mixed pixel sizes, no photo textures, no isometric 3D.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat side-on 2D view, no perspective, no depth of field",
+      "lighting": "flat, no cast shadows except a 1 px dark under-edge on tiles",
+      "material": "hard-edged sprites and tiles, no anti-aliasing, no gradients, 1 px outline in a darker shade of each fill",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "2-colour ordered dither on sky and shadows only; no film grain",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no anti-aliasing",
+        "no smooth gradients",
+        "no blurry upscaled pixels",
+        "no mixed pixel sizes",
+        "no photo textures",
+        "no isometric 3D"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: hard-edged sprites and tiles; flat side-on 2D view; deep forest-black green, mint-cream, lime green, one coin-gold."
+      },
+      "sprite_sheet": {
+        "use": true,
+        "rules": "Sprite sheet: flat chroma-green background (#00FF00) that fills the whole sheet, an equal grid of cells with identical size and spacing, one pose or state per cell, same ground line and scale in every cell, no text, labels, numbers or grid lines, no green anywhere in the sprite (if the chosen palette contains green, use another palette for sprites). Cut out with --transparent, snap to the palette afterwards.",
+        "aspect": "1:1"
+      },
+      "examples": [
+        {
+          "subject": "a 16x16 pixel fox in a lime scarf",
+          "action": "running left across a bridge of floating tiles",
+          "setting": "a night-time forest level with three parallax layers and a gold coin counter in the corner",
+          "palette": "game-boy-dusk",
+          "prompt": "a 16x16 pixel fox in a lime scarf running left across a bridge of floating tiles, a night-time forest level with three parallax layers and a gold coin counter in the corner. Camera and lens: flat side-on 2D view, no perspective, no depth of field. Lighting: flat, no cast shadows except a 1 px dark under-edge on tiles. Material: hard-edged sprites and tiles, no anti-aliasing, no gradients, 1 px outline in a darker shade of each fill. Colour, locked to the palette deep forest-black green, mint-cream, lime green, one coin-gold, and nothing outside it. Texture and finish: 2-colour ordered dither on sky and shadows only; no film grain. Avoid: no text, no letters, no logos, no watermark, no anti-aliasing, no smooth gradients, no blurry upscaled pixels, no mixed pixel sizes, no photo textures, no isometric 3D."
+        },
+        {
+          "subject": "a pixel knight holding a glowing key",
+          "action": "standing at a locked castle gate",
+          "setting": "a side-scrolling 16-bit level, torches, a small unlock progress bar at the top",
+          "palette": "game-boy-dusk",
+          "prompt": "a pixel knight holding a glowing key standing at a locked castle gate, a side-scrolling 16-bit level, torches, a small unlock progress bar at the top. Camera and lens: flat side-on 2D view, no perspective, no depth of field. Lighting: flat, no cast shadows except a 1 px dark under-edge on tiles. Material: hard-edged sprites and tiles, no anti-aliasing, no gradients, 1 px outline in a darker shade of each fill. Colour, locked to the palette deep forest-black green, mint-cream, lime green, one coin-gold, and nothing outside it. Texture and finish: 2-colour ordered dither on sky and shadows only; no film grain. Avoid: no text, no letters, no logos, no watermark, no anti-aliasing, no smooth gradients, no blurry upscaled pixels, no mixed pixel sizes, no photo textures, no isometric 3D."
+        }
+      ]
+    },
+    "do": [
+      "Choose one pixel size for the whole frame and keep every sprite and UI on it",
+      "Cap the palette at 16 colours and write them into the prompt by name",
+      "Use pixel only as the world: the product claim and any readable UI stay crisp"
+    ],
+    "dont": [
+      "Do not rotate or scale sprites by non-integer amounts",
+      "Do not use real anti-aliased fonts inside the game scene",
+      "Do not add soft glow or blur"
+    ],
+    "cheap_ways": [
+      "Mixed pixel sizes: a 1x sprite on a 2x background reads as a filter, not a game",
+      "Neon-gradient 'retro wave' sky instead of palette-limited bands",
+      "Pixel font used for body copy so nothing is readable"
+    ]
+  }
 }

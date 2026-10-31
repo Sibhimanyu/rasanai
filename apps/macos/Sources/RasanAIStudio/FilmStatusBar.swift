@@ -237,7 +237,7 @@ struct FilmStatusBar<Usage: View>: View {
             if let title = actions.primaryTitle {
                 Button { actions.onPrimary(note) } label: {
                     HStack(spacing: 8) {
-                        Text(title)
+                        Text(title).lineLimit(1).fixedSize(horizontal: true, vertical: false)
                         if model.isSending { ProgressView().controlSize(.small) }
                         else { Image(systemName: "arrow.right") }
                     }

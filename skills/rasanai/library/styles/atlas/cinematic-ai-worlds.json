@@ -60,7 +60,9 @@
     "grammars": [
       "viewfinder-reel"
     ],
-    "grammars_planned": ["cinematic-world"],
+    "grammars_planned": [
+      "cinematic-world"
+    ],
     "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
   },
   "effects": [
@@ -154,5 +156,247 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "teal-and-amber",
+        "name": "Teal and amber",
+        "bg": "#0C1A1F",
+        "bg2": "#16313A",
+        "ink": "#F2E6CE",
+        "accent": "#F2A541",
+        "accent2": "#2BA3A8",
+        "words": "deep teal shadows, warm bone white, amber light, teal"
+      },
+      {
+        "id": "fog-blue",
+        "name": "Fog blue",
+        "bg": "#0E141C",
+        "bg2": "#1D2A38",
+        "ink": "#E8EDF2",
+        "accent": "#8FB4D9",
+        "accent2": "#E9A55E",
+        "words": "fog-blue shadows, cold white, sodium amber"
+      },
+      {
+        "id": "desert-dusk",
+        "name": "Desert dusk",
+        "bg": "#1A0F10",
+        "bg2": "#3A1E1B",
+        "ink": "#F7E6CF",
+        "accent": "#E8743B",
+        "accent2": "#5C8FA0",
+        "words": "burnt umber black, sand white, sunset orange, dusty teal"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is one practical light or prop in the scene (a lamp, a sign without text, a garment); the grade stays style-fixed. Never tint the whole grade to the brand colour. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "cinematic-ai-worlds-1",
+          "display": {
+            "family": "Cormorant Garamond",
+            "google": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400..700;1,400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@300..500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Cormorant Garamond', serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 500,
+          "scale": {
+            "hero_cqw": 7.5,
+            "two_words": 6,
+            "long": 4.5,
+            "sub_cqw": 2.8,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.04em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Restrained serif or thin sans, set small and low in the lower third; film-title style."
+        },
+        {
+          "id": "cinematic-ai-worlds-2",
+          "display": {
+            "family": "Inter Tight",
+            "google": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200..400&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@300..500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Inter Tight', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 300,
+          "scale": {
+            "hero_cqw": 6,
+            "two_words": 4.8,
+            "long": 3.6,
+            "sub_cqw": 2.4,
+            "caption_cqw": 1.3,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.3em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Wide-tracked thin caps."
+        }
+      ],
+      "default": "cinematic-ai-worlds-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.8,
+            "strength": 0.14,
+            "mono": 1
+          },
+          "role": "35 mm grain"
+        },
+        {
+          "pass": "aberration",
+          "params": {
+            "shift": 0.003,
+            "mode": 0,
+            "falloff": 1.8
+          },
+          "role": "anamorphic fringe"
+        },
+        {
+          "pass": "posterise",
+          "params": {
+            "steps": 12,
+            "mode": 0,
+            "contrast": 1.12
+          },
+          "role": "light grade curve"
+        }
+      ],
+      "css": [
+        "grain:0.14",
+        "letterbox",
+        "vignette:0.3"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "2.39:1 letterbox inside 16:9; subject on a third with leading space; layered foreground, mid, background haze",
+      "safe_area": "safe area 8%; type in the lower-left third",
+      "fill": "subject 25-45%; the world is the hero, the rest is atmosphere",
+      "product_ui": "UI is a practical screen in the scene (a laptop, a phone, a wall display) lit by its own glow; the capture is composited on the plate"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 35 mm anamorphic lens, f/2.8, slight handheld, low horizon, shallow depth of field with oval bokeh. Lighting: motivated practical lights (lamp, window), low-key, volumetric haze, warm key against teal shadows. Material: real-world surfaces: weathered concrete, wet asphalt, linen, brushed metal, with natural imperfections. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: fine 35 mm grain, light halation on highlights, soft lens flare streak. Avoid: no text, no letters, no logos, no watermark, no text, no logos, no AI plastic skin, no extra fingers, no symmetrical staging, no over-sharpened detail, nobody looking at the camera.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "35 mm anamorphic lens, f/2.8, slight handheld, low horizon, shallow depth of field with oval bokeh",
+      "lighting": "motivated practical lights (lamp, window), low-key, volumetric haze, warm key against teal shadows",
+      "material": "real-world surfaces: weathered concrete, wet asphalt, linen, brushed metal, with natural imperfections",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "fine 35 mm grain, light halation on highlights, soft lens flare streak",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no text",
+        "no logos",
+        "no AI plastic skin",
+        "no extra fingers",
+        "no symmetrical staging",
+        "no over-sharpened detail",
+        "nobody looking at the camera"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: real-world surfaces: weathered concrete; 35 mm anamorphic lens; deep teal shadows, warm bone white, amber light, teal."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a lone figure with their back to camera in a dark wool coat",
+          "action": "walking toward a single amber-lit window of a distant building",
+          "setting": "a fog-blue empty coastal road at blue hour, wet asphalt, low horizon",
+          "palette": "teal-and-amber",
+          "prompt": "a lone figure with their back to camera in a dark wool coat walking toward a single amber-lit window of a distant building, a fog-blue empty coastal road at blue hour, wet asphalt, low horizon. Camera and lens: 35 mm anamorphic lens, f/2.8, slight handheld, low horizon, shallow depth of field with oval bokeh. Lighting: motivated practical lights (lamp, window), low-key, volumetric haze, warm key against teal shadows. Material: real-world surfaces: weathered concrete, wet asphalt, linen, brushed metal, with natural imperfections. Colour, locked to the palette deep teal shadows, warm bone white, amber light, teal, and nothing outside it. Texture and finish: fine 35 mm grain, light halation on highlights, soft lens flare streak. Avoid: no text, no letters, no logos, no watermark, no text, no logos, no AI plastic skin, no extra fingers, no symmetrical staging, no over-sharpened detail, nobody looking at the camera."
+        },
+        {
+          "subject": "a weathered desk lamp and a closed laptop",
+          "action": "its screen glow slowly brightening in the dark room",
+          "setting": "a quiet desert-dusk apartment, sand-white walls, orange light through blinds",
+          "palette": "teal-and-amber",
+          "prompt": "a weathered desk lamp and a closed laptop its screen glow slowly brightening in the dark room, a quiet desert-dusk apartment, sand-white walls, orange light through blinds. Camera and lens: 35 mm anamorphic lens, f/2.8, slight handheld, low horizon, shallow depth of field with oval bokeh. Lighting: motivated practical lights (lamp, window), low-key, volumetric haze, warm key against teal shadows. Material: real-world surfaces: weathered concrete, wet asphalt, linen, brushed metal, with natural imperfections. Colour, locked to the palette deep teal shadows, warm bone white, amber light, teal, and nothing outside it. Texture and finish: fine 35 mm grain, light halation on highlights, soft lens flare streak. Avoid: no text, no letters, no logos, no watermark, no text, no logos, no AI plastic skin, no extra fingers, no symmetrical staging, no over-sharpened detail, nobody looking at the camera."
+        }
+      ]
+    },
+    "do": [
+      "Motivate every light source in the frame",
+      "Keep one world: same lens, same grade, same grain across shots",
+      "Leave room: wide shots, long holds, slow push-ins"
+    ],
+    "dont": [
+      "No more than one hero subject",
+      "No generic 'epic' sky",
+      "No over-sharpened AI detail"
+    ],
+    "cheap_ways": [
+      "Orange-teal grade slapped on stock-looking AI frames",
+      "Fast cuts between unrelated worlds",
+      "Waxy skin and floating hands"
+    ]
+  }
 }

@@ -17,11 +17,12 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { loudness, loudnessOver, masterFile, loudnessTarget, phrasesFromWords, probeDuration, requireTools, r1, r3 } from "./audio.mjs";
 import { MODE_STEMS } from "./sound-mode.mjs";
+import { overBed } from "./earshot.mjs";
 
 const SNAP_S = 0.06;
 const WHOOSH_LEAD_S = 0.08; // 2-3 frames before the visual arrives
 const clampN = (x, a, b) => Math.max(a, Math.min(b, x));
-const ROLE_OVER_BED_DB = { accent: 3, carrier: 5, transition: 7, button: 8, reveal: 12 }; // peak of a cue over the bed's integrated loudness
+const ROLE_OVER_BED_DB = { accent: 1, carrier: 2, transition: 3, button: 5, reveal: 6 }; // peak of a cue over the bed's loudness AT ITS TIME: always inside 0-6 dB (overBed clamps)
 const kindOf = (c) => String(c.kind || ({ transition: "whoosh", reveal: "impact", button: "stinger", accent: "tick", carrier: "tick" }[c.role]) || "hit");
 
 function ff(argv, what) {
@@ -123,7 +124,7 @@ export async function mixFilm(spec, out, { workDir, log = () => {} } = {}) {
     if (!c.palette) return c;
     const s = pal && pal.sounds.find((x) => x.id === c.palette);
     if (!s) { notes.push(`palette sound ${c.palette} not found`); return null; }
-    return { role: s.role, kind: s.kind, sync_point_s: s.sync_point_s, gain_db: s.gain_db, ...(s.pan ? { pan: s.pan } : {}), ...c, file: path.join(spec.palette_dir, s.file) };
+    return { role: s.role, kind: s.kind, sync_point_s: s.sync_point_s, gain_db: s.gain_db, ...(s.pan ? { pan: s.pan } : {}), ...(s.bed_db != null ? { bed_db: s.bed_db } : {}), ...(s.engine ? { engine: s.engine } : {}), ...c, file: path.join(spec.palette_dir, s.file) };
   }).filter(Boolean).filter((c) => c.file && fs.existsSync(c.file) ? true : (notes.push(`SFX file missing: ${c.file}`), false));
   const cues = placeCues(raw, { beats: readBeats(spec.beats), hits: spec.hits || [], duration: D });
 
@@ -172,8 +173,14 @@ export async function mixFilm(spec, out, { workDir, log = () => {} } = {}) {
     const parts = [];
     cues.forEach((c, i) => {
       inputs.push(["-i", c.file]);
-      const over = ROLE_OVER_BED_DB[c.role] ?? 4;
-      const wantPeak = bedLufs + over + (Number(c.gain_db) || 0);
+      // the bed's level where THIS cue sounds (1 s window around the hit), not its film average; the kit's bed_db wins, a plain gain_db trims inside 0-6 dB
+      const local = stems.music ? loudnessOver(stems.music, [[Math.max(0, c.hit - 0.4), Math.min(D, c.hit + 0.6)]]) : null;
+      const bedHere = local != null && local > -60 ? local : bedLufs;
+      const base = c.bed_db != null ? overBed(c.bed_db) : (ROLE_OVER_BED_DB[c.role] ?? 3) + (c.engine === "earshot" ? 0 : Number(c.gain_db) || 0);
+      const over = overBed(base);
+      const wantPeak = bedHere + over;
+      c.bed_local_lufs = r1(bedHere);
+      c.over_bed_db = r1(over);
       const g = wantPeak - peakOf(c.file);
       c.gain_applied_db = r1(g);
       const pan = c.pan != null ? Number(c.pan) : c.x != null ? (Number(c.x) - 0.5) * 1.4 : 0;
@@ -230,7 +237,7 @@ export async function mixFilm(spec, out, { workDir, log = () => {} } = {}) {
     if (stems.vo) { const vIn = loudnessOver(stems.vo, spans); if (vIn != null && inside != null) duck.music_under_vo_lu = r1(vIn - inside); }
     if (duck.measured_db != null && duck.measured_db > 9) notes.push(`measured duck ${duck.measured_db} dB is deeper than 9 dB (the bed is also dynamic): check the bed`);
   }
-  const placed = cues.map((c) => ({ id: c.id || c.palette || path.basename(c.file), role: c.role, kind: c.kind, at: c.at, hit: c.hit, start: c.start, snapped_to: c.snapped_to, snap_delta_ms: c.snap_delta_ms, gain_db: c.gain_applied_db, pan: c.pan_applied }));
+  const placed = cues.map((c) => ({ id: c.id || c.palette || path.basename(c.file), role: c.role, kind: c.kind, at: c.at, hit: c.hit, start: c.start, snapped_to: c.snapped_to, snap_delta_ms: c.snap_delta_ms, gain_db: c.gain_applied_db, bed_local_lufs: c.bed_local_lufs, over_bed_db: c.over_bed_db, pan: c.pan_applied }));
   const receipt = { out, mode: spec.mode || null, platform: spec.platform || "web", duration: D, stems, cues: placed, duck, measures, variants, notes, premaster: master.premaster };
   fs.writeFileSync(out.replace(/\.[^.]+$/, "") + ".mix.json", JSON.stringify(receipt, null, 2) + "\n");
   log(`mix: ${r1(master.lufs)} LUFS, ${r1(master.true_peak)} dBTP, ${placed.length} cues`);

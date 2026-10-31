@@ -60,5 +60,15 @@
   "beat_roles": [
     "proof"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.typedPromptSend",
+    "example": "RasanMoves.typedPromptSend(tl, 0.2, { target: stage, text: 'A launch film for my new app' });",
+    "params": [
+      "text",
+      "result",
+      "accent"
+    ]
+  }
 }

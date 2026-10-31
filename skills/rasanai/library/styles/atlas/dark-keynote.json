@@ -113,5 +113,228 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "studio-dark",
+        "name": "Studio dark",
+        "bg": "#0B0C10",
+        "bg2": "#14161C",
+        "ink": "#F2F3F5",
+        "accent": "#6C8CFF",
+        "accent2": "#7CF2C8",
+        "words": "near-black, soft white, electric periwinkle, mint"
+      },
+      {
+        "id": "graphite-warm",
+        "name": "Graphite warm",
+        "bg": "#111012",
+        "bg2": "#1C1A1E",
+        "ink": "#F6F2EC",
+        "accent": "#FF8A4C",
+        "accent2": "#FFD166",
+        "words": "warm black, ivory, orange, honey"
+      },
+      {
+        "id": "violet-glow",
+        "name": "Violet glow",
+        "bg": "#0D0A14",
+        "bg2": "#1A1228",
+        "ink": "#F4EEFF",
+        "accent": "#9B7BFF",
+        "accent2": "#FF7AD1",
+        "words": "ink violet, pale lilac, violet glow, pink"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the product glow and the one highlight word; background and ink stay style-fixed near-black and soft white. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "dark-keynote-1",
+          "display": {
+            "family": "Geist",
+            "google": "https://fonts.googleapis.com/css2?family=Geist:wght@300..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Geist', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 600,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.04em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "The one grotesk set tight; 2-3 weights; the product's own UI type shows in captures."
+        },
+        {
+          "id": "dark-keynote-2",
+          "display": {
+            "family": "Inter Tight",
+            "google": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Geist Mono",
+            "google": "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Inter Tight', sans-serif",
+            "text": "'Geist Mono', monospace"
+          },
+          "case": "sentence",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 9.5,
+            "two_words": 7.6,
+            "long": 5.7,
+            "sub_cqw": 3,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.045em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Mono for tiny technical labels."
+        }
+      ],
+      "default": "dark-keynote-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.5,
+            "strength": 0.05,
+            "mono": 1
+          },
+          "role": "hides gradient banding in glows"
+        }
+      ],
+      "css": [
+        "grain:0.05",
+        "glow-top",
+        "m-card"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "centred or left-aligned hero over a near-black ground with one radial glow; UI as the hero object",
+      "safe_area": "8% margin; claim in the upper-left, product lower-right",
+      "fill": "UI plane fills 60-75% with a soft 1px border and glow",
+      "product_ui": "UI sits as a floating plane with a 1 px border, 16 px radius, a coloured glow behind and a reflection below; the real capture, never redrawn"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat plane shots with slight 3D perspective, 50 mm, shallow depth of field on foreground cards. Lighting: a soft radial glow in the brand hue behind the object; faint top rim light on edges. Material: dark glass cards, thin 1 px highlight borders, soft inner shadows. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: fine grain only. Avoid: no text, no letters, no logos, no watermark, no text in the image, no logos, no busy backgrounds, no stock people, no flat bright colours, no drop shadows.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat plane shots with slight 3D perspective, 50 mm, shallow depth of field on foreground cards",
+      "lighting": "a soft radial glow in the brand hue behind the object; faint top rim light on edges",
+      "material": "dark glass cards, thin 1 px highlight borders, soft inner shadows",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "fine grain only",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no text in the image",
+        "no logos",
+        "no busy backgrounds",
+        "no stock people",
+        "no flat bright colours",
+        "no drop shadows"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: dark glass cards; flat plane shots with slight 3D perspective; near-black, soft white, electric periwinkle, mint."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a floating dark glass card with a thin white border",
+          "action": "tilting slightly as a periwinkle glow pulses behind it",
+          "setting": "a near-black ground with a single soft radial light, empty space top-left",
+          "palette": "studio-dark",
+          "prompt": "a floating dark glass card with a thin white border tilting slightly as a periwinkle glow pulses behind it, a near-black ground with a single soft radial light, empty space top-left. Camera and lens: flat plane shots with slight 3D perspective, 50 mm, shallow depth of field on foreground cards. Lighting: a soft radial glow in the brand hue behind the object; faint top rim light on edges. Material: dark glass cards, thin 1 px highlight borders, soft inner shadows. Colour, locked to the palette near-black, soft white, electric periwinkle, mint, and nothing outside it. Texture and finish: fine grain only. Avoid: no text, no letters, no logos, no watermark, no text in the image, no logos, no busy backgrounds, no stock people, no flat bright colours, no drop shadows."
+        },
+        {
+          "subject": "three stacked translucent panels",
+          "action": "separating along depth with a warm orange rim light",
+          "setting": "a warm black room, a faint reflection on the floor",
+          "palette": "studio-dark",
+          "prompt": "three stacked translucent panels separating along depth with a warm orange rim light, a warm black room, a faint reflection on the floor. Camera and lens: flat plane shots with slight 3D perspective, 50 mm, shallow depth of field on foreground cards. Lighting: a soft radial glow in the brand hue behind the object; faint top rim light on edges. Material: dark glass cards, thin 1 px highlight borders, soft inner shadows. Colour, locked to the palette near-black, soft white, electric periwinkle, mint, and nothing outside it. Texture and finish: fine grain only. Avoid: no text, no letters, no logos, no watermark, no text in the image, no logos, no busy backgrounds, no stock people, no flat bright colours, no drop shadows."
+        }
+      ]
+    },
+    "do": [
+      "One glow, one hero, one claim per frame",
+      "Ease with long decelerations, 0.6-0.9 s",
+      "Let the real UI be the hero at the proof beat"
+    ],
+    "dont": [
+      "No rainbow gradients",
+      "No more than 2 type weights per frame",
+      "No clutter behind the claim"
+    ],
+    "cheap_ways": [
+      "Default dark mode with purple blob (the 2023 template)",
+      "Glow so strong it reduces UI contrast",
+      "Same centred layout on every shot"
+    ]
+  }
 }

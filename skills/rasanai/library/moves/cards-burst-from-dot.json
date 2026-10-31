@@ -39,5 +39,15 @@
     "middle",
     "proof"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.cardsBurstFromDot",
+    "example": "RasanMoves.cardsBurstFromDot(tl, 0.2, { target: stage, count: 12, images: [photo, photo2] });",
+    "params": [
+      "count",
+      "dot",
+      "images"
+    ]
+  }
 }

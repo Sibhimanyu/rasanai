@@ -37,7 +37,8 @@ struct RasanAIStudioApp: App {
                     #if DEBUG
                     // QA hook: `--attach-run <dir>` opens the film page on an existing run, with no director.
                     if let index = CommandLine.arguments.firstIndex(of: "--attach-run"), CommandLine.arguments.count > index + 1 {
-                        NSApp.setActivationPolicy(.regular); NSApp.activate(ignoringOtherApps: true)
+                        NSApp.setActivationPolicy(.regular)
+                        if ProcessInfo.processInfo.environment["RASAN_QA_NOACTIVATE"] == nil { NSApp.activate(ignoringOtherApps: true) } // QA runs set it so the window never takes keyboard focus
                         store.openRun(URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true))
                     }
                     if let index = CommandLine.arguments.firstIndex(of: "--replay-run"), CommandLine.arguments.count > index + 1 {

@@ -127,5 +127,227 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "plasticine-studio",
+        "name": "Plasticine studio",
+        "bg": "#F3E4CF",
+        "bg2": "#E7CFAE",
+        "ink": "#3B2A22",
+        "accent": "#E8573A",
+        "accent2": "#4FA3A5",
+        "words": "warm oatmeal paper, cocoa brown, tomato red clay, teal clay"
+      },
+      {
+        "id": "candy-shelf",
+        "name": "Candy shelf",
+        "bg": "#FBE7E2",
+        "bg2": "#F5C9C2",
+        "ink": "#2E2A33",
+        "accent": "#FF8A3D",
+        "accent2": "#5B6CFF",
+        "words": "blush pink table, plum-black, orange clay, periwinkle clay"
+      },
+      {
+        "id": "garden-clay",
+        "name": "Garden clay",
+        "bg": "#E6EBD3",
+        "bg2": "#C9D6A3",
+        "ink": "#2B3524",
+        "accent": "#F2B84B",
+        "accent2": "#D6603A",
+        "words": "pale sage table, forest ink, mustard clay, terracotta clay"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the main character's clay; the table, props and ink are style-fixed. Use the brand hex only for the clay body, never for the lighting. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "clay-1",
+          "display": {
+            "family": "Fredoka",
+            "google": "https://fonts.googleapis.com/css2?family=Fredoka:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Nunito",
+            "google": "https://fonts.googleapis.com/css2?family=Nunito:wght@400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Fredoka', sans-serif",
+            "text": "'Nunito', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 600,
+          "scale": {
+            "hero_cqw": 10,
+            "two_words": 8,
+            "long": 6,
+            "sub_cqw": 3.2,
+            "caption_cqw": 1.7,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.01em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Rounded, chunky letterforms; or model words as clay letters in the plate."
+        },
+        {
+          "id": "clay-2",
+          "display": {
+            "family": "Baloo 2",
+            "google": "https://fonts.googleapis.com/css2?family=Baloo+2:wght@500..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Nunito",
+            "google": "https://fonts.googleapis.com/css2?family=Nunito:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Baloo 2', sans-serif",
+            "text": "'Nunito', sans-serif"
+          },
+          "case": "lower",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 10.5,
+            "two_words": 8.4,
+            "long": 6.3,
+            "sub_cqw": 3.2,
+            "caption_cqw": 1.7,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Lowercase reads friendlier."
+        }
+      ],
+      "default": "clay-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 2,
+            "strength": 0.12,
+            "mono": 0
+          },
+          "role": "fine plaster grain to hide CG smoothness"
+        }
+      ],
+      "css": [
+        "grain:0.1",
+        "vignette:0.15",
+        "m-clay"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "table-top 3/4 view, a shallow ground with a soft horizon; characters on thirds",
+      "safe_area": "10% margin; clay figure at left or right third, big empty table for type",
+      "fill": "characters 40-55% of frame height, two to three props max",
+      "product_ui": "UI is shown on a clay-framed phone or tablet (thumbprinted bevel) and held by the character; never redrawn in clay"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 50 mm macro-style lens at table height, shallow depth of field, slight low angle. Lighting: soft key from upper left through a diffuser, warm bounce fill, soft contact shadows. Material: hand-moulded plasticine with visible fingerprints, seam lines, small dents, satin matte. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: fingerprint impressions, tiny lint specks, slight surface wobble; no gloss. Avoid: no text, no letters, no logos, no watermark, no smooth CG plastic, no glossy highlights, no uncanny faces, no tiny readable text, no perfect symmetry.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "50 mm macro-style lens at table height, shallow depth of field, slight low angle",
+      "lighting": "soft key from upper left through a diffuser, warm bounce fill, soft contact shadows",
+      "material": "hand-moulded plasticine with visible fingerprints, seam lines, small dents, satin matte",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "fingerprint impressions, tiny lint specks, slight surface wobble; no gloss",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no smooth CG plastic",
+        "no glossy highlights",
+        "no uncanny faces",
+        "no tiny readable text",
+        "no perfect symmetry"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: hand-moulded plasticine with visible fingerprints; 50 mm macro-style lens at table height; warm oatmeal paper, cocoa brown, tomato red clay, teal clay."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a tomato-red clay robot with two round eyes",
+          "action": "handing a small teal clay cube to a clay duck",
+          "setting": "a warm oatmeal table with cocoa-brown clay hills behind",
+          "palette": "plasticine-studio",
+          "prompt": "a tomato-red clay robot with two round eyes handing a small teal clay cube to a clay duck, a warm oatmeal table with cocoa-brown clay hills behind. Camera and lens: 50 mm macro-style lens at table height, shallow depth of field, slight low angle. Lighting: soft key from upper left through a diffuser, warm bounce fill, soft contact shadows. Material: hand-moulded plasticine with visible fingerprints, seam lines, small dents, satin matte. Colour, locked to the palette warm oatmeal paper, cocoa brown, tomato red clay, teal clay, and nothing outside it. Texture and finish: fingerprint impressions, tiny lint specks, slight surface wobble; no gloss. Avoid: no text, no letters, no logos, no watermark, no smooth CG plastic, no glossy highlights, no uncanny faces, no tiny readable text, no perfect symmetry."
+        },
+        {
+          "subject": "a mustard clay fox with a terracotta scarf",
+          "action": "pressing a big round clay button",
+          "setting": "a pale sage clay garden with fingerprint-textured leaves",
+          "palette": "plasticine-studio",
+          "prompt": "a mustard clay fox with a terracotta scarf pressing a big round clay button, a pale sage clay garden with fingerprint-textured leaves. Camera and lens: 50 mm macro-style lens at table height, shallow depth of field, slight low angle. Lighting: soft key from upper left through a diffuser, warm bounce fill, soft contact shadows. Material: hand-moulded plasticine with visible fingerprints, seam lines, small dents, satin matte. Colour, locked to the palette warm oatmeal paper, cocoa brown, tomato red clay, teal clay, and nothing outside it. Texture and finish: fingerprint impressions, tiny lint specks, slight surface wobble; no gloss. Avoid: no text, no letters, no logos, no watermark, no smooth CG plastic, no glossy highlights, no uncanny faces, no tiny readable text, no perfect symmetry."
+        }
+      ]
+    },
+    "do": [
+      "Show thumbprints, seams and dents in every material",
+      "Hold the model in 2-3 clay colours plus table",
+      "Use soft contact shadows only"
+    ],
+    "dont": [
+      "No glossy plastic or subsurface-scattering skin",
+      "No more than 3 props",
+      "No clay body bigger than 55% of frame"
+    ],
+    "cheap_ways": [
+      "Perfect Pixar-smooth plastic with a clay label",
+      "Neon colours that clay never has",
+      "Everything perfectly symmetric and clean"
+    ]
+  }
 }

@@ -28,6 +28,7 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [Jakubantalik/thinking-orbs](#thinking-orbs) | MIT | adapted code + data | RasanOrbs runtime, 15 golden cases | taken |
 | [feitangyuan/onetake](#onetake) | PolyForm Noncommercial 1.0.0 | idea only | cut-aware shutter, sfx-buried, carry, scale-dive, regression diff | taken as ideas; translated versions open (P3.1) |
 | [pyang5166/gbro-collage-broll](#gbro) + gbro-collage-info | MIT | rewritten | halftone paper collage look | taken |
+| [Leonxlnx/earshot](#earshot) | MIT | optional subprocess, nothing vendored | 252-sound bank, launch kit, sound sheet, technical warnings | taken (optional dependency) |
 | [JohnHeibel/ClaudeAnimationBase](#claudeanimationbase) | MIT | idea only | twinning, three zooms, reads, echo | taken as ideas; the cartoon route is built as original code (P3.2, B2 partly done) |
 | [lemomo-ai/lemo-opuscar](#lemo-opuscar) | MIT | rewritten + data | 11 styles, 98 prompts, catalogue grammar, devices, slot limiter, CJK reading | taken |
 | [tuzhechen2005/opus-video-skills](#video-upgrade-pins) | MIT (root LICENSE; `painted-animation/template/` is John Heibel, MIT) | idea only so far | painted-animation skill (W5 reference) | pinned 59744a6; code adapted only with its LICENSE + NOTICE, see pins |
@@ -512,3 +513,13 @@ Revalidated 2026-10-22 for the video-upgrade brief (heresay r_VejkvP8IXAd9jCgJ).
 - DECLINED: copying any Shadertoy shader wholesale.
 - PLANNED: none.
 - Unverified: Hoskins' licence text (see above).
+
+## earshot
+
+- What: Leonxlnx/earshot, a command-line "ears for coding agents" with a bank of 252 code-made sound effects, a launch-film kit preset and a sound sheet. Used by `scripts/lib/earshot.mjs` for the sfx palette and `sfx-plan` cues, `sound.mjs sheet`, and warning-only technical findings in `final-gate.mjs`.
+- URL: https://github.com/Leonxlnx/earshot
+- Licence: MIT (root LICENSE; the bank is code-synthesised by its recipes). Version in use: `main` (earshot 0.4.0).
+- TOOK: nothing copied or vendored. It is an optional runtime dependency installed on the user's machine into its own venv (`~/.cache/rasanai/earshot-venv`, Python 3.12 via uv) and called only as a subprocess; sounds it renders into a film are generated output.
+- DECLINED: its `critique` verdict and score as a gate (rated a weak film 1.0 and an excellent one 0.897); importing it as a Python library (librosa/numba crashes on Python 3.14 here); bundling the venv or its ~1.1 GB models.
+- PLANNED: none.
+- Unverified: whether bank renders may be redistributed in a paid film without the MIT notice (they are generated output; keep the earshot credit in the film's LICENSES.json to be safe).

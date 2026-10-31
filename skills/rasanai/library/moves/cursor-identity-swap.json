@@ -54,5 +54,14 @@
     "open",
     "proof"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.cursorIdentitySwap",
+    "example": "RasanMoves.cursorIdentitySwap(tl, 0.2, { target: stage });",
+    "params": [
+      "accent",
+      "peers"
+    ]
+  }
 }

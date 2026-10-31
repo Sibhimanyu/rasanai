@@ -16,6 +16,9 @@
 //        --keep-stale keeps it). Sidecars from before the hash existed are kept as they are.
 //        --transparent: an opaque PNG (no alpha: the tool ignored the ask) is regenerated once on a flat #00FF00 and keyed (colorkey + despill),
 //        and every transparent result has alpha >= 250 snapped to 255. Identical bytes from two parallel runs (a collision) are regenerated once.
+//        --style <atlas id> [--palette <id>] [--subject .. --action .. --setting ..] [--style-line ".."] [--brand-name "<colour word>"] [--sprite]
+//        builds the prompt from the atlas art block (library/styles/atlas/<id>.json: camera, light, material, palette-locked colour words, texture, negatives) +
+//        the world bible style line; --prompt then is the shot's `see` text. Batch: a plan (or world bible) with style_world does the same for every image.
 //   node imagegen.mjs batch (--plan <images.json> | --world <art/world.json>) [--concurrency 3] [--only id,id] [--force]
 //     --world: the film's world bible (lib/world-bible.mjs): the anchor is made first, then the character/object sheets (`needs`), then every shot, each with the anchor (and its sheets) as --ref
 //     plan: {aspect, style, avoid, refs: [...], anchor?: "<id>", images: [{id, prompt, out, aspect?, refs?, needs?: [id], transparent?}]}
@@ -304,10 +307,18 @@ function tail(log) {
 async function cmdGenerate() {
   let prompt = args.prompt;
   if (args["prompt-file"]) { try { prompt = fs.readFileSync(args["prompt-file"], "utf8").trim(); } catch (e) { fail(`cannot read --prompt-file: ${e.message}`); } }
-  if (!prompt || prompt === true) fail("generate needs --prompt \"<text>\" or --prompt-file <file>");
+  const st = args.style && args.style !== true ? String(args.style) : "";
+  if ((!prompt || prompt === true) && !(st && (args.subject || args.see))) fail("generate needs --prompt \"<text>\" or --prompt-file <file> (or --style <atlas id> with --subject)");
+  let fullFromArt = null;
+  if (st) { // --style <atlas id> [--palette <id>] [--subject --action --setting | --prompt <the shot's see text>] [--style-line "<world bible line>"] [--sprite]
+    const { buildArtPrompt } = await import("./lib/world-bible.mjs");
+    fullFromArt = buildArtPrompt({ style: st, palette: args.palette && args.palette !== true ? String(args.palette) : "", subject: args.subject === true ? "" : args.subject, action: args.action === true ? "" : args.action, setting: args.setting === true ? "" : args.setting, see: prompt === true ? "" : prompt, style_line: args["style-line"] === true ? "" : args["style-line"], brand_name: args["brand-name"] === true ? "" : args["brand-name"], sprite: !!args.sprite });
+    if (!fullFromArt) fail(`--style "${st}" has no art block in library/styles/atlas`);
+    prompt = prompt && prompt !== true ? prompt : String(args.subject);
+  }
   if (!args.out || args.out === true) fail("generate needs --out <file.png>");
   if (!args.force && fs.existsSync(args.out)) { /* skip path needs no codex */ } else requireReady();
-  const res = await generateOne({ prompt, out: args.out, aspect: args.aspect, refs: splitList(args.ref), transparent: !!args.transparent, model: args.model && args.model !== true ? args.model : null, timeout: args.timeout, force: !!args.force });
+  const res = await generateOne({ prompt, fullPrompt: fullFromArt || undefined, out: args.out, aspect: args.aspect, refs: splitList(args.ref), transparent: !!args.transparent, model: args.model && args.model !== true ? args.model : null, timeout: args.timeout, force: !!args.force });
   if (!res.ok) { err(`PROBLEM: ${res.error}`); out(res); process.exit(2); }
   out(res);
 }
@@ -337,7 +348,13 @@ async function cmdBatch() {
   for (const o of only) if (!ids.has(o)) fail(`--only names unknown image "${o}"`);
   const force = !!args.force;
   const conc = Math.max(1, Math.min(8, Number(args.concurrency) || 3));
+  let artBuild = null;
+  if (plan.style_world) { const { buildArtPrompt } = await import("./lib/world-bible.mjs"); artBuild = buildArtPrompt; }
   const full = (im) => {
+    if (artBuild) { // atlas art block: palette-locked colour words + negatives + the world bible's style line + the shot's own text
+      const a = artBuild({ style: plan.style_world, palette: im.palette || plan.palette, see: im.prompt, style_line: plan.style, avoid: plan.avoid, brand_name: plan.brand_name, sprite: /sprite[\s-]?sheet/i.test(String(im.prompt)) });
+      if (a) return a;
+    }
     const p = String(im.prompt).trim().replace(/[.\s]+$/, "");
     return `${p}.${plan.style ? ` Style: ${String(plan.style).trim().replace(/[.\s]+$/, "")}.` : ""}${plan.avoid ? ` Avoid: ${String(plan.avoid).trim().replace(/[.\s]+$/, "")}.` : ""}`;
   };

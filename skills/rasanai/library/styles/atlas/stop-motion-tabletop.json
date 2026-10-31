@@ -124,5 +124,229 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "workbench",
+        "name": "Workbench",
+        "bg": "#C9A877",
+        "bg2": "#B38D5B",
+        "ink": "#2B1F16",
+        "accent": "#D94F30",
+        "accent2": "#3F7F8C",
+        "words": "plywood table, dark walnut, tomato red felt, teal cardboard"
+      },
+      {
+        "id": "cardboard-city",
+        "name": "Cardboard city",
+        "bg": "#D9C3A1",
+        "bg2": "#C3A87F",
+        "ink": "#201A15",
+        "accent": "#F2B134",
+        "accent2": "#4B6FA5",
+        "words": "corrugated card, brown ink, mustard, denim blue"
+      },
+      {
+        "id": "felt-night",
+        "name": "Felt night",
+        "bg": "#2A2F45",
+        "bg2": "#3C4363",
+        "ink": "#F3EAD7",
+        "accent": "#F07F59",
+        "accent2": "#F4C95D",
+        "words": "navy felt, cream, salmon, yellow"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the hero prop's felt or paint (the character, the box); table, cardboard and ink stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "stop-motion-tabletop-1",
+          "display": {
+            "family": "Special Elite",
+            "google": "https://fonts.googleapis.com/css2?family=Special+Elite&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Archivo",
+            "google": "https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Special Elite', monospace",
+            "text": "'Archivo', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.02em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Label-maker or typewriter tape labels stuck on objects; or letters cut from card."
+        },
+        {
+          "id": "stop-motion-tabletop-2",
+          "display": {
+            "family": "Gloria Hallelujah",
+            "google": "https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Archivo",
+            "google": "https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Gloria Hallelujah', sans-serif",
+            "text": "'Archivo', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3.4,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Marker on masking tape."
+        }
+      ],
+      "default": "stop-motion-tabletop-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 2,
+            "strength": 0.12,
+            "mono": 0
+          },
+          "role": "film grain for the macro look"
+        }
+      ],
+      "css": [
+        "grain:0.12",
+        "tilt-shift",
+        "step2",
+        "m-card-board"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "tabletop 3/4 view of a handmade set; props on cardboard risers; characters at the thirds",
+      "safe_area": "10% margin",
+      "fill": "props fill 50%; the table is part of the world",
+      "product_ui": "UI is a printed paper screen or a real small monitor on the set, held at an angle"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 60 mm macro on a tabletop rig, f/4, shallow depth of field with a tilt-shift look, locked off. Lighting: a warm tungsten key from upper left, a small cool fill, soft contact shadows on the table. Material: felt, cardboard, painted wood, thumbtacks, masking tape, visible glue and fingerprints. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: fibre and fuzz on felt, paper grain, slight flicker between frames (hold on 2s or 3s). Avoid: no text, no letters, no logos, no watermark, no smooth CG surfaces, no perfect symmetry, no clean vector, no glossy plastic, no floating objects without a rig, no text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "60 mm macro on a tabletop rig, f/4, shallow depth of field with a tilt-shift look, locked off",
+      "lighting": "a warm tungsten key from upper left, a small cool fill, soft contact shadows on the table",
+      "material": "felt, cardboard, painted wood, thumbtacks, masking tape, visible glue and fingerprints",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "fibre and fuzz on felt, paper grain, slight flicker between frames (hold on 2s or 3s)",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no smooth CG surfaces",
+        "no perfect symmetry",
+        "no clean vector",
+        "no glossy plastic",
+        "no floating objects without a rig",
+        "no text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: felt; 60 mm macro on a tabletop rig; plywood table, dark walnut, tomato red felt, teal cardboard."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a tomato-red felt courier with button eyes",
+          "action": "carrying a cardboard box up a stack of books",
+          "setting": "a plywood workbench with corrugated card buildings and a warm tungsten key",
+          "palette": "workbench",
+          "prompt": "a tomato-red felt courier with button eyes carrying a cardboard box up a stack of books, a plywood workbench with corrugated card buildings and a warm tungsten key. Camera and lens: 60 mm macro on a tabletop rig, f/4, shallow depth of field with a tilt-shift look, locked off. Lighting: a warm tungsten key from upper left, a small cool fill, soft contact shadows on the table. Material: felt, cardboard, painted wood, thumbtacks, masking tape, visible glue and fingerprints. Colour, locked to the palette plywood table, dark walnut, tomato red felt, teal cardboard, and nothing outside it. Texture and finish: fibre and fuzz on felt, paper grain, slight flicker between frames (hold on 2s or 3s). Avoid: no text, no letters, no logos, no watermark, no smooth CG surfaces, no perfect symmetry, no clean vector, no glossy plastic, no floating objects without a rig, no text."
+        },
+        {
+          "subject": "a tiny denim-blue paper robot",
+          "action": "leaning on a mustard cardboard pole",
+          "setting": "a handmade cardboard city at macro scale, shallow depth of field",
+          "palette": "workbench",
+          "prompt": "a tiny denim-blue paper robot leaning on a mustard cardboard pole, a handmade cardboard city at macro scale, shallow depth of field. Camera and lens: 60 mm macro on a tabletop rig, f/4, shallow depth of field with a tilt-shift look, locked off. Lighting: a warm tungsten key from upper left, a small cool fill, soft contact shadows on the table. Material: felt, cardboard, painted wood, thumbtacks, masking tape, visible glue and fingerprints. Colour, locked to the palette plywood table, dark walnut, tomato red felt, teal cardboard, and nothing outside it. Texture and finish: fibre and fuzz on felt, paper grain, slight flicker between frames (hold on 2s or 3s). Avoid: no text, no letters, no logos, no watermark, no smooth CG surfaces, no perfect symmetry, no clean vector, no glossy plastic, no floating objects without a rig, no text."
+        }
+      ]
+    },
+    "do": [
+      "Animate on 2s or 3s: pops, not tweens",
+      "Show the maker's marks: glue, tape, fingerprints",
+      "Use real macro depth of field"
+    ],
+    "dont": [
+      "No smooth interpolation",
+      "No clean CG shading",
+      "No more than 3 materials"
+    ],
+    "cheap_ways": [
+      "Wool texture filter on a render",
+      "Smooth 60 fps motion that is not stop-motion",
+      "Perfectly clean cardboard with no glue or tape"
+    ]
+  }
 }

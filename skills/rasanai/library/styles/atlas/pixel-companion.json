@@ -116,5 +116,226 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "studio-dark",
+        "name": "Studio dark",
+        "bg": "#101114",
+        "bg2": "#1B1D23",
+        "ink": "#E9E9EC",
+        "accent": "#7CF2C8",
+        "accent2": "#FFB547",
+        "words": "near-black graphite, off-white, mint, amber"
+      },
+      {
+        "id": "paper-desk",
+        "name": "Paper desk",
+        "bg": "#F3EFE6",
+        "bg2": "#E4DDCC",
+        "ink": "#1C1B19",
+        "accent": "#FF5A36",
+        "accent2": "#2D6BFF",
+        "words": "warm paper white, soft black, vermilion, cobalt"
+      },
+      {
+        "id": "night-shift",
+        "name": "Night shift",
+        "bg": "#14102A",
+        "bg2": "#241C4A",
+        "ink": "#EDE8FF",
+        "accent": "#FF8AD8",
+        "accent2": "#6CF0FF",
+        "words": "ink violet, lilac white, bubblegum pink, cyan"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "brand-or-style",
+        "bg2": "brand-or-style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "The real UI keeps its own palette untouched. Brand colour tints the mascot's one signature item (scarf, visor); background and ink are style-fixed and match the UI's host surface. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "pixel-companion-1",
+          "display": {
+            "family": "Pixelify Sans",
+            "google": "https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Pixelify Sans', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 600,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 2.6,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Pixel type only for the mascot's speech bubble; everything else is the product's own UI type."
+        },
+        {
+          "id": "pixel-companion-2",
+          "display": {
+            "family": "Silkscreen",
+            "google": "https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Geist",
+            "google": "https://fonts.googleapis.com/css2?family=Geist:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Silkscreen', monospace",
+            "text": "'Geist', sans-serif"
+          },
+          "case": "upper",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 6,
+            "two_words": 4.8,
+            "long": 3.6,
+            "sub_cqw": 2.4,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.05em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Silkscreen only for status chips."
+        }
+      ],
+      "default": "pixel-companion-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "pixelate",
+          "params": {
+            "size": 3,
+            "dither": 0.2,
+            "snap": 1
+          },
+          "role": "mascot layer only, never the UI capture"
+        }
+      ],
+      "css": [
+        "pixel-layer"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "the real UI capture is the stage; the mascot is a 32-64 px-tall sprite layer on 3x integer steps",
+      "safe_area": "UI keeps its own margins; mascot walks along real element edges (button tops, card borders)",
+      "fill": "UI fills 85-95% of the frame; mascot under 8% of the area",
+      "product_ui": "UI is the world itself: do not frame it in a device, composite the sprite directly on the capture"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat orthographic screen-aligned view of a sprite on a transparent or flat chroma-green ground. Lighting: flat; a 1 px darker underside only. Material: hard-edged pixel sprite, 1 px dark outline, 6-10 colours, no anti-aliasing. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: none; no dither on the sprite except 2 shading steps. Avoid: no text, no letters, no logos, no watermark, no UI screenshot, no scene background, no anti-aliasing, no glow, no text in the speech bubble.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat orthographic screen-aligned view of a sprite on a transparent or flat chroma-green ground",
+      "lighting": "flat; a 1 px darker underside only",
+      "material": "hard-edged pixel sprite, 1 px dark outline, 6-10 colours, no anti-aliasing",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "none; no dither on the sprite except 2 shading steps",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no UI screenshot",
+        "no scene background",
+        "no anti-aliasing",
+        "no glow",
+        "no text in the speech bubble"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: hard-edged pixel sprite; flat orthographic screen-aligned view of a sprite on a transparent or flat chroma-green ground; near-black graphite, off-white, mint, amber."
+      },
+      "sprite_sheet": {
+        "use": true,
+        "rules": "Sprite sheet: flat chroma-green background (#00FF00) that fills the whole sheet, an equal grid of cells with identical size and spacing, one pose or state per cell, same ground line and scale in every cell, no text, labels, numbers or grid lines, no green anywhere in the sprite (if the chosen palette contains green, use another palette for sprites). Cut out with --transparent, snap to the palette afterwards.",
+        "aspect": "1:1"
+      },
+      "examples": [
+        {
+          "subject": "a 32x32 pixel robot courier with a mint visor",
+          "action": "walk cycle, 6 frames, facing right",
+          "setting": "sprite sheet on flat chroma green (#00FF00), 3x2 equal grid",
+          "palette": "studio-dark",
+          "prompt": "a 32x32 pixel robot courier with a mint visor walk cycle, 6 frames, facing right, sprite sheet on flat chroma green (#00FF00), 3x2 equal grid. Camera and lens: flat orthographic screen-aligned view of a sprite on a transparent or flat chroma-green ground. Lighting: flat; a 1 px darker underside only. Material: hard-edged pixel sprite, 1 px dark outline, 6-10 colours, no anti-aliasing. Colour, locked to the palette near-black graphite, off-white, mint, amber, and nothing outside it. Texture and finish: none; no dither on the sprite except 2 shading steps. Avoid: no text, no letters, no logos, no watermark, no UI screenshot, no scene background, no anti-aliasing, no glow, no text in the speech bubble."
+        },
+        {
+          "subject": "a 32x32 pixel fox mascot with an amber scarf",
+          "action": "idle, jump, land, celebrate poses",
+          "setting": "sprite sheet on flat chroma green, 4x1 equal grid, same ground line in every cell",
+          "palette": "studio-dark",
+          "prompt": "a 32x32 pixel fox mascot with an amber scarf idle, jump, land, celebrate poses, sprite sheet on flat chroma green, 4x1 equal grid, same ground line in every cell. Camera and lens: flat orthographic screen-aligned view of a sprite on a transparent or flat chroma-green ground. Lighting: flat; a 1 px darker underside only. Material: hard-edged pixel sprite, 1 px dark outline, 6-10 colours, no anti-aliasing. Colour, locked to the palette near-black graphite, off-white, mint, amber, and nothing outside it. Texture and finish: none; no dither on the sprite except 2 shading steps. Avoid: no text, no letters, no logos, no watermark, no UI screenshot, no scene background, no anti-aliasing, no glow, no text in the speech bubble."
+        }
+      ]
+    },
+    "do": [
+      "One mascot, one job in the story, consistent 3x scale",
+      "Let the sprite touch real UI geometry (stand on a button, push a toggle)",
+      "Snap sprite positions to the pixel grid"
+    ],
+    "dont": [
+      "Do not redraw or pixelate the real UI",
+      "Do not add random decorative sprites",
+      "Do not smooth sprite motion between pixel steps"
+    ],
+    "cheap_ways": [
+      "Mascot floats over the UI without touching any edge",
+      "Many unrelated sprites as confetti",
+      "Sprite scaled to 2.5x so pixels differ from the UI's own 1x"
+    ]
+  }
 }

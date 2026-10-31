@@ -137,5 +137,236 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "cyanotype",
+        "name": "Cyanotype",
+        "bg": "#0B3C7A",
+        "bg2": "#0A2F63",
+        "ink": "#EAF3FF",
+        "accent": "#FFFFFF",
+        "accent2": "#9EC8FF",
+        "words": "Prussian blue sheet, white lines, pale blue annotation"
+      },
+      {
+        "id": "drafting-vellum",
+        "name": "Drafting vellum",
+        "bg": "#F3EFE2",
+        "bg2": "#E6E0CC",
+        "ink": "#1B2A4A",
+        "accent": "#D6452B",
+        "accent2": "#1B2A4A",
+        "words": "cream vellum, navy ink, red redline"
+      },
+      {
+        "id": "dark-cad",
+        "name": "Dark CAD",
+        "bg": "#0B0F14",
+        "bg2": "#121A24",
+        "ink": "#CFE8FF",
+        "accent": "#35E0FF",
+        "accent2": "#FFB347",
+        "words": "CAD black, pale blue lines, cyan, amber"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the redline or highlight layer (the one thing being engineered); sheet, grid and linework stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "blueprint-1",
+          "display": {
+            "family": "IBM Plex Mono",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Sans",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'IBM Plex Mono', monospace",
+            "text": "'IBM Plex Sans', sans-serif"
+          },
+          "case": "upper",
+          "weight": 500,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 2.6,
+            "caption_cqw": 1.3,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.06em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Engineering letters: uppercase, wide tracking, title block bottom-right."
+        },
+        {
+          "id": "blueprint-2",
+          "display": {
+            "family": "Space Mono",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Sans",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Space Mono', monospace",
+            "text": "'IBM Plex Sans', sans-serif"
+          },
+          "case": "upper",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 2.6,
+            "caption_cqw": 1.3,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.08em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Mono display."
+        }
+      ],
+      "default": "blueprint-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.6,
+            "strength": 0.08,
+            "mono": 1
+          },
+          "role": "print grain"
+        },
+        {
+          "pass": "posterise",
+          "params": {
+            "steps": 5,
+            "mode": 0,
+            "contrast": 1.1
+          },
+          "role": "flat sheet"
+        }
+      ],
+      "css": [
+        "grain:0.08",
+        "blueprint-grid"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "drafting sheet with a border, title block bottom-right, 20 px minor and 100 px major grid; views in orthographic plan, front, side",
+      "safe_area": "sheet border 3% inside; objects keep 5% from the border",
+      "fill": "drawing fills 60%; dimension lines fill the rest",
+      "product_ui": "UI is the part being drawn: wireframe first (lines draw on), then the real capture replaces the middle view"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat orthographic technical drawing; no perspective except one exploded isometric view. Lighting: none: line-only. Material: 1.5 px white linework, dashed hidden lines, dimension arrows, hatch for sections. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: fine paper grain, faint fold lines, slight ink bleed. Avoid: no text, no letters, no logos, no watermark, no shading, no colour fills, no photoreal, no gradients, no handwritten sketch lines, no readable invented text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat orthographic technical drawing; no perspective except one exploded isometric view",
+      "lighting": "none: line-only",
+      "material": "1.5 px white linework, dashed hidden lines, dimension arrows, hatch for sections",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "fine paper grain, faint fold lines, slight ink bleed",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no shading",
+        "no colour fills",
+        "no photoreal",
+        "no gradients",
+        "no handwritten sketch lines",
+        "no readable invented text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: 1.5 px white linework; flat orthographic technical drawing; no perspective except one exploded isometric view; Prussian blue sheet, white lines, pale blue annotation."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "an exploded isometric technical drawing of a small robot",
+          "action": "white linework on Prussian blue with dimension arrows and a title block",
+          "setting": "a drafting sheet with a 20 px grid and sheet border",
+          "palette": "cyanotype",
+          "prompt": "an exploded isometric technical drawing of a small robot white linework on Prussian blue with dimension arrows and a title block, a drafting sheet with a 20 px grid and sheet border. Camera and lens: flat orthographic technical drawing; no perspective except one exploded isometric view. Lighting: none: line-only. Material: 1.5 px white linework, dashed hidden lines, dimension arrows, hatch for sections. Colour, locked to the palette Prussian blue sheet, white lines, pale blue annotation, and nothing outside it. Texture and finish: fine paper grain, faint fold lines, slight ink bleed. Avoid: no text, no letters, no logos, no watermark, no shading, no colour fills, no photoreal, no gradients, no handwritten sketch lines, no readable invented text."
+        },
+        {
+          "subject": "an orthographic plan and front elevation of a pocket device",
+          "action": "redline callouts on a cream vellum sheet",
+          "setting": "navy ink linework with section hatching",
+          "palette": "cyanotype",
+          "prompt": "an orthographic plan and front elevation of a pocket device redline callouts on a cream vellum sheet, navy ink linework with section hatching. Camera and lens: flat orthographic technical drawing; no perspective except one exploded isometric view. Lighting: none: line-only. Material: 1.5 px white linework, dashed hidden lines, dimension arrows, hatch for sections. Colour, locked to the palette Prussian blue sheet, white lines, pale blue annotation, and nothing outside it. Texture and finish: fine paper grain, faint fold lines, slight ink bleed. Avoid: no text, no letters, no logos, no watermark, no shading, no colour fills, no photoreal, no gradients, no handwritten sketch lines, no readable invented text."
+        }
+      ]
+    },
+    "do": [
+      "Draw lines on over time like a plotter, with dimension arrows following",
+      "Keep views orthographic and aligned",
+      "Use a title block with fake-but-plausible fields (typeset, never generated)"
+    ],
+    "dont": [
+      "No shading or fills",
+      "No handwritten sketchiness",
+      "No gradient sheet"
+    ],
+    "cheap_ways": [
+      "Blue gradient with grid texture and a clip-art gear",
+      "Lines that fade in instead of drawing",
+      "Random numbers that mean nothing"
+    ]
+  }
 }

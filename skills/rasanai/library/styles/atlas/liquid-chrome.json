@@ -136,5 +136,236 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "mercury",
+        "name": "Mercury",
+        "bg": "#08090D",
+        "bg2": "#14161F",
+        "ink": "#EDEFF5",
+        "accent": "#B8C4FF",
+        "accent2": "#FF5CE1",
+        "words": "near-black, cold white, ice periwinkle, hot magenta reflection"
+      },
+      {
+        "id": "warm-chrome",
+        "name": "Warm chrome",
+        "bg": "#120B09",
+        "bg2": "#241713",
+        "ink": "#FBEEDD",
+        "accent": "#FFB45C",
+        "accent2": "#7BE0FF",
+        "words": "espresso black, warm cream, amber, aqua reflection"
+      },
+      {
+        "id": "acid-liquid",
+        "name": "Acid liquid",
+        "bg": "#0A0F0B",
+        "bg2": "#16241A",
+        "ink": "#F4FFE8",
+        "accent": "#D2FF3A",
+        "accent2": "#C06BFF",
+        "words": "green-black, pale lime white, acid green, violet"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the single environment-light reflected into the chrome (one coloured gel); the metal itself and the black stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "liquid-chrome-1",
+          "display": {
+            "family": "Syne",
+            "google": "https://fonts.googleapis.com/css2?family=Syne:wght@500..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Syne', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 800,
+          "scale": {
+            "hero_cqw": 10,
+            "two_words": 8,
+            "long": 6,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.02em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Wide extended display with a vertical chrome gradient fill (white to grey to black to white)."
+        },
+        {
+          "id": "liquid-chrome-2",
+          "display": {
+            "family": "Krona One",
+            "google": "https://fonts.googleapis.com/css2?family=Krona+One&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Krona One', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 2.8,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.04em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Extended heavy."
+        }
+      ],
+      "default": "liquid-chrome-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "posterise",
+          "params": {
+            "steps": 6,
+            "mode": 0,
+            "contrast": 1.15
+          },
+          "role": "banded chrome reflections"
+        },
+        {
+          "pass": "aberration",
+          "params": {
+            "shift": 0.004,
+            "mode": 0,
+            "falloff": 1.4
+          },
+          "role": "edge dispersion"
+        }
+      ],
+      "css": [
+        "chrome-text",
+        "grain:0.04"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "single hero blob centred or on a third on a near-black void; slow low-frequency motion",
+      "safe_area": "12% margin; hero 55% of frame height; type below or above on a long baseline",
+      "fill": "one object, huge negative space",
+      "product_ui": "UI sits on a floating dark glass plane that the chrome reflects; the UI itself stays flat and crisp"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 100 mm macro, f/8, slightly low angle, no distortion. Lighting: a studio HDRI of black with two large white strip lights and one coloured gel strip. Material: polished liquid mercury chrome, mirror reflections, rippling surface tension, thin black and white banding in reflections. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: smooth, perfectly clean mirror; no scratches. Avoid: no text, no letters, no logos, no watermark, no matte surfaces, no plastic, no soft pastel, no visible seams, no text, no cheesy bubble highlights.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "100 mm macro, f/8, slightly low angle, no distortion",
+      "lighting": "a studio HDRI of black with two large white strip lights and one coloured gel strip",
+      "material": "polished liquid mercury chrome, mirror reflections, rippling surface tension, thin black and white banding in reflections",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "smooth, perfectly clean mirror; no scratches",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no matte surfaces",
+        "no plastic",
+        "no soft pastel",
+        "no visible seams",
+        "no text",
+        "no cheesy bubble highlights"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: polished liquid mercury chrome; 100 mm macro; near-black, cold white, ice periwinkle, hot magenta reflection."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a single blob of liquid chrome in the shape of a rounded rhombus",
+          "action": "slowly pinching into a figure-eight with a thin neck",
+          "setting": "a pure black void with a faint cold floor reflection and two white strip lights",
+          "palette": "mercury",
+          "prompt": "a single blob of liquid chrome in the shape of a rounded rhombus slowly pinching into a figure-eight with a thin neck, a pure black void with a faint cold floor reflection and two white strip lights. Camera and lens: 100 mm macro, f/8, slightly low angle, no distortion. Lighting: a studio HDRI of black with two large white strip lights and one coloured gel strip. Material: polished liquid mercury chrome, mirror reflections, rippling surface tension, thin black and white banding in reflections. Colour, locked to the palette near-black, cold white, ice periwinkle, hot magenta reflection, and nothing outside it. Texture and finish: smooth, perfectly clean mirror; no scratches. Avoid: no text, no letters, no logos, no watermark, no matte surfaces, no plastic, no soft pastel, no visible seams, no text, no cheesy bubble highlights."
+        },
+        {
+          "subject": "a chrome torus ring mid-ripple",
+          "action": "a droplet splitting from its edge",
+          "setting": "espresso-black room, amber gel strip reflected in the metal",
+          "palette": "mercury",
+          "prompt": "a chrome torus ring mid-ripple a droplet splitting from its edge, espresso-black room, amber gel strip reflected in the metal. Camera and lens: 100 mm macro, f/8, slightly low angle, no distortion. Lighting: a studio HDRI of black with two large white strip lights and one coloured gel strip. Material: polished liquid mercury chrome, mirror reflections, rippling surface tension, thin black and white banding in reflections. Colour, locked to the palette near-black, cold white, ice periwinkle, hot magenta reflection, and nothing outside it. Texture and finish: smooth, perfectly clean mirror; no scratches. Avoid: no text, no letters, no logos, no watermark, no matte surfaces, no plastic, no soft pastel, no visible seams, no text, no cheesy bubble highlights."
+        }
+      ]
+    },
+    "do": [
+      "Reflection is the design: use strip lights and a coloured gel",
+      "Move slowly with viscous easing",
+      "Leave the void empty so type has room"
+    ],
+    "dont": [
+      "No more than one hero blob",
+      "No matte or coloured plastic",
+      "No fast bounce"
+    ],
+    "cheap_ways": [
+      "Default purple-pink gradient blob called chrome",
+      "A blob screensaver loop with no story",
+      "Chrome type with an illegible bevel"
+    ]
+  }
 }

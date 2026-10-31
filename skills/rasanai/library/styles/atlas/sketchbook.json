@@ -128,5 +128,227 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "pencil-on-kraft",
+        "name": "Pencil on kraft",
+        "bg": "#EAD9BC",
+        "bg2": "#DCC59E",
+        "ink": "#2A2622",
+        "accent": "#D7452F",
+        "accent2": "#2F6B8F",
+        "words": "kraft paper, graphite, red marker, blue ballpoint"
+      },
+      {
+        "id": "notebook-grid",
+        "name": "Notebook grid",
+        "bg": "#F6F5EF",
+        "bg2": "#E8E6DA",
+        "ink": "#222831",
+        "accent": "#FF6B35",
+        "accent2": "#1B7F79",
+        "words": "off-white grid page, soft black, orange marker, teal"
+      },
+      {
+        "id": "chalk-board",
+        "name": "Chalk board",
+        "bg": "#1F2A27",
+        "bg2": "#2B3A36",
+        "ink": "#F2EFE6",
+        "accent": "#FFD166",
+        "accent2": "#7BD3C0",
+        "words": "slate green, chalk white, yellow, mint"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the marker used for emphasis (underlines, circles, the hero fill); paper and pencil stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "sketchbook-1",
+          "display": {
+            "family": "Caveat",
+            "google": "https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Patrick Hand",
+            "google": "https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Caveat', sans-serif",
+            "text": "'Patrick Hand', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 4,
+            "caption_cqw": 2,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Handwriting; jitter each word 1-2 degrees; underline with a marker stroke."
+        },
+        {
+          "id": "sketchbook-2",
+          "display": {
+            "family": "Reenie Beanie",
+            "google": "https://fonts.googleapis.com/css2?family=Reenie+Beanie&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Gloria Hallelujah",
+            "google": "https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Reenie Beanie', sans-serif",
+            "text": "'Gloria Hallelujah', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 12,
+            "two_words": 9.6,
+            "long": 7.2,
+            "sub_cqw": 4.5,
+            "caption_cqw": 2.2,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Scrawl for the loose, funny read."
+        }
+      ],
+      "default": "sketchbook-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.8,
+            "strength": 0.12,
+            "mono": 1
+          },
+          "role": "paper and graphite grain"
+        }
+      ],
+      "css": [
+        "grain:0.12",
+        "boil",
+        "m-ruled"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "page spread with 10% margin; sketches loosely arranged with arrows and annotations; line boil on 2s",
+      "safe_area": "8% margin; marginalia in the gutter",
+      "fill": "half the page is drawing, half blank",
+      "product_ui": "UI is a taped-in printout or a sketched phone with the real UI in its screen"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat top-down of a notebook page, 50 mm, slight page curl at the edge. Lighting: soft overhead desk light, pencil sheen, subtle shadow of a taped photo. Material: graphite pencil, felt marker, ballpoint on paper with erased ghost lines. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: paper tooth, smudges, eraser marks. Avoid: no text, no letters, no logos, no watermark, no digital clean lines, no vector shapes, no perfect circles, no gradients, no readable invented text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat top-down of a notebook page, 50 mm, slight page curl at the edge",
+      "lighting": "soft overhead desk light, pencil sheen, subtle shadow of a taped photo",
+      "material": "graphite pencil, felt marker, ballpoint on paper with erased ghost lines",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "paper tooth, smudges, eraser marks",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no digital clean lines",
+        "no vector shapes",
+        "no perfect circles",
+        "no gradients",
+        "no readable invented text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: graphite pencil; flat top-down of a notebook page; kraft paper, graphite, red marker, blue ballpoint."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a graphite pencil sketch of a small robot assistant with a red marker circle around its eye",
+          "action": "scribbled arrows pointing to labelled parts",
+          "setting": "a kraft paper notebook page with eraser ghosts and coffee ring",
+          "palette": "pencil-on-kraft",
+          "prompt": "a graphite pencil sketch of a small robot assistant with a red marker circle around its eye scribbled arrows pointing to labelled parts, a kraft paper notebook page with eraser ghosts and coffee ring. Camera and lens: flat top-down of a notebook page, 50 mm, slight page curl at the edge. Lighting: soft overhead desk light, pencil sheen, subtle shadow of a taped photo. Material: graphite pencil, felt marker, ballpoint on paper with erased ghost lines. Colour, locked to the palette kraft paper, graphite, red marker, blue ballpoint, and nothing outside it. Texture and finish: paper tooth, smudges, eraser marks. Avoid: no text, no letters, no logos, no watermark, no digital clean lines, no vector shapes, no perfect circles, no gradients, no readable invented text."
+        },
+        {
+          "subject": "a loose pencil storyboard of a bicycle courier",
+          "action": "three frames in a row with orange marker underlines",
+          "setting": "an off-white grid notebook page, tape at the corners",
+          "palette": "pencil-on-kraft",
+          "prompt": "a loose pencil storyboard of a bicycle courier three frames in a row with orange marker underlines, an off-white grid notebook page, tape at the corners. Camera and lens: flat top-down of a notebook page, 50 mm, slight page curl at the edge. Lighting: soft overhead desk light, pencil sheen, subtle shadow of a taped photo. Material: graphite pencil, felt marker, ballpoint on paper with erased ghost lines. Colour, locked to the palette kraft paper, graphite, red marker, blue ballpoint, and nothing outside it. Texture and finish: paper tooth, smudges, eraser marks. Avoid: no text, no letters, no logos, no watermark, no digital clean lines, no vector shapes, no perfect circles, no gradients, no readable invented text."
+        }
+      ]
+    },
+    "do": [
+      "Boil the line on 2s (each frame redrawn slightly)",
+      "Let mistakes show: erasures, double lines",
+      "Annotate with arrows and handwritten labels"
+    ],
+    "dont": [
+      "No perfect strokes",
+      "No flat vector fills",
+      "No mixed handwriting fonts"
+    ],
+    "cheap_ways": [
+      "Handwriting font on a white background with no drawing",
+      "A line-boil filter applied to clean vectors",
+      "Every sketch evenly spaced like a template"
+    ]
+  }
 }

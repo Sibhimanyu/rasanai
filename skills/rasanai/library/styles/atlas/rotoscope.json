@@ -124,5 +124,237 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "trace-and-flat",
+        "name": "Trace and flat",
+        "bg": "#F2EBDD",
+        "bg2": "#E3D6BB",
+        "ink": "#14120F",
+        "accent": "#FF4B2B",
+        "accent2": "#2C6EF2",
+        "words": "paper cream, black trace, red-orange fill, blue fill"
+      },
+      {
+        "id": "night-trace",
+        "name": "Night trace",
+        "bg": "#14131C",
+        "bg2": "#22203A",
+        "ink": "#F6F0E6",
+        "accent": "#FFD23F",
+        "accent2": "#FF5E9B",
+        "words": "indigo black, warm white, yellow, pink"
+      },
+      {
+        "id": "duotone",
+        "name": "Duotone",
+        "bg": "#10231F",
+        "bg2": "#1C3B34",
+        "ink": "#F0E6D2",
+        "accent": "#FF8C42",
+        "accent2": "#9BE564",
+        "words": "deep green, parchment, orange, lime"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the one flat fill on the traced subject (a jacket, a bag); line and background stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "rotoscope-1",
+          "display": {
+            "family": "Reenie Beanie",
+            "google": "https://fonts.googleapis.com/css2?family=Reenie+Beanie&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Reenie Beanie', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 4,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Hand lettering that matches the trace line."
+        },
+        {
+          "id": "rotoscope-2",
+          "display": {
+            "family": "Permanent Marker",
+            "google": "https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Permanent Marker', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3.4,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.01em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Marker caps."
+        }
+      ],
+      "default": "rotoscope-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "posterise",
+          "params": {
+            "steps": 4,
+            "mode": 0,
+            "contrast": 1.2
+          },
+          "role": "flat fills from footage"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.6,
+            "strength": 0.1,
+            "mono": 1
+          },
+          "role": "film"
+        }
+      ],
+      "css": [
+        "grain:0.1",
+        "boil",
+        "contrast:1.3",
+        "m-roto"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "live-action subject traced with a wobbling outline and 3-4 flat fills; background is a flat colour or loose washes",
+      "safe_area": "8% margin; subject on a third",
+      "fill": "subject 55-70% of height",
+      "product_ui": "UI is a hand-traced screen with the real UI revealed in the final beat"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: locked-off 35 mm, medium shot of a person, flat even light. Lighting: flat soft light (tracing needs clear shapes), no strong cast shadow. Material: hand-traced ink outline with a 2 px wobble over flat colour fills, 3 tones max. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: line boil, paper grain, slightly misaligned fills (off-register by 3 px). Avoid: no text, no letters, no logos, no watermark, no photoreal skin, no gradients, no smooth 3D shading, no perfect outlines, no text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "locked-off 35 mm, medium shot of a person, flat even light",
+      "lighting": "flat soft light (tracing needs clear shapes), no strong cast shadow",
+      "material": "hand-traced ink outline with a 2 px wobble over flat colour fills, 3 tones max",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "line boil, paper grain, slightly misaligned fills (off-register by 3 px)",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no photoreal skin",
+        "no gradients",
+        "no smooth 3D shading",
+        "no perfect outlines",
+        "no text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: hand-traced ink outline with a 2 px wobble over flat colour fills; locked-off 35 mm; paper cream, black trace, red-orange fill, blue fill."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a courier in an orange jacket pedalling a bicycle",
+          "action": "hand-traced with a wobbling black outline and flat fills",
+          "setting": "a flat cream background with a loose blue wash for the sky",
+          "palette": "trace-and-flat",
+          "prompt": "a courier in an orange jacket pedalling a bicycle hand-traced with a wobbling black outline and flat fills, a flat cream background with a loose blue wash for the sky. Camera and lens: locked-off 35 mm, medium shot of a person, flat even light. Lighting: flat soft light (tracing needs clear shapes), no strong cast shadow. Material: hand-traced ink outline with a 2 px wobble over flat colour fills, 3 tones max. Colour, locked to the palette paper cream, black trace, red-orange fill, blue fill, and nothing outside it. Texture and finish: line boil, paper grain, slightly misaligned fills (off-register by 3 px). Avoid: no text, no letters, no logos, no watermark, no photoreal skin, no gradients, no smooth 3D shading, no perfect outlines, no text."
+        },
+        {
+          "subject": "a woman laughing at a laptop",
+          "action": "rotoscoped to 4 flat tones with a pink fill on her scarf",
+          "setting": "an indigo-black room, warm white trace line",
+          "palette": "trace-and-flat",
+          "prompt": "a woman laughing at a laptop rotoscoped to 4 flat tones with a pink fill on her scarf, an indigo-black room, warm white trace line. Camera and lens: locked-off 35 mm, medium shot of a person, flat even light. Lighting: flat soft light (tracing needs clear shapes), no strong cast shadow. Material: hand-traced ink outline with a 2 px wobble over flat colour fills, 3 tones max. Colour, locked to the palette paper cream, black trace, red-orange fill, blue fill, and nothing outside it. Texture and finish: line boil, paper grain, slightly misaligned fills (off-register by 3 px). Avoid: no text, no letters, no logos, no watermark, no photoreal skin, no gradients, no smooth 3D shading, no perfect outlines, no text."
+        }
+      ]
+    },
+    "do": [
+      "Trace the performance, not the photo: exaggerate gesture",
+      "Fills off-register from the outline by 2-4 px",
+      "Hold 2s or 3s"
+    ],
+    "dont": [
+      "No smooth tweened outlines",
+      "No photoreal detail left in",
+      "No more than 4 flat tones"
+    ],
+    "cheap_ways": [
+      "A posterize filter on video and nothing else",
+      "Outlines that are perfectly smooth",
+      "Fills that match the lines exactly"
+    ]
+  }
 }

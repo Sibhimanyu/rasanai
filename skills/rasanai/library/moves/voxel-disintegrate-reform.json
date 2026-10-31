@@ -41,5 +41,16 @@
   "needs": [
     "stage3d/recipes/voxel-diorama.js",
     "rasan-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.voxelDisintegrateReform",
+    "example": "RasanMoves.voxelDisintegrateReform(tl, 0.2, { target: stage, from: 'heart', to: 'star' });",
+    "params": [
+      "from",
+      "to",
+      "depth",
+      "colors"
+    ]
+  }
 }

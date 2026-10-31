@@ -61,5 +61,17 @@
   ],
   "needs": [
     "rasan-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.colourWorldFlip",
+    "example": "RasanMoves.colourWorldFlip(tl, 0.2, { target: stage, words: ['Everyone','else','builds','slides.'], flipWord: 2, flipAt: 1.0 });",
+    "params": [
+      "words",
+      "flipWord",
+      "flipAt",
+      "a",
+      "b"
+    ]
+  }
 }

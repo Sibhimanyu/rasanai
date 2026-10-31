@@ -42,5 +42,17 @@
   ],
   "needs": [
     "stage3d/recipes/clay-toy.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.actionAsTransition",
+    "example": "RasanMoves.actionAsTransition(tl, 1.2, { target: stage, from: photo, to: photo2 });",
+    "params": [
+      "from",
+      "to",
+      "toColor",
+      "icon",
+      "objectSize"
+    ]
+  }
 }

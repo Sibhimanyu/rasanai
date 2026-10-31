@@ -23,6 +23,15 @@ struct StyleframesStage: View {
     private var canAct: Bool { model.canAct(on: step) }
 
     var body: some View {
+        let concepts = StyleframeConcept.parse(model.payload(step))
+        if !concepts.isEmpty {
+            StyleframeConceptsView(model: model, step: step, concepts: concepts)
+        } else {
+            framesBody
+        }
+    }
+
+    @ViewBuilder private var framesBody: some View {
         let data = data
         let frames = data.frames
         VStack(alignment: .leading, spacing: 22) {

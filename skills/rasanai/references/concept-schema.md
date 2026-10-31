@@ -28,3 +28,5 @@ Rules
 - `shots[].id` is `s01`, `s02`...: the same ids `art/world.json` `used_by[].shot` uses (`art.mjs world init` takes them from the concept). `treatment.mjs` fills a missing id by position.
 - `shots[].move` is a real move id (`library/moves/index.json`, or an old `library.json` id: legacy warning). `image` is optional: an absolute plate path.
 - Unknown `style_world` or `move` ids are warnings (GV, `moves.mjs validate-score`, board), never silent.
+
+- `reference_lesson` (optional, one line): when the run has reference films (`refs/summary.json`), the lesson from them this concept uses and the one it deliberately does not. Never a picture, a line of copy or an exact look of a reference.

@@ -63,5 +63,16 @@
   ],
   "needs": [
     "rasan-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.holdAndSignOff",
+    "example": "RasanMoves.holdAndSignOff(tl, 0.2, { target: stage, tagline: 'Make something worth watching.', accentWord: 'worth', hold: 1.2 });",
+    "params": [
+      "tagline",
+      "accentWord",
+      "markPath",
+      "hold"
+    ]
+  }
 }

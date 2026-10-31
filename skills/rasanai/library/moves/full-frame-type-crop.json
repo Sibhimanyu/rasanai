@@ -59,5 +59,18 @@
     "open",
     "middle"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.fullFrameTypeCrop",
+    "example": "RasanMoves.fullFrameTypeCrop(tl, 0.2, { target: stage, word: 'NEVER STOP' });",
+    "params": [
+      "word",
+      "size",
+      "from",
+      "to",
+      "blur",
+      "skew"
+    ]
+  }
 }

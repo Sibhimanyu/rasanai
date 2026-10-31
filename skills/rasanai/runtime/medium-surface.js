@@ -28,6 +28,8 @@
     return v;
   }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  // set attributes on an element (null removes). medium-graphic.js and medium-paper.js call it as S.set(el, attrs); it was only a surface method before, which threw "S.set is not a function"
+  function setAttrs(e, attrs) { for (var k in attrs) { if (attrs[k] == null) e.removeAttribute(k); else e.setAttribute(k, attrs[k]); } }
   function hashStr(s) { var h = 2166136261; s = String(s); for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 
   // Seeded PRNG. Per-object variation must come from rngFor(seed, objectId[, frame]) so adding an object never
@@ -178,6 +180,6 @@
     VERSION: VERSION, createMediumScene: createMediumScene, createSurface: createSurface,
     rng: rng, rngFor: rngFor, hashStr: hashStr, quantize: quantize, frameTime: frameTime,
     ease: ease, prog: prog, clamp: clamp, finite: finite, need: need,
-    makeTransform: makeTransform, parsePath: parsePath, pointAt: pointAt
+    makeTransform: makeTransform, parsePath: parsePath, pointAt: pointAt, set: setAttrs
   };
 });

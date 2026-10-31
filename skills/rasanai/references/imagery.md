@@ -152,3 +152,7 @@ Or as a plan row: `{id, kind: "abstract", variant, aspect, ground?, palette? | r
 ## Cost
 
 Each image is a share of the user's ChatGPT/Codex allowance and about 1.5 minutes: a world of 3 to 6 images is 5 to 9 minutes at concurrency 3. State the count in the activity feed before a batch. Reuse an image with a different crop or move before making a second one: depth, cut-outs, plates, grades and mockups cost seconds and no allowance.
+
+## Prompts from the style atlas
+
+Give `imagegen.mjs generate` `--style <atlas id> [--palette <id>] --subject .. --action .. --setting ..` (or `--prompt` with the shot's `see` text), and in a world bible set `style_world` (+ `palette_id`, `brand_colour_name`): the prompt is then built from `art.codex` (lens, light, material, colour as palette WORDS, texture, the style's negatives, always "no text, no letters, no logos, no watermark") plus the world's style line (`buildArtPrompt` in lib/world-bible.mjs). Sprite sheets (`--sprite`, styles with `sprite_sheet.use`): flat #00FF00, equal grid, no text, no green in the sprite.

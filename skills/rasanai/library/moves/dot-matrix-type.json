@@ -42,5 +42,16 @@
   ],
   "needs": [
     "rasan-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.dotMatrixType",
+    "example": "RasanMoves.dotMatrixType(tl, 0.2, { target: stage, word: 'SIGNAL' });",
+    "params": [
+      "word",
+      "cell",
+      "slide",
+      "blocks"
+    ]
+  }
 }

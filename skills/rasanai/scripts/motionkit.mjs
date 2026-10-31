@@ -8,7 +8,7 @@
 //                                                         with the project's motion.md contract baked in
 //   node motionkit.mjs install-world --project videos/<name>
 //                                                         copies the style-world runtimes (rasan-fx, rasan-image-fx, medium-pixel(-world), medium-retro-os,
-//                                                         medium-sticker, rasan-type-only) into <project>/assets/rasan-world/; load them after GSAP
+//                                                         medium-sticker, rasan-type-only, rasan-moves) into <project>/assets/rasan-world/; load them after GSAP
 //   node motionkit.mjs demo --out <dir> [--times 0,0.4,0.8,1.2,1.8,2.6]
 //                                                         a headless test page: the tell (one ease, one duration,
 //                                                         an even stagger) next to the same content in RasanMotion,

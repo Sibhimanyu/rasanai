@@ -135,5 +135,237 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "win95",
+        "name": "Win95",
+        "bg": "#008080",
+        "bg2": "#00A0A0",
+        "ink": "#000000",
+        "accent": "#000080",
+        "accent2": "#C0C0C0",
+        "words": "teal desktop, black, navy title bar, silver window"
+      },
+      {
+        "id": "mac-os-9",
+        "name": "Mac OS 9",
+        "bg": "#CFCFCF",
+        "bg2": "#EDEDED",
+        "ink": "#111111",
+        "accent": "#3366CC",
+        "accent2": "#FFFFFF",
+        "words": "platinum grey, black, blue accent, white"
+      },
+      {
+        "id": "terminal-window",
+        "name": "Terminal window",
+        "bg": "#0C0C0C",
+        "bg2": "#1A1A1A",
+        "ink": "#CCCCCC",
+        "accent": "#00D26A",
+        "accent2": "#F0C040",
+        "words": "terminal black, light grey, green, amber"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour replaces the title-bar blue and the selection highlight; window grey, bevels and the desktop stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "retro-os-1",
+          "display": {
+            "family": "VT323",
+            "google": "https://fonts.googleapis.com/css2?family=VT323&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Sans",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'VT323', monospace",
+            "text": "'IBM Plex Sans', sans-serif"
+          },
+          "case": "title",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 3,
+            "caption_cqw": 1.8,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Pixel UI type at 1x with no anti-aliasing; bold system sans for titles."
+        },
+        {
+          "id": "retro-os-2",
+          "display": {
+            "family": "Silkscreen",
+            "google": "https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Space Mono",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Silkscreen', monospace",
+            "text": "'Space Mono', monospace"
+          },
+          "case": "title",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 2.8,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Bitmap chrome."
+        }
+      ],
+      "default": "retro-os-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "dither",
+          "params": {
+            "levels": 4,
+            "size": 2,
+            "mono": 0,
+            "bayer": 4
+          },
+          "role": "16-colour dither on images"
+        },
+        {
+          "pass": "crt",
+          "params": {
+            "curve": 0.04,
+            "scan": 0.25,
+            "mask": 0.15,
+            "bloom": 0.2
+          },
+          "role": "optional monitor look"
+        }
+      ],
+      "css": [
+        "bevel",
+        "scan:0.15"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "a desktop: title-bar windows with 2 px bevels, icons on a 64 px grid, a taskbar along the bottom",
+      "safe_area": "none; windows overlap and drag",
+      "fill": "windows fill 60-80%; desktop shows around",
+      "product_ui": "UI is the actual window content; the real capture is placed inside a window frame with the era's chrome around it"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat monitor screenshot, no perspective; for a hero shot, a beige CRT on a desk, 50 mm. Lighting: self-lit screen glow, soft room fill. Material: 2 px beveled buttons, 1 px black outlines, dithered gradients. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: 1-pixel dither, scanlines on hero shots. Avoid: no text, no letters, no logos, no watermark, no modern flat UI, no rounded corners, no drop-shadow blur, no gradients without dither, no readable fake text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat monitor screenshot, no perspective; for a hero shot, a beige CRT on a desk, 50 mm",
+      "lighting": "self-lit screen glow, soft room fill",
+      "material": "2 px beveled buttons, 1 px black outlines, dithered gradients",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "1-pixel dither, scanlines on hero shots",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no modern flat UI",
+        "no rounded corners",
+        "no drop-shadow blur",
+        "no gradients without dither",
+        "no readable fake text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: 2 px beveled buttons; flat monitor screenshot; teal desktop, black, navy title bar, silver window."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a teal desktop with a grey bevelled window and a pixel folder icon",
+          "action": "a dialog box with a navy title bar sliding open",
+          "setting": "a Windows-95-style desktop with a taskbar and dithered wallpaper",
+          "palette": "win95",
+          "prompt": "a teal desktop with a grey bevelled window and a pixel folder icon a dialog box with a navy title bar sliding open, a Windows-95-style desktop with a taskbar and dithered wallpaper. Camera and lens: flat monitor screenshot, no perspective; for a hero shot, a beige CRT on a desk, 50 mm. Lighting: self-lit screen glow, soft room fill. Material: 2 px beveled buttons, 1 px black outlines, dithered gradients. Colour, locked to the palette teal desktop, black, navy title bar, silver window, and nothing outside it. Texture and finish: 1-pixel dither, scanlines on hero shots. Avoid: no text, no letters, no logos, no watermark, no modern flat UI, no rounded corners, no drop-shadow blur, no gradients without dither, no readable fake text."
+        },
+        {
+          "subject": "a beige CRT monitor on a cluttered desk",
+          "action": "showing a platinum Mac OS 9 window with a blue progress bar",
+          "setting": "dim room, floppy disks beside the keyboard",
+          "palette": "win95",
+          "prompt": "a beige CRT monitor on a cluttered desk showing a platinum Mac OS 9 window with a blue progress bar, dim room, floppy disks beside the keyboard. Camera and lens: flat monitor screenshot, no perspective; for a hero shot, a beige CRT on a desk, 50 mm. Lighting: self-lit screen glow, soft room fill. Material: 2 px beveled buttons, 1 px black outlines, dithered gradients. Colour, locked to the palette teal desktop, black, navy title bar, silver window, and nothing outside it. Texture and finish: 1-pixel dither, scanlines on hero shots. Avoid: no text, no letters, no logos, no watermark, no modern flat UI, no rounded corners, no drop-shadow blur, no gradients without dither, no readable fake text."
+        }
+      ]
+    },
+    "do": [
+      "Use real era chrome: bevels, title bars, 16-colour palette",
+      "Make interaction literal: cursors, drag, error dialogs",
+      "Keep the UI capture inside the window, uncropped"
+    ],
+    "dont": [
+      "No modern rounded cards",
+      "No soft shadows",
+      "No anti-aliased type in the chrome"
+    ],
+    "cheap_ways": [
+      "Vaporwave statue plus a window",
+      "Flat modern window with a fake title bar",
+      "Wrong-era mixing (Win95 buttons with Mac OS X chrome)"
+    ]
+  }
 }

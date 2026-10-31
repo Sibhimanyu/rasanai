@@ -126,5 +126,235 @@
       "link_status": "in-repo-or-text-only"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "cloud-blocks",
+        "name": "Cloud blocks",
+        "bg": "#CFE8F6",
+        "bg2": "#9ED0EE",
+        "ink": "#1E2A3A",
+        "accent": "#FF7A3D",
+        "accent2": "#FFD23F",
+        "words": "sky-blue haze, deep navy ink, safety orange, butter yellow"
+      },
+      {
+        "id": "moss-and-stone",
+        "name": "Moss and stone",
+        "bg": "#2B3A2E",
+        "bg2": "#4C6B45",
+        "ink": "#F1EBD8",
+        "accent": "#F2B134",
+        "accent2": "#7FD1C7",
+        "words": "deep moss green, parchment white, honey amber, seafoam"
+      },
+      {
+        "id": "night-server",
+        "name": "Night server",
+        "bg": "#0E1220",
+        "bg2": "#1A2340",
+        "ink": "#E7ECFF",
+        "accent": "#5CF2C7",
+        "accent2": "#FF5D8F",
+        "words": "midnight navy, ice white, mint, hot coral"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the hero block material (the product's block, the glowing core); terrain, sky and ink stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "voxel-diorama-1",
+          "display": {
+            "family": "Space Mono",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Space Mono', monospace",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 2.8,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.02em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Mono labels float as billboards beside blocks; keep 1-2 words."
+        },
+        {
+          "id": "voxel-diorama-2",
+          "display": {
+            "family": "Silkscreen",
+            "google": "https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "DM Mono",
+            "google": "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Silkscreen', monospace",
+            "text": "'DM Mono', monospace"
+          },
+          "case": "upper",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 2.6,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.04em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Blocky display for titles."
+        }
+      ],
+      "default": "voxel-diorama-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "posterise",
+          "params": {
+            "steps": 6,
+            "mode": 0,
+            "contrast": 1.05
+          },
+          "role": "limits tonal steps so faces stay flat"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.4,
+            "strength": 0.06,
+            "mono": 1
+          },
+          "role": "hide banding"
+        }
+      ],
+      "css": [
+        "grain:0.06",
+        "m-cubes"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "isometric or 3/4 high camera on a cube grid; 1 unit = 1 block; vertical stacks of 3-7 blocks",
+      "safe_area": "12% margin; hero structure on the right third, sky left for type",
+      "fill": "structure fills 55-65% of height; ground plane runs off the frame",
+      "product_ui": "UI shows on a flat screen block or a floating billboard plane aligned to the cube grid"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: orthographic three-quarter high angle, 35 degrees down, no perspective distortion, shallow tilt-shift. Lighting: one soft sun from upper left, flat ambient fill, ambient occlusion in block corners. Material: matte cubes with visible 1-voxel seams, slight bevel, no reflections. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: flat colour per block with a 3-tone shade per face; sparse colour noise. Avoid: no text, no letters, no logos, no watermark, no smooth organic curves, no sub-voxel detail, no mixed block sizes, no photoreal textures, no glossy reflections.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "orthographic three-quarter high angle, 35 degrees down, no perspective distortion, shallow tilt-shift",
+      "lighting": "one soft sun from upper left, flat ambient fill, ambient occlusion in block corners",
+      "material": "matte cubes with visible 1-voxel seams, slight bevel, no reflections",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "flat colour per block with a 3-tone shade per face; sparse colour noise",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no smooth organic curves",
+        "no sub-voxel detail",
+        "no mixed block sizes",
+        "no photoreal textures",
+        "no glossy reflections"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: matte cubes with visible 1-voxel seams; orthographic three-quarter high angle; sky-blue haze, deep navy ink, safety orange, butter yellow."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a stack of cloud-server blocks with one glowing orange core block",
+          "action": "humming while small data cubes slide along a conveyor of blocks",
+          "setting": "a floating island of cube terrain over a pale blue sky",
+          "palette": "cloud-blocks",
+          "prompt": "a stack of cloud-server blocks with one glowing orange core block humming while small data cubes slide along a conveyor of blocks, a floating island of cube terrain over a pale blue sky. Camera and lens: orthographic three-quarter high angle, 35 degrees down, no perspective distortion, shallow tilt-shift. Lighting: one soft sun from upper left, flat ambient fill, ambient occlusion in block corners. Material: matte cubes with visible 1-voxel seams, slight bevel, no reflections. Colour, locked to the palette sky-blue haze, deep navy ink, safety orange, butter yellow, and nothing outside it. Texture and finish: flat colour per block with a 3-tone shade per face; sparse colour noise. Avoid: no text, no letters, no logos, no watermark, no smooth organic curves, no sub-voxel detail, no mixed block sizes, no photoreal textures, no glossy reflections."
+        },
+        {
+          "subject": "a voxel build site with a crane lifting a mint block",
+          "action": "placing the final block into a half-built tower",
+          "setting": "a night-time cube grid with navy sky and coral warning lights",
+          "palette": "cloud-blocks",
+          "prompt": "a voxel build site with a crane lifting a mint block placing the final block into a half-built tower, a night-time cube grid with navy sky and coral warning lights. Camera and lens: orthographic three-quarter high angle, 35 degrees down, no perspective distortion, shallow tilt-shift. Lighting: one soft sun from upper left, flat ambient fill, ambient occlusion in block corners. Material: matte cubes with visible 1-voxel seams, slight bevel, no reflections. Colour, locked to the palette sky-blue haze, deep navy ink, safety orange, butter yellow, and nothing outside it. Texture and finish: flat colour per block with a 3-tone shade per face; sparse colour noise. Avoid: no text, no letters, no logos, no watermark, no smooth organic curves, no sub-voxel detail, no mixed block sizes, no photoreal textures, no glossy reflections."
+        }
+      ]
+    },
+    "do": [
+      "Fix one voxel size for the entire scene",
+      "Use 3 face-shades per colour for readable form",
+      "Leave one empty sky quadrant for the claim"
+    ],
+    "dont": [
+      "Do not mix voxel scale (tiny block next to big block)",
+      "Do not use smooth curves",
+      "Do not add realistic reflections"
+    ],
+    "cheap_ways": [
+      "Minecraft grass-block clone with brand logo on the side",
+      "Random floating cubes with no structure",
+      "Soft blurry renders where seams disappear"
+    ]
+  }
 }

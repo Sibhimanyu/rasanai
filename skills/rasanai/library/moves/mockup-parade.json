@@ -42,5 +42,15 @@
   ],
   "needs": [
     "rasan-image-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.mockupParade",
+    "example": "RasanMoves.mockupParade(tl, 0.2, { target: stage, image: RasanMoves.placeholder.art(3), each: 0.8 });",
+    "params": [
+      "image",
+      "plates",
+      "each"
+    ]
+  }
 }

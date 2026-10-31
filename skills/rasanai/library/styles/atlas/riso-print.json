@@ -144,5 +144,239 @@
       "link_status": "in-repo-or-text-only"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "pink-and-blue",
+        "name": "Pink and blue",
+        "bg": "#F4ECD8",
+        "bg2": "#EADFC2",
+        "ink": "#0078BF",
+        "accent": "#FF48B0",
+        "accent2": "#FFE800",
+        "words": "cream stock, riso blue ink, fluorescent pink ink, yellow ink"
+      },
+      {
+        "id": "teal-and-orange",
+        "name": "Teal and orange",
+        "bg": "#F2EBDD",
+        "bg2": "#E7DDC7",
+        "ink": "#00838A",
+        "accent": "#FF6C2F",
+        "accent2": "#1B1B1B",
+        "words": "uncoated cream, teal ink, bright orange ink, black"
+      },
+      {
+        "id": "green-and-red",
+        "name": "Green and red",
+        "bg": "#F5EFE0",
+        "bg2": "#E8DEC3",
+        "ink": "#1F7A4D",
+        "accent": "#E8403A",
+        "accent2": "#FFB61E",
+        "words": "bone stock, forest green ink, warm red ink, sun yellow"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour replaces ink A (one of the 2-3 inks). The second ink stays style-fixed so the overprint still mixes; paper is style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "riso-print-1",
+          "display": {
+            "family": "Bricolage Grotesque",
+            "google": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Space Grotesk",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Bricolage Grotesque', sans-serif",
+            "text": "'Space Grotesk', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 800,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 3.2,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.03em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Display in ink A, overprinted with ink B misregistered 5 px."
+        },
+        {
+          "id": "riso-print-2",
+          "display": {
+            "family": "Gloock",
+            "google": "https://fonts.googleapis.com/css2?family=Gloock&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Space Grotesk",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Gloock', serif",
+            "text": "'Space Grotesk', sans-serif"
+          },
+          "case": "title",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 9.5,
+            "two_words": 7.6,
+            "long": 5.7,
+            "sub_cqw": 3,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.01em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Serif for the editorial riso poster look."
+        }
+      ],
+      "default": "riso-print-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "riso",
+          "params": {
+            "inkA": "#FF48B0",
+            "inkB": "#0078BF",
+            "paper": "#F4ECD8",
+            "misreg": 5,
+            "jitter": 1.5,
+            "grain": 0.5,
+            "opacity": 0.92
+          },
+          "role": "two-ink overprint with misregistration"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.6,
+            "strength": 0.1,
+            "mono": 1
+          },
+          "role": "paper tooth"
+        }
+      ],
+      "css": [
+        "grain:0.12",
+        "multiply-misreg"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "poster grid 12-col with a 4% margin; shapes in ink A and ink B overlap into a third colour",
+      "safe_area": "6% margin; deliberately off-register edges bleed",
+      "fill": "bold shapes fill 60-75%",
+      "product_ui": "UI printed as a 2-ink halftone plate is fine in stills; keep the real capture crisp in the proof beat on a paper 'insert' card"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat scan of a printed sheet, no perspective, even light. Lighting: flat scanner light; ink density varies slightly, paper white shows through. Material: two to three overprinted soy inks on uncoated cream stock. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: grainy ink coverage, halftone gradients, 1-5 px misregistration, paper fibre. Avoid: no text, no letters, no logos, no watermark, no gradients smoother than halftone, no black-and-white photos, no four-colour print, no glossy effects, no more than 3 inks.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat scan of a printed sheet, no perspective, even light",
+      "lighting": "flat scanner light; ink density varies slightly, paper white shows through",
+      "material": "two to three overprinted soy inks on uncoated cream stock",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "grainy ink coverage, halftone gradients, 1-5 px misregistration, paper fibre",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no gradients smoother than halftone",
+        "no black-and-white photos",
+        "no four-colour print",
+        "no glossy effects",
+        "no more than 3 inks"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: two to three overprinted soy inks on uncoated cream stock; flat scan of a printed sheet; cream stock, riso blue ink, fluorescent pink ink, yellow ink."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a big pink ink sun and a blue ink hill overlapping",
+          "action": "with a small yellow ink bird crossing",
+          "setting": "a cream uncoated paper sheet with halftone gradient and slightly off-register edges",
+          "palette": "pink-and-blue",
+          "prompt": "a big pink ink sun and a blue ink hill overlapping with a small yellow ink bird crossing, a cream uncoated paper sheet with halftone gradient and slightly off-register edges. Camera and lens: flat scan of a printed sheet, no perspective, even light. Lighting: flat scanner light; ink density varies slightly, paper white shows through. Material: two to three overprinted soy inks on uncoated cream stock. Colour, locked to the palette cream stock, riso blue ink, fluorescent pink ink, yellow ink, and nothing outside it. Texture and finish: grainy ink coverage, halftone gradients, 1-5 px misregistration, paper fibre. Avoid: no text, no letters, no logos, no watermark, no gradients smoother than halftone, no black-and-white photos, no four-colour print, no glossy effects, no more than 3 inks."
+        },
+        {
+          "subject": "an orange ink hand holding a teal ink cup",
+          "action": "steam as halftone stripes",
+          "setting": "a bone paper poster with overprint where inks meet",
+          "palette": "pink-and-blue",
+          "prompt": "an orange ink hand holding a teal ink cup steam as halftone stripes, a bone paper poster with overprint where inks meet. Camera and lens: flat scan of a printed sheet, no perspective, even light. Lighting: flat scanner light; ink density varies slightly, paper white shows through. Material: two to three overprinted soy inks on uncoated cream stock. Colour, locked to the palette cream stock, riso blue ink, fluorescent pink ink, yellow ink, and nothing outside it. Texture and finish: grainy ink coverage, halftone gradients, 1-5 px misregistration, paper fibre. Avoid: no text, no letters, no logos, no watermark, no gradients smoother than halftone, no black-and-white photos, no four-colour print, no glossy effects, no more than 3 inks."
+        }
+      ]
+    },
+    "do": [
+      "Keep to 2-3 inks and let the overprint be the third colour",
+      "Misregister 3-6 px on every layer",
+      "Use halftone for tone, never gradient"
+    ],
+    "dont": [
+      "No full-colour photo",
+      "No more than 3 inks",
+      "No digital gradients"
+    ],
+    "cheap_ways": [
+      "Pastel gradient with a grain overlay called riso",
+      "Perfectly registered shapes (the charm is the error)",
+      "Four or five colours"
+    ]
+  }
 }

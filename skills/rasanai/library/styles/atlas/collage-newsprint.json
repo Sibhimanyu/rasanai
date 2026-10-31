@@ -63,7 +63,9 @@
       "catalogue-cards",
       "pixel-collage"
     ],
-    "grammars_planned": ["collage"],
+    "grammars_planned": [
+      "collage"
+    ],
     "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
   },
   "effects": [
@@ -138,5 +140,239 @@
       "link_status": "in-repo-or-text-only"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "newsprint-red",
+        "name": "Newsprint red",
+        "bg": "#E9E2D0",
+        "bg2": "#D4CAB0",
+        "ink": "#141414",
+        "accent": "#E4261D",
+        "accent2": "#FFE14A",
+        "words": "aged newsprint, black ink, signal red, highlighter yellow"
+      },
+      {
+        "id": "photocopy",
+        "name": "Photocopy",
+        "bg": "#EDEDED",
+        "bg2": "#CFCFCF",
+        "ink": "#0D0D0D",
+        "accent": "#FF3B00",
+        "accent2": "#1F4BFF",
+        "words": "photocopy grey-white, toner black, hot orange-red, ballpoint blue"
+      },
+      {
+        "id": "zine-pink",
+        "name": "Zine pink",
+        "bg": "#F7E7E1",
+        "bg2": "#EBC9C0",
+        "ink": "#1A1214",
+        "accent": "#FF2E88",
+        "accent2": "#00A88F",
+        "words": "pale pink stock, black, hot pink, teal"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the highlighter/accent cut (one tape strip, one circled word); paper tone and black stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "collage-newsprint-1",
+          "display": {
+            "family": "Playfair Display",
+            "google": "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700..900;1,700..900&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Archivo",
+            "google": "https://fonts.googleapis.com/css2?family=Archivo:wght@400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Playfair Display', serif",
+            "text": "'Archivo', sans-serif"
+          },
+          "case": "mixed",
+          "weight": 900,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Ransom-note mix: set each word in a different cut (serif, grotesk, mono) on tape-coloured chips."
+        },
+        {
+          "id": "collage-newsprint-2",
+          "display": {
+            "family": "Special Elite",
+            "google": "https://fonts.googleapis.com/css2?family=Special+Elite&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Archivo Black",
+            "google": "https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Special Elite', monospace",
+            "text": "'Archivo Black', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 2.8,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Typewriter plus heavy headline."
+        }
+      ],
+      "default": "collage-newsprint-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "halftone",
+          "params": {
+            "size": 5,
+            "angle": 35,
+            "mode": 0,
+            "ink": "#141414",
+            "paper": "#E9E2D0",
+            "soft": 0.6
+          },
+          "role": "newsprint dots on photo cut-outs"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 2,
+            "strength": 0.16,
+            "mono": 1
+          },
+          "role": "photocopy noise"
+        }
+      ],
+      "css": [
+        "grain:0.16",
+        "halftone",
+        "m-tape"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "rough 3-col pasteboard; cut-outs rotated -6 to +6 degrees, overlapped",
+      "safe_area": "6% margin, torn edges may bleed off the frame",
+      "fill": "dense: fills 80-90% but one cut-out holds the hero",
+      "product_ui": "UI is cut out as a printed screenshot with tape corners; the capture stays unaltered"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat top-down scan of a pasteboard, even light, slight lens-cap vignette. Lighting: flat scanner light with soft shadows under each torn paper edge and tape. Material: newsprint, photocopied black-and-white photos, torn edges, masking tape, marker circles. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: coarse halftone dots, photocopy toner speckle, creases, tape translucency. Avoid: no text, no letters, no logos, no watermark, no clean vector shapes, no gradients, no colour photographs (photocopy them), no perfect alignment, no 3D render.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat top-down scan of a pasteboard, even light, slight lens-cap vignette",
+      "lighting": "flat scanner light with soft shadows under each torn paper edge and tape",
+      "material": "newsprint, photocopied black-and-white photos, torn edges, masking tape, marker circles",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "coarse halftone dots, photocopy toner speckle, creases, tape translucency",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no clean vector shapes",
+        "no gradients",
+        "no colour photographs (photocopy them)",
+        "no perfect alignment",
+        "no 3D render"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: newsprint; flat top-down scan of a pasteboard; aged newsprint, black ink, signal red, highlighter yellow."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a photocopied black-and-white portrait cut around the head",
+          "action": "wearing a torn red paper crown, a marker-circled eye",
+          "setting": "a newsprint pasteboard with tape strips, headline scraps and a yellow highlighter swipe",
+          "palette": "newsprint-red",
+          "prompt": "a photocopied black-and-white portrait cut around the head wearing a torn red paper crown, a marker-circled eye, a newsprint pasteboard with tape strips, headline scraps and a yellow highlighter swipe. Camera and lens: flat top-down scan of a pasteboard, even light, slight lens-cap vignette. Lighting: flat scanner light with soft shadows under each torn paper edge and tape. Material: newsprint, photocopied black-and-white photos, torn edges, masking tape, marker circles. Colour, locked to the palette aged newsprint, black ink, signal red, highlighter yellow, and nothing outside it. Texture and finish: coarse halftone dots, photocopy toner speckle, creases, tape translucency. Avoid: no text, no letters, no logos, no watermark, no clean vector shapes, no gradients, no colour photographs (photocopy them), no perfect alignment, no 3D render."
+        },
+        {
+          "subject": "a cut-out hand holding a toaster",
+          "action": "pointing at a torn headline scrap",
+          "setting": "pale pink zine stock with hot pink tape and photocopy noise",
+          "palette": "newsprint-red",
+          "prompt": "a cut-out hand holding a toaster pointing at a torn headline scrap, pale pink zine stock with hot pink tape and photocopy noise. Camera and lens: flat top-down scan of a pasteboard, even light, slight lens-cap vignette. Lighting: flat scanner light with soft shadows under each torn paper edge and tape. Material: newsprint, photocopied black-and-white photos, torn edges, masking tape, marker circles. Colour, locked to the palette aged newsprint, black ink, signal red, highlighter yellow, and nothing outside it. Texture and finish: coarse halftone dots, photocopy toner speckle, creases, tape translucency. Avoid: no text, no letters, no logos, no watermark, no clean vector shapes, no gradients, no colour photographs (photocopy them), no perfect alignment, no 3D render."
+        }
+      ]
+    },
+    "do": [
+      "Cut things by hand: rotated, torn, taped",
+      "Keep photos black-and-white halftone and let one colour carry the idea",
+      "Overlap with deliberate shadows"
+    ],
+    "dont": [
+      "No clean aligned boxes",
+      "No full-colour photo cut-outs",
+      "No more than 2 accent colours"
+    ],
+    "cheap_ways": [
+      "Digital 'torn paper' brush strip as a cliche border",
+      "Every cut-out at the same angle and size",
+      "A drop shadow that is the same for every layer"
+    ]
+  }
 }

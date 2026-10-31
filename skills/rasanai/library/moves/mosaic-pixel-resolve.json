@@ -48,5 +48,14 @@
   ],
   "needs": [
     "rasan-image-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.mosaicPixelResolve",
+    "example": "RasanMoves.mosaicPixelResolve(tl, 0.3, { target: stage, image: photo });",
+    "params": [
+      "image",
+      "from"
+    ]
+  }
 }

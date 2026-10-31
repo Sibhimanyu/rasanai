@@ -132,5 +132,236 @@
       "link_status": "in-repo-or-text-only"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "broadsheet",
+        "name": "Broadsheet",
+        "bg": "#F3EFE6",
+        "bg2": "#E5DFD0",
+        "ink": "#111111",
+        "accent": "#C8102E",
+        "accent2": "#6B6B6B",
+        "words": "newsprint cream, black, editorial red, mid grey"
+      },
+      {
+        "id": "glossy-cover",
+        "name": "Glossy cover",
+        "bg": "#FFFFFF",
+        "bg2": "#EFEFEF",
+        "ink": "#0D0D0D",
+        "accent": "#FF3B6B",
+        "accent2": "#0D0D0D",
+        "words": "white, black, hot rose"
+      },
+      {
+        "id": "midnight-edition",
+        "name": "Midnight edition",
+        "bg": "#0F1115",
+        "bg2": "#1B1E25",
+        "ink": "#F2EDE3",
+        "accent": "#E5B84D",
+        "accent2": "#9AA0AB",
+        "words": "ink black, ivory, gold, cool grey"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the single red-equivalent: drop caps, rules and the standfirst underline; masthead, body ink and paper stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "editorial-magazine-1",
+          "display": {
+            "family": "Playfair Display",
+            "google": "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Source Serif 4",
+            "google": "https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Playfair Display', serif",
+            "text": "'Source Serif 4', serif"
+          },
+          "case": "title",
+          "weight": 800,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Didone headline, serif text, small caps for kickers."
+        },
+        {
+          "id": "editorial-magazine-2",
+          "display": {
+            "family": "Newsreader",
+            "google": "https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..800;1,6..72,400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Newsreader', serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 600,
+          "scale": {
+            "hero_cqw": 9.5,
+            "two_words": 7.6,
+            "long": 5.7,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Cleaner modern editorial."
+        }
+      ],
+      "default": "editorial-magazine-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "halftone",
+          "params": {
+            "size": 5,
+            "angle": 45,
+            "mode": 0,
+            "soft": 0.6
+          },
+          "role": "newsprint photo dots"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.6,
+            "strength": 0.08,
+            "mono": 1
+          },
+          "role": "paper"
+        }
+      ],
+      "css": [
+        "grain:0.08",
+        "columns"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "6-col grid with a thick top rule, kicker, headline, deck, byline; photo spanning 3-4 cols; pull quote in the gutter",
+      "safe_area": "6% margin; columns 2% gutter; rules 2-4 px",
+      "fill": "type and photo each ~35%, 30% white",
+      "product_ui": "UI is a figure with a numbered caption, on a printed halftone inset or as a full-bleed plate"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 85 mm portrait lens on the subject, f/2.8, eye level, a quiet intelligent crop, or a flat scan of print. Lighting: soft window light, gentle contrast, a single shadow side. Material: photograph printed on uncoated paper; rules and type in black ink. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: slight paper grain, halftone dot in shadows. Avoid: no text, no letters, no logos, no watermark, no stock-photo smiles, no text in the image, no logos, no gradients, no CGI look.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "85 mm portrait lens on the subject, f/2.8, eye level, a quiet intelligent crop, or a flat scan of print",
+      "lighting": "soft window light, gentle contrast, a single shadow side",
+      "material": "photograph printed on uncoated paper; rules and type in black ink",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "slight paper grain, halftone dot in shadows",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no stock-photo smiles",
+        "no text in the image",
+        "no logos",
+        "no gradients",
+        "no CGI look"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: photograph printed on uncoated paper; rules and type in black ink; 85 mm portrait lens on the subject; newsprint cream, black, editorial red, mid grey."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a quiet portrait of a woman at a desk, mid-thought, looking out of frame",
+          "action": "hands resting on a closed notebook",
+          "setting": "soft window light, a plain wall, newsprint-cream tones",
+          "palette": "broadsheet",
+          "prompt": "a quiet portrait of a woman at a desk, mid-thought, looking out of frame hands resting on a closed notebook, soft window light, a plain wall, newsprint-cream tones. Camera and lens: 85 mm portrait lens on the subject, f/2.8, eye level, a quiet intelligent crop, or a flat scan of print. Lighting: soft window light, gentle contrast, a single shadow side. Material: photograph printed on uncoated paper; rules and type in black ink. Colour, locked to the palette newsprint cream, black, editorial red, mid grey, and nothing outside it. Texture and finish: slight paper grain, halftone dot in shadows. Avoid: no text, no letters, no logos, no watermark, no stock-photo smiles, no text in the image, no logos, no gradients, no CGI look."
+        },
+        {
+          "subject": "a close crop of hands setting type on a letterpress bed",
+          "action": "brass and black ink gleaming",
+          "setting": "warm low-key shop light, shallow depth of field",
+          "palette": "broadsheet",
+          "prompt": "a close crop of hands setting type on a letterpress bed brass and black ink gleaming, warm low-key shop light, shallow depth of field. Camera and lens: 85 mm portrait lens on the subject, f/2.8, eye level, a quiet intelligent crop, or a flat scan of print. Lighting: soft window light, gentle contrast, a single shadow side. Material: photograph printed on uncoated paper; rules and type in black ink. Colour, locked to the palette newsprint cream, black, editorial red, mid grey, and nothing outside it. Texture and finish: slight paper grain, halftone dot in shadows. Avoid: no text, no letters, no logos, no watermark, no stock-photo smiles, no text in the image, no logos, no gradients, no CGI look."
+        }
+      ]
+    },
+    "do": [
+      "Treat the frame as a page: kicker, headline, deck, caption",
+      "Use real hierarchy: one huge headline, tiny captions",
+      "Crop photos with intention, off-centre"
+    ],
+    "dont": [
+      "No centred symmetrical posters",
+      "No stock smiles",
+      "No more than 2 type families"
+    ],
+    "cheap_ways": [
+      "A Playfair headline over a stock photo",
+      "Perfect-grid layout with no point of view",
+      "Lorem-ipsum body text visible"
+    ]
+  }
 }

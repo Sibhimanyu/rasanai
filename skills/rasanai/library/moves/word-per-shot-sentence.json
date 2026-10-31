@@ -54,5 +54,16 @@
     "turn",
     "close"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.wordPerShotSentence",
+    "example": "RasanMoves.wordPerShotSentence(tl, 0.2, { target: stage, words: ['Make','it','feel','like','you'], italicIndex: 4, image: photo });",
+    "params": [
+      "words",
+      "per",
+      "italicIndex",
+      "image"
+    ]
+  }
 }
