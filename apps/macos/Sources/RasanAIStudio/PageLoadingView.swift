@@ -31,7 +31,6 @@ struct ResponsivePage<Content: View>: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.appBackground)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: activation.isReady)
         .task { await activation.activate() }
     }

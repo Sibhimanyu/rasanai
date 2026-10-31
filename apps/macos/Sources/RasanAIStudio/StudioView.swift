@@ -7,6 +7,7 @@ import Heresay
 struct StudioView: View {
     @Bindable var store: StudioStore
     @ObservedObject private var updater = StudioUpdater.shared
+    @State private var homeMeshClock = HomeMeshClock()
 
     init(store: StudioStore) {
         self.store = store
@@ -17,6 +18,7 @@ struct StudioView: View {
 
     var body: some View {
         content.environment(\.momentStore, store)
+            .environment(homeMeshClock)
             .heresayCoordinated(store: store)
             .modifier(LaunchFocus(ready: !store.isLoadingProjects, agent: store.settings.agent.title))
     }
@@ -30,7 +32,6 @@ struct StudioView: View {
     /// The split view's own state, so its toggle (and ⌘B) runs the system's slide. Binding it straight to the stored setting
     /// dropped the animation's transaction and made the sidebar snap; the setting is only written back afterwards.
     @State private var columns: NavigationSplitViewVisibility = .all
-    @State private var isFullScreen = false
     /// The shell's bar shows whenever the page on screen does not draw its own (published by `FilmStatusBarHost`).
     @State private var pageOwnsBottomBar = false
     private var showsStatusBar: Bool { !pageOwnsBottomBar }
@@ -39,7 +40,7 @@ struct StudioView: View {
     /// its toggle, and the toggle's move into the toolbar when the sidebar hides, with the system's own animation.
     private var content: some View {
         NavigationSplitView(columnVisibility: $columns) {
-            AppSidebar(store: store, fullScreenToolbar: isFullScreen)
+            AppSidebar(store: store)
         } detail: {
             stack
             .onPreferenceChange(PageOwnsBottomBarKey.self) { owns in
@@ -52,23 +53,35 @@ struct StudioView: View {
             }
             .clipped()
         }
-        // The same background sits behind the whole split view, so the column behind the floating sidebar glass is never a
-        // different flat colour (full screen especially).
+        // Home's single field sits behind the status bar and extends through the window's bottom safe area. Other pages
+        // retain the solid app background.
         .background {
-            GeometryReader { proxy in
-                ZStack {
-                    Color.appBackground
-                    if store.path.isEmpty { HomeAmbientGlow(viewportHeight: proxy.size.height) }
-                }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-            }
-            .ignoresSafeArea()
+            if store.path.isEmpty { HomeAmbientGlow().ignoresSafeArea() }
+            else { Color.appBackground.ignoresSafeArea() }
         }
-        // Keep floating toolbar controls in ordinary windows. In full screen, let AppKit choose the toolbar background
-        // so the native split view and fullscreen chrome can compose together.
-        .modifier(NoToolbarBand(fullScreen: isFullScreen))
-        .background(FullScreenState(isFullScreen: $isFullScreen))
+        // Keep the toolbar controls, but hide its opaque band and separator so the native sidebar remains uninterrupted.
+        .modifier(NoToolbarBand())
+        .coordinateSpace(name: "studioBackdrop")
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { homeMeshClock.setViewportSize($0) }
         .onChange(of: columns) { _, visibility in sidebarHidden = visibility == .detailOnly }
+        .overlayPreferenceValue(SidebarAmbientBoundsPreferenceKey.self) { bounds in
+            GeometryReader { viewport in
+                if store.path.isEmpty, bounds.width > 0 {
+                    let top = max(0, bounds.minY)
+                    let height = max(0, viewport.size.height - top)
+                    ZStack {
+                        Color.appBackground.opacity(0.08)
+                        HomeSidebarAmbientGlow().opacity(0.35)
+                    }
+                    .frame(width: bounds.width, height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .position(x: bounds.midX, y: top + height / 2)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
     }
 
     @ViewBuilder private func page(_ route: Route) -> some View {
@@ -396,9 +409,8 @@ private struct WindowSplashCover<Splash: View>: NSViewRepresentable {
 }
 
 private struct NoToolbarBand: ViewModifier {
-    let fullScreen: Bool
     func body(content: Content) -> some View {
-        if #available(macOS 15, *) { content.toolbarBackgroundVisibility(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
-        else { content.toolbarBackground(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
+        if #available(macOS 15, *) { content.toolbarBackgroundVisibility(.hidden, for: .windowToolbar) }
+        else { content.toolbarBackground(.hidden, for: .windowToolbar) }
     }
 }
