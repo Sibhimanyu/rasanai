@@ -2,11 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.27.1 (build 73) — 2026-10-31
 
 - Home now uses one window-wide ambient background that continues behind the translucent sidebar and through the bottom safe area.
 - Sidebar navigation scrolls independently while Settings stays anchored; the sidebar and Home detail share the same background wash.
 - Home transitions and loading states keep that background consistent instead of painting separate solid backgrounds.
+- **Bundles RasanAI 1.32.0.**
 
 
 ## 0.27.0 (build 72) — 2026-10-31
