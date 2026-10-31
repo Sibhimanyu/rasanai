@@ -27,6 +27,7 @@ enum StudioPlace: Hashable {
 
 struct AppSidebar: View {
     @Bindable var store: StudioStore
+    var fullScreenToolbar = false
 
     private var current: StudioPlace? {
         switch store.path.last {
@@ -123,6 +124,23 @@ struct AppSidebar: View {
             .padding(.horizontal, 10).padding(.vertical, 8)
         }
         .navigationSplitViewColumnWidth(min: 190, ideal: 230, max: 300)
+        .overlay(alignment: .top) {
+            if fullScreenToolbar {
+                Rectangle()
+                    .fill(.ultraThickMaterial)
+                    .overlay(Color.appBackground.opacity(0.55))
+                    .mask {
+                        LinearGradient(stops: [.init(color: .black, location: 0),
+                                               .init(color: .black, location: 0.28),
+                                               .init(color: .clear, location: 1)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
+                    .frame(height: 34)
+                    .offset(y: -1)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
     }
 
     /// A place as a spacious, full-width button. No List selection is involved: the row is active when the path says so,

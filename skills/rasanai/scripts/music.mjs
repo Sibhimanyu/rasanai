@@ -48,27 +48,48 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseArgs, die } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { loadManifest, presentManifest, hitTimes as manifestHits } from "./lib/film-events.mjs";
+import { editToPicture } from "./lib/music-edit.mjs";
 import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits, arcFit } from "./lib/audio.mjs";
 import { resolveIdentity, renderScore, identityPlan, sidecarPath, readSidecar } from "./lib/procedural-score.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText, styleExclusions } from "./lib/music-lib.mjs";
 import { readSoundChoices, resolveSound } from "./lib/sound-choices.mjs";
-import { KEY as SRC_KEY, CAVEATS, warn as warnLicence, aceStep } from "./lib/sound-sources.mjs";
+import { KEY as SRC_KEY, CAVEATS, warn as warnLicence, aceStep, localGen, buildLocalPrompt } from "./lib/sound-sources.mjs";
 import { normalizeConstraints, rankCandidates, pickThree, reviseShortlist, candidateFromOption, buildShortlistRecord, previewPlan } from "./lib/music-shortlist.mjs";
 
 // the plain env names the vendors document work too (ELEVENLABS_API_KEY, STABILITY_API_KEY); the RASANAI_ names stay first
 if (!process.env[KEYS.elevenlabs] && process.env.ELEVENLABS_API_KEY) process.env[KEYS.elevenlabs] = process.env.ELEVENLABS_API_KEY;
 if (!process.env[KEYS.stable] && process.env.STABILITY_API_KEY) process.env[KEYS.stable] = process.env.STABILITY_API_KEY;
 const args = parseArgs();
-const mode = ["gate", "chain", "credits", "verify", "revise"].includes(args._[0]) ? args._[0] : "run";
+const mode = ["gate", "chain", "credits", "verify", "revise", "local-setup", "edit"].includes(args._[0]) ? args._[0] : "run";
 const ws = process.cwd();
 const rel = (p) => path.relative(ws, p) || p;
 
+if (mode === "local-setup") {
+  // installs the local music generator (ACE-Step 1.5, MIT) into ~/.cache/rasanai/acestep-venv with uv on Python 3.12; never the system Python. About 9 GB on disk.
+  if (args.status) { console.log(JSON.stringify(localGen.status(), null, 2)); process.exit(0); }
+  const r = localGen.setup();
+  console.log(JSON.stringify(r, null, 2));
+  process.exit(r.ok ? 0 : 1);
+}
+if (mode === "edit") {
+  // node music.mjs edit --track <take.wav> --film <s> --arc '<json | file>' [--bpm 120] --out <edited.wav>: cut one generated take onto the arc (lib/music-edit.mjs); prints arcFit before (fitted bed) and after
+  if (!args.track || !args.film || !args.out) die("usage: music.mjs edit --track <take> --film <seconds> --arc <json|file> [--bpm <n>] [--lyrics <file>] --out <wav>");
+  const filmS = Number(args.film), { arc: arcE } = readArc(args.arc, filmS);
+  const trk = path.resolve(String(args.track)), outF = path.resolve(String(args.out));
+  const A0 = analyzeTrack(trk, { quick: true });
+  let before = null;
+  try { const plan0 = fitTrack(A0, { film: filmS, reveal: arcE.drop_at, logo: arcE.button_at }); const pv = outF.replace(/\.[^.]+$/, "") + ".before.wav"; renderPlan(plan0, pv); before = { arc_fit: arcFit(pv, arcE, filmS), shape: plan0.shape }; fs.rmSync(pv, { force: true }); } catch (e) { before = { error: String(e.message).slice(0, 120) }; }
+  const lyricsE = args.lyrics && args.lyrics !== true ? fs.readFileSync(path.resolve(String(args.lyrics)), "utf8") : "";
+  const r = editToPicture({ file: trk, arc: arcE, film: filmS, bpm: args.bpm ? Number(args.bpm) : null, out: outF, lyrics: lyricsE });
+  console.log(JSON.stringify({ ...r, arc: arcE, before: { arc_fit_score: before.arc_fit ? before.arc_fit.score : null, parts: before.arc_fit ? before.arc_fit.parts : null, error: before.error } , after: { arc_fit_score: r.arc_fit.score, parts: r.arc_fit.parts, problems: r.arc_fit.problems } }, null, 2));
+  process.exit(0);
+}
 if (mode === "chain") {
   console.log(JSON.stringify(sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], generationConsent: !!args["allow-generation"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null }), null, 2));
   process.exit(0);
@@ -172,9 +193,9 @@ const chain = sourceChain(process.env, { user: !!trackArg, noAi: !!args["no-ai"]
 {
   const aiLane = chain.find((c) => c.id === "ai");
   const cmd0 = SRC_KEY.acestep() ? String(SRC_KEY.acestep()).split(/\s+/)[0] : null;
-  const ok = !!(cmd0 && fs.existsSync(cmd0));
+  const ok = !!(localGen.available() || (cmd0 && fs.existsSync(cmd0)));
   const consent = !!args["allow-generation"] || !!(args.sources && String(args.sources).split(",").includes("acestep"));
-  chain.splice(chain.indexOf(aiLane) + 1, 0, { id: "acestep", on: ok && consent && !args["no-ai"], consent, threshold: 65, why: ok ? (consent ? "local ACE-Step via ACESTEP_CMD, in its own process (never installed by RasanAI)" : "ACESTEP_CMD found, but generation is off for this film: pass --allow-generation") : "no ACESTEP_CMD (a local ACE-Step wrapper) in the environment" });
+  chain.splice(chain.indexOf(aiLane) + 1, 0, { id: "acestep", on: ok && consent && !args["no-ai"], consent, threshold: 65, why: ok ? (consent ? (localGen.available() ? "local-gen: ACE-Step 1.5 in its own uv venv, 2-3 candidates ranked by arc fit" : "local ACE-Step via ACESTEP_CMD, in its own process") : "a local generator is installed, but generation is off for this film: pass --allow-generation") : "no local generator: node scripts/music.mjs local-setup (about 9 GB), or ACESTEP_CMD" });
 }
 const on = (id) => (chain.find((c) => c.id === id) || {}).on;
 const scoreFile = path.resolve(String(args.run), "motion", "score.json");
@@ -487,7 +508,56 @@ async function fromAI() {
 }
 
 // a local ACE-Step install (ACESTEP_CMD), run as an isolated child process; generation consent applies exactly as for the paid vendors
+// local-gen (ACE-Step 1.5): ONE model load, 2-3 candidates built from the film's arc, BPM, mood, style world and (song-lyric) lyrics; arcFit then ranks them with every other source
+async function fromLocalGen() {
+  const bpm = Math.round(tempoOf(intents[0]));
+  let modeId = args.mode && args.mode !== true ? String(args.mode) : null, lyricsText = "";
+  try { const mj = path.join(path.resolve(String(args.run)), "audio", "mode.json"); if (!modeId && fs.existsSync(mj)) modeId = JSON.parse(fs.readFileSync(mj, "utf8")).mode; } catch {}
+  const lf = args.lyrics && args.lyrics !== true ? path.resolve(String(args.lyrics)) : path.join(path.resolve(String(args.run)), "audio", "lyrics.txt");
+  if (fs.existsSync(lf)) lyricsText = fs.readFileSync(lf, "utf8");
+  if (modeId === "song-lyric" && !lyricsText.trim()) { notes.push("song-lyric mode with no lyrics (--lyrics <file> or <run>/audio/lyrics.txt): an instrumental was made instead; write the lyric first (five acts, ending on the tagline)"); modeId = "instrumental-arc"; }
+  const mood = SR ? [SR.feeling && SR.feeling.value !== "unset" && SR.feeling.value !== "custom" ? SR.feeling.value : null, `${SR.energy.perceived} energy`].filter(Boolean).join(", ") : "";
+  const P = buildLocalPrompt({ arc, film: film || 30, bpm, mood, style: `${args.style || ""} ${intents[0].family.id.replace("-", " ")}`.trim(), lyrics: lyricsText, mode: modeId || "instrumental-arc", narrated, exclusions: EXCL && Array.isArray(EXCL.avoid) ? EXCL.avoid : [] });
+  warnLicence("localgen");
+  const name = "localgen";
+  const r = localGen.generate({ caption: P.caption, lyrics: P.lyrics, instrumental: P.instrumental, bpm: P.bpm, duration: P.duration, timesignature: P.timesignature, language: P.language, count: Math.min(3, count), seed: Number(args.seed) || 1000, out_dir: dir, name, fade_out: 0 });
+  fs.writeFileSync(path.join(dir, "localgen-prompt.json"), JSON.stringify({ ...P, runner: { load_s: r.load_s, gen_s: r.gen_s, thinking: r.thinking } }, null, 2) + "\n");
+  notes.push(`local-gen (ACE-Step 1.5): ${r.files.length} candidates of ${P.duration} s (film + ${P.duration - (film || 30)} s to edit from) in ${r.gen_s} s (+${r.load_s} s model load), ${P.instrumental ? "instrumental" : "sung"}, ${P.bpm} BPM`);
+  let n = 0;
+  for (const f of r.files) {
+    n++;
+    const id = `localgen-${n}`;
+    let lyricsJson = null;
+    if (!P.instrumental) {
+      // force-align the supplied lyrics to the sung audio (never trust a raw transcript): vo.mjs lyrics
+      try {
+        const od = path.join(dir, `${id}-lyrics`);
+        const lfile = path.join(dir, `${id}.lyrics.txt`); fs.writeFileSync(lfile, lyricsText);
+        const a = spawnSync(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), "vo.mjs"), "lyrics", "--track", f.file, "--lyrics", lfile, "--out", od], { encoding: "utf8", timeout: 10 * 60 * 1000 });
+        if (a.status === 0 && fs.existsSync(path.join(od, "lyrics.json"))) lyricsJson = path.relative(ws, path.join(od, "lyrics.json")); else notes.push(`lyrics alignment failed for ${id}: ${String(a.stderr || a.stdout).trim().split("\n").slice(-1)[0].slice(0, 160)}`);
+      } catch (e) { notes.push(`lyrics alignment failed for ${id}: ${String(e.message).slice(0, 120)}`); }
+    }
+    found.push({ id, title: `Made locally to the arc: ${P.instrumental ? "instrumental" : "sung"} take ${n}, ${P.bpm} BPM`, file: f.file, source: "Local generation (ACE-Step 1.5)", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: P.bpm, lyrics_json: lyricsJson, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, date: new Date().toISOString() } });
+    // generate long, then edit to picture: the same take cut on downbeats onto the arc (lib/music-edit.mjs); it competes with the raw take and every other source on arcFit
+    if (film && !args["no-edit"]) {
+      try {
+        const eo = path.join(dir, `${id}-edited.wav`);
+        const E = editToPicture({ file: f.file, arc, film, bpm: P.bpm, out: eo, lyrics: P.instrumental ? "" : lyricsText });
+        let eLyrics = null;
+        if (!P.instrumental) {
+          try {
+            const od = path.join(dir, `${id}-edited-lyrics`), lfile = path.join(dir, `${id}.lyrics.txt`);
+            const a = spawnSync(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), "vo.mjs"), "lyrics", "--track", eo, "--lyrics", lfile, "--out", od], { encoding: "utf8", timeout: 10 * 60 * 1000 });
+            if (a.status === 0 && fs.existsSync(path.join(od, "lyrics.json"))) eLyrics = path.relative(ws, path.join(od, "lyrics.json"));
+          } catch {}
+        }
+        found.push({ id: `${id}-edited`, edited: true, edit: { drop_error_ms: E.drop_error_ms, clicks: E.clicks, shaping: E.shaping, break: E.break, button: E.button, stretched: E.stretched || null, pieces: E.pieces.length }, title: `Made locally and edited to the picture: ${P.instrumental ? "instrumental" : "sung"} take ${n}`, file: eo, source: "Local generation (ACE-Step 1.5), edited to the arc", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: null, lyrics_json: eLyrics, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, edited_from: path.basename(f.file), date: new Date().toISOString() } });
+      } catch (e) { notes.push(`edit to picture failed for ${id}: ${String(e.message).slice(0, 160)}`); }
+    }
+  }
+}
 async function fromAceStep() {
+  if (localGen.available()) { try { return await fromLocalGen(); } catch (e) { notes.push(`local-gen failed: ${String(e.message).slice(0, 240)}${SRC_KEY.acestep() ? "; trying ACESTEP_CMD" : ""}`); if (!SRC_KEY.acestep()) return; } }
   let n = 0;
   for (const it of intents.slice(0, count)) {
     const bpm = Math.round(tempoOf(it));
@@ -721,12 +791,13 @@ const analyzeOne = (f) => {
     if (film) {
       // a procedural score is already the film's length and built to its events: its own plan, never re-cut on bar lines (that would move its hits)
       const ps = f.kind === "procedural" ? readSidecar(f.file) : null;
-      plan = ps ? { ...identityPlan(f.file, { duration_s: film, ending: ps.ending, hits: ps.hits }), cost: 0 } : fitTrack(A, { film, ...(arcDerived ? {} : { reveal: arc.drop_at, logo: arc.button_at }) });
+      plan = f.edited ? { track: path.resolve(f.file), shape: "edited-to-picture", film_duration: film, segments: [{ src_in: 0, src_out: film, film_start: 0, film_end: film }], joins: [], why: "cut to the arc on downbeats (lib/music-edit.mjs): already the film's length, never re-cut", origin: "edited", cost: 0, moments: { reveal: { t: arc.drop_at }, logo: { t: arc.button_at } } } : ps ? { ...identityPlan(f.file, { duration_s: film, ending: ps.ending, hits: ps.hits }), cost: 0 } : fitTrack(A, { film, ...(arcDerived ? {} : { reveal: arc.drop_at, logo: arc.button_at }) });
       const planFile = path.join(dir, `plan-${f.id}.json`);
       fs.writeFileSync(planFile, JSON.stringify(plan, null, 2) + "\n");
       o.fit = { shape: plan.shape, film_duration: plan.film_duration, needs_longer: !!plan.needs_longer, cost: plan.cost ?? null, why: plan.why, plan: rel(planFile) };
       if (plan.needs_longer) o.problems.push(`too short for a ${film} s film without repeating a section`);
-      if (!args["no-preview"] && plan.segments && plan.segments.length) {
+      if (f.edited) o.preview = rel(f.file);
+      else if (!args["no-preview"] && plan.segments && plan.segments.length) {
         const pv = path.join(dir, `fitted-${f.id}.wav`);
         renderPlan(plan, pv);
         o.preview = rel(pv);
@@ -748,6 +819,7 @@ const analyzeOne = (f) => {
     if (arcGate && film) {
       try {
         let src = o.preview ? path.resolve(ws, o.preview) : f.kind === "procedural" ? f.file : null, tmp = null;
+        if (f.edited) o.edit = f.edit;
         if (!src && plan && plan.segments && plan.segments.length) { tmp = path.join(dir, `arcfit-${f.id}.wav`); renderPlan(plan, tmp); src = tmp; }
         if (src) {
           const AF = arcFit(src, arc, film);

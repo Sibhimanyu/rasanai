@@ -60,6 +60,7 @@
 //   `check` routes any pitch with story_format "v2" to the treatment validator instead of the legacy rubric; legacy pitches keep the rubric.
 // Pitch format: references/story.md. Catalog schema: taxonomy/devices-SCHEMA.md.
 import fs from "node:fs";
+import { conceptPrior, explorationIndex, profile as tasteProfile } from "./taste.mjs"; // taste memory: a soft prior, never a ban
 import path from "node:path";
 import { parseArgs, die, readJSON, writeFile, SKILL_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
@@ -675,8 +676,11 @@ function featureLabelOf(text) {
 }
 // The recommendation for the console: the pitch that passes the bar, ranked by originality + memorability first.
 // Never recommend a pitch with originality <= 3 when another passing pitch scores >= 4 on originality. The reason is shown in the console data.
-function recommendPitch(results) {
-  const rows = results.filter((r) => r && r.scores && r.scores.adjusted).map((r) => ({ label: r.label || r.pitch, ship: r.verdict === "ship", o: r.scores.adjusted.originality, m: r.scores.adjusted.memorability, total: r.scores.total, rank: Math.round(((r.scores.adjusted.originality * 1.5 + r.scores.adjusted.memorability * 1.25) * 100)) / 100 + r.scores.total / 10 }));
+// `taste` (optional, taste.mjs): {priors: {label: -0.6..1}, exploration: label}. A SOFT prior: up to +-0.8 on a rank of about 10, so it breaks ties and nudges; it never
+// overrides the originality bar above and never removes a pitch. The exploration pitch (furthest from the likes) is never the taste-boosted one.
+function recommendPitch(results, taste = null) {
+  const tp = (label) => (taste && taste.priors && taste.priors[label] != null && label !== taste.exploration ? taste.priors[label] * 0.8 : 0);
+  const rows = results.filter((r) => r && r.scores && r.scores.adjusted).map((r) => ({ label: r.label || r.pitch, ship: r.verdict === "ship", o: r.scores.adjusted.originality, m: r.scores.adjusted.memorability, total: r.scores.total, taste: tp(r.label || r.pitch), rank: Math.round(((r.scores.adjusted.originality * 1.5 + r.scores.adjusted.memorability * 1.25) * 100)) / 100 + r.scores.total / 10 + tp(r.label || r.pitch) }));
   if (!rows.length) return null;
   const pool = rows.some((r) => r.ship) ? rows.filter((r) => r.ship) : rows;
   const bold = pool.filter((r) => r.o >= 4);
@@ -686,7 +690,8 @@ function recommendPitch(results) {
   const why = skipped.length
     ? `${pick.label} (originality ${pick.o}, memorability ${pick.m}, weighted ${pick.total}) over ${skipped.map((r) => `${r.label} (originality ${r.o}, weighted ${r.total})`).join(", ")}: a pitch with originality 3 or less is not recommended while another passing pitch scores 4+ on originality`
     : `${pick.label}: highest originality + memorability among ${rows.some((r) => r.ship) ? "the pitches that pass the bar" : "the pitches (none passes the bar)"} (originality ${pick.o}, memorability ${pick.m}, weighted ${pick.total})`;
-  return { recommended: pick.label, why, ranking: rows.map((r) => ({ label: r.label, originality: r.o, memorability: r.m, weighted: r.total, passes: r.ship })).sort((a, b) => b.originality + b.memorability - (a.originality + a.memorability) || b.weighted - a.weighted) };
+  const tasteNote = taste && taste.priors && Object.keys(taste.priors).length ? ` Taste memory nudged the order softly (${rows.map((r) => `${r.label} ${r.taste >= 0 ? "+" : ""}${Math.round(r.taste * 100) / 100}`).join(", ")})${taste.exploration ? `; ${taste.exploration} is kept as the exploration outside your usual taste` : ""}.` : "";
+  return { recommended: pick.label, why: why + tasteNote, taste: tasteNote ? { priors: taste.priors, exploration: taste.exploration || null } : undefined, ranking: rows.map((r) => ({ label: r.label, originality: r.o, memorability: r.m, weighted: r.total, passes: r.ship })).sort((a, b) => b.originality + b.memorability - (a.originality + a.memorability) || b.weighted - a.weighted) };
 }
 
 const ANGLE_STOP = new Set("the a an and or of to in on at by for with from is it its this that as be are was you your we our i my me not no so but if then than into onto over up out all any one every each just get gets can will".split(" "));
@@ -991,7 +996,7 @@ if (cmd === "truth") {
   const allV2 = pitches.every((p) => p.story_format === "v2");
   const portfolio = pitches.length > 1 ? (allV2 ? checkV2Portfolio(pitches) : checkPortfolio(pitches.filter((p) => p.story_format !== "v2"), results.filter((r, i) => pitches[i].story_format !== "v2"), opts)) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
-  const recommendation = pitches.length > 1 ? recommendPitch(results) : null;
+  const recommendation = pitches.length > 1 ? recommendPitch(results, (() => { try { const tp = tasteProfile(); if (tp.empty) return null; const priors = {}; pitches.forEach((p) => { if (p && p.label) priors[p.label] = Math.round(conceptPrior(p, tp) * 100) / 100; }); const ei = explorationIndex(pitches, tp); return { priors, exploration: ei >= 0 && pitches[ei] ? pitches[ei].label : null }; } catch { return null; } })()) : null;
   out(pitches.length === 1 && !portfolio ? results[0] : { ok: ship, verdict: ship ? "ship" : "rewrite", pitches: results, portfolio, recommendation });
   process.exitCode = results.some((r) => r.verdict === "invalid") ? 1 : ship ? 0 : 2; // exitCode, not exit(): a large report on a pipe must flush
 } else if (cmd === "intent") {

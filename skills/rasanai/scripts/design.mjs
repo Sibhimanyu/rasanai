@@ -51,6 +51,7 @@ import { libraryIds } from "./library.mjs";
 import { runCreativeOn, readPlan } from "./lib/creative-run.mjs";
 import { creativePolicyOn } from "./lib/creative-policy.mjs";
 import { checkMediumLook, labelAssignments, loadMedium, readSelection, mediumContractFor, eventBindingsFor, canonsFor, treatmentLines, RUNTIME_FILES, needsRasan2d, resolveLookMedium, lookIdentityFor, brandConstraintRecords, readMediumContract } from "./lib/medium-wiring.mjs"; // Part 2: only a creative run or a look with design/<label>/medium.json reads any of it // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
+import { profile as tasteProfile, prior as tastePrior } from "./taste.mjs"; // taste memory: a soft prior on style-world ranking
 
 // V3 W03 (policy revision >= 2 only; revision 1 and legacy runs untouched): stamp the explicit medium resolution and pins.look_identity_digest on each Look's medium.json that lacks them.
 // Never overwrites a designer-written resolution or an existing pin (a stale pin must stay visible to checkMediumLook). The digest is taken after the resolution is stamped.
@@ -117,10 +118,11 @@ function phraseHits(textWords, textRaw, phrases) {
 // with one already picked is penalised, so three looks are three worlds and not three tints of one.
 function pickStyleWorlds({ product = "", tone = "", count = 3, seed = "rasa", exclude = [], brandLocked = false } = {}) {
   const atlas = loadAtlas().filter((s) => !exclude.includes(s.id));
+  let tp = null; try { tp = tasteProfile(); if (tp.empty) tp = null; } catch { tp = null; } // soft: +-1.5 on a score that runs to ~10; never excludes
   const pw = new Set(words(product)), tw = new Set(words(tone)), praw = String(product).toLowerCase(), traw = String(tone).toLowerCase();
   const scored = atlas.map((s) => {
     const fp = phraseHits(pw, praw, s.fits), ap = phraseHits(pw, praw, s.avoid), ft = phraseHits(tw, traw, s.tones), at = phraseHits(tw, traw, s.avoid_tones);
-    const score = fp.n * 3 + ft.n * 2 - ap.n * 4 - at.n * 3 + (s.id === "dark-keynote" ? -1.5 : 0) + seedHash(seed + s.id) * 0.6;
+    const score = fp.n * 3 + ft.n * 2 - ap.n * 4 - at.n * 3 + (s.id === "dark-keynote" ? -1.5 : 0) + seedHash(seed + s.id) * 0.6 + (tp ? tastePrior("style_world", s.id, tp) * 1.5 : 0);
     const why = [fp.hits.length ? "fits " + fp.hits.join(", ") : "", ft.hits.length ? "tone " + ft.hits.join(", ") : "", ap.hits.length ? "AVOID for " + ap.hits.join(", ") : "", at.hits.length ? "AVOID tone " + at.hits.join(", ") : ""].filter(Boolean).join("; ");
     return { ...s, score: Math.round(score * 100) / 100, why, risky: ap.n + at.n > 0 };
   }).sort((a, b) => b.score - a.score || a.number - b.number);
@@ -140,6 +142,11 @@ function pickStyleWorlds({ product = "", tone = "", count = 3, seed = "rasa", ex
       if (v > bestV) { bestV = v; best = s; }
     }
     if (!best) break; picks.push(best);
+  }
+  // one in three is always an exploration: when taste is known and every pick is inside the comfort zone, the last pick is swapped for the best-ranked world the user has no like for
+  if (tp && count >= 3 && picks.length >= 3 && picks.every((p) => tastePrior("style_world", p.id, tp) > 0.15)) {
+    const alt = pool.find((x) => !picks.includes(x) && tastePrior("style_world", x.id, tp) <= 0.15);
+    if (alt) { alt.why = (alt.why ? alt.why + "; " : "") + "kept as the exploration outside your usual taste"; picks[picks.length - 1] = alt; }
   }
   return { picks: picks.map((p) => ({ id: p.id, name: p.name, score: p.score, why: p.why || "no direct match; chosen for contrast", sound_mode: p.sound_mode, effects: p.effects, when_not: p.when_not })), ranked: scored.slice(0, 12).map((p) => ({ id: p.id, score: p.score, why: p.why })), brand_locked: !!brandLocked };
 }

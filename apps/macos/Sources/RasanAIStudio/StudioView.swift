@@ -39,7 +39,7 @@ struct StudioView: View {
     /// its toggle, and the toggle's move into the toolbar when the sidebar hides, with the system's own animation.
     private var content: some View {
         NavigationSplitView(columnVisibility: $columns) {
-            AppSidebar(store: store)
+            AppSidebar(store: store, fullScreenToolbar: isFullScreen)
         } detail: {
             stack
             .onPreferenceChange(PageOwnsBottomBarKey.self) { owns in
@@ -50,12 +50,20 @@ struct StudioView: View {
             .overlay(alignment: .bottom) {
                 if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly).transition(.identity).transaction { $0.animation = nil } }
             }
-            .background(Color.appBackground.ignoresSafeArea())
             .clipped()
         }
         // The same background sits behind the whole split view, so the column behind the floating sidebar glass is never a
         // different flat colour (full screen especially).
-        .background(Color.appBackground.ignoresSafeArea())
+        .background {
+            GeometryReader { proxy in
+                ZStack {
+                    Color.appBackground
+                    if store.path.isEmpty { HomeAmbientGlow(viewportHeight: proxy.size.height) }
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+            }
+            .ignoresSafeArea()
+        }
         // Keep floating toolbar controls in ordinary windows. In full screen, let AppKit choose the toolbar background
         // so the native split view and fullscreen chrome can compose together.
         .modifier(NoToolbarBand(fullScreen: isFullScreen))

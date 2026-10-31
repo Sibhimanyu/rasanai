@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // music-map.mjs: the music EVENT MAP of a film (R6: the owner's favourite films cut on music events, not on a metronome grid).
-//   node music-map.mjs make  --audio <track|mix|video> --out <music-map.json> [--json]
+//   node music-map.mjs make  --audio <track|mix|video> --out <music-map.json> [--bars] [--json]   (--bars adds downbeats, per-bar dB, sections and the ending: the map a take is edited from)
 //        -> { duration, bpm, bpm_confidence, onsets:[{t, strength}], hits:[{t, rise_db}], breaks:[{from,to,depth_db}], thin:[{from,to}], cut_points:[t], ... }
 //        Made BEFORE imagery and picture planning (phase order: music map ahead of imagery): the picture is planned to land on hits / break edges / riser ends.
 //   node music-map.mjs check --video <final.mp4> [--map <music-map.json>] [--run <run>] [--vo] [--tol 0.15] [--json]
@@ -11,12 +11,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { decode, frameFeatures, estimateTempo, momentaryDb, designedBreaks, HOP, SR, r3, r1, probeDuration, hasAudioStream, cutOnsetShare } from "./lib/audio.mjs";
+import { analyzeTrack, decode, frameFeatures, estimateTempo, momentaryDb, designedBreaks, HOP, SR, r3, r1, probeDuration, hasAudioStream, cutOnsetShare } from "./lib/audio.mjs";
 
 const f2t = (i) => (i * HOP) / SR;
 const pctile = (a, p) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))]; };
 
-export function makeMap(file) {
+// withBars: also the bar grid for editing a take to picture (lib/music-edit.mjs): downbeats, per-bar energy, section boundaries, the ending
+export function makeMap(file, { withBars = false } = {}) {
   const y = decode(file);
   const dur = y.length / SR;
   const F = frameFeatures(y);
@@ -43,7 +44,9 @@ export function makeMap(file) {
   const tempo = estimateTempo(F.onset);
   const bpm = Math.round(tempo.bpm * 10) / 10;
   const cut_points = [...new Set([...hits.map((h) => h.t), ...br.breaks.flatMap((b) => [b.from, b.to]), ...onsets.filter((o) => o.strength >= top * 0.7).map((o) => o.t)].map((t) => r3(t)))].sort((a, b) => a - b);
-  return { version: 1, source: path.basename(file), duration: r3(dur), bpm, bpm_confidence: r3(tempo.confidence), onsets, hits, breaks: br.breaks, thin, cut_points, median_db: br.median,
+  let grid = {};
+  if (withBars) { try { const A = analyzeTrack(file, { quick: true }); grid = { bar_s: A.bar_s, downbeats: A.bars, bar_db: A.bar_db, downbeat_confidence: A.downbeat_confidence, sections: A.sections, ending: A.ending }; } catch (e) { grid = { grid_error: String(e.message).slice(0, 120) }; } }
+  return { version: 1, source: path.basename(file), duration: r3(dur), bpm, ...grid, bpm_confidence: r3(tempo.confidence), onsets, hits, breaks: br.breaks, thin, cut_points, median_db: br.median,
     note: "cut and land big visual hits within 150 ms of an onset / hit / break edge; end each riser ON the visual hit; 2-4 big hits per 50 s; the first world flip is the loudest hit" };
 }
 
@@ -83,7 +86,7 @@ function main() {
   const fail = (m) => { process.stderr.write(m + "\n"); process.exit(1); };
   if (cmd === "make") {
     if (!a.audio || a.audio === true || !a.out || a.out === true) fail("usage: music-map.mjs make --audio <file> --out <music-map.json>");
-    const M = makeMap(path.resolve(a.audio));
+    const M = makeMap(path.resolve(a.audio), { withBars: !!a.bars });
     fs.mkdirSync(path.dirname(path.resolve(a.out)), { recursive: true });
     fs.writeFileSync(path.resolve(a.out), JSON.stringify(M, null, 2) + "\n");
     console.log(JSON.stringify({ ok: true, out: a.out, bpm: M.bpm, onsets: M.onsets.length, hits: M.hits.length, breaks: M.breaks.length, cut_points: M.cut_points.length }));

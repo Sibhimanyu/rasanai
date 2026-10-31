@@ -169,6 +169,18 @@ struct DecisionsInspector: View {
             if !downgrades.isEmpty {
                 extraSection(id: "extra-downgrades", title: "Working without", count: downgrades.count, open: true) { DowngradesSection(rows: downgrades) }
             }
+            let taste = tasteApplied
+            if !taste.isEmpty {
+                extraSection(id: "extra-taste", title: "Your taste applied", count: taste.count, open: true) {
+                    ForEach(taste, id: \.stage) { row in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(row.stage.prefix(1).uppercased() + row.stage.dropFirst()).font(.system(size: 12, weight: .semibold))
+                            Text(row.used.isEmpty ? row.note : row.used.joined(separator: " · ")).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            if !row.used.isEmpty { Text(row.note).font(.system(size: 11)).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true) }
+                        }
+                    }
+                }
+            }
             if !lessons.isEmpty {
                 extraSection(id: "extra-lessons", title: "Lessons carried to every film", count: lessons.count, open: false) {
                     ForEach(lessons) { lesson in
@@ -189,6 +201,13 @@ struct DecisionsInspector: View {
                 }
             }
         }
+    }
+
+    /// session.taste_applied: what taste memory shaped (concept writers, jury, design desk, sound mode), written by taste.mjs.
+    private var tasteApplied: [(stage: String, used: [String], note: String)] {
+        model.snapshot.raw["taste_applied"].object.map { stage, value in
+            (stage, value["used"].array.compactMap(\.string), value["note"].string ?? "")
+        }.sorted { $0.stage < $1.stage }
     }
 
     private func extraSection<Content: View>(id: String, title: String, count: Int, open defaultOpen: Bool,
