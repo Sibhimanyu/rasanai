@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+A rebuilt creative engine, so launch films stop coming out as slideshows. Checked with syntax checks, smoke runs and a dry run of a scratch film through every phase; no real film has been made with it yet.
+
+- **Stories are planned in pictures.** Three writers (story-led, style-led and wild) pitch 12+ ideas, and a jury picks three that differ in idea and style. Each concept is a shot plan with a style world, a carrier, a signature moment and a sound mode, shown to you as a story board.
+- **Product truth instead of product-first.** Metaphors, worlds, characters, games, pixel or clay films and type-only films are all allowed, as long as the product and its claim are unmistakable. All 70 story devices are back, and branded launches get three looks.
+- **34 style worlds with real art direction:** palettes, fonts, texture and Codex prompts. A shader pack covers glitch, CRT, halftone, dot-matrix, riso and dither, and there are kits for pixel world, voxel, clay, retro OS, sticker collage and type-only.
+- **Generated imagery that moves:** a world bible keeps images consistent, with depth maps, object cutouts, layered plates, mockups, and parallax, dissolves and morphs.
+- **41 moves as working code**, taken from reference launch films, with a gallery of every move and kit.
+- **Reference films.** Give any references and the engine breaks them down (shots, music, words, effects, hook) to guide the writers, the jury and the gates. References are never copied into the film.
+- **Sound.** Four sound modes: voiceover, instrumental, effects-led, and song with lyrics. Effects are layered over the music instead of ducking it. Local music comes from ACE-Step, generated long and then edited to the picture so the drop lands on its mark, and songs are picked by how clearly the lyrics are sung. An optional earshot effects bank adds 252 sounds.
+- **Pictures before builds:** hero style frames are judged blind next to reference frames before anything is built.
+- **Taste memory:** ratings after each film, plus your picks and notes, shape the next films. One idea in three always stays outside your usual taste.
+- **Gates:** a planner failure stops the film, and the final film must pass every check before it reaches you. Checks cover shot rhythm, music sync, the hook, on-screen text, sound-effect level and density, and a no-static-image rule.
+
 ## 1.31.0 (2026-10-27): Connected sequences, sound direction, music selection and layered effects
 
 Implemented from the two Heresay addenda to the v3 overhaul (Connected Sequence Craft; Music Direction and Layered Sound). Source-level only: checked with syntax and import loads and the skill-map link check, but not built, rendered or listened to. No film-quality or audio improvement is claimed, and the reported music dropout is not repaired.
