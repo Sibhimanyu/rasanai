@@ -115,5 +115,216 @@
       "link_status": "in-repo-or-text-only"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "swiss-red",
+        "name": "Swiss red",
+        "bg": "#F4F3EE",
+        "bg2": "#E6E4DC",
+        "ink": "#111111",
+        "accent": "#E30613",
+        "accent2": "#111111",
+        "words": "off-white paper, black, Swiss red"
+      },
+      {
+        "id": "cobalt",
+        "name": "Cobalt",
+        "bg": "#EEF1F6",
+        "bg2": "#DCE2EE",
+        "ink": "#0C1226",
+        "accent": "#1747E6",
+        "accent2": "#E8453C",
+        "words": "cool grey-white, ink navy, cobalt, vermilion"
+      },
+      {
+        "id": "night-swiss",
+        "name": "Night Swiss",
+        "bg": "#101012",
+        "bg2": "#1A1A1E",
+        "ink": "#F2F2F0",
+        "accent": "#FF4A1C",
+        "accent2": "#8FA3FF",
+        "words": "graphite black, warm white, orange, periwinkle"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the single accent block or rule; grid, paper and ink stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "swiss-grid-1",
+          "display": {
+            "family": "Inter Tight",
+            "google": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Sans",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Inter Tight', sans-serif",
+            "text": "'IBM Plex Sans', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 600,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.03em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Flush-left ragged-right, one weight pair (600 and 400), tabular figures; Helvetica-class look without a licence."
+        },
+        {
+          "id": "swiss-grid-2",
+          "display": {
+            "family": "Hanken Grotesk",
+            "google": "https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Mono",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Hanken Grotesk', sans-serif",
+            "text": "'IBM Plex Mono', monospace"
+          },
+          "case": "lower",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 2.8,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Mono for data and captions."
+        }
+      ],
+      "default": "swiss-grid-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [],
+      "css": [
+        "grid-lines"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...). No shader pass: this style is clean by design; adding a pass is a mistake."
+    },
+    "composition": {
+      "grid": "modular 12-col x 8-row grid, 8 px baseline; type aligns to column lines; rule lines 2 px",
+      "safe_area": "6% margin; the hero sits on columns 1-7; leave 5 columns blank",
+      "fill": "type and a single graphic fill about 50%: white space is structural",
+      "product_ui": "UI is a rectangle snapped to column edges with a caption beneath; no device frame"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat graphic plate; no perspective. Lighting: none. Material: flat ink on uncoated paper, geometric primitives (circle, square, rule). Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: none, or a 3% paper grain. Avoid: no text, no letters, no logos, no watermark, no gradients, no drop shadows, no 3D, no decorative illustrations, no centred layouts, no photographs unless cropped to the grid.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat graphic plate; no perspective",
+      "lighting": "none",
+      "material": "flat ink on uncoated paper, geometric primitives (circle, square, rule)",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "none, or a 3% paper grain",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no gradients",
+        "no drop shadows",
+        "no 3D",
+        "no decorative illustrations",
+        "no centred layouts",
+        "no photographs unless cropped to the grid"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: flat ink on uncoated paper; flat graphic plate; no perspective; off-white paper, black, Swiss red."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a large red circle and a black horizontal rule",
+          "action": "the circle slides along the rule and stops on a column line",
+          "setting": "off-white paper with a 12-column grid hairline",
+          "palette": "swiss-red",
+          "prompt": "a large red circle and a black horizontal rule the circle slides along the rule and stops on a column line, off-white paper with a 12-column grid hairline. Camera and lens: flat graphic plate; no perspective. Lighting: none. Material: flat ink on uncoated paper, geometric primitives (circle, square, rule). Colour, locked to the palette off-white paper, black, Swiss red, and nothing outside it. Texture and finish: none, or a 3% paper grain. Avoid: no text, no letters, no logos, no watermark, no gradients, no drop shadows, no 3D, no decorative illustrations, no centred layouts, no photographs unless cropped to the grid."
+        },
+        {
+          "subject": "a black square and a cobalt square offset by one column",
+          "action": "aligned to the grid, labelled with tiny sans captions",
+          "setting": "cool grey-white sheet, 8 px baseline grid",
+          "palette": "swiss-red",
+          "prompt": "a black square and a cobalt square offset by one column aligned to the grid, labelled with tiny sans captions, cool grey-white sheet, 8 px baseline grid. Camera and lens: flat graphic plate; no perspective. Lighting: none. Material: flat ink on uncoated paper, geometric primitives (circle, square, rule). Colour, locked to the palette off-white paper, black, Swiss red, and nothing outside it. Texture and finish: none, or a 3% paper grain. Avoid: no text, no letters, no logos, no watermark, no gradients, no drop shadows, no 3D, no decorative illustrations, no centred layouts, no photographs unless cropped to the grid."
+        }
+      ]
+    },
+    "do": [
+      "Snap every element to the grid, always",
+      "Use scale contrast: one huge element, the rest small",
+      "Move on grid lines and ease with long decelerations"
+    ],
+    "dont": [
+      "No centre-aligned layouts",
+      "No more than 2 type weights",
+      "No effects or glows"
+    ],
+    "cheap_ways": [
+      "Helvetica on white with no grid logic",
+      "Centre-aligned hero text",
+      "Gradient accents sneaking in"
+    ]
+  }
 }

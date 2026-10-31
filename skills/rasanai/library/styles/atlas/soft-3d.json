@@ -131,5 +131,237 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "pastel-studio",
+        "name": "Pastel studio",
+        "bg": "#F6DCE7",
+        "bg2": "#EBC4D6",
+        "ink": "#2B2340",
+        "accent": "#FF7BA3",
+        "accent2": "#7C8CFF",
+        "words": "pink studio backdrop, plum ink, bubblegum pink, periwinkle"
+      },
+      {
+        "id": "butter-and-sky",
+        "name": "Butter and sky",
+        "bg": "#FFF1C9",
+        "bg2": "#FFE29A",
+        "ink": "#26324A",
+        "accent": "#FF8F4D",
+        "accent2": "#59B7FF",
+        "words": "butter yellow, navy ink, tangerine, sky blue"
+      },
+      {
+        "id": "mint-pop",
+        "name": "Mint pop",
+        "bg": "#D9F4E6",
+        "bg2": "#B3E8CF",
+        "ink": "#1F3B35",
+        "accent": "#FF6F61",
+        "accent2": "#FFC857",
+        "words": "mint backdrop, deep green ink, coral, sun yellow"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the hero object's material; the seamless backdrop and secondary shapes stay style-fixed pastels from the same family. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "soft-3d-1",
+          "display": {
+            "family": "Plus Jakarta Sans",
+            "google": "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Nunito",
+            "google": "https://fonts.googleapis.com/css2?family=Nunito:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Plus Jakarta Sans', sans-serif",
+            "text": "'Nunito', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 800,
+          "scale": {
+            "hero_cqw": 9.5,
+            "two_words": 7.6,
+            "long": 5.7,
+            "sub_cqw": 3,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.03em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Round humanist sans (a Circular/Gilroy stand-in); big and friendly."
+        },
+        {
+          "id": "soft-3d-2",
+          "display": {
+            "family": "Fredoka",
+            "google": "https://fonts.googleapis.com/css2?family=Fredoka:wght@500..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Nunito",
+            "google": "https://fonts.googleapis.com/css2?family=Nunito:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Fredoka', sans-serif",
+            "text": "'Nunito', sans-serif"
+          },
+          "case": "lower",
+          "weight": 600,
+          "scale": {
+            "hero_cqw": 10,
+            "two_words": 8,
+            "long": 6,
+            "sub_cqw": 3.2,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.01em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Rounder option for consumer."
+        }
+      ],
+      "default": "soft-3d-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "aberration",
+          "params": {
+            "shift": 0.002,
+            "mode": 0,
+            "falloff": 1.8
+          },
+          "role": "tiny edge fringe for lens realism"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.5,
+            "strength": 0.05,
+            "mono": 1
+          },
+          "role": "dither the soft gradients"
+        }
+      ],
+      "css": [
+        "grain:0.05",
+        "soft-vignette",
+        "m-spheres"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "seamless cyc backdrop with a floor; one hero object centred or on a third; 2-3 satellite shapes",
+      "safe_area": "10% margin; hero 50% of frame height",
+      "fill": "simple: 1 hero + 3 shapes max",
+      "product_ui": "UI shown on a rounded glossy-matte device mockup or on a floating soft-edged card"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 85 mm studio product lens, f/4, slightly high angle, shallow depth of field. Lighting: large softbox key upper left, rim light from behind right, soft occlusion, subsurface feel. Material: soft rubbery matte plastic and satin, inflated shapes, rounded bevels, one glossy accent. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: none visible; very light film grain. Avoid: no text, no letters, no logos, no watermark, no sharp edges, no harsh shadows, no noisy textures, no metal chrome, no realistic skin, no text on objects.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "85 mm studio product lens, f/4, slightly high angle, shallow depth of field",
+      "lighting": "large softbox key upper left, rim light from behind right, soft occlusion, subsurface feel",
+      "material": "soft rubbery matte plastic and satin, inflated shapes, rounded bevels, one glossy accent",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "none visible; very light film grain",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no sharp edges",
+        "no harsh shadows",
+        "no noisy textures",
+        "no metal chrome",
+        "no realistic skin",
+        "no text on objects"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: soft rubbery matte plastic and satin; 85 mm studio product lens; pink studio backdrop, plum ink, bubblegum pink, periwinkle."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "an inflated coral rounded rectangle with a soft smile slit",
+          "action": "bouncing gently over three pastel spheres",
+          "setting": "a seamless pink studio backdrop with a soft floor shadow",
+          "palette": "pastel-studio",
+          "prompt": "an inflated coral rounded rectangle with a soft smile slit bouncing gently over three pastel spheres, a seamless pink studio backdrop with a soft floor shadow. Camera and lens: 85 mm studio product lens, f/4, slightly high angle, shallow depth of field. Lighting: large softbox key upper left, rim light from behind right, soft occlusion, subsurface feel. Material: soft rubbery matte plastic and satin, inflated shapes, rounded bevels, one glossy accent. Colour, locked to the palette pink studio backdrop, plum ink, bubblegum pink, periwinkle, and nothing outside it. Texture and finish: none visible; very light film grain. Avoid: no text, no letters, no logos, no watermark, no sharp edges, no harsh shadows, no noisy textures, no metal chrome, no realistic skin, no text on objects."
+        },
+        {
+          "subject": "a butter-yellow inflated bell icon",
+          "action": "floating above a sky blue ring",
+          "setting": "a clean tangerine-to-butter cyc, softbox light from upper left",
+          "palette": "pastel-studio",
+          "prompt": "a butter-yellow inflated bell icon floating above a sky blue ring, a clean tangerine-to-butter cyc, softbox light from upper left. Camera and lens: 85 mm studio product lens, f/4, slightly high angle, shallow depth of field. Lighting: large softbox key upper left, rim light from behind right, soft occlusion, subsurface feel. Material: soft rubbery matte plastic and satin, inflated shapes, rounded bevels, one glossy accent. Colour, locked to the palette pink studio backdrop, plum ink, bubblegum pink, periwinkle, and nothing outside it. Texture and finish: none visible; very light film grain. Avoid: no text, no letters, no logos, no watermark, no sharp edges, no harsh shadows, no noisy textures, no metal chrome, no realistic skin, no text on objects."
+        }
+      ]
+    },
+    "do": [
+      "Inflate shapes: large radius, no hard corners",
+      "One glossy highlight per object, the rest satin",
+      "Stay in one pastel family plus a single saturated hero"
+    ],
+    "dont": [
+      "No harsh contrast or black",
+      "No busy backgrounds",
+      "No uncanny faces"
+    ],
+    "cheap_ways": [
+      "Default pastel blobs with no concept (the 2020 template)",
+      "Plastic icons floating randomly",
+      "Heavy bloom that washes the form"
+    ]
+  }
 }

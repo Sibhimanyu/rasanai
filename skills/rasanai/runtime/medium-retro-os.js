@@ -53,7 +53,7 @@
 
   function desktop(stage, o) {
     need(stage && typeof document !== "undefined", "desktop: pass the stage element"); o = o || {}; var v = VARIANTS[o.variant || "classic"]; need(v, "unknown variant " + o.variant); css();
-    var d = el("div", "ros " + (o.variant || "classic"), null, stage); d.style.fontFamily = o.font || v.font; if (o.wallpaper) d.style.background = o.wallpaper;
+    var d = el("div", "ros " + (o.variant || "classic"), null, stage); d.style.fontFamily = o.font || v.font; d.style.background = o.wallpaper || (o.variant === "y2k" ? v.desk : ""); // y2k has no desktop rule in the stylesheet: its desk gradient comes from the variant
     var D = { el: d, variant: o.variant || "classic", spec: v, icons: [] };
     (o.icons || []).forEach(function (name, i) { var ic = el("div", "ic", "<i></i>" + name, d); ic.style.left = "24px"; ic.style.top = 24 + i * 96 + "px"; D.icons.push(ic); });
     if (o.taskbar && D.variant === "win95") { D.taskbar = el("div", "tb", "<span class='btn'>Start</span>", d); }

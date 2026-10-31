@@ -123,5 +123,235 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "deep-field",
+        "name": "Deep field",
+        "bg": "#05060D",
+        "bg2": "#0C1030",
+        "ink": "#EAF0FF",
+        "accent": "#7C9CFF",
+        "accent2": "#FF7AD9",
+        "words": "space black, cool white, periwinkle, pink"
+      },
+      {
+        "id": "ember",
+        "name": "Ember",
+        "bg": "#0B0605",
+        "bg2": "#1F0F0A",
+        "ink": "#FFF1E0",
+        "accent": "#FF8A3D",
+        "accent2": "#FFD166",
+        "words": "char black, warm white, ember orange, gold"
+      },
+      {
+        "id": "aurora",
+        "name": "Aurora",
+        "bg": "#04100F",
+        "bg2": "#082B27",
+        "ink": "#E6FFF8",
+        "accent": "#4DFFC3",
+        "accent2": "#7C6CFF",
+        "words": "green-black, mint white, aurora green, violet"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the colour of the particles that make the signature shape; background and secondary dust stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "particle-field-1",
+          "display": {
+            "family": "Inter Tight",
+            "google": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200..500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Mono",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Inter Tight', sans-serif",
+            "text": "'IBM Plex Mono', monospace"
+          },
+          "case": "lower",
+          "weight": 300,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Light grotesk so particles stay the hero; mono for tiny data labels."
+        },
+        {
+          "id": "particle-field-2",
+          "display": {
+            "family": "Space Mono",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@300..500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Space Mono', monospace",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "lower",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 2.6,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Mono display."
+        }
+      ],
+      "default": "particle-field-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "aberration",
+          "params": {
+            "shift": 0.003,
+            "mode": 0,
+            "falloff": 1.6
+          },
+          "role": "lens fringe on bright particles"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.4,
+            "strength": 0.07,
+            "mono": 1
+          },
+          "role": "hides banding in the glow"
+        }
+      ],
+      "css": [
+        "particles",
+        "grain:0.07"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "a flow or a field of 5k-50k particles forming and dissolving a shape; depth by size and blur",
+      "safe_area": "10% margin; the shape forms at a third",
+      "fill": "particles fill 100%, the formed shape 40%",
+      "product_ui": "UI emerges from the particles (particles converge to its rectangle, then the capture resolves in place)"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 85 mm macro on a dust cloud, f/2, shallow depth of field, slow drift. Lighting: particles self-glow, soft rim light from behind, dark volumetric haze. Material: tiny glowing dust and spark points of varied size, soft bokeh at the near plane. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: bokeh discs, light haze, noise-free blacks. Avoid: no text, no letters, no logos, no watermark, no hard-edged shapes, no flat geometric icons, no solid fills, no text, no lens dirt.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "85 mm macro on a dust cloud, f/2, shallow depth of field, slow drift",
+      "lighting": "particles self-glow, soft rim light from behind, dark volumetric haze",
+      "material": "tiny glowing dust and spark points of varied size, soft bokeh at the near plane",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "bokeh discs, light haze, noise-free blacks",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no hard-edged shapes",
+        "no flat geometric icons",
+        "no solid fills",
+        "no text",
+        "no lens dirt"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: tiny glowing dust and spark points of varied size; 85 mm macro on a dust cloud; space black, cool white, periwinkle, pink."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a cloud of tiny periwinkle sparks",
+          "action": "swirling and gathering into the outline of a hand",
+          "setting": "a deep space-black field with soft bokeh in the foreground",
+          "palette": "deep-field",
+          "prompt": "a cloud of tiny periwinkle sparks swirling and gathering into the outline of a hand, a deep space-black field with soft bokeh in the foreground. Camera and lens: 85 mm macro on a dust cloud, f/2, shallow depth of field, slow drift. Lighting: particles self-glow, soft rim light from behind, dark volumetric haze. Material: tiny glowing dust and spark points of varied size, soft bokeh at the near plane. Colour, locked to the palette space black, cool white, periwinkle, pink, and nothing outside it. Texture and finish: bokeh discs, light haze, noise-free blacks. Avoid: no text, no letters, no logos, no watermark, no hard-edged shapes, no flat geometric icons, no solid fills, no text, no lens dirt."
+        },
+        {
+          "subject": "an ember orange particle river",
+          "action": "flowing left to right and splitting around an invisible rock",
+          "setting": "a char-black ground with light haze",
+          "palette": "deep-field",
+          "prompt": "an ember orange particle river flowing left to right and splitting around an invisible rock, a char-black ground with light haze. Camera and lens: 85 mm macro on a dust cloud, f/2, shallow depth of field, slow drift. Lighting: particles self-glow, soft rim light from behind, dark volumetric haze. Material: tiny glowing dust and spark points of varied size, soft bokeh at the near plane. Colour, locked to the palette space black, cool white, periwinkle, pink, and nothing outside it. Texture and finish: bokeh discs, light haze, noise-free blacks. Avoid: no text, no letters, no logos, no watermark, no hard-edged shapes, no flat geometric icons, no solid fills, no text, no lens dirt."
+        }
+      ]
+    },
+    "do": [
+      "Say what the particles are in one line (data, people, signals)",
+      "Form and dissolve a shape: that is the story beat",
+      "Vary particle size for depth"
+    ],
+    "dont": [
+      "No uniform dot sizes",
+      "No decorative drift without a point",
+      "No big flat shapes"
+    ],
+    "cheap_ways": [
+      "Random dust drifting with no meaning",
+      "Particle logo reveal as the only idea",
+      "Every particle the same size and speed"
+    ]
+  }
 }

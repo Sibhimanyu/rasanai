@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "The 41 reference moves from R5 (reference-film breakdown). Each is a per-move file; a beat in the score names its id. Older reference moves live in library.json.",
+  "note": "The 41 reference moves from R5 (reference-film breakdown). Each is a per-move file; a beat in the score names its id. Older reference moves live in library.json. Every move also has code: {fn, example} (runtime/rasan-moves.js); a builder calls RasanMoves.<fn> and adapts the params.",
   "carrier_kinds": [
     "dot",
     "word-line",
@@ -43,7 +43,11 @@
         "min": 1.2,
         "max": 2.5
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.flankFrameHold",
+        "example": "RasanMoves.flankFrameHold(tl, 0.3, { target: stage, left: 'Today', right: 'Only', image: photo });"
+      }
     },
     {
       "id": "blur-bloom-word",
@@ -71,7 +75,11 @@
       },
       "needs": [
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.blurBloomWord",
+        "example": "RasanMoves.blurBloomWord(tl, 0.4, { target: stage, word: 'Why?', accent: '#ff5a36' });"
+      }
     },
     {
       "id": "in-place-word-swap",
@@ -97,7 +105,11 @@
         "min": 0.3,
         "max": 0.5
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.inPlaceWordSwap",
+        "example": "RasanMoves.inPlaceWordSwap(tl, 0.3, { target: stage, prefix: 'Built to be', words: ['fast', 'safe', 'yours'] });"
+      }
     },
     {
       "id": "word-per-shot-sentence",
@@ -123,7 +135,11 @@
         "min": 1.5,
         "max": 3
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.wordPerShotSentence",
+        "example": "RasanMoves.wordPerShotSentence(tl, 0.2, { target: stage, words: ['Make','it','feel','like','you'], italicIndex: 4, image: photo });"
+      }
     },
     {
       "id": "inline-glyph-slot",
@@ -151,7 +167,11 @@
         "min": 0.6,
         "max": 1.4
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.inlineGlyphSlot",
+        "example": "RasanMoves.inlineGlyphSlot(tl, 0.3, { target: stage, before: 'Send it', after: 'to the team', icon: 'plane', fill: true });"
+      }
     },
     {
       "id": "full-frame-type-crop",
@@ -175,7 +195,11 @@
         "min": 0.8,
         "max": 1.5
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.fullFrameTypeCrop",
+        "example": "RasanMoves.fullFrameTypeCrop(tl, 0.2, { target: stage, word: 'NEVER STOP' });"
+      }
     },
     {
       "id": "anaphora-ladder",
@@ -202,7 +226,11 @@
       },
       "needs": [
         "rasan-image-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.anaphoraLadder",
+        "example": "RasanMoves.anaphoraLadder(tl, 0.2, { target: stage, stem: 'Every', endings: ['idea','launch','story','frame'] });"
+      }
     },
     {
       "id": "drum-list",
@@ -227,7 +255,11 @@
         "min": 2,
         "max": 4
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.drumList",
+        "example": "RasanMoves.drumList(tl, 0.2, { target: stage, items: ['Draft','Design','Build','Ship','Learn'] });"
+      }
     },
     {
       "id": "glyph-burst",
@@ -251,7 +283,11 @@
         "min": 0.8,
         "max": 1.5
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.glyphBurst",
+        "example": "RasanMoves.glyphBurst(tl, 0.2, { target: stage, phrase: 'make it weird', count: 12 });"
+      }
     },
     {
       "id": "scramble-to-word",
@@ -273,7 +309,11 @@
         "min": 0.4,
         "max": 0.9
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.scrambleToWord",
+        "example": "RasanMoves.scrambleToWord(tl, 0.3, { target: stage, word: 'DECODE' });"
+      }
     },
     {
       "id": "dot-matrix-type",
@@ -301,7 +341,11 @@
       },
       "needs": [
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.dotMatrixType",
+        "example": "RasanMoves.dotMatrixType(tl, 0.2, { target: stage, word: 'SIGNAL' });"
+      }
     },
     {
       "id": "colour-sweep-word",
@@ -328,7 +372,11 @@
       },
       "needs": [
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.colourSweepWord",
+        "example": "RasanMoves.colourSweepWord(tl, 0.2, { target: stage, before: 'Meet', word: 'Aurora' });"
+      }
     },
     {
       "id": "icon-as-missing-letter",
@@ -355,7 +403,11 @@
       },
       "needs": [
         "stage3d/recipes/icon-portal-through.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.iconAsMissingLetter",
+        "example": "RasanMoves.iconAsMissingLetter(tl, 0.2, { target: stage, word: 'EDIT', blank: [1, 3] });"
+      }
     },
     {
       "id": "slot-line-wipe-lockup",
@@ -379,7 +431,11 @@
         "min": 0.5,
         "max": 1
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.slotLineWipeLockup",
+        "example": "RasanMoves.slotLineWipeLockup(tl, 0.2, { target: stage, word: 'Simple', logo: 'Aurora' });"
+      }
     },
     {
       "id": "dot-field-resolve-to-photo",
@@ -408,7 +464,11 @@
       "needs": [
         "rasan-image-fx.js",
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.dotFieldResolve",
+        "example": "RasanMoves.dotFieldResolve(tl, 0.3, { target: stage, image: photo, cell: 28 });"
+      }
     },
     {
       "id": "mosaic-pixel-resolve",
@@ -435,7 +495,11 @@
       },
       "needs": [
         "rasan-image-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.mosaicPixelResolve",
+        "example": "RasanMoves.mosaicPixelResolve(tl, 0.3, { target: stage, image: photo });"
+      }
     },
     {
       "id": "pixel-square-wipe",
@@ -462,7 +526,11 @@
       },
       "needs": [
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.pixelSquareWipe",
+        "example": "RasanMoves.pixelSquareWipe(tl, 2, { target: stage, from: photo, to: photo2 });"
+      }
     },
     {
       "id": "torn-edge-wipe",
@@ -491,7 +559,11 @@
       "needs": [
         "rasan-fx.js",
         "rasan-image-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.tornEdgeWipe",
+        "example": "RasanMoves.tornEdgeWipe(tl, 2, { target: stage, from: photo, to: photo2 });"
+      }
     },
     {
       "id": "floating-card-field",
@@ -516,7 +588,11 @@
         "min": 2,
         "max": 4
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.floatingCardField",
+        "example": "RasanMoves.floatingCardField(tl, 0.2, { target: stage, caption: 'Everything, everywhere', images: [photo, photo2, photo3] });"
+      }
     },
     {
       "id": "cards-burst-from-dot",
@@ -540,7 +616,11 @@
         "min": 1.2,
         "max": 2.2
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.cardsBurstFromDot",
+        "example": "RasanMoves.cardsBurstFromDot(tl, 0.2, { target: stage, count: 12, images: [photo, photo2] });"
+      }
     },
     {
       "id": "duotone-stock-cluster",
@@ -568,7 +648,11 @@
       "bundle_into": 19,
       "needs": [
         "rasan-image-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.duotoneStockCluster",
+        "example": "RasanMoves.duotoneStockCluster(tl, 0.2, { target: stage, images: [photo, photo2, photo3], colourIndex: 3 });"
+      }
     },
     {
       "id": "dither-seam-on-art",
@@ -597,7 +681,11 @@
       "needs": [
         "rasan-image-fx.js",
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.ditherSeamOnArt",
+        "example": "RasanMoves.ditherSeamOnArt(tl, 0.2, { target: stage, image: photo });"
+      }
     },
     {
       "id": "spectral-silhouette",
@@ -623,7 +711,11 @@
       },
       "needs": [
         "rasan-image-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.spectralSilhouette",
+        "example": "RasanMoves.spectralSilhouette(tl, 0.2, { target: stage, image: RasanMoves.placeholder.cutout(1) });"
+      }
     },
     {
       "id": "poster-dive",
@@ -650,7 +742,11 @@
       },
       "needs": [
         "rasan-image-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.posterDive",
+        "example": "RasanMoves.posterDive(tl, 0.3, { target: stage, image: RasanMoves.placeholder.art(2), fx: 0.62, fy: 0.38 });"
+      }
     },
     {
       "id": "tilted-ui-dolly",
@@ -675,7 +771,11 @@
         "min": 3,
         "max": 8
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.tiltedUiDolly",
+        "example": "RasanMoves.tiltedUiDolly(tl, 0.2, { target: stage, stops: ['field', 'send'] });"
+      }
     },
     {
       "id": "typed-prompt-send",
@@ -700,7 +800,11 @@
         "min": 3,
         "max": 6
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.typedPromptSend",
+        "example": "RasanMoves.typedPromptSend(tl, 0.2, { target: stage, text: 'A launch film for my new app' });"
+      }
     },
     {
       "id": "cursor-identity-swap",
@@ -725,7 +829,11 @@
         "min": 0.4,
         "max": 1
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.cursorIdentitySwap",
+        "example": "RasanMoves.cursorIdentitySwap(tl, 0.2, { target: stage });"
+      }
     },
     {
       "id": "glow-on-control",
@@ -752,7 +860,11 @@
       "bundle_into": 25,
       "needs": [
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.glowOnControl",
+        "example": "RasanMoves.glowOnControl(tl, 0.3, { target: stage, lit: 2 });"
+      }
     },
     {
       "id": "counter-chip-ring",
@@ -776,7 +888,11 @@
         "min": 1,
         "max": 2.5
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.counterChipRing",
+        "example": "RasanMoves.counterChipRing(tl, 0.2, { target: stage, to: 1684, label: 'tasks' });"
+      }
     },
     {
       "id": "segmented-control-over-world",
@@ -805,7 +921,11 @@
       },
       "needs": [
         "rasan-image-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.segmentedControlOverWorld",
+        "example": "RasanMoves.segmentedControlOverWorld(tl, 0.2, { target: stage, segments: ['Day', 'Dusk', 'Night'] });"
+      }
     },
     {
       "id": "ribbon-of-frames",
@@ -831,7 +951,11 @@
       },
       "needs": [
         "rasan-camera.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.ribbonOfFrames",
+        "example": "RasanMoves.ribbonOfFrames(tl, 0.2, { target: stage, images: [photo, photo2, photo3] });"
+      }
     },
     {
       "id": "column-ladder",
@@ -855,7 +979,11 @@
         "min": 3,
         "max": 5
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.columnLadder",
+        "example": "RasanMoves.columnLadder(tl, 0.2, { target: stage });"
+      }
     },
     {
       "id": "lone-dot-carrier-iris",
@@ -881,7 +1009,11 @@
         "min": 0.8,
         "max": 2
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.loneDotCarrierIris",
+        "example": "RasanMoves.loneDotCarrierIris(tl, 0.2, { target: stage });"
+      }
     },
     {
       "id": "colour-world-flip",
@@ -906,7 +1038,11 @@
       },
       "needs": [
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.colourWorldFlip",
+        "example": "RasanMoves.colourWorldFlip(tl, 0.2, { target: stage, words: ['Everyone','else','builds','slides.'], flipWord: 2, flipAt: 1.0 });"
+      }
     },
     {
       "id": "inline-orb-expand",
@@ -934,7 +1070,11 @@
       },
       "needs": [
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.inlineOrbExpand",
+        "example": "RasanMoves.inlineOrbExpand(tl, 0.2, { target: stage, before: 'Make something', after: 'new', logo: 'Aurora' });"
+      }
     },
     {
       "id": "action-as-transition",
@@ -961,7 +1101,11 @@
       },
       "needs": [
         "stage3d/recipes/clay-toy.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.actionAsTransition",
+        "example": "RasanMoves.actionAsTransition(tl, 1.2, { target: stage, from: photo, to: photo2 });"
+      }
     },
     {
       "id": "voxel-disintegrate-reform",
@@ -989,7 +1133,11 @@
       "needs": [
         "stage3d/recipes/voxel-diorama.js",
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.voxelDisintegrateReform",
+        "example": "RasanMoves.voxelDisintegrateReform(tl, 0.2, { target: stage, from: 'heart', to: 'star' });"
+      }
     },
     {
       "id": "specimen-triptych",
@@ -1014,7 +1162,11 @@
         "min": 4,
         "max": 5
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.specimenTriptych",
+        "example": "RasanMoves.specimenTriptych(tl, 0.2, { target: stage });"
+      }
     },
     {
       "id": "mockup-parade",
@@ -1041,7 +1193,11 @@
       },
       "needs": [
         "rasan-image-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.mockupParade",
+        "example": "RasanMoves.mockupParade(tl, 0.2, { target: stage, image: RasanMoves.placeholder.art(3), each: 0.8 });"
+      }
     },
     {
       "id": "hold-and-sign-off",
@@ -1068,7 +1224,11 @@
       },
       "needs": [
         "rasan-fx.js"
-      ]
+      ],
+      "code": {
+        "fn": "RasanMoves.holdAndSignOff",
+        "example": "RasanMoves.holdAndSignOff(tl, 0.2, { target: stage, tagline: 'Make something worth watching.', accentWord: 'worth', hold: 1.2 });"
+      }
     },
     {
       "id": "ui-object-state-morph",
@@ -1096,7 +1256,11 @@
         "min": 0.6,
         "max": 1.6
       },
-      "needs": []
+      "needs": [],
+      "code": {
+        "fn": "RasanMoves.uiObjectStateMorph",
+        "example": "RasanMoves.uiObjectStateMorph(tl, 0.2, { target: stage });"
+      }
     }
   ]
 }

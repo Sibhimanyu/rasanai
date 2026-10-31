@@ -63,5 +63,17 @@
     "middle",
     "proof"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.inlineGlyphSlot",
+    "example": "RasanMoves.inlineGlyphSlot(tl, 0.3, { target: stage, before: 'Send it', after: 'to the team', icon: 'plane', fill: true });",
+    "params": [
+      "before",
+      "after",
+      "icon",
+      "fill",
+      "fillAfter"
+    ]
+  }
 }

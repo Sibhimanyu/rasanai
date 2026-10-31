@@ -12,6 +12,7 @@
 //   1 frame-gate  2 motion-gate (end-hold, saved to <run>/motion/motion-gate.json)  3 slop (the film's index.html)  4 sound check  5 obey  6 mix-duck (audio/mix.mix.json: duck.measured_db and duck.music_under_vo_lu; no duck is the default and 0 dB passes)
 //   7 text-qa (spell-check of the on-screen words in the film's index.html: doubled words, common typos, malformed contractions, number style; errors block)
 //   8 music-sync (music-map.mjs check: cuts and big visual hits land within 150 ms of music events; a film with no voice needs 50%)
+//   9 earshot-tech (OPTIONAL, only when earshot is installed, see lib/earshot.mjs): critique's technical findings as WARNINGS only (true peak over -1 dBTP, dead air at the end, silent cuts, cuts missing accents); its verdict and score are never read; never blocks; a failure to run is a note
 // Writes <run>/final-gate.json {ok, video, video_sha, steps}; exit 0 pass, 2 blocked. `verifyHandover(run, video)` is what console.mjs push calls.
 import fs from "node:fs";
 import path from "node:path";
@@ -19,6 +20,7 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { textQa } from "./lib/text-qa.mjs";
+import * as earshot from "./lib/earshot.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const jr = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
@@ -139,6 +141,13 @@ export function main(args) {
     const ms = run1("music-map.mjs", ["check", "--video", video, "--run", run]);
     steps.push({ step: "music-sync", ok: ms.code === 0, ...(ms.json ? { measured: ms.json.measured, warnings: ms.json.warnings } : {}) });
     if (ms.code !== 0) blocked.push(`music-sync: ${ms.json && ms.json.errors && ms.json.errors.length ? ms.json.errors.join("; ") : `could not run (exit ${ms.code}) ${ms.stderr.replace(/\s+/g, " ").slice(-160)}`}`);
+  }
+  // 9 earshot-tech: warnings only, never a block, never the verdict
+  if (video && ex(video) && earshot.available()) {
+    try {
+      const warnings = earshot.techFindings(earshot.critique(video, { video, fast: true })).map((w) => `earshot-${w.kind}: ${w.text}`);
+      steps.push({ step: "earshot-tech", ok: true, optional: true, warnings });
+    } catch (e) { steps.push({ step: "earshot-tech", ok: true, optional: true, warnings: [], note: `could not run (${String(e.message).slice(0, 120)}); skipped` }); }
   }
   const res = { ok: blocked.length === 0, t: new Date().toISOString(), video: video || null, video_sha: video && ex(video) ? sha(video) : null, project, steps, blocked };
   try { fs.writeFileSync(path.join(run, "final-gate.json"), JSON.stringify(res, null, 2)); } catch {}

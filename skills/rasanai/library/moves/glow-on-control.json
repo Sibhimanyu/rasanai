@@ -48,5 +48,16 @@
     "rasan-fx.js"
   ],
   "light": true,
-  "bundle_into": 25
+  "bundle_into": 25,
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.glowOnControl",
+    "example": "RasanMoves.glowOnControl(tl, 0.3, { target: stage, lit: 2 });",
+    "params": [
+      "control",
+      "labels",
+      "lit",
+      "color"
+    ]
+  }
 }

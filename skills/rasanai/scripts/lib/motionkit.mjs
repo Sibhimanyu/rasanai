@@ -51,7 +51,7 @@ export function install(root) {
 
 // the style-world runtimes (post-process shaders, image fx, world mediums, type-only): copied verbatim to <project>/assets/rasan-world/
 // (load each after GSAP, relative to the composition: ../../assets/rasan-world/<file>). medium-pixel.js rides along: medium-pixel-world.js needs it first.
-export const WORLD_RUNTIMES = ["rasan-fx.js", "rasan-image-fx.js", "medium-pixel.js", "medium-pixel-world.js", "medium-retro-os.js", "medium-sticker.js", "rasan-type-only.js"];
+export const WORLD_RUNTIMES = ["rasan-fx.js", "rasan-image-fx.js", "medium-pixel.js", "medium-pixel-world.js", "medium-retro-os.js", "medium-sticker.js", "rasan-type-only.js", "rasan-moves.js"];
 export function installWorld(root) {
   const dst = path.join(root, "assets", "rasan-world");
   fs.mkdirSync(dst, { recursive: true });

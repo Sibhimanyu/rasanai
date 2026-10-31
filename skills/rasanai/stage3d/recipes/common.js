@@ -60,7 +60,12 @@
     return m ? Number(m[1]) : 100;
   }
   // A local text asset (an SVG): the page's own fetch of a project-relative path
-  function readLocalText(url, what) { return fetch(localAsset(url, what)).then(function (r) { if (!r.ok) throw new Error(what + " not found: " + url); return r.text(); }); }
+  function readLocalText(url, what) {
+    // fetch() cannot read file: URLs (a page opened from disk, the gallery), so fall back to a same-origin XHR, which can with file access allowed
+    var u = localAsset(url, what);
+    function xhr() { return new Promise(function (res, rej) { var x = new XMLHttpRequest(); x.open("GET", u); x.onload = function () { if (x.status === 0 || (x.status >= 200 && x.status < 300)) res(x.responseText); else rej(new Error(what + " not found: " + url)); }; x.onerror = function () { rej(new Error(what + " not found: " + url)); }; x.send(); }); }
+    if (typeof location !== "undefined" && location.protocol === "file:") return xhr();
+    return fetch(u).then(function (r) { if (!r.ok) throw new Error(what + " not found: " + url); return r.text(); }); }
   function noop() {}
   function boxSize(T, obj) { var b = new T.Box3().setFromObject(obj), s = new T.Vector3(); b.getSize(s); return s; }
   // Full-frame lens maths: the sensor is 36 mm on the frame's long side, so the width seen at distance d is 36 d / mm.

@@ -139,5 +139,226 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "craft-layers",
+        "name": "Craft layers",
+        "bg": "#F4E9D8",
+        "bg2": "#E9D5B8",
+        "ink": "#2F2A3A",
+        "accent": "#E4572E",
+        "accent2": "#2E86AB",
+        "words": "warm cream card, aubergine-black, vermilion, deep sea blue"
+      },
+      {
+        "id": "forest-cutout",
+        "name": "Forest cutout",
+        "bg": "#DDEBD4",
+        "bg2": "#A9CBA0",
+        "ink": "#233A2B",
+        "accent": "#F2A541",
+        "accent2": "#C8553D",
+        "words": "pale mint paper, forest ink, marigold, brick red"
+      },
+      {
+        "id": "night-paper",
+        "name": "Night paper",
+        "bg": "#1B2140",
+        "bg2": "#2D3566",
+        "ink": "#F6EFE2",
+        "accent": "#FFC857",
+        "accent2": "#F26D78",
+        "words": "indigo card, moon cream, saffron, rose"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the hero paper layer (the character or sun); at most 2 other layers, style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "paper-cut-1",
+          "display": {
+            "family": "Fraunces",
+            "google": "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..900&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Nunito",
+            "google": "https://fonts.googleapis.com/css2?family=Nunito:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Fraunces', serif",
+            "text": "'Nunito', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 800,
+          "scale": {
+            "hero_cqw": 10,
+            "two_words": 8,
+            "long": 6,
+            "sub_cqw": 3,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Soft heavy serif set with a 4 px hard paper drop-shadow, as if cut from card."
+        },
+        {
+          "id": "paper-cut-2",
+          "display": {
+            "family": "Chonburi",
+            "google": "https://fonts.googleapis.com/css2?family=Chonburi&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Nunito",
+            "google": "https://fonts.googleapis.com/css2?family=Nunito:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Chonburi', serif",
+            "text": "'Nunito', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 2.8,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.01em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Cooper-ish cut-letter feel."
+        }
+      ],
+      "default": "paper-cut-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.8,
+            "strength": 0.1,
+            "mono": 0
+          },
+          "role": "paper tooth"
+        }
+      ],
+      "css": [
+        "grain:0.1",
+        "paper-shadow",
+        "m-paper"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "4-7 stacked paper layers with 2-3% parallax offsets; each layer a flat cut-out with a hard edge shadow",
+      "safe_area": "10% margin; foreground layer bleeds off one edge",
+      "fill": "layers fill the frame; focal layer 45% of height",
+      "product_ui": "UI sits on a paper 'card' layer with the same hard shadow; the UI itself stays crisp"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: straight-on top-down layered diorama with a slight 8-degree tilt, 35 mm. Lighting: one soft key from upper left; each layer casts a short crisp shadow onto the layer below. Material: matte cardstock with visible cut edges, slight deckle at curves, fibre texture. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: paper fibre grain, soft edge shadows, tiny cut-edge bevel; no gradients inside shapes. Avoid: no text, no letters, no logos, no watermark, no gradients inside shapes, no glossy surfaces, no vector-clean edges without shadow, no photoreal people.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "straight-on top-down layered diorama with a slight 8-degree tilt, 35 mm",
+      "lighting": "one soft key from upper left; each layer casts a short crisp shadow onto the layer below",
+      "material": "matte cardstock with visible cut edges, slight deckle at curves, fibre texture",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "paper fibre grain, soft edge shadows, tiny cut-edge bevel; no gradients inside shapes",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no gradients inside shapes",
+        "no glossy surfaces",
+        "no vector-clean edges without shadow",
+        "no photoreal people"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: matte cardstock with visible cut edges; straight-on top-down layered diorama with a slight 8-degree tilt; warm cream card, aubergine-black, vermilion, deep sea blue."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a vermilion paper fox sitting on a hill layer",
+          "action": "looking up at a saffron paper moon",
+          "setting": "a night scene of five stacked indigo paper hills with cream stars",
+          "palette": "craft-layers",
+          "prompt": "a vermilion paper fox sitting on a hill layer looking up at a saffron paper moon, a night scene of five stacked indigo paper hills with cream stars. Camera and lens: straight-on top-down layered diorama with a slight 8-degree tilt, 35 mm. Lighting: one soft key from upper left; each layer casts a short crisp shadow onto the layer below. Material: matte cardstock with visible cut edges, slight deckle at curves, fibre texture. Colour, locked to the palette warm cream card, aubergine-black, vermilion, deep sea blue, and nothing outside it. Texture and finish: paper fibre grain, soft edge shadows, tiny cut-edge bevel; no gradients inside shapes. Avoid: no text, no letters, no logos, no watermark, no gradients inside shapes, no glossy surfaces, no vector-clean edges without shadow, no photoreal people."
+        },
+        {
+          "subject": "layered paper mountains in forest green",
+          "action": "a small paper boat crossing a marigold river",
+          "setting": "a pale mint paper valley, hard drop-shadows between layers",
+          "palette": "craft-layers",
+          "prompt": "layered paper mountains in forest green a small paper boat crossing a marigold river, a pale mint paper valley, hard drop-shadows between layers. Camera and lens: straight-on top-down layered diorama with a slight 8-degree tilt, 35 mm. Lighting: one soft key from upper left; each layer casts a short crisp shadow onto the layer below. Material: matte cardstock with visible cut edges, slight deckle at curves, fibre texture. Colour, locked to the palette warm cream card, aubergine-black, vermilion, deep sea blue, and nothing outside it. Texture and finish: paper fibre grain, soft edge shadows, tiny cut-edge bevel; no gradients inside shapes. Avoid: no text, no letters, no logos, no watermark, no gradients inside shapes, no glossy surfaces, no vector-clean edges without shadow, no photoreal people."
+        }
+      ]
+    },
+    "do": [
+      "Every shape is flat colour with a shadow carrying the depth",
+      "Layer order and offset tell the depth, not blur",
+      "Keep curves gently imperfect, like hand-cut"
+    ],
+    "dont": [
+      "No gradients fills",
+      "No shadows without a source direction",
+      "No more than 3 paper tones per layer family"
+    ],
+    "cheap_ways": [
+      "Vector flat art with a drop shadow filter slapped on",
+      "Identical shadow blur everywhere",
+      "Layers that never move relative to each other"
+    ]
+  }
 }

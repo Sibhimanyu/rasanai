@@ -43,5 +43,16 @@
   "beat_roles": [
     "turn"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.scrambleToWord",
+    "example": "RasanMoves.scrambleToWord(tl, 0.3, { target: stage, word: 'DECODE' });",
+    "params": [
+      "word",
+      "frames",
+      "chars",
+      "exit"
+    ]
+  }
 }

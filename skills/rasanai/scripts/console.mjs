@@ -12,6 +12,11 @@
 //        [--severity info|notice|needs-you|error]   (default info: a quiet line in Studio; only needs-you / error get a visible card)
 //        [--kind <fast-pace|...>]   (a routine, documented adjustment: told as "Adjusted (<kind>)", not listed under "Working without")
 //        (the brief push carries `budget`: the token budget crew.mjs plan wrote to <run>/crew/budget.json, added automatically when the push has none; see cleanBudget)
+//   node console.mjs push style-frames --run <dir> --data '{"concepts":[{"id","title","style_world","frames":[{"id","image","caption"}],"verdict":{"score","sits_in_reel","missing","overall","rework"},"gate":{"ok","action"}}]}'
+//        (the per-concept style-frames review: 3 hero frames each + the juror's verdict. A passed gate on every concept with no --status closes it `done`
+//        with `optional_review: true` (Studio shows it, asks nothing); a failed gate waits (`awaiting`): Approve, or Rework {ids: [concept ids], note})
+//   node console.mjs push --step story ... boards: [{concept, image, shots:[{id,t,image?,words,move,carrier_state,transition}], style_world?, carrier?, signature_moment?, sound_mode?}]
+//        (each concept's story board; derived from stories[].shots when absent. A shot note comes back as a `comment` with scene = concept and shot_id)
 //   node console.mjs activity --run <dir> --message "Reading your DESIGN.md" [--level info|ok|warn]   (what Claude is doing now)
 //   node console.mjs ask   --run <dir> --question "..." [--context "..."] [--options '[{"id","label","detail"}]'] [--recommended <id>] [--placeholder "..."]
 //        (any question outside the steps: missing material, a thin capture, an ambiguity; shown on the page, answered there)
@@ -78,6 +83,8 @@ const VERSION = (() => {
 
 const args = parseArgs();
 const cmd = args._[0];
+// `push style-frames` is the per-concept style-frames review (references/console.md, `styleframes` row): the same step as `--step styleframes`
+if (cmd === "push" && args._[1] === "style-frames" && !args.step) args.step = "styleframes";
 if (!args.run) die("--run <run dir> is required (the .rasanai/<run> scratch dir)");
 const RUN = path.resolve(String(args.run));
 fs.mkdirSync(RUN, { recursive: true });
@@ -177,6 +184,36 @@ function mergeDowngrades(s) {
     activity(s, feed.msg, feed.level, s.working && s.working.msg);
   }
 }
+// story payload: `boards` is one entry per concept; with none pushed it is derived from the stories' own shots[] (the concept schema). Old fields stay.
+const SKILL_DIR_C = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+function normalizeStoryBoards(data) {
+  const str = (x) => (x == null ? "" : String(x));
+  let shotOf = (sh, i) => ({ id: str(sh.id) || `s${String(i + 1).padStart(2, "0")}`, t: Number.isFinite(Number(sh.t)) ? Number(sh.t) : null, ...(sh.image ? { image: str(sh.image) } : {}), words: str(sh.words), move: str(sh.move), carrier_state: str(sh.carrier_state), transition: str(sh.transition) });
+  const idx = (f, key) => { try { return Object.fromEntries((readJSON(path.join(SKILL_DIR_C, f), {})[key] || []).map((x) => [x.id, x.name])); } catch { return {}; } };
+  const moveNames = idx("library/moves/index.json", "moves"), worldNames = idx("library/styles/atlas/index.json", "styles");
+  const shotOf0 = shotOf;
+  shotOf = (sh, i) => { const o = shotOf0(sh, i); if (o.move && moveNames[o.move]) o.move_name = moveNames[o.move]; return o; };
+  const boards = (Array.isArray(data.boards) ? data.boards : []).filter(isObj).map((b) => ({ ...b, concept: str(b.concept || b.id), shots: (Array.isArray(b.shots) ? b.shots : []).filter(isObj).map(shotOf) })).filter((b) => b.concept);
+  if (!boards.length && Array.isArray(data.stories)) {
+    for (const st of data.stories.filter((x) => isObj(x) && Array.isArray(x.shots) && x.shots.length)) {
+      boards.push({ concept: str(st.id), image: str(st.board_image || st.board || st.story_board) || undefined, shots: st.shots.filter(isObj).map(shotOf), style_world: st.style_world, carrier: st.carrier, signature_moment: st.signature_moment, sound_mode: st.sound_mode });
+    }
+  }
+  for (const b of boards) { const st = (Array.isArray(data.stories) ? data.stories : []).find((x) => isObj(x) && str(x.id) === b.concept); if (st && b.style_world == null && st.style_world != null) b.style_world = st.style_world; }
+  for (const b of boards) { const w = typeof b.style_world === "string" ? b.style_world : null; if (w && worldNames[w]) b.style_world_name = worldNames[w]; }
+  if (boards.length) data.boards = boards;
+  else delete data.boards;
+}
+// style-frames payload: per concept, 3 hero frames + the juror's verdict. Every gate passed -> an optional review that closes itself (nothing asked);
+// any gate failed or no gate yet -> it waits for Approve / Rework unless --status says otherwise.
+function normalizeStyleConcepts(data, a) {
+  if (!Array.isArray(data.concepts)) return;
+  data.concepts = data.concepts.filter(isObj).map((c, i) => ({ ...c, id: String(c.id ?? c.concept ?? `concept-${i + 1}`), frames: (Array.isArray(c.frames) ? c.frames : []).filter(isObj).slice(0, 3) }));
+  try { const wn = Object.fromEntries((readJSON(path.join(SKILL_DIR_C, "library/styles/atlas/index.json"), {}).styles || []).map((x) => [x.id, x.name])); for (const c of data.concepts) if (typeof c.style_world === "string" && wn[c.style_world]) c.style_world_name = wn[c.style_world]; } catch {}
+  const gated = data.concepts.length > 0 && data.concepts.every((c) => isObj(c.gate) && (c.gate.ok === true || c.gate.action === "build"));
+  if (gated && !a.status && !data.status) { data.status = "done"; data.optional_review = true; data.auto_continued = true; }
+  else if (!a.status && !data.status) data.status = "awaiting";
+}
 function parseData() {
   if (args.file) return readJSON(path.resolve(String(args.file)), null) ?? die(`cannot read JSON from ${args.file}`);
   if (args.data) {
@@ -263,7 +300,7 @@ function checkExternal(v, s) {
   }
   if (v.step === "styleframes" && ["approve", "comment", "redo"].includes(v.type)) {
     if (!waiting) return "the style frames are not waiting";
-    const ids = new Set((Array.isArray(step.frames) ? step.frames : []).filter(isObj).map((f) => f.id));
+    const ids = new Set([...(Array.isArray(step.frames) ? step.frames : []), ...(Array.isArray(step.concepts) ? step.concepts : [])].filter(isObj).map((f) => f.id));
     if (v.type === "approve") return val === null ? null : "approve takes no value";
     if (v.type === "comment") {
       if (!isObj(val)) return "a frame comment must be {frame, text}";
@@ -542,7 +579,7 @@ function applyAction(s, action) {
   // a note pinned to a moment of the animatic or the final: kept on the page until Claude resolves it
   if (action.type === "comment") {
     const v = action.value || {};
-    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, word_id: typeof v.word_id === "string" ? v.word_id : null, clip: typeof v.clip === "string" ? v.clip : null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
+    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, word_id: typeof v.word_id === "string" ? v.word_id : null, ...(typeof v.shot_id === "string" && step !== "animatic" ? { shot_id: v.shot_id, concept: typeof v.concept === "string" ? v.concept : null } : {}), clip: typeof v.clip === "string" ? v.clip : null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
     if (step === "animatic") { // Plan 05 E6: anchor to shot / panel / time / the storyboard revision watched; "hard to understand" is an editorial request, not more animation
       try {
         const last = s.comments[s.comments.length - 1], rev = ((s.steps && s.steps.animatic) || {}).storyboard_revision ?? null;
@@ -696,6 +733,8 @@ if (cmd === "push") {
     }
     s.applied = (s.applied || []).filter((id) => !(s.comments || []).some((c) => c.id === id && c.step === args.step));
   }
+  if (args.step === "story") normalizeStoryBoards(data);
+  if (args.step === "styleframes") normalizeStyleConcepts(data, args);
   // the decision log is append-only: a changed decision keeps the old call, and says why it lost
   const because = String(args.because !== undefined && args.because !== true ? args.because : data.because || "").trim();
   delete data.because;

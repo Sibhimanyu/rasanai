@@ -251,6 +251,7 @@ struct NewFilmFlow: View {
         case .brief: briefScreen
         case .shape: shapeScreen
         case .example: exampleScreen
+        case .references: referencesScreen
         case .question(let id): questionScreen(id)
         case .review: reviewScreen
         }
@@ -484,6 +485,14 @@ struct NewFilmFlow: View {
             Label("RasanAI couldn't study that one, so it will ask you instead.", systemImage: "info.circle").font(.system(size: 12.5)).foregroundStyle(.secondary)
         case .idle: EmptyView()
         }
+    }
+
+    // MARK: 5b Reference films
+
+    private var referencesScreen: some View {
+        ReferenceFilmsScreen(
+            films: $draft.referenceFilms,
+            header: header("Any reference films you love?", "Drop video files or a folder of them, choose them, or paste links (YouTube, Vimeo). RasanAI measures how they are cut, paced and scored, then aims at those targets. Nothing from them is ever copied in."))
     }
 
     private func chooseExample() {
@@ -1016,7 +1025,7 @@ struct NewFilmFlow: View {
             Spacer(minLength: 8)
             if working { ProgressView().controlSize(.small) }
             Text("⌘↩ starts now").font(.system(size: 11)).foregroundStyle(.tertiary)
-            if model.step == .example || model.step == .material || isQuestion {
+            if model.step == .example || model.step == .references || model.step == .material || isQuestion {
                 Button(skipTitle) { skip() }.buttonStyle(.rasanSecondary).disabled(working)
             }
             Button { advance() } label: { Text("Continue") }
@@ -1034,7 +1043,7 @@ struct NewFilmFlow: View {
     private var isQuestion: Bool { if case .question = model.step { true } else { false } }
     private var skipTitle: String {
         switch model.step {
-        case .example: "Skip"
+        case .example, .references: "Skip"
         case .material: "Nothing, start from words"
         default: "You decide"
         }

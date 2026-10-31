@@ -43,5 +43,14 @@
   ],
   "needs": [
     "rasan-image-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.segmentedControlOverWorld",
+    "example": "RasanMoves.segmentedControlOverWorld(tl, 0.2, { target: stage, segments: ['Day', 'Dusk', 'Night'] });",
+    "params": [
+      "layers",
+      "segments"
+    ]
+  }
 }

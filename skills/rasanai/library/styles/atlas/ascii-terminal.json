@@ -152,5 +152,250 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "green-phosphor",
+        "name": "Green phosphor",
+        "bg": "#020A04",
+        "bg2": "#07170B",
+        "ink": "#6CFF8C",
+        "accent": "#6CFF8C",
+        "accent2": "#E8FFE8",
+        "words": "black-green screen, bright phosphor green, near-white"
+      },
+      {
+        "id": "amber-monitor",
+        "name": "Amber monitor",
+        "bg": "#0A0603",
+        "bg2": "#1A0F05",
+        "ink": "#FFB347",
+        "accent": "#FFB347",
+        "accent2": "#FFE8C2",
+        "words": "brown-black screen, amber, pale amber"
+      },
+      {
+        "id": "paper-terminal",
+        "name": "Paper terminal",
+        "bg": "#F4F1EA",
+        "bg2": "#E6E1D3",
+        "ink": "#1B1B1B",
+        "accent": "#C2410C",
+        "accent2": "#2563EB",
+        "words": "warm paper, black text, rust, blue"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "brand-or-style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Phosphor colour is the brand colour if bright enough on black; else green or amber. Prompt and cursor take the brand colour; background stays near-black. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "ascii-terminal-1",
+          "display": {
+            "family": "JetBrains Mono",
+            "google": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Mono",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'JetBrains Mono', monospace",
+            "text": "'IBM Plex Mono', monospace"
+          },
+          "case": "sentence",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 3,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "All type is monospace on a fixed grid (1 glyph = 0.6em wide); the real claim sets in the brand face."
+        },
+        {
+          "id": "ascii-terminal-2",
+          "display": {
+            "family": "VT323",
+            "google": "https://fonts.googleapis.com/css2?family=VT323&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Mono",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'VT323', monospace",
+            "text": "'IBM Plex Mono', monospace"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 10,
+            "two_words": 8,
+            "long": 6,
+            "sub_cqw": 4,
+            "caption_cqw": 2,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Terminal-era bitmap feel."
+        }
+      ],
+      "default": "ascii-terminal-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "posterise",
+          "params": {
+            "steps": 0,
+            "mode": 1,
+            "palette": [
+              "#020a04",
+              "#0b5a1c",
+              "#6cff8c"
+            ]
+          },
+          "role": "phosphor gradient-map"
+        },
+        {
+          "pass": "crt",
+          "params": {
+            "curve": 0.1,
+            "scan": 0.45,
+            "mask": 0.25,
+            "bloom": 0.7
+          },
+          "role": "CRT curvature, scanlines, glow"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.6,
+            "strength": 0.08,
+            "mono": 1
+          },
+          "role": "signal noise"
+        }
+      ],
+      "css": [
+        "scan:0.35",
+        "grain:0.08",
+        "glow"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "monospace grid 120x34 chars; prompt line at the bottom; all elements are characters",
+      "safe_area": "4% margin; content in the left 70%",
+      "fill": "text fills 60-80%; images become glyph ramps",
+      "product_ui": "UI shown as a screen-in-terminal capture inside a CRT window; or the UI's data is rendered as ASCII first and resolves to the real UI"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat monitor-on-desk shot, 35 mm, slight CRT curvature, shallow depth of field. Lighting: self-lit phosphor, soft bloom spilling onto the dark room. Material: glass CRT with phosphor glow, scanlines, subtle dust on the screen. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: scanlines, glow bloom, tiny horizontal flicker. Avoid: no text, no letters, no logos, no watermark, no modern flat UI, no anti-aliased sans, no colour photos, no extra colours beyond the phosphor ramp, no readable invented text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat monitor-on-desk shot, 35 mm, slight CRT curvature, shallow depth of field",
+      "lighting": "self-lit phosphor, soft bloom spilling onto the dark room",
+      "material": "glass CRT with phosphor glow, scanlines, subtle dust on the screen",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "scanlines, glow bloom, tiny horizontal flicker",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no modern flat UI",
+        "no anti-aliased sans",
+        "no colour photos",
+        "no extra colours beyond the phosphor ramp",
+        "no readable invented text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: glass CRT with phosphor glow; flat monitor-on-desk shot; black-green screen, bright phosphor green, near-white."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a green phosphor CRT monitor in a dark room",
+          "action": "a cursor blinking after a typed command, the screen glow on the desk",
+          "setting": "a dim developer's desk at night, keyboard in soft focus",
+          "palette": "green-phosphor",
+          "prompt": "a green phosphor CRT monitor in a dark room a cursor blinking after a typed command, the screen glow on the desk, a dim developer's desk at night, keyboard in soft focus. Camera and lens: flat monitor-on-desk shot, 35 mm, slight CRT curvature, shallow depth of field. Lighting: self-lit phosphor, soft bloom spilling onto the dark room. Material: glass CRT with phosphor glow, scanlines, subtle dust on the screen. Colour, locked to the palette black-green screen, bright phosphor green, near-white, and nothing outside it. Texture and finish: scanlines, glow bloom, tiny horizontal flicker. Avoid: no text, no letters, no logos, no watermark, no modern flat UI, no anti-aliased sans, no colour photos, no extra colours beyond the phosphor ramp, no readable invented text."
+        },
+        {
+          "subject": "a portrait rendered entirely in ASCII characters",
+          "action": "brightest glyphs forming a face",
+          "setting": "black-green screen, characters on a fixed grid",
+          "palette": "green-phosphor",
+          "prompt": "a portrait rendered entirely in ASCII characters brightest glyphs forming a face, black-green screen, characters on a fixed grid. Camera and lens: flat monitor-on-desk shot, 35 mm, slight CRT curvature, shallow depth of field. Lighting: self-lit phosphor, soft bloom spilling onto the dark room. Material: glass CRT with phosphor glow, scanlines, subtle dust on the screen. Colour, locked to the palette black-green screen, bright phosphor green, near-white, and nothing outside it. Texture and finish: scanlines, glow bloom, tiny horizontal flicker. Avoid: no text, no letters, no logos, no watermark, no modern flat UI, no anti-aliased sans, no colour photos, no extra colours beyond the phosphor ramp, no readable invented text."
+        }
+      ]
+    },
+    "do": [
+      "Everything on the character grid, always",
+      "Type with a typewriter reveal at irregular human speed",
+      "Convert one image to ASCII as the signature beat"
+    ],
+    "dont": [
+      "No proportional fonts in the world",
+      "No more than 3 colours",
+      "No smooth fades: cut or type"
+    ],
+    "cheap_ways": [
+      "Matrix green rain with no relevance",
+      "Faux-terminal text with no real commands",
+      "Overbloomed glow that blurs the glyphs"
+    ]
+  }
 }

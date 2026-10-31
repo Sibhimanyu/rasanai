@@ -30,7 +30,8 @@ import { chromeLint } from "./lib/chrome-lint.mjs";
 import { readTime, wordCount } from "./lib/reading.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
 import { decodeGrey, findCuts } from "./lib/carry.mjs";
-import { sfxMode, sfxLimit, sfxOver } from "./lib/audio.mjs";
+import { sfxMode, sfxLimit, sfxOver, SFX_BUDGET } from "./lib/audio.mjs";
+import { sfxCapPerSec, sfxDensityBand } from "./lib/ref-targets.mjs";
 import { readOpticsPlans, opticsOwns } from "./lib/optical-treatments.mjs";
 
 const args = parseArgs();
@@ -212,7 +213,16 @@ const sfxCount = audioRefs.filter((r) => !/music|bgm|\/texture-|\bbed\b|[-_/]bed
 const narratedFilm = audioRefs.some((r) => /voice|(^|[-_/])vo[-_.]|narrat/i.test(r));
 const whoosh = (allCode.match(/whoosh|swoosh|swish/gi) || []).length;
 const sfxMd = sfxMode({ format: args.format, narrated: narratedFilm });
-if (filmLen && sfxOver(sfxCount, sfxMd, filmLen)) add("sfx-overload", "error", `${sfxCount} SFX in ${filmLen.toFixed(0)} s`, `Too many sound effects: every beat has a sound, so none matter (the budget, shared with sound.mjs: ${sfxLimit(sfxMd, filmLen)} in ${filmLen.toFixed(0)} s for a ${sfxMd} film).`, "Only visible, causal events get a sound (sound.md); skip where the music already hits.");
+// the run's own reference films may lower the cap (refs/summary.json: 1.5x their SFX density, never above this mode's budget, never under 0.15 per second)
+const sfxLim = filmLen ? Math.max(1, Math.floor(filmLen * sfxCapPerSec(args.run && args.run !== true ? path.resolve(String(args.run)) : null, SFX_BUDGET[sfxMd].perSec))) : 0;
+if (filmLen && sfxCount > sfxLim + 1) add("sfx-overload", "error", `${sfxCount} SFX in ${filmLen.toFixed(0)} s`, `Too many sound effects: every beat has a sound, so none matter (the budget, shared with sound.mjs${sfxLim !== sfxLimit(sfxMd, filmLen) ? " and tightened to the run's reference films" : ""}: ${sfxLim} in ${filmLen.toFixed(0)} s for a ${sfxMd} film).`, "Only visible, causal events get a sound (sound.md); skip where the music already hits.");
+// designed-SFX density per 10 s (typing/tick textures excluded): 1.5-2.2 is the band (warn outside), above 3 is an error; the run's reference films move it inside bounds
+if (filmLen >= 10) {
+  const des = audioRefs.filter((r) => !/music|bgm|\/texture-|\bbed\b|[-_/]bed[-_.]|voice|(^|[-_/])vo[-_.]|narrat|typ|key|tick|click/i.test(r)).length, per10 = (des / filmLen) * 10;
+  const band = sfxDensityBand(args.run && args.run !== true ? path.resolve(String(args.run)) : null);
+  if (per10 > band.err) add("sfx-density", "error", `${per10.toFixed(1)} designed SFX per 10 s`, `More than ${band.err} designed sound effects per 10 s: none of them matter.`, "Keep the causal, designed moments (about 1.5-2.2 per 10 s).");
+  else if (des && (per10 > band.hi || per10 < band.lo)) add("sfx-density", "warn", `${per10.toFixed(1)} designed SFX per 10 s`, `Designed SFX density sits outside ${band.lo}-${band.hi} per 10 s.`, per10 > band.hi ? "Thin the cues to the moments that matter." : "Add cues on the real landings and the reveal.");
+}
 // SFX come only from the run's sfx-plan.json (sound.mjs sfx-plan): more clips than planned cues means hand-mounted sounds (a clip per keystroke is the usual one)
 {
   const runP = args.run && args.run !== true ? path.resolve(String(args.run)) : null, pf = runP ? path.join(runP, "crew", "sfx-plan.json") : null;

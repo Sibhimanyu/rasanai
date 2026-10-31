@@ -111,5 +111,227 @@
       "link_status": "in-repo-or-text-only"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "primaries",
+        "name": "Primaries",
+        "bg": "#F2EBDD",
+        "bg2": "#E6DCC6",
+        "ink": "#141414",
+        "accent": "#E63A2E",
+        "accent2": "#1F4FD6",
+        "words": "bone paper, black, primary red, primary blue, yellow"
+      },
+      {
+        "id": "gallery-bauhaus",
+        "name": "Gallery Bauhaus",
+        "bg": "#EDE6D6",
+        "bg2": "#DDD2BB",
+        "ink": "#1A1A1A",
+        "accent": "#F2B705",
+        "accent2": "#D7321F",
+        "words": "warm grey paper, black, signal yellow, red"
+      },
+      {
+        "id": "night-bauhaus",
+        "name": "Night Bauhaus",
+        "bg": "#101216",
+        "bg2": "#1B1E26",
+        "ink": "#F2EEE4",
+        "accent": "#FFC107",
+        "accent2": "#3A6BFF",
+        "words": "charcoal, cream, yellow, blue"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour takes one of the three primaries (the largest shape); the other primaries are shifted toward the brand's family or stay at red/blue/yellow; black and paper stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "bauhaus-1",
+          "display": {
+            "family": "Jost",
+            "google": "https://fonts.googleapis.com/css2?family=Jost:wght@300..900&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Jost",
+            "google": "https://fonts.googleapis.com/css2?family=Jost:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Jost', sans-serif",
+            "text": "'Jost', sans-serif"
+          },
+          "case": "lower",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 3.4,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Futura-class geometric sans, all lowercase, set rotated 90 degrees in places."
+        },
+        {
+          "id": "bauhaus-2",
+          "display": {
+            "family": "Josefin Sans",
+            "google": "https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Jost",
+            "google": "https://fonts.googleapis.com/css2?family=Jost:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Josefin Sans', sans-serif",
+            "text": "'Jost', sans-serif"
+          },
+          "case": "upper",
+          "weight": 600,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.06em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Thin geometric caps."
+        }
+      ],
+      "default": "bauhaus-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.8,
+            "strength": 0.06,
+            "mono": 1
+          },
+          "role": "print grain"
+        }
+      ],
+      "css": [
+        "grain:0.06",
+        "m-bauhaus"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "asymmetric composition built from circle, square, triangle; diagonals at 45 degrees; type on a rotated baseline",
+      "safe_area": "8% margin; elements overhang",
+      "fill": "shapes fill 55-70%",
+      "product_ui": "UI sits in a rectangle placed on the diagonal axis, like another primitive; capture stays upright"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat graphic plate. Lighting: none. Material: flat gouache-like colour, crisp geometric edges. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: slight print grain, ink density variation of 3%. Avoid: no text, no letters, no logos, no watermark, no gradients, no shadows, no 3D, no ornament, no realistic imagery, no more than 3 colours plus black.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat graphic plate",
+      "lighting": "none",
+      "material": "flat gouache-like colour, crisp geometric edges",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "slight print grain, ink density variation of 3%",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no gradients",
+        "no shadows",
+        "no 3D",
+        "no ornament",
+        "no realistic imagery",
+        "no more than 3 colours plus black"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: flat gouache-like colour; flat graphic plate; bone paper, black, primary red, primary blue, yellow."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a big red circle, a blue square and a yellow triangle",
+          "action": "assembled on a diagonal black bar",
+          "setting": "a bone-paper sheet with a faint 45 degree grid",
+          "palette": "primaries",
+          "prompt": "a big red circle, a blue square and a yellow triangle assembled on a diagonal black bar, a bone-paper sheet with a faint 45 degree grid. Camera and lens: flat graphic plate. Lighting: none. Material: flat gouache-like colour, crisp geometric edges. Colour, locked to the palette bone paper, black, primary red, primary blue, yellow, and nothing outside it. Texture and finish: slight print grain, ink density variation of 3%. Avoid: no text, no letters, no logos, no watermark, no gradients, no shadows, no 3D, no ornament, no realistic imagery, no more than 3 colours plus black."
+        },
+        {
+          "subject": "a signal-yellow semicircle and a red bar",
+          "action": "stacked asymmetrically with a thin black line",
+          "setting": "warm grey paper, flat gouache colour",
+          "palette": "primaries",
+          "prompt": "a signal-yellow semicircle and a red bar stacked asymmetrically with a thin black line, warm grey paper, flat gouache colour. Camera and lens: flat graphic plate. Lighting: none. Material: flat gouache-like colour, crisp geometric edges. Colour, locked to the palette bone paper, black, primary red, primary blue, yellow, and nothing outside it. Texture and finish: slight print grain, ink density variation of 3%. Avoid: no text, no letters, no logos, no watermark, no gradients, no shadows, no 3D, no ornament, no realistic imagery, no more than 3 colours plus black."
+        }
+      ]
+    },
+    "do": [
+      "Build with 3 shapes and 3 primaries",
+      "Use diagonals and rotation for energy",
+      "Make the shapes the characters and the type structural"
+    ],
+    "dont": [
+      "No gradients or shadows",
+      "No symmetric centred composition",
+      "No decoration"
+    ],
+    "cheap_ways": [
+      "Circle-triangle-square clipart with no composition",
+      "Pastel Bauhaus",
+      "Futura on a gradient"
+    ]
+  }
 }

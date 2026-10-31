@@ -39,5 +39,19 @@
   "beat_roles": [
     "open"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.flankFrameHold",
+    "example": "RasanMoves.flankFrameHold(tl, 0.3, { target: stage, left: 'Today', right: 'Only', image: photo });",
+    "params": [
+      "left",
+      "right",
+      "leftLine",
+      "rightLine",
+      "image",
+      "heroW",
+      "heroH"
+    ]
+  }
 }

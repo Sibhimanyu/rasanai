@@ -69,5 +69,16 @@
   ],
   "needs": [
     "rasan-image-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.anaphoraLadder",
+    "example": "RasanMoves.anaphoraLadder(tl, 0.2, { target: stage, stem: 'Every', endings: ['idea','launch','story','frame'] });",
+    "params": [
+      "stem",
+      "endings",
+      "every",
+      "icons"
+    ]
+  }
 }

@@ -3,7 +3,7 @@ import Foundation
 /// One screen of the New film setup. The list of screens is computed from the draft and the catalogues, so a film that needs
 /// fewer questions gets a shorter walk.
 public enum FlowStep: Hashable, Sendable {
-    case series, kind, material, brief, shape, example
+    case series, kind, material, brief, shape, example, references
     /// A taste question (`pictures`, `captions`, ...).
     case question(String)
     case review
@@ -16,6 +16,7 @@ public enum FlowStep: Hashable, Sendable {
         case .brief: "Your brief"
         case .shape: "Length and shape"
         case .example: "Make it like this"
+        case .references: "Reference films"
         case .question(let id): id.capitalized
         case .review: "Review"
         }
@@ -77,6 +78,8 @@ public enum NewFilmSteps {
         let asked = option.flatMap { option in questions?.questions(for: option) } ?? []
         // The example comes before the questions it can answer, on a first film; a series starter always gets it.
         if !asked.isEmpty || context.startingSeries { steps.append(.example) }
+        // "Any reference films you love?": optional, free text and files, asked once on a first film (a series keeps its own).
+        steps.append(.references)
         for question in asked where !context.answered.contains(question.id) {
             if question.askIf == "marks-found", !context.marksFound { continue }
             steps.append(.question(question.id))

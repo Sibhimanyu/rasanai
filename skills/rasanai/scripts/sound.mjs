@@ -71,6 +71,8 @@
 //   node sound.mjs mix --spec <mix.json> --out <mix.wav> [--stems <dir>]   the layered stem mix (lib/mix.mjs mixFilm: music + VO + SFX stems, 150-300 Hz carve, no duck by default (spec.duck_db 0-9 only when measured masking needs it)
 //       and 3 dB under key SFX, SFX snapped to hit points and the beat grid, master to --platform web -14 | keynote -16 | broadcast -23 LUFS); spec fields are in lib/mix.mjs
 //   node sound.mjs sfx-synth --kind riser|impact|whoosh|stinger|subdrop|tick --out <wav> [--dur s] [--f hz] [--root hz] [--dir lr|rl]   one synthesised effect (ffmpeg only)
+//   node sound.mjs earshot-setup [--print]   optional: the earshot bank (252 code-made sounds, MIT) in its own Python 3.12 venv through uv; never the system Python. With it installed, palette and sfx-plan use the bank (--engine synth or --no-earshot keeps ffmpeg)
+//   node sound.mjs sheet <film.mp4> [--run <run>] [--out <png>] [--from s --to s]   the earshot sheet PNG (frames, spectrogram, events, loudness, sync) so critics and fixers can "see" the sound
 //   node sound.mjs palette --carrier "<carrier>" --dir <run>/audio/palette [--key-hz 220] [--seed <film id>]   the film's sound palette: 3-5 signature sounds for its carrier (library/sfx/palettes.json)
 //   node sound.mjs sources                      -> which keyed adapters this environment can use (ElevenLabs, Stable Audio, Freesound CC0, local ACE-Step), with licence caveats
 //   node sound.mjs sfx-find --query "<words>" --out <file> [--from freesound|elevenlabs|stable] [--dur s]   one effect from a keyed source (only when its key is set)
@@ -83,6 +85,8 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, readJSON, writeFile } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
+import * as ESH from "./lib/earshot.mjs";
+import { sfxDensityBand } from "./lib/ref-targets.mjs";
 import { track } from "./lib/report.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
@@ -394,6 +398,10 @@ function sfxPlan() {
   }
 
   const notes_tex = [];
+  // the bed's level where a cue sounds: with --bed every cue's volume is set so its peak sits 0-6 dB over the bed at that moment (the kit's bed_db, else by class)
+  const bedTrack = args.bed ? momentaryDb(decode(path.resolve(String(args.bed))), 0.1) : null;
+  const bedAt = (t) => { if (!bedTrack) return null; const a = Math.max(0, Math.floor((t - 0.3) / 0.1)), b = Math.min(bedTrack.length, Math.ceil((t + 0.7) / 0.1)); let z = 0, n = 0; for (let i = a; i < b; i++) { z += Math.pow(10, bedTrack[i] / 10); n++; } return n ? 10 * Math.log10(z / n + 1e-12) : null; };
+  const CLASS_OVER = { hero: 5, riser: 4, whoosh: 3, mid: 3, ui: 2, texture: 1 };
   const maxCount = rev2 ? (sigOnly ? B.heroMax : Math.max(B.perSec > 0 ? 1 : 0, Math.floor(film * B.perSec))) : sfxLimit(mode, film);
   // the share cap is over ALL visual events: only an events file lists those (inferred events are
   // already the sound-worthy ones)
@@ -470,17 +478,26 @@ function sfxPlan() {
   const cues = [];
   const project = args.project ? path.resolve(String(args.project)) : null;
   const noSample = new Set();
+  // earshot bank (optional, subprocess in its own venv): when installed, cues get a bank sound aimed at the picture and placed by the launch kit; the ffmpeg synth/library stays the fallback
+  const esDir = project ? path.join(project, "assets", "sfx", "earshot") : args.run && args.run !== true ? path.join(path.resolve(String(args.run)), "audio", "earshot") : null;
+  const esOn = ESH.available() && esDir && args["no-earshot"] !== true && args.engine !== "synth";
+  let esFail = 0;
   const phrases = wordSpans.length ? phrasesFromWords(wordSpans.map((w) => ({ start: w.s, end: w.e })), 0.25) : [];
   const breaks = bed ? designedBreaks(momentaryDb(decode(path.resolve(String(args.bed))), 0.1), 0.1).breaks : [];
   for (const e of placed) {
     const k = KINDS[e.kind];
     const uses = cues.filter((c) => c.kind === e.kind).length;
-    const rl0 = pickRasan(RL, e.kind, k.cls, history);
+    let es = null;
+    if (esOn && esFail < 3) {
+      try { es = ESH.renderCue(e.kind, { at: e.t, dir: esDir, name: `${e.kind}-${e.id}`, signature: !!e.signature, index: uses }); } catch (err) { esFail++; noteDowngrade({ run: args.run, what: `an earshot bank sound for "${e.kind}" cues`, instead: "the ffmpeg synth / library sample", why: String(err.message).slice(0, 160) }); }
+      if (es) probes[es.sound + "@" + e.id] = { sync_point: es.sync_point_s, audible_end: es.duration_s, lead_silence: 0, warnings: [] };
+    }
+    const rl0 = es ? null : pickRasan(RL, e.kind, k.cls, history);
     // revision 2: stay inside the one family/pack pickRasan chose and vary by least-recent use (sfx-layers pickVariation)
     const rl = rev2 && rl0 ? pickVariation(RL.entries.filter((x) => x.category === rl0.category && x.pack === rl0.pack).sort((a, b) => (a.id < b.id ? -1 : 1)), history) || rl0 : rl0;
-    let sample = rl ? rl.id : k.samples[uses % k.samples.length];
+    let sample = es ? es.sound + "@" + e.id : rl ? rl.id : k.samples[uses % k.samples.length];
     let generated = false;
-    if (!rl && !lib.files[sample]) {
+    if (!es && !rl && !lib.files[sample]) {
       // no library category and no media-use file: a generated sample when the user's own ElevenLabs key is in the environment
       const g = genSfx(e.kind, project);
       if (g) { lib.files[g.id] = g.file; sample = g.id; generated = true; }
@@ -492,14 +509,25 @@ function sfxPlan() {
     const lu = lastUse[sample];
     if (lu && e.t - lu.t < 2 && lu.v === v) v = VARIANTS[(VARIANTS.indexOf(v) + 1) % VARIANTS.length];
     lastUse[sample] = { t: e.t, v };
-    const rate = (k.rate || 1) * (k.cls === "hero" || k.cls === "riser" ? 1 : v.rate);
+    const rate = es ? 1 : (k.rate || 1) * (k.cls === "hero" || k.cls === "riser" ? 1 : v.rate);
     const sync = p ? p.sync_point / rate : 0;
-    const off = Number.isFinite(Number(e.offset_s)) ? Number(e.offset_s) : 0.01; // the default: 10 ms after the picture reads as simultaneous. A cue event may carry its own intended offset (lib/cues.mjs): an intentional lead or lag is recorded, not corrected
+    const off = Number.isFinite(Number(e.offset_s)) ? Number(e.offset_s) : es ? es.offset_s : 0.01; // the default: 10 ms after the picture reads as simultaneous. A cue event may carry its own intended offset (lib/cues.mjs): an intentional lead or lag is recorded, not corrected
     const start = Math.max(0, e.t - sync + off);
-    const volume = r3(k.vol * Math.pow(10, (e.gain + (k.cls === "hero" ? 0 : v.gain_db)) / 20));
+    // an earshot take is already weighted by its kit role (level_db) at a -1 dBFS peak: the cue plays near unity, scaled only by the plan's own gain; the kit's bed_db (0-6 dB over the bed) is checked by `check`
+    const volume = es ? r3(0.8 * Math.pow(10, e.gain / 20)) : r3(k.vol * Math.pow(10, (e.gain + (k.cls === "hero" ? 0 : v.gain_db)) / 20));
     const scene = sc.scenes.find((s) => s.n === e.scene) || sc.scenes[0];
     const dur = p ? (p.audible_end - (p.lead_silence > 0.05 ? 0 : 0)) / rate : 1;
-    const cue = { event: e.id, kind: e.kind, class: k.cls, t: r3(e.t), intended_offset_s: r3(off), start: r3(start), scene: e.scene, sample, file: rl ? rl.abs : lib.files[sample] || null, source: rl ? "rasan-sfx" : "media-use", pack: rl ? rl.pack : null, rate: r3(rate), volume, duration_s: r3(dur), sync_point: p ? r3(sync) : null, estimated: !!e.estimated, notes: e.notes };
+    const cue = { event: e.id, kind: e.kind, class: k.cls, t: r3(e.t), intended_offset_s: r3(off), start: r3(start), scene: e.scene, sample, file: es ? es.file : rl ? rl.abs : lib.files[sample] || null, source: es ? "earshot" : rl ? "rasan-sfx" : "media-use", pack: es ? es.role : rl ? rl.pack : null, ...(es ? { earshot: { sound: es.sound, role: es.role, bed_db: es.bed_db, level_db: es.level_db, offset_ms: Math.round(es.offset_s * 1000), min_gap_ms: es.min_gap_ms } } : {}), rate: r3(rate), volume, duration_s: r3(dur), sync_point: p ? r3(sync) : null, estimated: !!e.estimated, notes: e.notes };
+    {
+      const bedHere = bedAt(e.t);
+      if (bedHere != null && bedHere > -60) {
+        const peak = es ? -1 : p && Number.isFinite(p.peak_dbfs) ? p.peak_dbfs : -6;
+        const over = ESH.overBed((es && es.bed_db != null ? es.bed_db : CLASS_OVER[k.cls] ?? 3) + (Number(e.gain) || 0) + (es || k.cls === "hero" ? 0 : v.gain_db || 0));
+        cue.volume = r3(Math.max(0.02, Math.min(1, Math.pow(10, (bedHere + over - peak) / 20))));
+        cue.bed_db_at = r1(bedHere); cue.over_bed_db = r1(over);
+        cue.notes = [...(cue.notes || []), `level set from the bed at its time: ${r1(bedHere)} dB bed, peak ${r1(over)} dB over`];
+      }
+    }
     if (p && p.warnings.some((w) => /harsh|piercing/.test(w))) cue.notes.push("harsh sample: lowpass 9 kHz applied when rendered");
     if (e.t - sync < 0) cue.notes.push("crest would fall before the film starts: trimmed");
     cue._scene_start = scene.start;
@@ -524,6 +552,7 @@ function sfxPlan() {
     fs.mkdirSync(dir, { recursive: true });
     for (const c of cues) {
       if (!c.file) continue;
+      if (c.source === "earshot") { if (project) c.file = path.relative(project, c.file).split(path.sep).join("/"); continue; }
       const p = probes[c.sample];
       const lead = Math.max(0, p.lead_silence - 0.005);
       const pan = c.pan != null && Math.abs(c.pan) >= 0.02 ? c.pan : null;
@@ -963,6 +992,13 @@ function check() {
       }
     } catch (e) { (measures.sync ||= {}).sfx_checks = { skipped: String(e.message).slice(0, 120) }; }
     Object.assign(measures, { sfx_count: cues.length, sfx_per_s: r3(cues.length / dur), sfx_max_in_1s: maxWin, whooshes });
+    // designed-SFX density (typing/tick textures are not designed cues): 1.5-2.2 per 10 s is the band, a warning outside it, an error above 3 (a reference film's own density moves the band, inside bounds)
+    {
+      const designed = cues.filter((c) => !/typ|key|tick|click|texture/i.test(String(c.kind || ""))).length, per10 = (designed / dur) * 10, band = sfxDensityBand(args.run && args.run !== true ? path.resolve(String(args.run)) : null);
+      measures.sfx_designed = { count: designed, per_10s: r1(per10), band: [band.lo, band.hi], error_above: band.err, from_refs: band.fromRefs };
+      if (dur >= 10 && per10 > band.err) P("SFX density per 10 s", `${r1(per10)} designed SFX per 10 s`, `<= ${band.err} (band ${band.lo}-${band.hi})`, "drop the weakest cues: sounds only on causal, designed moments");
+      else if (dur >= 10 && cues.length && (per10 > band.hi || per10 < band.lo)) warnings.push(`sfx-density: ${r1(per10)} designed SFX per 10 s is outside ${band.lo}-${band.hi}${band.fromRefs ? " (the run's reference films)" : ""}: ${per10 > band.hi ? "thin it to the moments that matter" : "add cues on the real landings and the reveal"}`);
+    }
     // revision 2: a layered event counts ONCE for editorial density; every layer counts for the technical resources and the summed level (sfx-layers)
     if (rev2c && cues.some((c) => c.layers)) {
       const rc = cues.map((c, i) => ({ id: c.event || `c${i}`, perceptual_event_id: c.perceptual_event_id || null, event_id: c.event || null, resolved: true, t: c.t, role: c.class || "accent", layers: c.layers || null, timing: { picture_onset_s: c.t, sfx_onset_s: c.t } }));
@@ -1130,8 +1166,28 @@ if (cmd === "analyze") {
   out(synth(String(need("kind", "riser|impact|whoosh|stinger|subdrop|tick")), path.resolve(need("out", "<wav>")), p));
 } else if (cmd === "palette") {
   track("Making the film's sound palette", "Palette made");
+  const ES = await import("./lib/earshot.mjs");
+  const useEs = ES.available() && args.engine !== "synth" && args["no-earshot"] !== true;
   const { renderPalette } = await import("./lib/sfx-synth.mjs");
-  out(renderPalette({ carrier: String(args.carrier || "default"), keyHz: args["key-hz"] != null ? Number(args["key-hz"]) : 220, seed: String(args.seed || "film"), dir: path.resolve(need("dir", "<dir>")) }));
+  if (useEs) out(ES.renderPalette({ dir: path.resolve(need("dir", "<dir>")), seed: String(args.seed || "film") }));
+  else out(renderPalette({ carrier: String(args.carrier || "default"), keyHz: args["key-hz"] != null ? Number(args["key-hz"]) : 220, seed: String(args.seed || "film"), dir: path.resolve(need("dir", "<dir>")) }));
+} else if (cmd === "earshot-setup") {
+  const E = await import("./lib/earshot.mjs");
+  const r = E.setup({ print: args.print === true || args["dry-run"] === true });
+  out(r);
+  if (!r.ok && !(args.print === true || args["dry-run"] === true)) process.exitCode = 1;
+} else if (cmd === "sheet") {
+  // the earshot sheet PNG of a film's sound (frames, spectrogram, events, loudness, sync): how critics and fixers "see" the sound. <film> = the render (or an audio file)
+  const E = await import("./lib/earshot.mjs");
+  if (!E.available()) die("earshot is not installed (node scripts/sound.mjs earshot-setup); the sheet is optional");
+  const film = exists(path.resolve(String(args._[1] || args.film || need("film", "<film.mp4>"))), "film");
+  const runDir = args.run && args.run !== true ? path.resolve(String(args.run)) : null;
+  const o = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(runDir || path.dirname(film), runDir ? path.join("audio", "sound-sheet.png") : "sound-sheet.png");
+  const num = (k) => (args[k] != null && args[k] !== true ? Number(args[k]) : undefined);
+  let cues = args.cues && args.cues !== true ? String(args.cues) : undefined;
+  if (!cues && runDir && fs.existsSync(path.join(runDir, "crew", "sfx-plan.json"))) { try { cues = (JSON.parse(fs.readFileSync(path.join(runDir, "crew", "sfx-plan.json"), "utf8")).cues || []).map((c) => c.t).filter(Number.isFinite).join(",") || undefined; } catch {} }
+  const r = E.sheet(film, o, { video: /\.(mp4|mov|webm|mkv)$/i.test(film) ? undefined : args.video && args.video !== true ? String(args.video) : undefined, cues, from: num("from"), to: num("to"), detail: args.detail && args.detail !== true ? String(args.detail) : undefined });
+  out({ sheet: o, summary: r.summary || null });
 } else if (cmd === "sources") {
   const { adapters } = await import("./lib/sound-sources.mjs");
   out(adapters());
@@ -1159,5 +1215,5 @@ if (cmd === "analyze") {
   track("Measuring the mix: loudness, peaks, loops, SFX density", "Audio checked");
   check();
 } else {
-  die("usage: sound.mjs analyze|fit|render|loop-bed|sfx-plan|check|lock|master|mix|sfx-synth|palette|mode|sources|sfx-find|probe ... (see the header)");
+  die("usage: sound.mjs analyze|fit|render|loop-bed|sfx-plan|check|lock|master|mix|sfx-synth|palette|earshot-setup|sheet|mode|sources|sfx-find|probe ... (see the header)");
 }

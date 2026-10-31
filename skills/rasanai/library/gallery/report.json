@@ -1,0 +1,1008 @@
+{
+ "generated": "2026-10-31",
+ "size": "960x540",
+ "summary": {
+  "total": 59,
+  "ok": 33,
+  "fixed": 26,
+  "still-broken": 0
+ },
+ "demos": [
+  {
+   "id": "flank-frame-hold",
+   "kind": "move",
+   "title": "1. Flank frame hold",
+   "fn": "RasanMoves.flankFrameHold",
+   "status": "fixed",
+   "notes": [
+    "the flank words were unreadably small; sized up"
+   ],
+   "metrics": {
+    "max_stddev": 37.3,
+    "motion": 5.6,
+    "changed_px": 6.31,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "flank-frame-hold.png"
+  },
+  {
+   "id": "blur-bloom-word",
+   "kind": "move",
+   "title": "2. Blur-bloom word",
+   "fn": "RasanMoves.blurBloomWord",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 37.8,
+    "motion": 22.2,
+    "changed_px": 28.43,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "blur-bloom-word.png"
+  },
+  {
+   "id": "in-place-word-swap",
+   "kind": "move",
+   "title": "3. In-place word swap",
+   "fn": "RasanMoves.inPlaceWordSwap",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 28.3,
+    "motion": 5.9,
+    "changed_px": 5.44,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "in-place-word-swap.png"
+  },
+  {
+   "id": "word-per-shot-sentence",
+   "kind": "move",
+   "title": "4. Word-per-shot sentence",
+   "fn": "RasanMoves.wordPerShotSentence",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 30.1,
+    "motion": 4.7,
+    "changed_px": 4.67,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "word-per-shot-sentence.png"
+  },
+  {
+   "id": "inline-glyph-slot",
+   "kind": "move",
+   "title": "5. Inline glyph slot",
+   "fn": "RasanMoves.inlineGlyphSlot",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 28.9,
+    "motion": 104,
+    "changed_px": 99.31,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "inline-glyph-slot.png"
+  },
+  {
+   "id": "full-frame-type-crop",
+   "kind": "move",
+   "title": "6. Full-frame type crop",
+   "fn": "RasanMoves.fullFrameTypeCrop",
+   "status": "fixed",
+   "notes": [
+    "motion blur and skew stayed on at rest (velocity read at p=1); now zero at both ends"
+   ],
+   "metrics": {
+    "max_stddev": 78.3,
+    "motion": 39.3,
+    "changed_px": 25.06,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "full-frame-type-crop.png"
+  },
+  {
+   "id": "anaphora-ladder",
+   "kind": "move",
+   "title": "7. Anaphora ladder",
+   "fn": "RasanMoves.anaphoraLadder",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 52.6,
+    "motion": 14.2,
+    "changed_px": 9.8,
+    "seek_diff": 0
+   },
+   "duration_s": 5.1,
+   "sheet": "anaphora-ladder.png"
+  },
+  {
+   "id": "drum-list",
+   "kind": "move",
+   "title": "8. Drum list",
+   "fn": "RasanMoves.drumList",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 13.4,
+    "motion": 3.8,
+    "changed_px": 5.38,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "drum-list.png"
+  },
+  {
+   "id": "glyph-burst",
+   "kind": "move",
+   "title": "9. Glyph burst",
+   "fn": "RasanMoves.glyphBurst",
+   "status": "fixed",
+   "notes": [
+    "the phrase was removed with the glyphs and the symbols were tiny; only the glyphs leave, bigger"
+   ],
+   "metrics": {
+    "max_stddev": 24.3,
+    "motion": 4.6,
+    "changed_px": 4.01,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "glyph-burst.png"
+  },
+  {
+   "id": "scramble-to-word",
+   "kind": "move",
+   "title": "10. Scramble to word",
+   "fn": "RasanMoves.scrambleToWord",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 38,
+    "motion": 6.8,
+    "changed_px": 5.65,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "scramble-to-word.png"
+  },
+  {
+   "id": "dot-matrix-type",
+   "kind": "move",
+   "title": "11. Dot-matrix type",
+   "fn": "RasanMoves.dotMatrixType",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 54.2,
+    "motion": 24,
+    "changed_px": 21.68,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "dot-matrix-type.png"
+  },
+  {
+   "id": "colour-sweep-word",
+   "kind": "move",
+   "title": "12. Colour-sweep word",
+   "fn": "RasanMoves.colourSweepWord",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 34.7,
+    "motion": 2.8,
+    "changed_px": 3.14,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "colour-sweep-word.png"
+  },
+  {
+   "id": "icon-as-missing-letter",
+   "kind": "move",
+   "title": "13. Icon as missing letter",
+   "fn": "RasanMoves.iconAsMissingLetter",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 35.9,
+    "motion": 80.5,
+    "changed_px": 98.71,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "icon-as-missing-letter.png"
+  },
+  {
+   "id": "slot-line-wipe-lockup",
+   "kind": "move",
+   "title": "14. Slot-line wipe lockup",
+   "fn": "RasanMoves.slotLineWipeLockup",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 21.6,
+    "motion": 3.5,
+    "changed_px": 2.37,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "slot-line-wipe-lockup.png"
+  },
+  {
+   "id": "dot-field-resolve-to-photo",
+   "kind": "move",
+   "title": "15. Dot-field resolve to photo",
+   "fn": "RasanMoves.dotFieldResolve",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 50.6,
+    "motion": 77,
+    "changed_px": 76.33,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "dot-field-resolve-to-photo.png"
+  },
+  {
+   "id": "mosaic-pixel-resolve",
+   "kind": "move",
+   "title": "16. Mosaic pixel resolve",
+   "fn": "RasanMoves.mosaicPixelResolve",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 50.6,
+    "motion": 3.8,
+    "changed_px": 4.84,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "mosaic-pixel-resolve.png"
+  },
+  {
+   "id": "pixel-square-wipe",
+   "kind": "move",
+   "title": "17. Pixel-square wipe",
+   "fn": "RasanMoves.pixelSquareWipe",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 69.8,
+    "motion": 27.8,
+    "changed_px": 33.49,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "pixel-square-wipe.png"
+  },
+  {
+   "id": "torn-edge-wipe",
+   "kind": "move",
+   "title": "18. Torn-edge wipe",
+   "fn": "RasanMoves.tornEdgeWipe",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 57.8,
+    "motion": 43.5,
+    "changed_px": 71.89,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "torn-edge-wipe.png"
+  },
+  {
+   "id": "floating-card-field",
+   "kind": "move",
+   "title": "19. Floating card field",
+   "fn": "RasanMoves.floatingCardField",
+   "status": "fixed",
+   "notes": [
+    "cards were clipped by the top edge; card centres kept inside 22..78% of the height"
+   ],
+   "metrics": {
+    "max_stddev": 69.9,
+    "motion": 51.7,
+    "changed_px": 39.85,
+    "seek_diff": 0
+   },
+   "duration_s": 4.6,
+   "sheet": "floating-card-field.png"
+  },
+  {
+   "id": "cards-burst-from-dot",
+   "kind": "move",
+   "title": "20. Cards burst from a dot",
+   "fn": "RasanMoves.cardsBurstFromDot",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 60.2,
+    "motion": 238,
+    "changed_px": 100,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "cards-burst-from-dot.png"
+  },
+  {
+   "id": "duotone-stock-cluster",
+   "kind": "move",
+   "title": "21. Duotone stock cluster",
+   "fn": "RasanMoves.duotoneStockCluster",
+   "status": "fixed",
+   "notes": [
+    "cards were small; bigger"
+   ],
+   "metrics": {
+    "max_stddev": 36,
+    "motion": 25.6,
+    "changed_px": 35.32,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "duotone-stock-cluster.png"
+  },
+  {
+   "id": "dither-seam-on-art",
+   "kind": "move",
+   "title": "22. Dither seam on generated art",
+   "fn": "RasanMoves.ditherSeamOnArt",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 52,
+    "motion": 6.7,
+    "changed_px": 10.59,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "dither-seam-on-art.png"
+  },
+  {
+   "id": "spectral-silhouette",
+   "kind": "move",
+   "title": "23. Spectral silhouette",
+   "fn": "RasanMoves.spectralSilhouette",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 33.9,
+    "motion": 5.2,
+    "changed_px": 9.47,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "spectral-silhouette.png"
+  },
+  {
+   "id": "poster-dive",
+   "kind": "move",
+   "title": "24. Poster dive",
+   "fn": "RasanMoves.posterDive",
+   "status": "fixed",
+   "notes": [
+    "a dark strip stayed at the right edge at the end; the final box now covers the frame"
+   ],
+   "metrics": {
+    "max_stddev": 44.3,
+    "motion": 38.9,
+    "changed_px": 68.29,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "poster-dive.png"
+  },
+  {
+   "id": "tilted-ui-dolly",
+   "kind": "move",
+   "title": "25. Tilted UI dolly",
+   "fn": "RasanMoves.tiltedUiDolly",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 10.3,
+    "motion": 7.4,
+    "changed_px": 4.03,
+    "seek_diff": 0
+   },
+   "duration_s": 6.5,
+   "sheet": "tilted-ui-dolly.png"
+  },
+  {
+   "id": "typed-prompt-send",
+   "kind": "move",
+   "title": "26. Typed prompt plus send",
+   "fn": "RasanMoves.typedPromptSend",
+   "status": "fixed",
+   "notes": [
+    "the prompt box was tiny in frame; sized up"
+   ],
+   "metrics": {
+    "max_stddev": 51.1,
+    "motion": 26.3,
+    "changed_px": 23.4,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "typed-prompt-send.png"
+  },
+  {
+   "id": "cursor-identity-swap",
+   "kind": "move",
+   "title": "27. Cursor identity swap",
+   "fn": "RasanMoves.cursorIdentitySwap",
+   "status": "fixed",
+   "notes": [
+    "cursors and the button were tiny and the move ended in a quarter of the demo; bigger, longer"
+   ],
+   "metrics": {
+    "max_stddev": 9.1,
+    "motion": 0.7,
+    "changed_px": 1.77,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "cursor-identity-swap.png"
+  },
+  {
+   "id": "glow-on-control",
+   "kind": "move",
+   "title": "28. Glow on control",
+   "fn": "RasanMoves.glowOnControl",
+   "status": "fixed",
+   "notes": [
+    "the control row was tiny; sized up"
+   ],
+   "metrics": {
+    "max_stddev": 20.1,
+    "motion": 14.2,
+    "changed_px": 8.01,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "glow-on-control.png"
+  },
+  {
+   "id": "counter-chip-ring",
+   "kind": "move",
+   "title": "29. Counter chip with ring",
+   "fn": "RasanMoves.counterChipRing",
+   "status": "fixed",
+   "notes": [
+    "the chip was tiny in frame; sized up"
+   ],
+   "metrics": {
+    "max_stddev": 26.5,
+    "motion": 5.9,
+    "changed_px": 4.3,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "counter-chip-ring.png"
+  },
+  {
+   "id": "segmented-control-over-world",
+   "kind": "move",
+   "title": "30. Segmented control over world",
+   "fn": "RasanMoves.segmentedControlOverWorld",
+   "status": "fixed",
+   "notes": [
+    "the control was tiny in frame; sized up"
+   ],
+   "metrics": {
+    "max_stddev": 36.5,
+    "motion": 6.9,
+    "changed_px": 9.26,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "segmented-control-over-world.png"
+  },
+  {
+   "id": "ribbon-of-frames",
+   "kind": "move",
+   "title": "31. Ribbon of frames",
+   "fn": "RasanMoves.ribbonOfFrames",
+   "status": "fixed",
+   "notes": [
+    "the ring read as a thin strip; bigger cards"
+   ],
+   "metrics": {
+    "max_stddev": 45.7,
+    "motion": 8.4,
+    "changed_px": 11.88,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "ribbon-of-frames.png"
+  },
+  {
+   "id": "column-ladder",
+   "kind": "move",
+   "title": "32. Column ladder",
+   "fn": "RasanMoves.columnLadder",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 31.7,
+    "motion": 19.3,
+    "changed_px": 17.48,
+    "seek_diff": 0.02
+   },
+   "duration_s": 4.9,
+   "sheet": "column-ladder.png"
+  },
+  {
+   "id": "lone-dot-carrier-iris",
+   "kind": "move",
+   "title": "33. Lone dot carrier plus iris",
+   "fn": "RasanMoves.loneDotCarrierIris",
+   "status": "fixed",
+   "notes": [
+    "the dot was tiny and the move ended early; bigger dot, 3.2 s example"
+   ],
+   "metrics": {
+    "max_stddev": 24.7,
+    "motion": 219.6,
+    "changed_px": 100,
+    "seek_diff": 0
+   },
+   "duration_s": 4.1,
+   "sheet": "lone-dot-carrier-iris.png"
+  },
+  {
+   "id": "colour-world-flip",
+   "kind": "move",
+   "title": "34. Colour-world flip",
+   "fn": "RasanMoves.colourWorldFlip",
+   "status": "fixed",
+   "notes": [
+    "the line touched both frame edges; sized down"
+   ],
+   "metrics": {
+    "max_stddev": 26.4,
+    "motion": 216.7,
+    "changed_px": 99.92,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "colour-world-flip.png"
+  },
+  {
+   "id": "inline-orb-expand",
+   "kind": "move",
+   "title": "35. Inline orb expand",
+   "fn": "RasanMoves.inlineOrbExpand",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 32,
+    "motion": 108.3,
+    "changed_px": 98.42,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "inline-orb-expand.png"
+  },
+  {
+   "id": "action-as-transition",
+   "kind": "move",
+   "title": "36. Action-as-transition",
+   "fn": "RasanMoves.actionAsTransition",
+   "status": "fixed",
+   "notes": [
+    "nothing showed behind the cut halves; `to` picture added"
+   ],
+   "metrics": {
+    "max_stddev": 57.6,
+    "motion": 12.8,
+    "changed_px": 17.59,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "action-as-transition.png"
+  },
+  {
+   "id": "voxel-disintegrate-reform",
+   "kind": "move",
+   "title": "37. Voxel disintegrate and re-form",
+   "fn": "RasanMoves.voxelDisintegrateReform",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 51.8,
+    "motion": 34.2,
+    "changed_px": 45.43,
+    "seek_diff": 0
+   },
+   "duration_s": 4,
+   "sheet": "voxel-disintegrate-reform.png"
+  },
+  {
+   "id": "specimen-triptych",
+   "kind": "move",
+   "title": "38. Specimen triptych",
+   "fn": "RasanMoves.specimenTriptych",
+   "status": "fixed",
+   "notes": [
+    "the typed label overlapped the starburst; layout re-spaced"
+   ],
+   "metrics": {
+    "max_stddev": 38.5,
+    "motion": 6.1,
+    "changed_px": 6.77,
+    "seek_diff": 0
+   },
+   "duration_s": 5.4,
+   "sheet": "specimen-triptych.png"
+  },
+  {
+   "id": "mockup-parade",
+   "kind": "move",
+   "title": "39. Mockup parade",
+   "fn": "RasanMoves.mockupParade",
+   "status": "fixed",
+   "notes": [
+    "the last frame was blank (the final plate hid itself); the last plate holds"
+   ],
+   "metrics": {
+    "max_stddev": 56.1,
+    "motion": 136,
+    "changed_px": 86.73,
+    "seek_diff": 0
+   },
+   "duration_s": 5.7,
+   "sheet": "mockup-parade.png"
+  },
+  {
+   "id": "hold-and-sign-off",
+   "kind": "move",
+   "title": "40. Hold and sign-off",
+   "fn": "RasanMoves.holdAndSignOff",
+   "status": "fixed",
+   "notes": [
+    "mark and tagline were tiny; sized up"
+   ],
+   "metrics": {
+    "max_stddev": 27.7,
+    "motion": 8.1,
+    "changed_px": 7.04,
+    "seek_diff": 0
+   },
+   "duration_s": 4.7,
+   "sheet": "hold-and-sign-off.png"
+  },
+  {
+   "id": "ui-object-state-morph",
+   "kind": "move",
+   "title": "41. UI object morphs through states",
+   "fn": "RasanMoves.uiObjectStateMorph",
+   "status": "fixed",
+   "notes": [
+    "the morphing object was tiny; sized up"
+   ],
+   "metrics": {
+    "max_stddev": 89.1,
+    "motion": 30.8,
+    "changed_px": 19.37,
+    "seek_diff": 0
+   },
+   "duration_s": 5.8,
+   "sheet": "ui-object-state-morph.png"
+  },
+  {
+   "id": "medium-pixel-world",
+   "kind": "kit",
+   "title": "Kit: RasanPixelWorld (tiles, parallax, palette shift, pixel type, iris)",
+   "fn": "RasanPixelWorld",
+   "status": "fixed",
+   "notes": [
+    "demo only: the scout used sky colours and vanished; passed an explicit colour map"
+   ],
+   "metrics": {
+    "max_stddev": 41.1,
+    "motion": 148.1,
+    "changed_px": 100,
+    "seek_diff": 0
+   },
+   "duration_s": 6.5,
+   "sheet": "medium-pixel-world.png"
+  },
+  {
+   "id": "medium-retro-os-classic",
+   "kind": "kit",
+   "title": "Kit: RasanRetroOS (classic: windows, cursor, drag, stack)",
+   "fn": "RasanRetroOS",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 53.4,
+    "motion": 33,
+    "changed_px": 31.17,
+    "seek_diff": 0
+   },
+   "duration_s": 5.5,
+   "sheet": "medium-retro-os-classic.png"
+  },
+  {
+   "id": "medium-retro-os-win95",
+   "kind": "kit",
+   "title": "Kit: RasanRetroOS (win95: windows, cursor, drag, stack)",
+   "fn": "RasanRetroOS",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 69.8,
+    "motion": 41.8,
+    "changed_px": 30.23,
+    "seek_diff": 0
+   },
+   "duration_s": 5.5,
+   "sheet": "medium-retro-os-win95.png"
+  },
+  {
+   "id": "medium-retro-os-y2k",
+   "kind": "kit",
+   "title": "Kit: RasanRetroOS (y2k: windows, cursor, drag, stack)",
+   "fn": "RasanRetroOS",
+   "status": "fixed",
+   "notes": [
+    "kit bug: the y2k desktop had no background (black); medium-retro-os.js now applies the variant's desk gradient"
+   ],
+   "metrics": {
+    "max_stddev": 27.2,
+    "motion": 17.8,
+    "changed_px": 30.42,
+    "seek_diff": 0
+   },
+   "duration_s": 5.5,
+   "sheet": "medium-retro-os-y2k.png"
+  },
+  {
+   "id": "medium-sticker",
+   "kind": "kit",
+   "title": "Kit: RasanSticker (die-cut, slap, scrapbook, boil)",
+   "fn": "RasanSticker",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 57.2,
+    "motion": 32.7,
+    "changed_px": 29.34,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "medium-sticker.png"
+  },
+  {
+   "id": "rasan-type-only-wordPerShot",
+   "kind": "kit",
+   "title": "Kit: RasanTypeOnly.wordPerShot",
+   "fn": "RasanTypeOnly.wordPerShot",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 60.9,
+    "motion": 178.1,
+    "changed_px": 100,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "rasan-type-only-wordPerShot.png"
+  },
+  {
+   "id": "rasan-type-only-crop",
+   "kind": "kit",
+   "title": "Kit: RasanTypeOnly.crop",
+   "fn": "RasanTypeOnly.crop",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 115.7,
+    "motion": 99.5,
+    "changed_px": 47.9,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "rasan-type-only-crop.png"
+  },
+  {
+   "id": "rasan-type-only-swap",
+   "kind": "kit",
+   "title": "Kit: RasanTypeOnly.swap",
+   "fn": "RasanTypeOnly.swap",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 46.5,
+    "motion": 14.5,
+    "changed_px": 10.26,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "rasan-type-only-swap.png"
+  },
+  {
+   "id": "rasan-type-only-drum",
+   "kind": "kit",
+   "title": "Kit: RasanTypeOnly.drum",
+   "fn": "RasanTypeOnly.drum",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 38.3,
+    "motion": 19.1,
+    "changed_px": 15.82,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "rasan-type-only-drum.png"
+  },
+  {
+   "id": "rasan-type-only-ladder",
+   "kind": "kit",
+   "title": "Kit: RasanTypeOnly.ladder",
+   "fn": "RasanTypeOnly.ladder",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 29.3,
+    "motion": 7.6,
+    "changed_px": 8.18,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "rasan-type-only-ladder.png"
+  },
+  {
+   "id": "stage3d-voxel-diorama",
+   "kind": "kit",
+   "title": "Kit: stage3d recipe voxel-diorama",
+   "fn": "RasanRecipes.voxel-diorama",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 71.7,
+    "motion": 46.2,
+    "changed_px": 42.15,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "stage3d-voxel-diorama.png"
+  },
+  {
+   "id": "stage3d-clay-toy",
+   "kind": "kit",
+   "title": "Kit: stage3d recipe clay-toy",
+   "fn": "RasanRecipes.clay-toy",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 75.9,
+    "motion": 7.4,
+    "changed_px": 9.55,
+    "seek_diff": 0
+   },
+   "duration_s": 5,
+   "sheet": "stage3d-clay-toy.png"
+  },
+  {
+   "id": "stage3d-icon-portal-through",
+   "kind": "kit",
+   "title": "Kit: stage3d recipe icon-portal-through",
+   "fn": "RasanRecipes.icon-portal-through",
+   "status": "fixed",
+   "notes": [
+    "kit bug: recipes/common.js readLocalText used fetch(), which cannot read file: URLs; it falls back to XHR on file:"
+   ],
+   "metrics": {
+    "max_stddev": 48.1,
+    "motion": 102.9,
+    "changed_px": 99.92,
+    "seek_diff": 0
+   },
+   "duration_s": 3.2,
+   "sheet": "stage3d-icon-portal-through.png"
+  },
+  {
+   "id": "medium-flat-vector",
+   "kind": "kit",
+   "title": "Kit: RasanMediumGraphic.createFlatVectorScene",
+   "fn": "RasanMediumGraphic",
+   "status": "fixed",
+   "notes": [
+    "kit bug: medium-graphic.js called S.set, which only existed on a surface (\"S.set is not a function\"); medium-surface.js now exports set"
+   ],
+   "metrics": {
+    "max_stddev": 19.6,
+    "motion": 7.4,
+    "changed_px": 7.54,
+    "seek_diff": 0
+   },
+   "duration_s": 5.4,
+   "sheet": "medium-flat-vector.png"
+  },
+  {
+   "id": "medium-line-drawing",
+   "kind": "kit",
+   "title": "Kit: RasanMediumGraphic.createLineDrawingScene",
+   "fn": "RasanMediumGraphic",
+   "status": "fixed",
+   "notes": [
+    "same S.set bug in medium-graphic.js, fixed in medium-surface.js"
+   ],
+   "metrics": {
+    "max_stddev": 9.3,
+    "motion": 1.6,
+    "changed_px": 2.76,
+    "seek_diff": 0
+   },
+   "duration_s": 5.4,
+   "sheet": "medium-line-drawing.png"
+  },
+  {
+   "id": "medium-evidence-diagram",
+   "kind": "kit",
+   "title": "Kit: RasanMediumGraphic.createEvidenceDiagramScene",
+   "fn": "RasanMediumGraphic",
+   "status": "fixed",
+   "notes": [
+    "same S.set bug in medium-graphic.js, fixed in medium-surface.js"
+   ],
+   "metrics": {
+    "max_stddev": 14.4,
+    "motion": 0.6,
+    "changed_px": 0.85,
+    "seek_diff": 0
+   },
+   "duration_s": 5.4,
+   "sheet": "medium-evidence-diagram.png"
+  },
+  {
+   "id": "medium-paper-collage",
+   "kind": "kit",
+   "title": "Kit: RasanMediumPaper.createPaperCollageScene",
+   "fn": "RasanMediumPaper",
+   "status": "fixed",
+   "notes": [
+    "same S.set bug in medium-paper.js, fixed in medium-surface.js"
+   ],
+   "metrics": {
+    "max_stddev": 36.2,
+    "motion": 5.1,
+    "changed_px": 6.1,
+    "seek_diff": 0
+   },
+   "duration_s": 5.4,
+   "sheet": "medium-paper-collage.png"
+  },
+  {
+   "id": "medium-isometric",
+   "kind": "kit",
+   "title": "Kit: MediumIsometric.createMediumScene",
+   "fn": "MediumIsometric",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 20.7,
+    "motion": 7.6,
+    "changed_px": 13.1,
+    "seek_diff": 0
+   },
+   "duration_s": 7,
+   "sheet": "medium-isometric.png"
+  }
+ ]
+}

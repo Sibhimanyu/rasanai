@@ -45,5 +45,16 @@
     "middle",
     "proof"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.glyphBurst",
+    "example": "RasanMoves.glyphBurst(tl, 0.2, { target: stage, phrase: 'make it weird', count: 12 });",
+    "params": [
+      "phrase",
+      "symbols",
+      "count",
+      "hold"
+    ]
+  }
 }

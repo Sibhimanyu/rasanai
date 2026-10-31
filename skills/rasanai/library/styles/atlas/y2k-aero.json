@@ -149,5 +149,244 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "aqua-bubble",
+        "name": "Aqua bubble",
+        "bg": "#BFE9FF",
+        "bg2": "#6CC4F5",
+        "ink": "#0B2A55",
+        "accent": "#3DDC84",
+        "accent2": "#C8F0FF",
+        "words": "sky aqua gradient, deep marine ink, grass green, ice white"
+      },
+      {
+        "id": "chrome-acid",
+        "name": "Chrome acid",
+        "bg": "#E9EEF5",
+        "bg2": "#B7C3D6",
+        "ink": "#101828",
+        "accent": "#C6FF00",
+        "accent2": "#FF3DCB",
+        "words": "silver white, ink, acid lime, hot pink"
+      },
+      {
+        "id": "night-aero",
+        "name": "Night Aero",
+        "bg": "#0A1B3D",
+        "bg2": "#143E80",
+        "ink": "#E6F6FF",
+        "accent": "#6CFFB1",
+        "accent2": "#FFB4F2",
+        "words": "midnight blue, ice white, mint, pale pink"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the glossy button or orb jewel; the sky gradient, chrome and ink stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "y2k-aero-1",
+          "display": {
+            "family": "Michroma",
+            "google": "https://fonts.googleapis.com/css2?family=Michroma&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Nunito",
+            "google": "https://fonts.googleapis.com/css2?family=Nunito:wght@400..800&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Michroma', sans-serif",
+            "text": "'Nunito', sans-serif"
+          },
+          "case": "lower",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 3,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.03em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Extended with a glossy top-highlight gradient (white 60% to transparent) and a thin dark stroke."
+        },
+        {
+          "id": "y2k-aero-2",
+          "display": {
+            "family": "Orbitron",
+            "google": "https://fonts.googleapis.com/css2?family=Orbitron:wght@500..900&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Nunito",
+            "google": "https://fonts.googleapis.com/css2?family=Nunito:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Orbitron', sans-serif",
+            "text": "'Nunito', sans-serif"
+          },
+          "case": "upper",
+          "weight": 800,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.06em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Use sparingly: Orbitron is the cliche, only as the label."
+        }
+      ],
+      "default": "y2k-aero-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "aberration",
+          "params": {
+            "shift": 0.004,
+            "mode": 0,
+            "falloff": 1.4
+          },
+          "role": "lens fringe"
+        },
+        {
+          "pass": "posterise",
+          "params": {
+            "steps": 8,
+            "mode": 0,
+            "contrast": 1.1
+          },
+          "role": "banded chrome"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.5,
+            "strength": 0.05,
+            "mono": 1
+          },
+          "role": "dither the gradient"
+        }
+      ],
+      "css": [
+        "gloss",
+        "grain:0.05"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "sky-gradient field with bubbles, orbs, glossy pills; a horizon of grass or water at the bottom third",
+      "safe_area": "10% margin; hero orb at a third",
+      "fill": "glossy objects fill 50%; sky and highlight sparkle the rest",
+      "product_ui": "UI is housed in a glossy glass window with a bubbled title bar and rounded corners; capture stays crisp"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 35 mm product shot, slight low angle, shallow depth of field, specular sparkle. Lighting: bright sky-dome light with strong white specular streaks and caustic reflections. Material: glossy translucent plastic, chrome, water droplets, glass with inner glow. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: clean gloss, tiny lens flares. Avoid: no text, no letters, no logos, no watermark, no matte surfaces, no flat vector, no grunge, no dark moody lighting, no text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "35 mm product shot, slight low angle, shallow depth of field, specular sparkle",
+      "lighting": "bright sky-dome light with strong white specular streaks and caustic reflections",
+      "material": "glossy translucent plastic, chrome, water droplets, glass with inner glow",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "clean gloss, tiny lens flares",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no matte surfaces",
+        "no flat vector",
+        "no grunge",
+        "no dark moody lighting",
+        "no text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: glossy translucent plastic; 35 mm product shot; sky aqua gradient, deep marine ink, grass green, ice white."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a glossy aqua glass orb with a lime green jewel at its core",
+          "action": "floating above a rippled water surface with bubbles",
+          "setting": "a bright sky-aqua gradient sky with small white clouds, caustic light",
+          "palette": "aqua-bubble",
+          "prompt": "a glossy aqua glass orb with a lime green jewel at its core floating above a rippled water surface with bubbles, a bright sky-aqua gradient sky with small white clouds, caustic light. Camera and lens: 35 mm product shot, slight low angle, shallow depth of field, specular sparkle. Lighting: bright sky-dome light with strong white specular streaks and caustic reflections. Material: glossy translucent plastic, chrome, water droplets, glass with inner glow. Colour, locked to the palette sky aqua gradient, deep marine ink, grass green, ice white, and nothing outside it. Texture and finish: clean gloss, tiny lens flares. Avoid: no text, no letters, no logos, no watermark, no matte surfaces, no flat vector, no grunge, no dark moody lighting, no text."
+        },
+        {
+          "subject": "a chrome pill-shaped button with a pink gel highlight",
+          "action": "resting on a silver surface with water drops",
+          "setting": "an acid-lime and silver studio, glossy reflections",
+          "palette": "aqua-bubble",
+          "prompt": "a chrome pill-shaped button with a pink gel highlight resting on a silver surface with water drops, an acid-lime and silver studio, glossy reflections. Camera and lens: 35 mm product shot, slight low angle, shallow depth of field, specular sparkle. Lighting: bright sky-dome light with strong white specular streaks and caustic reflections. Material: glossy translucent plastic, chrome, water droplets, glass with inner glow. Colour, locked to the palette sky aqua gradient, deep marine ink, grass green, ice white, and nothing outside it. Texture and finish: clean gloss, tiny lens flares. Avoid: no text, no letters, no logos, no watermark, no matte surfaces, no flat vector, no grunge, no dark moody lighting, no text."
+        }
+      ]
+    },
+    "do": [
+      "Stack gloss: gradient, inner glow, highlight, reflection",
+      "Use nature motifs: water, grass, clouds, bubbles",
+      "Keep type lowercase and soft"
+    ],
+    "dont": [
+      "No dark gritty look",
+      "No flat vector",
+      "No more than 3 hues"
+    ],
+    "cheap_ways": [
+      "Plain blue gradient with a bubble png",
+      "Chrome text with default bevel",
+      "Neon pink and cyan synthwave in place of Aero"
+    ]
+  }
 }

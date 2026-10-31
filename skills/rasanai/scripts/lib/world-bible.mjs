@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { atlasArt } from "./concept-schema.mjs";
 
 export const LIMITS = { images_min: 0, images_max: 6, images_burst_max: 24, uses_min: 3, style_words_min: 30, style_words_max: 45, static_max_s: 1.2, static_slack_s: 0.05, palette_min: 3, palette_max: 6 };
 export const ROLES = ["anchor", "plate", "character", "object", "texture", "mockup-plate"];
@@ -21,6 +22,9 @@ export const SCHEMA = {
   adjectives: ["three words that feel like it"],
   style_line: "string, 30-45 words, frozen: medium, lens, light, palette in words, texture, haze, calm side, and what is never in it. Appended to every prompt (batch `style`).",
   avoid: "string: the negative line (no text, no logos, nothing looking at the camera ...)",
+  style_world: "optional atlas id (library/styles/atlas): prompts are then built from its art.codex template, palette-locked and with its negatives; palette_id picks one of its 3 palettes, brand_colour_name is the brand colour as a word",
+  palette_id: "optional atlas palette id (world.json carries style_world, palette_id and brand_colour_name together)",
+  brand_colour_name: "optional: the brand colour as a word (\"signal orange\"), used in prompts with the locked palette",
   palette: [{ name: "clay", hex: "#c8734d" }],
   lens: "e.g. 35 mm", light: "e.g. low sun from frame left", grain: "e.g. soft 35 mm grain", calm_side: "left|right|top|bottom",
   aspect: "16:9 (the frame). Plates are asked for ~12% bleed around it for camera travel",
@@ -134,6 +138,7 @@ export function batchPlan(w, run, planFile = null) {
   };
   return {
     aspect: w.aspect || "16:9",
+    ...(w.style_world ? { style_world: w.style_world, ...(w.palette_id ? { palette: w.palette_id } : {}), ...(w.brand_colour_name ? { brand_name: w.brand_colour_name } : {}) } : {}),
     style: [w.style_line].filter(Boolean).join(" "),
     avoid: w.avoid || "",
     anchor: w.anchor,
@@ -169,3 +174,25 @@ export function linkShotImages(concept, world, run, { force = false } = {}) {
   }
   return { concept, linked, unknown: [...unknown] };
 }
+
+// ---- prompt assembly from the style atlas (library/styles/atlas/<id>.json -> art.codex)
+// opts: {style: atlas id, palette: palette id (default the first), subject, action, setting, see (the shot's description: used as the subject when no slots are given),
+//        style_line (the world bible's frozen line), avoid (extra negatives), brand_name (a colour word for the brand slot, never hex), sprite (true for a sprite sheet)}
+// -> the prompt string, or null when the style has no art block. Colours go in as WORDS from the chosen palette; the negatives are always added.
+export function buildArtPrompt(o = {}) {
+  const art = atlasArt(o.style);
+  if (!art || !art.codex) return null;
+  const pal = (art.palettes || []).find((p) => p.id === o.palette) || (art.palettes || [])[0];
+  const lock = (art.brand_lock && art.brand_lock.slots) || {};
+  const brandBit = o.brand_name && lock.accent && lock.accent !== "style" ? `; the hero accent colour is ${o.brand_name}` : "";
+  const clean = (v) => String(v == null ? "" : v).trim().replace(/[.,;\s]+$/, "");
+  const subject = clean(o.subject || o.see), action = clean(o.action), setting = clean(o.setting);
+  const head = [subject, action].filter(Boolean).join(" ") + (setting ? (subject || action ? ", " : "") + setting : "");
+  let p = art.codex.template.replace(/^\{subject\} \{action\}, \{setting\}\./, `${head || "a single clear subject"}.`).replace("{palette_words}", `${pal ? pal.words : "the style palette"}${brandBit}`);
+  const extra = clean(o.avoid);
+  if (extra) p = p.replace(/\.$/, `, ${extra}.`);
+  if (o.sprite && art.codex.sprite_sheet && art.codex.sprite_sheet.use) p += ` ${art.codex.sprite_sheet.rules}`;
+  if (o.style_line) p += ` World style (every image of this film): ${clean(o.style_line)}.`;
+  return p;
+}
+export const artAspect = (style, role) => { const a = atlasArt(style); return a && (role === "sprite" || role === "character" || role === "object") ? a.codex.aspect.sprite : null; };

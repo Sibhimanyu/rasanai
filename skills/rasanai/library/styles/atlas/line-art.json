@@ -123,5 +123,227 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "ink-on-cream",
+        "name": "Ink on cream",
+        "bg": "#F7F2E8",
+        "bg2": "#ECE4D2",
+        "ink": "#1B1B1F",
+        "accent": "#E8553A",
+        "accent2": "#1B1B1F",
+        "words": "cream paper, near-black ink, one vermilion line"
+      },
+      {
+        "id": "blue-pen",
+        "name": "Blue pen",
+        "bg": "#F4F6F8",
+        "bg2": "#E4E9EE",
+        "ink": "#16224A",
+        "accent": "#FF7A59",
+        "accent2": "#16224A",
+        "words": "cool white, navy pen, coral"
+      },
+      {
+        "id": "night-line",
+        "name": "Night line",
+        "bg": "#121216",
+        "bg2": "#1C1C22",
+        "ink": "#F3EEE4",
+        "accent": "#FFD166",
+        "accent2": "#F3EEE4",
+        "words": "charcoal, warm white line, honey yellow"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the single accent line or the one filled shape; all other lines stay in the style ink. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "line-art-1",
+          "display": {
+            "family": "Instrument Serif",
+            "google": "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Instrument Sans",
+            "google": "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Instrument Serif', serif",
+            "text": "'Instrument Sans', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 10,
+            "two_words": 8,
+            "long": 6,
+            "sub_cqw": 3.2,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Light humanist or an italic serif at 1.5 px stroke match line weight."
+        },
+        {
+          "id": "line-art-2",
+          "display": {
+            "family": "Instrument Sans",
+            "google": "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Instrument Sans",
+            "google": "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Instrument Sans', sans-serif",
+            "text": "'Instrument Sans', sans-serif"
+          },
+          "case": "lower",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.03em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Pure sans option."
+        }
+      ],
+      "default": "line-art-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.6,
+            "strength": 0.06,
+            "mono": 1
+          },
+          "role": "paper tooth"
+        }
+      ],
+      "css": [
+        "grain:0.06",
+        "m-line"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "one continuous line (single stroke 3-4 px at 1080p) travelling the frame; lots of white; line is the path of the story",
+      "safe_area": "12% margin; line may leave the frame edge",
+      "fill": "line covers about 25% of area; the rest is paper",
+      "product_ui": "UI is drawn by the line (outline) first, then the real capture dissolves in inside the closed shape"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat scan of a drawing on paper, no perspective. Lighting: even paper light, no shadow. Material: single-weight ink line, round caps, no fill or one flat accent fill. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: very light paper tooth. Avoid: no text, no letters, no logos, no watermark, no shading, no gradients, no fills except one accent, no varying line weight, no cross-hatching, no text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat scan of a drawing on paper, no perspective",
+      "lighting": "even paper light, no shadow",
+      "material": "single-weight ink line, round caps, no fill or one flat accent fill",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "very light paper tooth",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no shading",
+        "no gradients",
+        "no fills except one accent",
+        "no varying line weight",
+        "no cross-hatching",
+        "no text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: single-weight ink line; flat scan of a drawing on paper; cream paper, near-black ink, one vermilion line."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "one continuous black ink line forming a seated figure with a laptop",
+          "action": "the line looping off the page to become a phone cable",
+          "setting": "a cream paper sheet, one vermilion filled circle as the screen",
+          "palette": "ink-on-cream",
+          "prompt": "one continuous black ink line forming a seated figure with a laptop the line looping off the page to become a phone cable, a cream paper sheet, one vermilion filled circle as the screen. Camera and lens: flat scan of a drawing on paper, no perspective. Lighting: even paper light, no shadow. Material: single-weight ink line, round caps, no fill or one flat accent fill. Colour, locked to the palette cream paper, near-black ink, one vermilion line, and nothing outside it. Texture and finish: very light paper tooth. Avoid: no text, no letters, no logos, no watermark, no shading, no gradients, no fills except one accent, no varying line weight, no cross-hatching, no text."
+        },
+        {
+          "subject": "a single navy line drawing of a bicycle",
+          "action": "the line trailing behind the wheels in a loop",
+          "setting": "a cool white page, coral dot at the destination",
+          "palette": "ink-on-cream",
+          "prompt": "a single navy line drawing of a bicycle the line trailing behind the wheels in a loop, a cool white page, coral dot at the destination. Camera and lens: flat scan of a drawing on paper, no perspective. Lighting: even paper light, no shadow. Material: single-weight ink line, round caps, no fill or one flat accent fill. Colour, locked to the palette cream paper, near-black ink, one vermilion line, and nothing outside it. Texture and finish: very light paper tooth. Avoid: no text, no letters, no logos, no watermark, no shading, no gradients, no fills except one accent, no varying line weight, no cross-hatching, no text."
+        }
+      ]
+    },
+    "do": [
+      "Draw with one line weight and never break the line",
+      "Make the line trace the story path",
+      "Let negative space carry rhythm"
+    ],
+    "dont": [
+      "No shading or gradients",
+      "No second line weight",
+      "No more than one filled shape"
+    ],
+    "cheap_ways": [
+      "Scribble that looks like a stock 'one line' icon set",
+      "Line pops in instead of being drawn",
+      "Many colours of line"
+    ]
+  }
 }

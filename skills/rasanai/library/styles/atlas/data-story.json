@@ -112,5 +112,217 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "chart-paper",
+        "name": "Chart paper",
+        "bg": "#F7F5EF",
+        "bg2": "#EAE6DA",
+        "ink": "#1A2233",
+        "accent": "#E4572E",
+        "accent2": "#2E86AB",
+        "words": "paper white, navy ink, vermilion, blue, grey"
+      },
+      {
+        "id": "dark-dashboard",
+        "name": "Dark dashboard",
+        "bg": "#0F1420",
+        "bg2": "#1A2234",
+        "ink": "#E6EBF5",
+        "accent": "#5CE1B2",
+        "accent2": "#FFB84D",
+        "words": "navy black, pale blue-white, mint, amber"
+      },
+      {
+        "id": "newsprint-data",
+        "name": "Newsprint data",
+        "bg": "#F1ECDD",
+        "bg2": "#E3DBC4",
+        "ink": "#161616",
+        "accent": "#D7263D",
+        "accent2": "#1B998B",
+        "words": "newsprint beige, black, red, green"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the series that matters (the highlighted bar or line); all comparison series stay neutral greys and the style's second hue. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "data-story-1",
+          "display": {
+            "family": "Space Grotesk",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Mono",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Space Grotesk', sans-serif",
+            "text": "'IBM Plex Mono', monospace"
+          },
+          "case": "sentence",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 12,
+            "two_words": 9.6,
+            "long": 7.2,
+            "sub_cqw": 3.4,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.03em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Big tabular figures for the number (font-variant-numeric: tabular-nums); small mono for axes."
+        },
+        {
+          "id": "data-story-2",
+          "display": {
+            "family": "Newsreader",
+            "google": "https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "IBM Plex Mono",
+            "google": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Newsreader', serif",
+            "text": "'IBM Plex Mono', monospace"
+          },
+          "case": "sentence",
+          "weight": 600,
+          "scale": {
+            "hero_cqw": 10,
+            "two_words": 8,
+            "long": 6,
+            "sub_cqw": 3.2,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Serif annotations."
+        }
+      ],
+      "default": "data-story-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [],
+      "css": [
+        "chart-grid",
+        "m-bars"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...). No shader pass: this style is clean by design; adding a pass is a mistake."
+    },
+    "composition": {
+      "grid": "one number or one chart per frame; chart occupies a 12-col grid; annotated with a serif note and an arrow",
+      "safe_area": "6% margin; axes at the left and bottom",
+      "fill": "chart fills 65%; one annotation",
+      "product_ui": "UI is the dashboard that produces the number; show it after the number lands"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat graphic plate. Lighting: none. Material: flat marks: bars, lines, dots with 1 px axis rules. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: none. Avoid: no text, no letters, no logos, no watermark, no 3D charts, no gradients, no decorative icons, no pie charts, no text in the image, no shadows.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat graphic plate",
+      "lighting": "none",
+      "material": "flat marks: bars, lines, dots with 1 px axis rules",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "none",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no 3D charts",
+        "no gradients",
+        "no decorative icons",
+        "no pie charts",
+        "no text in the image",
+        "no shadows"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: flat marks: bars; flat graphic plate; paper white, navy ink, vermilion, blue, grey."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a single vermilion bar rising above four grey bars",
+          "action": "an annotation arrow and a big tabular number above",
+          "setting": "a paper-white chart with a faint 12-column grid and thin axis rules",
+          "palette": "chart-paper",
+          "prompt": "a single vermilion bar rising above four grey bars an annotation arrow and a big tabular number above, a paper-white chart with a faint 12-column grid and thin axis rules. Camera and lens: flat graphic plate. Lighting: none. Material: flat marks: bars, lines, dots with 1 px axis rules. Colour, locked to the palette paper white, navy ink, vermilion, blue, grey, and nothing outside it. Texture and finish: none. Avoid: no text, no letters, no logos, no watermark, no 3D charts, no gradients, no decorative icons, no pie charts, no text in the image, no shadows."
+        },
+        {
+          "subject": "a mint line chart on navy",
+          "action": "one point lit up in amber",
+          "setting": "a dark dashboard ground, thin grid rules",
+          "palette": "chart-paper",
+          "prompt": "a mint line chart on navy one point lit up in amber, a dark dashboard ground, thin grid rules. Camera and lens: flat graphic plate. Lighting: none. Material: flat marks: bars, lines, dots with 1 px axis rules. Colour, locked to the palette paper white, navy ink, vermilion, blue, grey, and nothing outside it. Texture and finish: none. Avoid: no text, no letters, no logos, no watermark, no 3D charts, no gradients, no decorative icons, no pie charts, no text in the image, no shadows."
+        }
+      ]
+    },
+    "do": [
+      "One chart, one message, one highlighted series",
+      "Animate the data: bars grow from zero with the count-up",
+      "Annotate with a hand-placed note"
+    ],
+    "dont": [
+      "No 3D, no gradient, no pie charts",
+      "No more than one highlight",
+      "No tiny labels (min 18 px at 1080p)"
+    ],
+    "cheap_ways": [
+      "Default chart library colours",
+      "A chart that is decoration and means nothing",
+      "Number counters with no anchor or unit"
+    ]
+  }
 }

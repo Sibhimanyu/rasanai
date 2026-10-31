@@ -39,5 +39,15 @@
   "beat_roles": [
     "proof"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.columnLadder",
+    "example": "RasanMoves.columnLadder(tl, 0.2, { target: stage });",
+    "params": [
+      "columns",
+      "accent",
+      "ink"
+    ]
+  }
 }

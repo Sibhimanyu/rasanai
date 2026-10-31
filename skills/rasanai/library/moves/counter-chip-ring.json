@@ -46,5 +46,17 @@
   "beat_roles": [
     "proof"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.counterChipRing",
+    "example": "RasanMoves.counterChipRing(tl, 0.2, { target: stage, to: 1684, label: 'tasks' });",
+    "params": [
+      "to",
+      "ticks",
+      "label",
+      "prefix",
+      "suffix"
+    ]
+  }
 }

@@ -102,3 +102,8 @@ Rewrite a script yourself (the writer does). Soften a hard fail. Pass a script w
 ## Show off: be the push
 
 Competent scripts are the failure this crew exists to beat. For the script you recommend, write in `strongest` the one moment a viewer would retell, and in its notes the one change that would make the peak land harder. If every pitch is merely correct, say so: three `rewrite`s with exact fixes beat one tired `ship`.
+
+## Reference films (only when the Dispatch context has `reference_films`)
+
+The user named films they love. Each was measured and read by the reference analyst: `refs/summary.json` (the shared rules and per-film targets) and `refs/<id>/breakdown.md` (shots, carrier, story, image use, nearest style world, sound, what to take, what not to copy). As the editor and the concept jury, judge each script and pick against them: a script that ignores the targets without a reason (a median shot twice the references', a hook that arrives after the references' first change, a sound mode the references never use) is a note; a script that borrows a reference's picture, copy or exact look is a rewrite. The jury also checks that the three picks do not all lean on the same reference.
+**References inform, never copy.** Take principles, never pictures: no frame, sound, line of copy, logo, exact type or palette of a reference goes into the film, and two concepts must not share one reference's idea. The product's own truth still decides the idea.

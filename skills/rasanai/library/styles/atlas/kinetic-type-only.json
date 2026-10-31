@@ -125,5 +125,226 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "ink-on-bone",
+        "name": "Ink on bone",
+        "bg": "#F2EFE8",
+        "bg2": "#E3DED2",
+        "ink": "#0F0F10",
+        "accent": "#FF4D1F",
+        "accent2": "#1F3BFF",
+        "words": "bone white, ink black, signal orange, electric blue"
+      },
+      {
+        "id": "black-room",
+        "name": "Black room",
+        "bg": "#0A0A0B",
+        "bg2": "#17171A",
+        "ink": "#F5F5F2",
+        "accent": "#D6FF3F",
+        "accent2": "#8A8AFF",
+        "words": "near-black, off-white, acid lime, lavender"
+      },
+      {
+        "id": "colour-field",
+        "name": "Colour field",
+        "bg": "#1F3BFF",
+        "bg2": "#1630CC",
+        "ink": "#F6F2E8",
+        "accent": "#FFD400",
+        "accent2": "#FF5C8A",
+        "words": "electric blue field, cream, taxi yellow, pink"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "brand-or-style",
+        "bg2": "brand-or-style",
+        "ink": "brand-or-style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Typography is the brand: brand type sets every word; brand colour may take the background or the one accent word; the other stays style-fixed. Never both bg and ink in brand colour (no contrast). Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "kinetic-type-only-1",
+          "display": {
+            "family": "Inter Tight",
+            "google": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500..900&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Inter Tight', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 800,
+          "scale": {
+            "hero_cqw": 16,
+            "two_words": 12.8,
+            "long": 9.6,
+            "sub_cqw": 5,
+            "caption_cqw": 1.7,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.05em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "One word fills 60-90% of frame width; lh .86; optical size tight."
+        },
+        {
+          "id": "kinetic-type-only-2",
+          "display": {
+            "family": "Unbounded",
+            "google": "https://fonts.googleapis.com/css2?family=Unbounded:wght@400..900&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Unbounded', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 800,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 4,
+            "caption_cqw": 1.6,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Wide extended type for impact."
+        }
+      ],
+      "default": "kinetic-type-only-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.4,
+            "strength": 0.07,
+            "mono": 1
+          },
+          "role": "quiet grain only; the type is the show"
+        }
+      ],
+      "css": [
+        "grain:0.07"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "one word per beat on a 12-col grid; baseline snapped to a 1/12 frame-height grid",
+      "safe_area": "5% margin; words may crop on one edge intentionally",
+      "fill": "type fills 60-90% of width, one idea per frame",
+      "product_ui": "UI, if shown, is a rectangle that enters as one more word block; do not float it over type"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: not applicable (typographic plate); if an image is needed it is a flat graphic plate, no perspective. Lighting: none: flat graphic colour. Material: pure flat colour and glyph shapes. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: a faint film grain only. Avoid: no text, no letters, no logos, no watermark, no illustrations, no icons, no gradients, no drop shadows, no photographs, no decorative flourishes.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "not applicable (typographic plate); if an image is needed it is a flat graphic plate, no perspective",
+      "lighting": "none: flat graphic colour",
+      "material": "pure flat colour and glyph shapes",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "a faint film grain only",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no illustrations",
+        "no icons",
+        "no gradients",
+        "no drop shadows",
+        "no photographs",
+        "no decorative flourishes"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: pure flat colour and glyph shapes; not applicable (typographic plate); if an image is needed it is a flat graphic plate; bone white, ink black, signal orange, electric blue."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a single huge word SHIP in heavy grotesk type, orange on bone",
+          "action": "slightly cropped at the right edge",
+          "setting": "flat bone background with a hairline baseline",
+          "palette": "ink-on-bone",
+          "prompt": "a single huge word SHIP in heavy grotesk type, orange on bone slightly cropped at the right edge, flat bone background with a hairline baseline. Camera and lens: not applicable (typographic plate); if an image is needed it is a flat graphic plate, no perspective. Lighting: none: flat graphic colour. Material: pure flat colour and glyph shapes. Colour, locked to the palette bone white, ink black, signal orange, electric blue, and nothing outside it. Texture and finish: a faint film grain only. Avoid: no text, no letters, no logos, no watermark, no illustrations, no icons, no gradients, no drop shadows, no photographs, no decorative flourishes."
+        },
+        {
+          "subject": "a flat acid-lime rectangle",
+          "action": "slides in and splits a black screen into two columns",
+          "setting": "near-black room, no other objects",
+          "palette": "ink-on-bone",
+          "prompt": "a flat acid-lime rectangle slides in and splits a black screen into two columns, near-black room, no other objects. Camera and lens: not applicable (typographic plate); if an image is needed it is a flat graphic plate, no perspective. Lighting: none: flat graphic colour. Material: pure flat colour and glyph shapes. Colour, locked to the palette bone white, ink black, signal orange, electric blue, and nothing outside it. Texture and finish: a faint film grain only. Avoid: no text, no letters, no logos, no watermark, no illustrations, no icons, no gradients, no drop shadows, no photographs, no decorative flourishes."
+        }
+      ]
+    },
+    "do": [
+      "One idea per frame; the word is the picture",
+      "Change scale, weight and axis between beats, not typeface",
+      "Hit the cut on the stressed syllable"
+    ],
+    "dont": [
+      "No mixing more than 2 families",
+      "No bounce easing on every word",
+      "No decorative shadows"
+    ],
+    "cheap_ways": [
+      "Every word fades up from below at the same speed",
+      "Text centred and small with a lot of empty space",
+      "Random fonts per word without a system"
+    ]
+  }
 }

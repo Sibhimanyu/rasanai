@@ -38,5 +38,14 @@
   "beat_roles": [
     "close"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.slotLineWipeLockup",
+    "example": "RasanMoves.slotLineWipeLockup(tl, 0.2, { target: stage, word: 'Simple', logo: 'Aurora' });",
+    "params": [
+      "word",
+      "logo"
+    ]
+  }
 }

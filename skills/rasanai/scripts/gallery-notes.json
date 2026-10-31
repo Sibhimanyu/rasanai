@@ -1,0 +1,36 @@
+{
+  "_": "What looking at the contact sheets changed. scripts/gallery.mjs reads this: a demo that passes every check and has a note under `fixed` is reported as fixed; one under `broken` is reported still-broken whatever the checks say.",
+  "fixed": {
+    "medium-retro-os-y2k": "kit bug: the y2k desktop had no background (black); medium-retro-os.js now applies the variant's desk gradient",
+    "medium-flat-vector": "kit bug: medium-graphic.js called S.set, which only existed on a surface (\"S.set is not a function\"); medium-surface.js now exports set",
+    "medium-line-drawing": "same S.set bug in medium-graphic.js, fixed in medium-surface.js",
+    "medium-evidence-diagram": "same S.set bug in medium-graphic.js, fixed in medium-surface.js",
+    "medium-paper-collage": "same S.set bug in medium-paper.js, fixed in medium-surface.js",
+    "stage3d-icon-portal-through": "kit bug: recipes/common.js readLocalText used fetch(), which cannot read file: URLs; it falls back to XHR on file:",
+    "full-frame-type-crop": "motion blur and skew stayed on at rest (velocity read at p=1); now zero at both ends",
+    "poster-dive": "a dark strip stayed at the right edge at the end; the final box now covers the frame",
+    "floating-card-field": "cards were clipped by the top edge; card centres kept inside 22..78% of the height",
+    "cursor-identity-swap": "cursors and the button were tiny and the move ended in a quarter of the demo; bigger, longer",
+    "glyph-burst": "the phrase was removed with the glyphs and the symbols were tiny; only the glyphs leave, bigger",
+    "lone-dot-carrier-iris": "the dot was tiny and the move ended early; bigger dot, 3.2 s example",
+    "action-as-transition": "nothing showed behind the cut halves; `to` picture added",
+    "specimen-triptych": "the typed label overlapped the starburst; layout re-spaced",
+    "mockup-parade": "the last frame was blank (the final plate hid itself); the last plate holds",
+    "flank-frame-hold": "the flank words were unreadably small; sized up",
+    "typed-prompt-send": "the prompt box was tiny in frame; sized up",
+    "counter-chip-ring": "the chip was tiny in frame; sized up",
+    "segmented-control-over-world": "the control was tiny in frame; sized up",
+    "ribbon-of-frames": "the ring read as a thin strip; bigger cards",
+    "colour-world-flip": "the line touched both frame edges; sized down",
+    "hold-and-sign-off": "mark and tagline were tiny; sized up",
+    "ui-object-state-morph": "the morphing object was tiny; sized up",
+    "glow-on-control": "the control row was tiny; sized up",
+    "duotone-stock-cluster": "cards were small; bigger",
+    "medium-pixel-world": "demo only: the scout used sky colours and vanished; passed an explicit colour map"
+  },
+  "broken": {},
+  "sample": {
+    "inline-glyph-slot": 2,
+    "tilted-ui-dolly": 1
+  }
+}

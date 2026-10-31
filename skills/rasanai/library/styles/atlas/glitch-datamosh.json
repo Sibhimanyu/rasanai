@@ -153,5 +153,258 @@
       "link_status": "surfaced-by-search-not-refetched"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "vhs",
+        "name": "VHS",
+        "bg": "#0B0B10",
+        "bg2": "#17172A",
+        "ink": "#F3F3F7",
+        "accent": "#FF2E63",
+        "accent2": "#08F7FE",
+        "words": "tape black, white, scan red, cyan fringe"
+      },
+      {
+        "id": "signal-lost",
+        "name": "Signal lost",
+        "bg": "#0E0E0E",
+        "bg2": "#1E1E1E",
+        "ink": "#E8FFE8",
+        "accent": "#39FF14",
+        "accent2": "#FF00E5",
+        "words": "black, pale phosphor white, neon green, magenta"
+      },
+      {
+        "id": "newsroom-error",
+        "name": "Newsroom error",
+        "bg": "#101820",
+        "bg2": "#1B2A3A",
+        "ink": "#FFFFFF",
+        "accent": "#FFD400",
+        "accent2": "#FF3B30",
+        "words": "navy black, white, caution yellow, red"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the glitch's displaced channel (replace one of red/cyan in the split) only when it has enough chroma; never let the logo be glitched, hold it clean. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "glitch-datamosh-1",
+          "display": {
+            "family": "Space Mono",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Space Mono', monospace",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 9,
+            "two_words": 7.2,
+            "long": 5.4,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.02em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Mono display with RGB-split text-shadow (±0.4%), timestamp captions."
+        },
+        {
+          "id": "glitch-datamosh-2",
+          "display": {
+            "family": "Chakra Petch",
+            "google": "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Space Mono",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Chakra Petch', sans-serif",
+            "text": "'Space Mono', monospace"
+          },
+          "case": "upper",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 2.8,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.04em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Techno grotesk."
+        }
+      ],
+      "default": "glitch-datamosh-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "glitch",
+          "params": {
+            "blocks": 0.5,
+            "tear": 0.5,
+            "split": 0.6,
+            "bar": 0.4,
+            "flicker": 0.3,
+            "mosh": 0
+          },
+          "role": "block shifts, tears, RGB split on cut frames only"
+        },
+        {
+          "pass": "aberration",
+          "params": {
+            "shift": 0.006,
+            "mode": 0,
+            "falloff": 1.2
+          },
+          "role": "fringe"
+        },
+        {
+          "pass": "crt",
+          "params": {
+            "curve": 0.06,
+            "scan": 0.35,
+            "mask": 0.2,
+            "bloom": 0.3,
+            "chroma": 0.5
+          },
+          "role": "tape look"
+        },
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.6,
+            "strength": 0.12,
+            "mono": 1
+          },
+          "role": "signal noise"
+        }
+      ],
+      "css": [
+        "scan:0.3",
+        "grain:0.14",
+        "rgb-split"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "full-frame source image with 4:3 tape bleed; glitch events as horizontal bands and blocks 8-40 px",
+      "safe_area": "none: tracking noise at the bottom 6% and a timestamp top-right",
+      "fill": "image fills 100%",
+      "product_ui": "UI is shown as a corrupted-then-resolved screen: glitch resolves to clean on the proof beat"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: consumer camcorder 4:3, soft focus, slight handheld, auto-exposure pumping. Lighting: harsh on-camera flash or fluorescent, blown highlights. Material: video artefacts: tracking lines, chroma bleed, block compression, field interlacing. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: heavy analog noise, scanlines, tape dropouts. Avoid: no text, no letters, no logos, no watermark, no clean digital look, no perfect alignment, no readable text corruption of key words, no colour gradients.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "consumer camcorder 4:3, soft focus, slight handheld, auto-exposure pumping",
+      "lighting": "harsh on-camera flash or fluorescent, blown highlights",
+      "material": "video artefacts: tracking lines, chroma bleed, block compression, field interlacing",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "heavy analog noise, scanlines, tape dropouts",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no clean digital look",
+        "no perfect alignment",
+        "no readable text corruption of key words",
+        "no colour gradients"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: video artefacts: tracking lines; consumer camcorder 4:3; tape black, white, scan red, cyan fringe."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a hand holding a phone toward the camera",
+          "action": "the image tearing in horizontal bands with red-cyan fringing",
+          "setting": "a dim apartment hallway shot on 90s camcorder, timestamp in the corner",
+          "palette": "vhs",
+          "prompt": "a hand holding a phone toward the camera the image tearing in horizontal bands with red-cyan fringing, a dim apartment hallway shot on 90s camcorder, timestamp in the corner. Camera and lens: consumer camcorder 4:3, soft focus, slight handheld, auto-exposure pumping. Lighting: harsh on-camera flash or fluorescent, blown highlights. Material: video artefacts: tracking lines, chroma bleed, block compression, field interlacing. Colour, locked to the palette tape black, white, scan red, cyan fringe, and nothing outside it. Texture and finish: heavy analog noise, scanlines, tape dropouts. Avoid: no text, no letters, no logos, no watermark, no clean digital look, no perfect alignment, no readable text corruption of key words, no colour gradients."
+        },
+        {
+          "subject": "a face partly replaced by frozen compression blocks",
+          "action": "smearing downward as the previous scene bleeds in",
+          "setting": "newsroom blue-black room with caution yellow lower-third bar",
+          "palette": "vhs",
+          "prompt": "a face partly replaced by frozen compression blocks smearing downward as the previous scene bleeds in, newsroom blue-black room with caution yellow lower-third bar. Camera and lens: consumer camcorder 4:3, soft focus, slight handheld, auto-exposure pumping. Lighting: harsh on-camera flash or fluorescent, blown highlights. Material: video artefacts: tracking lines, chroma bleed, block compression, field interlacing. Colour, locked to the palette tape black, white, scan red, cyan fringe, and nothing outside it. Texture and finish: heavy analog noise, scanlines, tape dropouts. Avoid: no text, no letters, no logos, no watermark, no clean digital look, no perfect alignment, no readable text corruption of key words, no colour gradients."
+        }
+      ]
+    },
+    "do": [
+      "Glitch on the cut, resolve on the proof",
+      "Keep the logo and claim clean",
+      "Use 3-5 distinct artefacts (tear, block, smear, split), not one"
+    ],
+    "dont": [
+      "Do not glitch continuously",
+      "Do not corrupt body text",
+      "Do not use more than 2 accent colours"
+    ],
+    "cheap_ways": [
+      "Constant jitter on everything reads as a free preset",
+      "RGB split on every title",
+      "Neon cyberpunk palette for an unrelated product"
+    ]
+  }
 }

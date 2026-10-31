@@ -40,5 +40,14 @@
     "middle",
     "proof"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.specimenTriptych",
+    "example": "RasanMoves.specimenTriptych(tl, 0.2, { target: stage });",
+    "params": [
+      "items",
+      "per"
+    ]
+  }
 }

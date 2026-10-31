@@ -64,6 +64,7 @@ import { noteDowngrade } from "./lib/downgrade.mjs";
 import { zonesFor, destinationOf, phonePt, PHONE_MIN_PT } from "./lib/safezones.mjs";
 import { loadIntent, intentBeats } from "./lib/emphasis.mjs";
 import { craftProfile } from "./lib/frames-lib.mjs";
+import { shotLimits } from "./lib/ref-targets.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -549,10 +550,11 @@ export async function measureFrames(opts = {}) {
   // p90 4.5 s; hard cuts are rare and fine (morphs and carry-overs make most of the changes), long shots are UI proof or the end card
   if (res.kind === "video" && dur >= GATE.asl_min_dur && /^(launch|promo)/i.test(opts.kind || "") && film.shotLens && film.shotLens.length) {
     const sg = `${film.shotsPer10s} shots per 10 s; ${film.hardCuts} hard cuts in ${r1(dur)} s`, seeLaunch = "references/launch-film.md section 6";
-    if (film.shotMedianS > GATE.shot_median_err) add("error", "shot-length", `median shot ${film.shotMedianS} s (about ${GATE.shot_median_lo} to ${GATE.shot_median_hi} s; ${sg}): the frame is not being remade often enough`, `change the composition about every 2 s: a hard cut is one way (rare is fine); so is a morph of the carrier, an in-place word swap, a colour-world flip or a push-in to a new scale; ${seeLaunch}`, { value: film.shotMedianS, limit: GATE.shot_median_hi });
-    else if (film.shotMedianS > GATE.shot_median_hi || film.shotMedianS < GATE.shot_median_lo) add("warning", "shot-length", `median shot ${film.shotMedianS} s (about ${GATE.shot_median_lo} to ${GATE.shot_median_hi} s; ${sg})`, `the favourites sit at a median of 1.9 s; ${seeLaunch}`, { value: film.shotMedianS, limit: GATE.shot_median_hi });
-    if (film.shotP10S < GATE.shot_p10_min) add("warning", "shot-length-short", `p10 shot ${film.shotP10S} s (at least ${GATE.shot_p10_min} s): too many flicker shots; one burst of 5 to 6 short shots per film is the most the favourites use`, `merge the flicker pairs or hold the shot; ${seeLaunch}`, { value: film.shotP10S, limit: GATE.shot_p10_min });
-    if (film.shotP90S > GATE.shot_p90_max) add("warning", "shot-length-long", `p90 shot ${film.shotP90S} s (at most about ${GATE.shot_p90_max} s)`, `break the long shots up unless they are UI proof (a typed input, a state change) or the end card; ${seeLaunch}`, { value: film.shotP90S, limit: GATE.shot_p90_max });
+    const RT = shotLimits(opts.run, GATE); // the run's own reference films may widen these limits inside sane bounds (refs/summary.json, scripts/lib/ref-targets.mjs); no references = the defaults
+    if (film.shotMedianS > RT.err) add("error", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg}): the frame is not being remade often enough`, `change the composition about every 2 s: a hard cut is one way (rare is fine); so is a morph of the carrier, an in-place word swap, a colour-world flip or a push-in to a new scale; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
+    else if (film.shotMedianS > RT.hi || film.shotMedianS < RT.lo) add("warning", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg})`, `the favourites sit at a median of 1.9 s; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
+    if (film.shotP10S < RT.p10) add("warning", "shot-length-short", `p10 shot ${film.shotP10S} s (at least ${RT.p10} s): too many flicker shots; one burst of 5 to 6 short shots per film is the most the favourites use`, `merge the flicker pairs or hold the shot; ${seeLaunch}`, { value: film.shotP10S, limit: RT.p10 });
+    if (film.shotP90S > RT.p90) add("warning", "shot-length-long", `p90 shot ${film.shotP90S} s (at most about ${RT.p90} s)`, `break the long shots up unless they are UI proof (a typed input, a state change) or the end card; ${seeLaunch}`, { value: film.shotP90S, limit: RT.p90 });
     const holds = (film.longHolds || []).filter((h) => h.t0 < dur - GATE.hold_end_s);
     if (holds.length) add("warning", "static-hold", `${holds.length} static hold(s) over ${GATE.hold_max_s} s with nothing changing: ${holds.slice(0, 4).map((h) => `${h.t0}-${h.t1} s`).join(", ")}`, `give the hold a state change (typed text, a cursor action, a progress tween, a re-sort) or cut it; the end card (last ${GATE.hold_end_s} s) may hold still`, { value: holds.length });
   }
@@ -674,7 +676,7 @@ async function main() {
       }
     } catch { /* an unreadable contract leaves the gate as it was */ }
   }
-  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination), creativePolicy: lookStyle });
+  const res = await measureFrames({ run: str(args.run), stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination), creativePolicy: lookStyle });
   if (args["write-brand"] && res.film) {
     const p = path.resolve(String(args["write-brand"])), g = readJ(p) || {};
     g.frameMetrics = { groundChroma: res.film.groundChroma, groundRange: res.film.groundRange, softP90: res.film.softP90, colourfulP90: res.film.colourfulP90, charsMedian: res.film.charsMedian ?? null, measuredFrom: str(args.video) || str(args.stills) };

@@ -41,5 +41,16 @@
   ],
   "needs": [
     "stage3d/recipes/icon-portal-through.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.iconAsMissingLetter",
+    "example": "RasanMoves.iconAsMissingLetter(tl, 0.2, { target: stage, word: 'EDIT', blank: [1, 3] });",
+    "params": [
+      "word",
+      "blank",
+      "icons",
+      "bgs"
+    ]
+  }
 }

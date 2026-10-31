@@ -119,5 +119,226 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "blueprint-candy",
+        "name": "Blueprint candy",
+        "bg": "#EAF2FB",
+        "bg2": "#CFE0F4",
+        "ink": "#1B2A44",
+        "accent": "#FF7A45",
+        "accent2": "#2FB5A3",
+        "words": "pale sky white, navy ink, orange, teal"
+      },
+      {
+        "id": "warehouse",
+        "name": "Warehouse",
+        "bg": "#F6EFE3",
+        "bg2": "#E7DAC3",
+        "ink": "#2A2622",
+        "accent": "#3C6DF0",
+        "accent2": "#F2B632",
+        "words": "warm paper, charcoal, cobalt, mustard"
+      },
+      {
+        "id": "night-logistics",
+        "name": "Night logistics",
+        "bg": "#101828",
+        "bg2": "#1C2A44",
+        "ink": "#EAF0FF",
+        "accent": "#FFB020",
+        "accent2": "#38E1C0",
+        "words": "navy-black, ice white, amber, aqua"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour paints the one hero building or package; the platform, other blocks and ink stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "isometric-diorama-1",
+          "display": {
+            "family": "DM Mono",
+            "google": "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'DM Mono', monospace",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 500,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 2.6,
+            "caption_cqw": 1.4,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.04em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Mono labels with thin leader lines attached to objects."
+        },
+        {
+          "id": "isometric-diorama-2",
+          "display": {
+            "family": "Space Grotesk",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "DM Mono",
+            "google": "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Space Grotesk', sans-serif",
+            "text": "'DM Mono', monospace"
+          },
+          "case": "sentence",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 8,
+            "two_words": 6.4,
+            "long": 4.8,
+            "sub_cqw": 3,
+            "caption_cqw": 1.5,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Display for headings."
+        }
+      ],
+      "default": "isometric-diorama-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.4,
+            "strength": 0.05,
+            "mono": 1
+          },
+          "role": "hide gradient banding"
+        }
+      ],
+      "css": [
+        "grain:0.05",
+        "iso-grid"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "true isometric 30 degree grid (2:1 dimetric ok); platform tile centred; objects snap to tiles",
+      "safe_area": "10% margin; platform fills the middle 60%; callouts in outer thirds",
+      "fill": "platform occupies 55-70% of frame",
+      "product_ui": "UI lives on a flat monitor tile or a floating panel parallel to an isometric plane"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: orthographic isometric, 35.264 degrees elevation, 45 degrees azimuth, no perspective. Lighting: soft key upper left, ambient fill, soft AO under objects, long soft shadow to lower right. Material: matte plastic-like blocks with a 1 px lighter top edge, flat colour. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: flat colour per face with 3 tones; almost no noise. Avoid: no text, no letters, no logos, no watermark, no perspective convergence, no photoreal materials, no cluttered micro detail, no text in the image, no tilted verticals.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "orthographic isometric, 35.264 degrees elevation, 45 degrees azimuth, no perspective",
+      "lighting": "soft key upper left, ambient fill, soft AO under objects, long soft shadow to lower right",
+      "material": "matte plastic-like blocks with a 1 px lighter top edge, flat colour",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "flat colour per face with 3 tones; almost no noise",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no perspective convergence",
+        "no photoreal materials",
+        "no cluttered micro detail",
+        "no text in the image",
+        "no tilted verticals"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: matte plastic-like blocks with a 1 px lighter top edge; orthographic isometric; pale sky white, navy ink, orange, teal."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a small isometric data-centre platform with an orange hero package",
+          "action": "conveyor belts carrying teal cubes into a tower",
+          "setting": "a pale sky white ground tile with thin leader lines",
+          "palette": "blueprint-candy",
+          "prompt": "a small isometric data-centre platform with an orange hero package conveyor belts carrying teal cubes into a tower, a pale sky white ground tile with thin leader lines. Camera and lens: orthographic isometric, 35.264 degrees elevation, 45 degrees azimuth, no perspective. Lighting: soft key upper left, ambient fill, soft AO under objects, long soft shadow to lower right. Material: matte plastic-like blocks with a 1 px lighter top edge, flat colour. Colour, locked to the palette pale sky white, navy ink, orange, teal, and nothing outside it. Texture and finish: flat colour per face with 3 tones; almost no noise. Avoid: no text, no letters, no logos, no watermark, no perspective convergence, no photoreal materials, no cluttered micro detail, no text in the image, no tilted verticals."
+        },
+        {
+          "subject": "a mustard warehouse building and cobalt forklifts",
+          "action": "routing parcels along lines of floor tiles",
+          "setting": "a warm paper platform with soft shadow to the lower right",
+          "palette": "blueprint-candy",
+          "prompt": "a mustard warehouse building and cobalt forklifts routing parcels along lines of floor tiles, a warm paper platform with soft shadow to the lower right. Camera and lens: orthographic isometric, 35.264 degrees elevation, 45 degrees azimuth, no perspective. Lighting: soft key upper left, ambient fill, soft AO under objects, long soft shadow to lower right. Material: matte plastic-like blocks with a 1 px lighter top edge, flat colour. Colour, locked to the palette pale sky white, navy ink, orange, teal, and nothing outside it. Texture and finish: flat colour per face with 3 tones; almost no noise. Avoid: no text, no letters, no logos, no watermark, no perspective convergence, no photoreal materials, no cluttered micro detail, no text in the image, no tilted verticals."
+        }
+      ]
+    },
+    "do": [
+      "Stay on one iso angle everywhere",
+      "Draw systems: paths, conveyors, flows between nodes",
+      "Use labelled leader lines (live type) for callouts"
+    ],
+    "dont": [
+      "No perspective cameras",
+      "No mixed tile sizes",
+      "No dense decoration that hides the flow"
+    ],
+    "cheap_ways": [
+      "Generic stack of server boxes with no flow",
+      "Gradient 'glass' cubes",
+      "Random isometric icons floating without a ground"
+    ]
+  }
 }

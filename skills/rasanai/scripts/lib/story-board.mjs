@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { die, readJSON, writeFile, esc, chromeScreenshot } from "./common.mjs";
-import { styleOf, composition, moveName, COMP_CSS } from "./story-visuals.mjs";
+import { styleOf, composition, moveName, COMP_CSS, fontLinks } from "./story-visuals.mjs";
 import { lintConcept, ensureShotIds, moveIdOf, carrierOf } from "./concept-schema.mjs";
 
 const s = (v) => (v == null ? "" : String(v));
@@ -43,7 +43,7 @@ export function boardHtml(concept, o = {}) {
   const rowH = thumbH + 168;
   const headH = 118;
   const height = headH + rows * (rowH + gap) + pad;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+  const html = `<!doctype html><html><head><meta charset="utf-8">${fontLinks(st)}<style>
 html,body{margin:0;background:#101114;color:#e9e9ec;font:500 13px/1.35 -apple-system,'Helvetica Neue',Arial,sans-serif}
 .wrap{width:${W}px;padding:0 ${pad}px;box-sizing:border-box}
 header{height:${headH}px;display:flex;flex-direction:column;justify-content:center;gap:6px}

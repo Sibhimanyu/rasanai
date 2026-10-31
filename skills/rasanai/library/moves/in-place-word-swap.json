@@ -54,5 +54,16 @@
     "proof",
     "close"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.inPlaceWordSwap",
+    "example": "RasanMoves.inPlaceWordSwap(tl, 0.3, { target: stage, prefix: 'Built to be', words: ['fast', 'safe', 'yours'] });",
+    "params": [
+      "words",
+      "every",
+      "prefix",
+      "suffix"
+    ]
+  }
 }

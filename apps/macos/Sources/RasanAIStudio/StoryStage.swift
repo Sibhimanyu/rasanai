@@ -14,7 +14,14 @@ struct StoryStage: View {
     @Environment(\.agentName) private var agent
 
     private var payload: JSONValue { model.payload(step) }
-    private var scripts: [StoryScript] { payload["stories"].array.enumerated().map { StoryScript($1, index: $0) } }
+    private var scripts: [StoryScript] {
+        let boards = StoryBoard.parse(payload: payload)
+        return payload["stories"].array.enumerated().map { index, json in
+            var script = StoryScript(json, index: index)
+            script.board = boards[script.id]
+            return script
+        }
+    }
     private var recommendedID: String? { payload["recommended"].identifier }
     private var current: StoryScript? {
         let all = scripts
@@ -92,7 +99,7 @@ struct StoryStage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     storyList(all)
-                    StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: true)
+                    StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: true, step: step)
                         .id(current.id)
                         .workspacePanel()
                 }
@@ -109,7 +116,7 @@ struct StoryStage: View {
 
     private func detailScroll(_ current: StoryScript, showRationale: Bool) -> some View {
         ScrollView {
-            StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: showRationale)
+            StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: showRationale, step: step)
                 .id(current.id)
         }
         // The panel holds still; only the script scrolls inside it.
@@ -204,12 +211,14 @@ private struct StoryDetail: View {
     let script: StoryScript
     let isRecommended: Bool
     var showRationale = true
+    var step = "story"
     @State private var showBeats = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 26) {
             header
             if let aim = script.aim { facts(aim) }
+            if let board = script.board { StoryBoardView(board: board, step: step) }
             if !script.moves.isEmpty { StoryMoves(script: script) }
             if !script.beats.isEmpty { timeline }
             if showRationale { StoryRationale(script: script) }
@@ -703,6 +712,8 @@ private struct StoryScript: Identifiable {
     var tempoLine: String?
     var carrier: String?
     var moves: [StoryMove]
+    /// The concept's shot plan as a story board (`boards[]` in the payload); nil on older payloads.
+    var board: StoryBoard?
     var beats: [StoryBeat]
     var storyline: StoryLineInfo?
     /// What the card's headline says: the takeaway, or for older payloads the logline, then why.

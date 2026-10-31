@@ -95,8 +95,8 @@ export async function launch({ width = 1920, height = 1080, scale = 1, timeoutMs
       if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text || "evaluation failed");
       return r.result ? r.result.value : undefined;
     },
-    async screenshot({ clip, format = "png", quality } = {}) {
-      const r = await S("Page.captureScreenshot", { format, ...(format === "jpeg" && quality ? { quality } : {}), ...(clip ? { clip: { ...clip, scale: 1 } } : {}), captureBeyondViewport: false });
+    async screenshot({ clip, format = "png", quality, beyond = false } = {}) {
+      const r = await S("Page.captureScreenshot", { format, ...(format === "jpeg" && quality ? { quality } : {}), ...(clip ? { clip: { ...clip, scale: 1 } } : {}), captureBeyondViewport: !!beyond });
       return Buffer.from(r.data, "base64");
     },
     async close() {

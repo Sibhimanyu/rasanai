@@ -54,5 +54,16 @@
     "open",
     "middle"
   ],
-  "needs": []
+  "needs": [],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.floatingCardField",
+    "example": "RasanMoves.floatingCardField(tl, 0.2, { target: stage, caption: 'Everything, everywhere', images: [photo, photo2, photo3] });",
+    "params": [
+      "count",
+      "images",
+      "caption",
+      "flyOut"
+    ]
+  }
 }

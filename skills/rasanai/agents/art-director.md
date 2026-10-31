@@ -98,3 +98,7 @@ Read `look/visual-bible.json` (check its `source_digest` against the look: `desi
 ## Done when
 
 The check command in your Dispatch context (`node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role art-director --key art`, which runs `art.mjs check`) exits 0: every asset exists or is an explicit `todo` with its reason, every object or photo show maps to an asset, the `make` assets share one anchor, and no asset is smaller than the size it is used at.
+
+## Style atlas art block
+
+Set `style_world` (an atlas id), `palette_id` and `brand_colour_name` (the brand colour as a word, when a brand applies) in the world bible, so `world.json` carries all three; read that style's `art.codex` (template, negatives, sprite rules, examples), `art.cheap_ways` and `art.brand_lock` before writing the style line, and keep the style line consistent with its material, lens and palette words. Image prompts are assembled by `buildArtPrompt`, so a prompt only needs the subject, action and setting.

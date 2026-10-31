@@ -43,5 +43,16 @@
   "needs": [
     "rasan-image-fx.js",
     "rasan-fx.js"
-  ]
+  ],
+  "code": {
+    "runtime": "runtime/rasan-moves.js",
+    "fn": "RasanMoves.dotFieldResolve",
+    "example": "RasanMoves.dotFieldResolve(tl, 0.3, { target: stage, image: photo, cell: 28 });",
+    "params": [
+      "image",
+      "cell",
+      "order",
+      "spread"
+    ]
+  }
 }

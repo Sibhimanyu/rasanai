@@ -126,5 +126,229 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "default-web",
+        "name": "Default web",
+        "bg": "#FFFFFF",
+        "bg2": "#E6E6E6",
+        "ink": "#000000",
+        "accent": "#0000FF",
+        "accent2": "#FF00FF",
+        "words": "white, black, link blue, magenta"
+      },
+      {
+        "id": "concrete",
+        "name": "Concrete",
+        "bg": "#C9C8C2",
+        "bg2": "#A9A8A0",
+        "ink": "#111111",
+        "accent": "#FF3300",
+        "accent2": "#F5E800",
+        "words": "concrete grey, black, hazard orange-red, yellow"
+      },
+      {
+        "id": "terminal-brut",
+        "name": "Terminal brut",
+        "bg": "#F2F0E6",
+        "bg2": "#DEDACB",
+        "ink": "#141414",
+        "accent": "#00B140",
+        "accent2": "#FF4FA3",
+        "words": "paper beige, black, green, pink"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour appears as one loud default-looking element (link blue, button fill); everything else stays raw and style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "brutalist-1",
+          "display": {
+            "family": "Archivo Black",
+            "google": "https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Courier Prime",
+            "google": "https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Archivo Black', sans-serif",
+            "text": "'Courier Prime', monospace"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 12,
+            "two_words": 9.6,
+            "long": 7.2,
+            "sub_cqw": 4,
+            "caption_cqw": 1.8,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.04em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Heavy grotesk plus Courier, no tracking tricks."
+        },
+        {
+          "id": "brutalist-2",
+          "display": {
+            "family": "Tinos",
+            "google": "https://fonts.googleapis.com/css2?family=Tinos:ital,wght@0,400;0,700;1,700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Space Mono",
+            "google": "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Tinos', serif",
+            "text": "'Space Mono', monospace"
+          },
+          "case": "mixed",
+          "weight": 700,
+          "scale": {
+            "hero_cqw": 10,
+            "two_words": 8,
+            "long": 6,
+            "sub_cqw": 3.5,
+            "caption_cqw": 1.7,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "-0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Times-class serif at an uncomfortable size, underlined links."
+        }
+      ],
+      "default": "brutalist-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "dither",
+          "params": {
+            "levels": 2,
+            "size": 2,
+            "mono": 1,
+            "dark": "#000000",
+            "light": "#FFFFFF",
+            "bayer": 4
+          },
+          "role": "1-bit dither on images"
+        }
+      ],
+      "css": [
+        "hard-shadow"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "raw browser-default layout: stacked boxes, 2 px solid borders, overlapping on purpose",
+      "safe_area": "no safe area; elements bleed and collide",
+      "fill": "busy: fills 90%; the claim is the largest thing",
+      "product_ui": "UI is pasted in raw, in a 2 px black border, offset hard shadow; never polished"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: flat screen capture of a raw web page; no perspective. Lighting: none. Material: raw HTML: default fonts, hard borders, 1-bit images. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: none; images are 1-bit dithered. Avoid: no text, no letters, no logos, no watermark, no polish, no gradients, no rounded corners, no soft shadows, no glassmorphism, no tasteful whitespace.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "flat screen capture of a raw web page; no perspective",
+      "lighting": "none",
+      "material": "raw HTML: default fonts, hard borders, 1-bit images",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "none; images are 1-bit dithered",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no polish",
+        "no gradients",
+        "no rounded corners",
+        "no soft shadows",
+        "no glassmorphism",
+        "no tasteful whitespace"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: raw HTML: default fonts; flat screen capture of a raw web page; no perspective; white, black, link blue, magenta."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a raw HTML page with a huge black heavy headline and a blue underlined link",
+          "action": "a 1-bit dithered photo of a hand overlapping the headline",
+          "setting": "white page, 2 px black borders, a magenta button, hard offset shadow",
+          "palette": "default-web",
+          "prompt": "a raw HTML page with a huge black heavy headline and a blue underlined link a 1-bit dithered photo of a hand overlapping the headline, white page, 2 px black borders, a magenta button, hard offset shadow. Camera and lens: flat screen capture of a raw web page; no perspective. Lighting: none. Material: raw HTML: default fonts, hard borders, 1-bit images. Colour, locked to the palette white, black, link blue, magenta, and nothing outside it. Texture and finish: none; images are 1-bit dithered. Avoid: no text, no letters, no logos, no watermark, no polish, no gradients, no rounded corners, no soft shadows, no glassmorphism, no tasteful whitespace."
+        },
+        {
+          "subject": "a concrete-grey poster with orange-red hazard stripes",
+          "action": "a Courier caption stamped crooked",
+          "setting": "no gradients, no rounded corners, harsh print look",
+          "palette": "default-web",
+          "prompt": "a concrete-grey poster with orange-red hazard stripes a Courier caption stamped crooked, no gradients, no rounded corners, harsh print look. Camera and lens: flat screen capture of a raw web page; no perspective. Lighting: none. Material: raw HTML: default fonts, hard borders, 1-bit images. Colour, locked to the palette white, black, link blue, magenta, and nothing outside it. Texture and finish: none; images are 1-bit dithered. Avoid: no text, no letters, no logos, no watermark, no polish, no gradients, no rounded corners, no soft shadows, no glassmorphism, no tasteful whitespace."
+        }
+      ]
+    },
+    "do": [
+      "Break the layout on purpose: overlap, collide, clip",
+      "Use default system choices as the aesthetic (link blue, Times)",
+      "Cut hard, no easing"
+    ],
+    "dont": [
+      "No polish: no soft shadows, no gradients, no rounded corners",
+      "No pastel palette",
+      "No elegant motion"
+    ],
+    "cheap_ways": [
+      "Neo-brutalist SaaS card with a 4 px border and a pastel fill (it is a trend template)",
+      "Random chaos with no one dominant element",
+      "Nice easing and subtle motion"
+    ]
+  }
 }

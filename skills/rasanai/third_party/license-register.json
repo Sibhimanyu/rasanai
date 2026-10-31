@@ -377,6 +377,18 @@
       "status": "cleared",
       "scope": "downloaded on demand by art.mjs cutout --object into a local cache, never vendored; RMBG-1.4 and RMBG-2.0 are non-commercial and are not used",
       "checked_at": "2026-10-31"
+    },
+    {
+      "id": "earshot",
+      "kind": "plugin",
+      "name": "earshot (sound bank, sheet and technical checks), optional subprocess in its own venv",
+      "version": "main (0.4.0)",
+      "licence_spdx": "MIT",
+      "licence_file": "https://github.com/Leonxlnx/earshot/blob/main/LICENSE",
+      "holder": "Leonxlnx",
+      "status": "not_bundled",
+      "scope": "not vendored or shipped: installed by the user with sound.mjs earshot-setup and run as a subprocess; critique verdict never used as a gate",
+      "checked_at": "2026-10-31"
     }
   ]
 }

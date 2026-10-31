@@ -117,5 +117,226 @@
       "link_status": "unverified-from-memory"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "comic-day",
+        "name": "Comic day",
+        "bg": "#FFF4D6",
+        "bg2": "#FFE08A",
+        "ink": "#1B1530",
+        "accent": "#FF4D4D",
+        "accent2": "#2D9CFF",
+        "words": "cream yellow, ink-black outline, comic red, sky blue"
+      },
+      {
+        "id": "hero-night",
+        "name": "Hero night",
+        "bg": "#1B1542",
+        "bg2": "#2C2268",
+        "ink": "#FFF6E3",
+        "accent": "#FFB703",
+        "accent2": "#FB5607",
+        "words": "deep indigo, cream, gold, orange"
+      },
+      {
+        "id": "mint-cel",
+        "name": "Mint cel",
+        "bg": "#DFF7EB",
+        "bg2": "#B4E9D0",
+        "ink": "#12302A",
+        "accent": "#FF6B6B",
+        "accent2": "#FFD166",
+        "words": "mint, forest ink, coral, yellow"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is the hero object's cel colour (with its own 2-step shade); rim light and outline stay style-fixed. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "toon-3d-1",
+          "display": {
+            "family": "Lilita One",
+            "google": "https://fonts.googleapis.com/css2?family=Lilita+One&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Rubik",
+            "google": "https://fonts.googleapis.com/css2?family=Rubik:wght@400..700&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Lilita One', sans-serif",
+            "text": "'Rubik', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 3.6,
+            "caption_cqw": 1.7,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.01em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Bold italic comic display (skew -8deg) with a 0.1em black outline."
+        },
+        {
+          "id": "toon-3d-2",
+          "display": {
+            "family": "Bangers",
+            "google": "https://fonts.googleapis.com/css2?family=Bangers&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Rubik",
+            "google": "https://fonts.googleapis.com/css2?family=Rubik:wght@400..600&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Bangers', sans-serif",
+            "text": "'Rubik', sans-serif"
+          },
+          "case": "upper",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 11,
+            "two_words": 8.8,
+            "long": 6.6,
+            "sub_cqw": 3.6,
+            "caption_cqw": 1.7,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.03em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Comic caps."
+        }
+      ],
+      "default": "toon-3d-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "posterise",
+          "params": {
+            "steps": 3,
+            "mode": 0,
+            "contrast": 1.1
+          },
+          "role": "cel banding"
+        }
+      ],
+      "css": [
+        "outline-text",
+        "m-burst"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "dynamic low-angle hero framing, Dutch tilt 6-10 degrees, speed lines; backgrounds simple",
+      "safe_area": "8% margin; hero overlaps the lower third",
+      "fill": "hero 55-70% of height",
+      "product_ui": "UI appears on a toon device with a thick outline, or as a screen with the same outline"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 28 mm wide low-angle hero shot with slight Dutch tilt. Lighting: hard key from upper right, 2-step cel shading, a bright rim light, no soft shadow. Material: cel-shaded matte surfaces with a uniform 3 px black outline, ink-line creases, flat shadow shapes. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: flat bands; optional halftone in the shadow shape. Avoid: no text, no letters, no logos, no watermark, no soft gradients, no photoreal materials, no thin outlines, no ambient occlusion, no text.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "28 mm wide low-angle hero shot with slight Dutch tilt",
+      "lighting": "hard key from upper right, 2-step cel shading, a bright rim light, no soft shadow",
+      "material": "cel-shaded matte surfaces with a uniform 3 px black outline, ink-line creases, flat shadow shapes",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "flat bands; optional halftone in the shadow shape",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no soft gradients",
+        "no photoreal materials",
+        "no thin outlines",
+        "no ambient occlusion",
+        "no text"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: cel-shaded matte surfaces with a uniform 3 px black outline; 28 mm wide low-angle hero shot with slight Dutch tilt; cream yellow, ink-black outline, comic red, sky blue."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a stocky robot hero in comic red with a yellow chest panel",
+          "action": "leaping toward the camera with speed lines",
+          "setting": "a mint cel-shaded rooftop at dusk, flat shadow shapes",
+          "palette": "comic-day",
+          "prompt": "a stocky robot hero in comic red with a yellow chest panel leaping toward the camera with speed lines, a mint cel-shaded rooftop at dusk, flat shadow shapes. Camera and lens: 28 mm wide low-angle hero shot with slight Dutch tilt. Lighting: hard key from upper right, 2-step cel shading, a bright rim light, no soft shadow. Material: cel-shaded matte surfaces with a uniform 3 px black outline, ink-line creases, flat shadow shapes. Colour, locked to the palette cream yellow, ink-black outline, comic red, sky blue, and nothing outside it. Texture and finish: flat bands; optional halftone in the shadow shape. Avoid: no text, no letters, no logos, no watermark, no soft gradients, no photoreal materials, no thin outlines, no ambient occlusion, no text."
+        },
+        {
+          "subject": "a hero fox in a gold cape",
+          "action": "landing on one knee",
+          "setting": "a deep indigo skyline, bright orange rim light from behind",
+          "palette": "comic-day",
+          "prompt": "a hero fox in a gold cape landing on one knee, a deep indigo skyline, bright orange rim light from behind. Camera and lens: 28 mm wide low-angle hero shot with slight Dutch tilt. Lighting: hard key from upper right, 2-step cel shading, a bright rim light, no soft shadow. Material: cel-shaded matte surfaces with a uniform 3 px black outline, ink-line creases, flat shadow shapes. Colour, locked to the palette cream yellow, ink-black outline, comic red, sky blue, and nothing outside it. Texture and finish: flat bands; optional halftone in the shadow shape. Avoid: no text, no letters, no logos, no watermark, no soft gradients, no photoreal materials, no thin outlines, no ambient occlusion, no text."
+        }
+      ]
+    },
+    "do": [
+      "Use 2 shading steps and a rim light, nothing softer",
+      "Keep outline width constant at a given size",
+      "Frame low-angle and tilted for heroism"
+    ],
+    "dont": [
+      "No smooth gradient shading",
+      "No thin or varying outlines",
+      "No realistic textures"
+    ],
+    "cheap_ways": [
+      "Default Blender toon shader with grey shading",
+      "Outline too thin to survive downscale",
+      "Timid camera at eye level"
+    ]
+  }
 }

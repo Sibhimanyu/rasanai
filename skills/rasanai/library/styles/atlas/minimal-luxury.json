@@ -127,5 +127,228 @@
       "link_status": "in-repo-or-text-only"
     }
   ],
-  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI.",
+  "art": {
+    "format": "style-art@1",
+    "palettes": [
+      {
+        "id": "bone-and-stone",
+        "name": "Bone and stone",
+        "bg": "#EDE8DF",
+        "bg2": "#DDD6C7",
+        "ink": "#1C1A17",
+        "accent": "#B08D57",
+        "accent2": "#8C857A",
+        "words": "bone, warm black, brushed brass, stone grey"
+      },
+      {
+        "id": "midnight",
+        "name": "Midnight",
+        "bg": "#0D0E10",
+        "bg2": "#18191D",
+        "ink": "#E9E4D8",
+        "accent": "#C9A96A",
+        "accent2": "#7D7A72",
+        "words": "near-black, ivory, champagne gold, smoke"
+      },
+      {
+        "id": "sage-quiet",
+        "name": "Sage quiet",
+        "bg": "#E3E6DC",
+        "bg2": "#CED3C4",
+        "ink": "#1E241E",
+        "accent": "#7A8F6A",
+        "accent2": "#9A9A90",
+        "words": "pale sage, deep green-black, moss, grey"
+      }
+    ],
+    "brand_lock": {
+      "slots": {
+        "bg": "style",
+        "bg2": "style",
+        "ink": "style",
+        "accent": "brand",
+        "accent2": "style"
+      },
+      "rule": "Brand colour is used once per film at small scale (a dot, an underline, the product); never as a background wash. Slots marked brand take the brand colour (exact hex); slots marked style keep the palette value; brand-or-style takes the brand colour only when its contrast against the other slot is at least 4.5:1, else the palette value."
+    },
+    "type": {
+      "pairings": [
+        {
+          "id": "minimal-luxury-1",
+          "display": {
+            "family": "Cormorant Garamond",
+            "google": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@300..500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Cormorant Garamond', serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "sentence",
+          "weight": 400,
+          "scale": {
+            "hero_cqw": 7,
+            "two_words": 5.6,
+            "long": 4.2,
+            "sub_cqw": 2.6,
+            "caption_cqw": 1.3,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.02em",
+            "sub": "0",
+            "caption": "0"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Thin serif set small with generous leading; wide-tracked small caps for labels."
+        },
+        {
+          "id": "minimal-luxury-2",
+          "display": {
+            "family": "Inter Tight",
+            "google": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200..400&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "text": {
+            "family": "Inter",
+            "google": "https://fonts.googleapis.com/css2?family=Inter:wght@300..500&display=swap",
+            "license": "OFL (Google Fonts)"
+          },
+          "css": {
+            "display": "'Inter Tight', sans-serif",
+            "text": "'Inter', sans-serif"
+          },
+          "case": "upper",
+          "weight": 300,
+          "scale": {
+            "hero_cqw": 5.5,
+            "two_words": 4.4,
+            "long": 3.3,
+            "sub_cqw": 2.2,
+            "caption_cqw": 1.2,
+            "note": "cqw = 1% of the frame width (1080p: 1cqw = 19.2 px)"
+          },
+          "tracking": {
+            "hero": "0.3em",
+            "sub": "0",
+            "caption": "0.06em"
+          },
+          "line_height": {
+            "hero": 0.95,
+            "text": 1.35
+          },
+          "note": "Light grotesk with extreme tracking."
+        }
+      ],
+      "default": "minimal-luxury-1",
+      "load": "In a HyperFrames composition add the two <link> tags from `google` to <head> (plus rel=preconnect to fonts.googleapis.com and fonts.gstatic.com), set font-family from `css`, and wait for document.fonts.ready before the first screenshot / timeline build. Offline renders: download the families once (they are OFL) into the project's fonts/ folder and use @font-face. The brand face always sets the real claim line and the product UI text; the style pairing is for the world's chrome and display.",
+      "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text. Under a brand lock keep the brand face for the claim and use the pairing's display for labels only."
+    },
+    "finish": {
+      "passes": [
+        {
+          "pass": "grain",
+          "params": {
+            "size": 1.6,
+            "strength": 0.05,
+            "mono": 1
+          },
+          "role": "almost invisible film grain"
+        }
+      ],
+      "css": [
+        "grain:0.05",
+        "m-lux"
+      ],
+      "how": "Runtime: RasanFX.create({ source, passes: [...] }) from runtime/rasan-fx.js, applied in the listed order, on the whole composition canvas or on the Codex plate only (plate-only when the type must stay crisp). `css` lists the cheap approximation kinds story boards and style frames draw with plain CSS (grain:<opacity>, scan:<opacity>, halftone, pixel, led-dots ...)."
+    },
+    "composition": {
+      "grid": "huge margins, one object, a single line of type; golden-ratio placement",
+      "safe_area": "14% margin; type at one baseline in the lower left",
+      "fill": "object 25-35% of frame; the rest is empty",
+      "product_ui": "UI is a single refined panel with a hairline border and a 24 px radius; no device frame"
+    },
+    "codex": {
+      "template": "{subject} {action}, {setting}. Camera and lens: 100 mm macro, f/5.6, eye level, perfectly still, slow 2% push-in. Lighting: one large soft source from the side, long soft shadow, no fill. Material: brushed brass, linen, stone, matte ceramic, thick paper. Colour, locked to the palette {palette_words}, and nothing outside it. Texture and finish: fine stone and linen texture only; no noise. Avoid: no text, no letters, no logos, no watermark, no clutter, no more than one object, no gradient backgrounds, no sparkles, no text, no logos, no saturated colour.",
+      "slots": [
+        "subject",
+        "action",
+        "setting",
+        "palette_words"
+      ],
+      "camera": "100 mm macro, f/5.6, eye level, perfectly still, slow 2% push-in",
+      "lighting": "one large soft source from the side, long soft shadow, no fill",
+      "material": "brushed brass, linen, stone, matte ceramic, thick paper",
+      "colour_rule": "Name the palette's colours in words (the palette's `words`), never hex codes; add 'and nothing outside this palette'. Pick one palette per film and keep it.",
+      "texture": "fine stone and linen texture only; no noise",
+      "negatives": [
+        "no text",
+        "no letters",
+        "no logos",
+        "no watermark",
+        "no clutter",
+        "no more than one object",
+        "no gradient backgrounds",
+        "no sparkles",
+        "no text",
+        "no logos",
+        "no saturated colour"
+      ],
+      "aspect": {
+        "default": "16:9",
+        "vertical": "9:16",
+        "sprite": "1:1",
+        "note": "Plates: ask for about 12% bleed around the frame so the camera can travel; keep the calm side empty for type. Generate 16:9 for the frame, 1:1 for sprite sheets and objects."
+      },
+      "consistency": {
+        "anchor": "Make the anchor plate first, approve it by eye, then pass it as --ref to every other image (imagegen batch does this with --world).",
+        "style_line": "Append the world bible's style line (30-45 words, no hex) to every prompt.",
+        "seed_words": "Keep these words verbatim in every prompt of the film: brushed brass; 100 mm macro; bone, warm black, brushed brass, stone grey."
+      },
+      "sprite_sheet": {
+        "use": false,
+        "rules": "Not a sprite style. For a cut-out object or character use --transparent (flat #00FF00 key, then despill); one subject, no shadow plane."
+      },
+      "examples": [
+        {
+          "subject": "a single brushed brass key",
+          "action": "resting on a linen-wrapped stone slab",
+          "setting": "a bone-coloured empty room, soft side light, long shadow",
+          "palette": "bone-and-stone",
+          "prompt": "a single brushed brass key resting on a linen-wrapped stone slab, a bone-coloured empty room, soft side light, long shadow. Camera and lens: 100 mm macro, f/5.6, eye level, perfectly still, slow 2% push-in. Lighting: one large soft source from the side, long soft shadow, no fill. Material: brushed brass, linen, stone, matte ceramic, thick paper. Colour, locked to the palette bone, warm black, brushed brass, stone grey, and nothing outside it. Texture and finish: fine stone and linen texture only; no noise. Avoid: no text, no letters, no logos, no watermark, no clutter, no more than one object, no gradient backgrounds, no sparkles, no text, no logos, no saturated colour."
+        },
+        {
+          "subject": "a matte black ceramic bottle",
+          "action": "a drop of light sliding down its shoulder",
+          "setting": "a midnight surface with a faint champagne-gold edge light",
+          "palette": "bone-and-stone",
+          "prompt": "a matte black ceramic bottle a drop of light sliding down its shoulder, a midnight surface with a faint champagne-gold edge light. Camera and lens: 100 mm macro, f/5.6, eye level, perfectly still, slow 2% push-in. Lighting: one large soft source from the side, long soft shadow, no fill. Material: brushed brass, linen, stone, matte ceramic, thick paper. Colour, locked to the palette bone, warm black, brushed brass, stone grey, and nothing outside it. Texture and finish: fine stone and linen texture only; no noise. Avoid: no text, no letters, no logos, no watermark, no clutter, no more than one object, no gradient backgrounds, no sparkles, no text, no logos, no saturated colour."
+        }
+      ]
+    },
+    "do": [
+      "Cut things until only one remains",
+      "Move slowly, with long holds (3-5 s)",
+      "Use 1 accent used once"
+    ],
+    "dont": [
+      "No more than 2 colours plus neutrals",
+      "No fast cuts",
+      "No decorative effects"
+    ],
+    "cheap_ways": [
+      "Gold gradient text on black",
+      "Stock luxury perfume shot with fake sparkles",
+      "Thin type too small to read on mobile"
+    ]
+  }
 }

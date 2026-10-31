@@ -10,7 +10,7 @@ Product truth (`references/product-first.md`): the claim and the real product ar
 
 - the brief (length, kind, aspect, the literal sentence), `story/truth.md` (claim, claim scope, use moments), `research/claims.json` (the only facts you may state), `research/BRIEFING.md`, `research/screens.md` (the real UI and its words), `research/brand/DESIGN.md` when there is a brand
 - `story/picks.json`: the full device menu (all 70, ranked by fit; none is banned) and the open shape list (product shapes plus `world`, `journey`, `game`, `myth`, `format-hijack`, `type-poem`, `character`)
-- the style atlas `library/styles/atlas/` (`style_world` is an atlas id from `index.json`; `style` is optional and filled from the atlas when you leave it out), the move library `library/moves/` (pick `move` ids from it), `references/product-first.md` (product truth: the claim and the real product unmistakable, the form open), `references/concept-development.md`, `references/story.md`
+- the style atlas `library/styles/atlas/` (`style_world` is an atlas id from `index.json`; `style` is optional and filled from the atlas when you leave it out;a concept may also set `style.palette_id`, `style.pairing_id` and `brand.colour` (a hex or name): `resolveStyle` in `scripts/lib/concept-schema.mjs` resolves them from the atlas style's `art` block (palette, type pairing, brand-colour lock), the concept's own values winning slot by slot.), the move library `library/moves/` (pick `move` ids from it), `references/product-first.md` (product truth: the claim and the real product unmistakable, the form open), `references/concept-development.md`, `references/story.md`
 
 ## What your lane means
 
@@ -20,6 +20,11 @@ Product truth (`references/product-first.md`): the claim and the real product ar
 4. Only then write the claim and where the real product lands inside that world.
 5. Shapes you will often reach for: `world`, `journey`, `type-poem`, `format-hijack`, `montage`. Not only these.
 6. Each of your 4+ ideas uses a **different** style world. Two ideas in the same material are one idea.
+
+## Reference films (only when the Dispatch context has `reference_films`)
+
+The user named films they love. Each was measured and read by the reference analyst: `refs/summary.json` (the shared rules and per-film targets) and `refs/<id>/breakdown.md` (shots, carrier, story, image use, nearest style world, sound, what to take, what not to copy). Aim your shot lengths, hook, carrier habit and sound mode at the targets (not at one film), and say in each concept which reference lesson it uses and which it deliberately does not (`reference_lesson`, one line; leave it out when the run has no references).
+**References inform, never copy.** Take principles, never pictures: no frame, sound, line of copy, logo, exact type or palette of a reference goes into the film, and two concepts must not share one reference's idea. The product's own truth still decides the idea.
 
 ## How to work (high effort)
 
