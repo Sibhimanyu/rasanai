@@ -2,11 +2,28 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.26.4 (build 71) — 2026-10-28
+
+- Film titles are cleaned for you instead of rejected: slashes and colons become " - ", odd characters drop out, and a title that is already taken gets " 2", " 3".
+- Error alerts now offer only buttons that fix that error: Resume Director and Show Log appear for director problems, and plain guidance messages just say OK.
+- The feedback report window no longer flickers open and closed over and over.
+- **Bundles RasanAI 1.31.0.**
+
+## 0.26.3 (build 70) — 2026-10-28
+
+- The sidebar has more room, and the Ask Rasan conversation panel now uses a solid background to keep messages readable.
+- Recovery messages avoid showing generic stop diagnostics in place of the guidance for the situation.
+- Final review uses a more compact crew header to leave more room for the film.
+- Media badges fit narrow status bars more cleanly without the extra proxy explanation.
+- **Bundles RasanAI 1.31.0.**
+
+
+## 0.26.2 (build 69) — 2026-10-28
 
 - **Pause really stops the film.** Pause used to freeze the director in place, so Studio kept treating a paused film as running: it blocked starting another film, and it came back as running after a restart. Pause now ends the director cleanly. Nothing keeps running, Studio is free for another film, and Resume picks up where the film left off. Films that an older build left frozen are stopped the same way when Studio opens.
 - Pause is always in the bottom bar while a film is being made, including while Film progress is open and while it waits for you. Resume takes its place once the film is paused. The ••• menu item and ⌘. still work.
 - Home, New film, the queue and opening films now use the same check for whether a film is running, so they agree with each other.
+- **Bundles RasanAI 1.31.0.**
 
 ## 0.26.1 (build 68) — 2026-10-28
 

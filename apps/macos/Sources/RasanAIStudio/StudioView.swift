@@ -178,7 +178,7 @@ struct StudioView: View {
             ForEach(errorActions) { action in
                 Button(action.title) { store.errorMessage = nil; action.run() }
             }
-            Button("Dismiss", role: .cancel) { store.errorMessage = nil }
+            Button(errorActions.isEmpty ? "OK" : "Dismiss", role: .cancel) { store.errorMessage = nil }
         } message: { if !errorText.detail.isEmpty { Text(errorText.detail) } }
     }
 
@@ -197,9 +197,11 @@ struct StudioView: View {
     private var errorActions: [ErrorAction] {
         var actions: [ErrorAction] = []
         if errorNeedsSettings(store.errorMessage) { actions.append(ErrorAction(title: "Open Settings") { store.openSettingsPage() }) }
-        if store.runURL != nil && !store.isConnected { actions.append(ErrorAction(title: "Reload film") { store.reloadFilm() }) }
-        if store.canResume { actions.append(ErrorAction(title: "Resume Director") { store.resumeDirector() }) }
-        if store.runtime.logURL != nil { actions.append(ErrorAction(title: "Show Log") { store.sheet = .log }) }
+        if store.runURL != nil && !store.isConnected && errorIsAboutConnection(store.errorMessage) { actions.append(ErrorAction(title: "Reload film") { store.reloadFilm() }) }
+        if errorIsAboutDirectorRun(store.errorMessage) {
+            if store.canResume { actions.append(ErrorAction(title: "Resume Director") { store.resumeDirector() }) }
+            if store.runtime.logURL != nil { actions.append(ErrorAction(title: "Show Log") { store.sheet = .log }) }
+        }
         return Array(actions.prefix(2))
     }
 
@@ -212,10 +214,31 @@ struct StudioView: View {
 
 /// True when the message is about the director, its tools or the library folder, where Settings is the fix.
 func errorNeedsSettings(_ message: String?) -> Bool {
-    guard let text = message?.lowercased() else { return false }
+    guard let text = message?.lowercased(), !errorIsGuidance(message) else { return false }
     // "Stop the director before switching films" is about the running film, not a setting.
     if text.contains("switching films") { return false }
     return ["director", "executable", "node", "sign in", "signed in", "sign-in", "log in", "login", "library", "project folder", "claude", "codex"].contains { text.contains($0) }
+}
+
+/// Plain guidance ("wait", "stop", "remove from the queue", file operations): nothing to fix with a button, only OK.
+func errorIsGuidance(_ message: String?) -> Bool {
+    guard let text = message?.lowercased() else { return false }
+    return ["wait for", "wait a moment", "stop the director", "pause this film", "remove this film", "before switching", "file operation",
+            "already queued", "already has a run", "create or open a project", "choose a project", "resume this film through the queue",
+            "folder is not readable"].contains { text.contains($0) }
+}
+
+/// The director stopped, failed or ended a run, where Resume Director and the log help.
+func errorIsAboutDirectorRun(_ message: String?) -> Bool {
+    guard let text = message?.lowercased(), !errorIsGuidance(message) else { return false }
+    return ["director stopped", "director failed", "director ended", "director exited", "run failed", "run stopped", "run ended",
+            "stopped unexpectedly", "exited", "crashed", "could not finish", "did not finish", "stopped before", "failed"].contains { text.contains($0) }
+}
+
+/// The film's connection to the console dropped.
+func errorIsAboutConnection(_ message: String?) -> Bool {
+    guard let text = message?.lowercased(), !errorIsGuidance(message) else { return false }
+    return ["connection", "console", "connect", "could not open this run", "reload"].contains { text.contains($0) }
 }
 
 /// The launch: the window opens on a splash, the RasanAI mark drawing itself over the frosted window, then the name.
