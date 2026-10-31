@@ -2,13 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.27.0 (build 72) — 2026-10-31
 
 - **Story boards.** Every story option shows its full board: each shot with its words, move, carrier and transition, plus chips for style world, carrier, signature moment and sound. You can leave a note on a single shot.
 - **Style frames review.** See each concept's three hero frames with the juror's verdict, then approve them or ask for a rework.
 - **Reference films in setup.** Drop in files, pick them, or paste links to films you love.
 - **Taste.** A quick "How did it turn out?" rating after the final, and a new **Your taste** section in Settings that shows what RasanAI has learned, where you can forget any item.
 - Primary buttons stay on one line.
+- **Bundles RasanAI 1.32.0.**
 
 ## 0.26.4 (build 71) — 2026-10-28
 
