@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.27.0 beta 1</title>
+      <pubDate>Sat, 31 Oct 2026 09:34:15 GMT</pubDate>
+      <description><![CDATA[<ul><li><b>Story boards.</b> Every story option shows its full board: each shot with its words, move, carrier and transition, plus chips for style world, carrier, signature moment and sound. You can leave a note on a single shot.</li><li><b>Style frames review.</b> See each concept's three hero frames with the juror's verdict, then approve them or ask for a rework.</li><li><b>Reference films in setup.</b> Drop in files, pick them, or paste links to films you love.</li><li><b>Taste.</b> A quick "How did it turn out?" rating after the final, and a new <b>Your taste</b> section in Settings that shows what RasanAI has learned, where you can forget any item.</li><li>Primary buttons stay on one line.</li></ul>]]></description>
+      <sparkle:version>72</sparkle:version>
+      <sparkle:shortVersionString>0.27.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.27.0-beta.1/RasanAI-Studio-0.27.0.dmg" sparkle:edSignature="vmM2QiLHfsSK2O1n6NctGe1BxyjcD0xys7jPw1+W5jgDbwoS57JoUTIwgGs4t7UzbUlK1p2Brf3+0Kra7eRMBQ==" length="98102126" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.26.4 beta 1</title>
       <pubDate>Wed, 28 Oct 2026 10:32:37 GMT</pubDate>
       <description><![CDATA[<ul><li>Film titles are cleaned for you instead of rejected: slashes and colons become " - ", odd characters drop out, and a title that is already taken gets " 2", " 3".</li><li>Error alerts now offer only buttons that fix that error: Resume Director and Show Log appear for director problems, and plain guidance messages just say OK.</li><li>The feedback report window no longer flickers open and closed over and over.</li></ul>]]></description>
