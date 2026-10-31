@@ -121,7 +121,7 @@ struct MomentViewer: View {
                 }
                 .aspectRatio(16.0 / 9.0, contentMode: .fit)
                 .contentShape(Rectangle()).onTapGesture { player.toggle() }
-                controls
+                controls(moment)
             }
             .frame(minWidth: 520)
             Divider()
@@ -145,7 +145,7 @@ struct MomentViewer: View {
         .accessibilityLabel("Move viewer: \(moment.name)")
     }
 
-    private var controls: some View {
+    private func controls(_ moment: Moment) -> some View {
         HStack(spacing: 12) {
             Button { player.toggle() } label: { Image(systemName: player.isPlaying ? "pause.fill" : "play.fill").frame(width: 18) }
                 .buttonStyle(.plain).help(player.isPlaying ? "Pause (Space)" : "Play (Space)")
@@ -154,9 +154,9 @@ struct MomentViewer: View {
                    in: 0...max(player.duration, 0.1), onEditingChanged: { editing in if !editing { player.scrub(to: player.time, editing: false) } })
                 .controlSize(.small).accessibilityLabel("Scrub")
             Text(String(format: "%.1f / %.1f s", player.time, player.duration)).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
-            if player.hasAudio == false {
-                Label("No sound in this clip", systemImage: "speaker.slash").font(.system(size: 11)).foregroundStyle(.secondary)
-                    .help("This reference clip was published without a sound track")
+            if moment.hasSound == false || player.hasAudio == false {
+                Label(moment.hasSound == false ? "The original has no sound" : "This clip has no sound", systemImage: "speaker.slash").font(.system(size: 11)).foregroundStyle(.secondary)
+                    .help(moment.hasSound == false ? "The original post has no sound either" : "This reference clip was published without a sound track")
             } else {
                 Button { player.muted.toggle() } label: { Image(systemName: player.muted ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 18) }
                     .buttonStyle(.plain).help(player.muted ? "Sound off. Click to turn it on" : "Sound on. Click to mute")

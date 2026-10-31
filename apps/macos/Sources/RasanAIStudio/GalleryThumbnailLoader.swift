@@ -22,7 +22,8 @@ actor GalleryThumbnailLoader {
         configuration.timeoutIntervalForResource = 30
         return URLSession(configuration: configuration)
     }()
-    private let images = NSCache<NSString, NSImage>()
+    /// NSCache is thread-safe, so cells read it synchronously (no empty frame, no actor hop) when they scroll back into view.
+    nonisolated(unsafe) private let images = NSCache<NSString, NSImage>()
     private var pending: [Request: Pending] = [:]
     private let load: @Sendable (Request) async -> NSImage?
 
@@ -33,8 +34,12 @@ actor GalleryThumbnailLoader {
         return await PosterThumbnailCache.shared.image(at: file, maxPixels: request.maxPixels)
     }) {
         self.load = load
-        images.countLimit = 128
-        images.totalCostLimit = 48 * 1024 * 1024
+        images.countLimit = 400
+        images.totalCostLimit = 96 * 1024 * 1024
+    }
+
+    nonisolated func cachedImage(for request: Request) -> NSImage? {
+        request.url.isFileURL ? nil : images.object(forKey: request.key)
     }
 
     func image(for request: Request) async -> NSImage? {
@@ -62,8 +67,7 @@ actor GalleryThumbnailLoader {
         if pending[request]?.generation == generation {
             pending[request] = nil
             if let result, !worker.isCancelled, !request.url.isFileURL {
-                let side = min(request.maxPixels, max(result.size.width, result.size.height))
-                images.setObject(result, forKey: request.key, cost: Int(side * side * 4))
+                images.setObject(result, forKey: request.key, cost: Int(result.size.width * result.size.height * 4))
             }
         }
         return Task.isCancelled ? nil : result

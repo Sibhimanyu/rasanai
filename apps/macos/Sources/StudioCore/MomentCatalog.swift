@@ -40,11 +40,13 @@ public struct Moment: Identifiable, Equatable, Hashable, Sendable {
     public var added: String?
     public var isNew: Bool
     public var featured: Bool
+    /// Whether the clip plays with sound: true for our audio recuts, false when the original post is silent too, nil when unknown.
+    public var hasSound: Bool?
 
     public init(id: String, name: String, role: MomentRole? = nil, mechanic: [String] = [], swapSlot: [String] = [], why: String = "", duration: Double = 0,
-                clipURL: URL, stillURL: URL, creator: MomentCreator? = nil, added: String? = nil, isNew: Bool = false, featured: Bool = false) {
+                clipURL: URL, stillURL: URL, creator: MomentCreator? = nil, added: String? = nil, isNew: Bool = false, featured: Bool = false, hasSound: Bool? = nil) {
         self.id = id; self.name = name; self.role = role; self.mechanic = mechanic; self.swapSlot = swapSlot; self.why = why; self.duration = duration
-        self.clipURL = clipURL; self.stillURL = stillURL; self.creator = creator; self.added = added; self.isNew = isNew; self.featured = featured
+        self.clipURL = clipURL; self.stillURL = stillURL; self.creator = creator; self.added = added; self.isNew = isNew; self.featured = featured; self.hasSound = hasSound
     }
     /// "By OpusClip", or nil when nobody is credited.
     public var creditLine: String? { creator.map { "By \($0.displayName)" } }
@@ -128,6 +130,8 @@ public struct MomentSelection: Equatable, Sendable {
 
 public enum MomentCatalog {
     public static let manifestURL = URL(string: "https://static.heygen.ai/hyperframes-oss/desktop/moments/v3/manifest.json")!
+    /// Our recuts of the clips with their original sound (a GitHub release); HeyGen's clips stay the fallback.
+    public static let audioOverlayURL = URL(string: "https://github.com/Sibhimanyu/rasanai/releases/download/moments-audio-v1/moments-audio.json")!
     /// Without a newness signal in the manifest, the newest this many rows (by manifest order) count as new.
     static let fallbackNewCount = 12
     /// Rows added within this many days of the newest row count as new.
@@ -198,6 +202,36 @@ public enum MomentCatalog {
         }.map(\.element)
     }
 
+    /// Applies the audio overlay: recut clips replace the HeyGen file and are marked as having sound; `silent` ids are marked
+    /// as having none. Unreadable or unexpected data changes nothing.
+    public static func applyOverlay(_ data: Data?, to moments: [Moment]) -> [Moment] {
+        guard let data, let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return moments }
+        let base = (root["base"] as? String).flatMap { URL(string: $0) } ?? audioOverlayURL.deletingLastPathComponent()
+        let clips = root["clips"] as? [String: Any] ?? [:]
+        let silent = Set(strings(root["silent"]))
+        return moments.map { moment in
+            var moment = moment
+            if let file = clips[moment.id] as? String, let url = resolve(file, base: base), url.scheme?.lowercased() != "file" {
+                moment.clipURL = url; moment.hasSound = true
+            } else if silent.contains(moment.id) {
+                moment.hasSound = false
+            }
+            return moment
+        }
+    }
+    private static func readOverlay(in directory: URL) -> Data? { try? Data(contentsOf: directory.appendingPathComponent("moments-audio.json")) }
+    /// Fetches the overlay; any failure returns nil (the gallery must work without it).
+    private static func fetchOverlay(session: URLSession, url: URL, cacheDirectory: URL) async -> Data? {
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        guard let (data, response) = try? await session.data(for: request),
+              (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true,
+              (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else { return nil }
+        try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        try? data.write(to: cacheDirectory.appendingPathComponent("moments-audio.json"), options: .atomic)
+        return data
+    }
+
     private static func strings(_ value: Any?) -> [String] { (value as? [Any])?.compactMap { $0 as? String } ?? [] }
     /// Paths in the manifest are relative to the manifest URL; only http(s) and file URLs are accepted.
     static func resolve(_ path: String, base: URL) -> URL? {
@@ -220,12 +254,14 @@ public enum MomentCatalog {
 
     /// The saved manifest, parsed. Empty when nothing is saved yet.
     public static func loadCached(in directory: URL = defaultCacheDirectory) -> [Moment] {
-        (try? Data(contentsOf: directory.appendingPathComponent("manifest.json"))).map { parse($0) } ?? []
+        (try? Data(contentsOf: directory.appendingPathComponent("manifest.json"))).map { applyOverlay(readOverlay(in: directory), to: parse($0)) } ?? []
     }
     /// Fetches the manifest (about 100 KB) and saves it for offline use. When the network fails, falls back to the saved copy;
     /// throws only when there is nothing to show.
-    public static func load(session: URLSession = .shared, url: URL = manifestURL, cacheDirectory: URL = defaultCacheDirectory) async throws -> Loaded {
+    public static func load(session: URLSession = .shared, url: URL = manifestURL, cacheDirectory: URL = defaultCacheDirectory,
+                            overlayURL: URL? = audioOverlayURL) async throws -> Loaded {
         do {
+            async let fetchedOverlay: Data? = overlayURL == nil ? nil : fetchOverlay(session: session, url: overlayURL!, cacheDirectory: cacheDirectory)
             var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             let (data, response) = try await session.data(for: request)
@@ -234,7 +270,8 @@ public enum MomentCatalog {
             guard !moments.isEmpty else { throw URLError(.cannotParseResponse) }
             try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
             try? data.write(to: cacheDirectory.appendingPathComponent("manifest.json"), options: .atomic)
-            return Loaded(moments: moments, source: .network)
+            let overlay = await fetchedOverlay ?? readOverlay(in: cacheDirectory)
+            return Loaded(moments: applyOverlay(overlay, to: moments), source: .network)
         } catch {
             let cached = loadCached(in: cacheDirectory)
             if !cached.isEmpty { return Loaded(moments: cached, source: .cache) }

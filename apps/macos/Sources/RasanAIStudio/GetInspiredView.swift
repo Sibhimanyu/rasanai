@@ -23,9 +23,10 @@ struct MomentStill: View {
         let request = GalleryThumbnailLoader.Request(url: url, maxPixels: maxPixels)
         ZStack {
             Color.primary.opacity(0.06)
-            if let image { Image(nsImage: image).resizable().scaledToFill() }
+            if let shown = image ?? GalleryThumbnailLoader.shared.cachedImage(for: request) { Image(nsImage: shown).resizable().scaledToFill() }
         }
         .task(id: request) {
+            if GalleryThumbnailLoader.shared.cachedImage(for: request) != nil { return }
             let loaded = await GalleryThumbnailLoader.shared.image(for: request)
             guard !Task.isCancelled else { return }
             image = loaded
@@ -74,7 +75,20 @@ private struct ClipPlayerView: NSViewRepresentable {
             playerLayer.opacity = 1
             CATransaction.commit()
         }
-        func stop() { readiness = nil; player.pause(); looper.disableLooping() }
+        func stop() {
+            readiness = nil; player.pause(); looper.disableLooping()
+            player.removeAllItems(); player.replaceCurrentItem(with: nil)
+            playerLayer.player = nil; playerLayer.removeFromSuperlayer()
+        }
+    }
+}
+
+/// Reads `playingID` here, not in the card, so a hover starting re-renders one small view instead of every visible card.
+private struct MomentClipOverlay: View {
+    let gallery: MomentGallery
+    let moment: Moment
+    var body: some View {
+        if gallery.playingID == moment.id { ClipPlayerView(url: moment.clipURL) }
     }
 }
 
@@ -90,8 +104,6 @@ struct MomentCard: View {
     let onToggle: () -> Void
     let onOpen: () -> Void
     @State private var hovering = false
-
-    private var playing: Bool { gallery.playingID == moment.id }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -126,7 +138,7 @@ struct MomentCard: View {
     private var media: some View {
         Color.clear.aspectRatio(16.0 / 9.0, contentMode: .fit)
             .overlay { MomentStill(url: moment.stillURL) }
-            .overlay { if playing { ClipPlayerView(url: moment.clipURL) } }
+            .overlay { MomentClipOverlay(gallery: gallery, moment: moment) }
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 5) {
                     if moment.isNew { pill("New", tint: true) }
@@ -143,13 +155,13 @@ struct MomentCard: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) {
-                if moment.duration > 0 { pill(String(format: "%.1f s", moment.duration)).padding(8) }
+                if moment.duration > 0 { pill(String(format: "%.1f s", moment.duration), silent: moment.hasSound == false).padding(8) }
             }
             .clipped()
     }
 
-    private func pill(_ text: String, tint: Bool = false) -> some View {
-        Text(text).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(tint ? Color.black : Color.white.opacity(0.95))
+    private func pill(_ text: String, tint: Bool = false, silent: Bool = false) -> some View {
+        (silent ? Text("\(text) ") + Text(Image(systemName: "speaker.slash.fill")) : Text(text)).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(tint ? Color.black : Color.white.opacity(0.95))
             .padding(.horizontal, 7).padding(.vertical, 3)
             .background { Capsule().fill(tint ? Color.white.opacity(0.92) : Color.black.opacity(0.5)) }
     }
@@ -286,7 +298,7 @@ struct GetInspiredView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
                 if let pageTitle { PageTitle(text: pageTitle) } else { Text("Inspiration").font(.system(size: 20, weight: .bold)) }
-                Text("Real motion from real launch films. Click one to watch it big, with sound. Add up to four to your moves, and RasanAI reuses how each one moves with your own content.")
+                Text("Real motion from real launch films. Click one to watch it big. Add up to four to your moves, and RasanAI reuses how each one moves with your own content.")
                     .font(.system(size: 13.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 16)

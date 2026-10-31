@@ -9,15 +9,15 @@ import StudioCore
 final class MomentGallery {
     enum State: Equatable { case idle, loading, ready, failed }
 
-    var moments: [Moment] = []
+    var moments: [Moment] = [] { didSet { refilter() } }
     var state: State = .idle
     /// True while the list on screen is the saved copy because the network was unreachable.
     var showingSavedCopy = false
     private(set) var isRefreshing = false
-    var technique: Technique?
-    var mechanic: String?
-    var onlyNew = false
-    var searchQuery = ""
+    var technique: Technique? { didSet { refilter() } }
+    var mechanic: String? { didSet { refilter() } }
+    var onlyNew = false { didSet { refilter() } }
+    var searchQuery = "" { didSet { refilter() } }
     /// The one card that is playing its clip right now.
     private(set) var playingID: String?
 
@@ -93,9 +93,11 @@ final class MomentGallery {
 
     // MARK: Filters
 
-    var filtered: [Moment] {
+    /// Kept up to date when the moments, filters or search change, so scrolling never re-filters.
+    private(set) var filtered: [Moment] = []
+    private func refilter() {
         let terms = searchQuery.split(whereSeparator: \.isWhitespace).map(String.init)
-        return moments.filter { moment in
+        filtered = moments.filter { moment in
             (technique == nil || moment.techniques.contains(technique!)) && (mechanic == nil || moment.mechanic.contains(mechanic!)) && (!onlyNew || moment.isNew)
                 && terms.allSatisfy { moment.searchText.localizedStandardContains($0) }
         }
