@@ -49,12 +49,29 @@ export function install(root) {
   return { dir: dst, version: runtimeVersion(), updated, contract: !!c, scripts: ["assets/rasan-motion/rasan-motion.js"] };
 }
 
+// the style-world runtimes (post-process shaders, image fx, world mediums, type-only): copied verbatim to <project>/assets/rasan-world/
+// (load each after GSAP, relative to the composition: ../../assets/rasan-world/<file>). medium-pixel.js rides along: medium-pixel-world.js needs it first.
+export const WORLD_RUNTIMES = ["rasan-fx.js", "rasan-image-fx.js", "medium-pixel.js", "medium-pixel-world.js", "medium-retro-os.js", "medium-sticker.js", "rasan-type-only.js"];
+export function installWorld(root) {
+  const dst = path.join(root, "assets", "rasan-world");
+  fs.mkdirSync(dst, { recursive: true });
+  const files = [];
+  for (const n of WORLD_RUNTIMES) {
+    const src = path.join(path.dirname(RUNTIME_FILE), n);
+    if (!fs.existsSync(src)) continue;
+    const body = fs.readFileSync(src), f = path.join(dst, n);
+    if (!fs.existsSync(f) || !fs.readFileSync(f).equals(body)) fs.writeFileSync(f, body);
+    files.push(`assets/rasan-world/${n}`);
+  }
+  return { dir: dst, scripts: files };
+}
+
 export function collect(project) {
   const out = [];
   (function walk(d, depth) {
     if (depth > 6) return;
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {
-      if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "rasan-motion" || e.name === "renders") continue;
+      if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "rasan-motion" || e.name === "rasan-world" || e.name === "renders") continue;
       const p = path.join(d, e.name);
       if (e.isDirectory()) walk(p, depth + 1);
       else if (/\.(html?|js|mjs)$/i.test(e.name) && !/^(gsap|rasan3d|rasan-music|rasan-shape|rasan-camera|three|flubber)/.test(e.name)) out.push(p);

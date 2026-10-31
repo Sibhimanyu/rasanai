@@ -722,7 +722,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       try { r = JSON.parse(node("story.mjs", ["pick", "--truth", ptruth, ...(rc ? ["--recent", rc] : [])]).stdout); } catch {}
       (r.menu || []).forEach((x) => seen.add(x.id));
     }
-    ok("product-first: the menu for a launch film never offers a conceit device (museum, metaphor, cover version, invented world...) across 4 rotations", seen.size >= 6 && ![...seen].some((id) => CONCEIT.has(id)), [...seen].join(","));
+    ok("product truth: the menu for a launch film offers the metaphor, world and character devices too (the conceit ban is gone) across 4 rotations", seen.size >= 6 && [...seen].some((id) => CONCEIT.has(id)), [...seen].join(","));
     const conc = node("story.mjs", ["pick", "--truth", ptruth, "--seed", "a", "--allow-conceit"]);
     ok("product-first: --allow-conceit lifts the filter (brand films, or when the user asks for a concept)", conc.status === 0 && !/"product_first": true/.test(conc.stdout));
     // the house 30 s shape (references/launch-film.md, Tempo): hook + product, promise, hero, four uses, payoff, end card = 7 ideas
@@ -741,7 +741,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     const good7 = pf({});
     ok("product-first: G7 passes a product-led pitch (UI in beat 1, hero moment, uses, end line)", good7.g7.pass === true, good7.g7.reasons.join(" | ") + good7.out.slice(0, 300));
     const museum = pf({ title: "The Museum of the Detour", device: "museum-exhibit", logline: "A gallery of abandoned tasks under glass." });
-    ok("product-first: G7 fails a conceit device and museum/gallery wording", museum.g7.pass === false && /conceit device/.test(museum.g7.reasons.join(" ")) && /conceit word/.test(museum.g7.reasons.join(" ")), museum.g7.reasons.join(" | "));
+    ok("product truth: G7 no longer refuses a device or word for being a conceit (the product and claim still have to be on screen)", !/conceit device/.test(museum.g7.reasons.join(" ")) && !/conceit word/.test(museum.g7.reasons.join(" ")), museum.g7.reasons.join(" | "));
     const late = pf({}, ["hero_moment", "uses"]);
     ok("product-first: G7 requires a hero moment and 2 to 4 real uses", late.g7.pass === false && /hero_moment/.test(late.g7.reasons.join(" ")) && /uses/.test(late.g7.reasons.join(" ")), late.g7.reasons.join(" | "));
     const noui = pf({ beats: [{ name: "Open", on_screen: "Time passes.", visual: "A calendar flips through the year", duration_s: 5 }, { name: "Hero", on_screen: "One shortcut.", visual: "The real Lintel window, Apply suggestion", duration_s: 8, value: true }, { name: "Use", on_screen: "Every diff.", visual: "diffs", duration_s: 6 }, { name: "Turn", on_screen: "Done.", visual: "the thread resolves", duration_s: 5, turn: true }, { name: "End", on_screen: "Get Lintel", visual: "CTA", duration_s: 5 }] });
@@ -1065,21 +1065,21 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     const SK = path.join(HERE, "..");
     const rd = (f) => { try { return fs.readFileSync(path.join(SK, f), "utf8"); } catch { return ""; } };
     const pfmd = rd("references/product-first.md");
-    ok("lint: references/product-first.md carries the rules (3 s, hero moment, 2-4 uses, end line largest, no conceits, fidelity, brand lock, concept gate)", ["within 3 s", "hero product moment", "One feature, one scenario", "2 to 4 real steps", "largest type", "museums", "cover versions", "faithfully recreated", "Brand lock", "concept gate", "clearest product story", "first_watch"].every((k) => pfmd.includes(k)), pfmd ? "missing phrase" : "file missing");
+    ok("lint: references/product-first.md carries the product-truth rules (3 s, end line largest, fidelity, brand lock, concept gate)", ["within 3 s", "largest type", "faithfully recreated", "Brand lock", "concept gate", "first_watch"].every((k) => pfmd.includes(k)), pfmd ? "missing phrase" : "file missing");
     // the skill is split into progressive guides: the phrases below live in SKILL.md and the references/workflows guides together
     const wfDir = path.join(SK, "references", "workflows");
     const wfAll = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? wfAll(path.join(d, e.name)) : e.name.endsWith(".md") ? [fs.readFileSync(path.join(d, e.name), "utf8")] : []));
     const skill = rd("SKILL.md") + "\n" + wfAll(wfDir).join("\n");
     ok("lint: SKILL.md and its guides state the product-first rule, the brand lock, the concept gate and not ending a turn with background work running", ["Launch, promo and product films are product-first", "Brand lock.", "Concept gate before the expensive work", "Never end a turn while your own background work is running", "console.mjs wait"].every((k) => skill.includes(k)) && /brand step ALWAYS runs/.test(skill) && /use_brand/.test(skill));
     const sw = rd("agents/script-writer.md"), se = rd("agents/script-editor.md"), cc = rd("agents/concept-critic.md"), ds = rd("agents/design-system-designer.md");
-    ok("lint: the writers', editor's, concept critic's and design desk's prompts carry the product-first and brand-lock rules", /product_first/.test(sw) && /hero_moment/.test(sw) && /clearest product story/.test(se) && /first_watch/.test(se) && ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"].every((k) => cc.includes(k)) && /brand_lock/.test(ds) && /composition, layout, motion language and density only/.test(ds));
+    ok("lint: the writers', editor's, concept critic's and design desk's prompts carry the product-first and brand-lock rules", /product_first/.test(sw) && /hero_moment/.test(sw) && /first_watch/.test(se) && ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"].every((k) => cc.includes(k)) && /brand_lock/.test(ds));
     // the brand-faithful launch pipeline is written into the skill, the design desk, the story references and the agents
     {
       const bfm = rd("references/brand-film.md"), dd = rd("references/design-desk.md"), st = rd("references/story.md"), sc = rd("references/script.md"), cr = rd("references/crew.md");
       const an = rd("agents/brand-film-analyst.md"), md = rd("agents/motion-director.md"), cr2 = rd("agents/critic.md"), fr = rd("agents/frame-designer.md");
       ok("lint: SKILL.md and its guides carry the brand-faithful launch pipeline (research with brandfilm.mjs and the analyst, grammar not outside references, simple story, style-match gate on frames and draft, motion obeys the brand)", ["Brand-faithful launch films", "brandfilm.mjs", "brand film analyst", "FILM-STYLE.md", "brandfilm.mjs compare", "after the key frames AND after the first draft render", "Paula Scher", "PRIMARY source", "flat card", "no film found"].every((k) => skill.includes(k)) && /about 3 minutes on Fast pace/.test(skill) && /at most 2 official films/.test(skill), "SKILL.md");
       ok("lint: references/brand-film.md has the pipeline and the OpenAI worked example (what went wrong, what the card says)", ["find", "fetch", "frames", "measure", "card", "compare", "OpenAI", "Bodoni", "77%", "gallery green", "Paula Scher", "dE 4.1", "primary", "Fast"].every((k) => bfm.includes(k)), "brand-film.md");
-      ok("lint: the design desk reference forbids outside references for a branded film and names the FILM-STYLE citation", /film_style/.test(dd) && /Paula Scher/.test(dd) && /unbranded films only/.test(dd) && /film_style_takes/.test(dd));
+      ok("lint: the design desk reference allows library references on looks B and C of a branded film and names the FILM-STYLE citation", /film_style/.test(dd) && /not a refusal on B and C/.test(dd) && /film_style_takes/.test(dd));
       ok("lint: the story references carry the launch-film structure (hook in 1 to 3 s, reveal, demos, payoff, end card; scripts differ in emphasis and order only)", /launch-film\.md/.test(st) && /launch-film\.md/.test(sc) && /emphasis and order/.test(st) && /emphasis and order/.test(sc) && /payoff_line/.test(st) && /1 to 3 s/.test(sc));
       ok("lint: the crew reference lists the brand film analyst and the style gate", /brand-film-analyst/.test(cr) && /brandfilm\.mjs compare/.test(cr));
       ok("lint: the analyst, Motion Director, critic and frame designer prompts carry the brand film rules", /type scale/.test(an) && /Substitute/.test(an) && /contact sheets/.test(an) && /FILM-STYLE\.md` FIRST/.test(md) && /never means no 3D or hybrid scenes: it means flat-style 3D/.test(md) && /style_match/.test(cr2) && /brandfilm\.mjs" compare|brandfilm\.mjs\" compare/.test(cr2 + fr), "agents");
@@ -2306,7 +2306,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   bad("a chain that stops 4 s before the end (chain-gap)", (o) => { o.chain = o.chain.map((e, i) => ({ ...e, t: i + 0.5 })); }, /chain-gap/);
   bad("no chain at all", (o) => { delete o.chain; }, /chain-sparse/);
   ok("moves: a hero at scale detail and a mostly-detail set only warn", (() => { const o = clone(good); o.cards[1].scale = "detail"; o.cards[2].scale = "detail"; o.cards[3].scale = "detail"; const r = validateMoves(o, { beats: pitch.beats }); return !r.errors.length && r.warnings.some((w) => /hero m2: scale is "detail"/.test(w)) && r.warnings.some((w) => /more than half/.test(w)); })());
-  bad("a product-first card with a conceit word", (o) => { o.cards[4].move = "the badge is hung in a museum case and falls out of its frame"; }, /conceit word "museum"/, ["--product-first"]);
+  { const o = clone(good); o.cards[4].move = "the badge is hung in a museum case and falls out of its frame"; const f = path.join(TMP, "moves-museum.json"); wj(f, o); const r = M(["check", "--file", f, "--pitch", PITCH, "--product-first"]); ok("moves: a metaphor word (museum) is no longer an error (product truth, not product-first)", !(J(r).errors || []).some((e) => /conceit word/.test(e)), r.stdout.slice(0, 300)); }
   bad("a hero card without a plain line", (o) => { delete o.cards[0].plain; }, /hero m1: missing plain/);
   bad("a hero plain line over 140 characters", (o) => { o.cards[0].plain = "The dot grows ".repeat(12); }, /hero m1: plain is \d+ characters/);
   bad("a hero plain line with a timing", (o) => { o.cards[0].plain = "At 7.0 to 7.3 the dot turns into the button"; }, /hero m1: plain has a timing/);

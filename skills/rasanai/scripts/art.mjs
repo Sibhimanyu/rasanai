@@ -13,6 +13,23 @@
 //   node art.mjs cutout --in a.png --out b.png [--tol 40] [--pad 0]
 //        background removal: `npx hyperframes remove-background` (u2net) when it works, else a flood-fill from the edges on a plain
 //        ground (RASANAI_CUTOUT=flood skips the tool); trimmed to its content.
+//        --object: a GENERAL object / background matte instead (any subject: products, animals, buildings, people) with BiRefNet lite
+//        (MIT, ONNX, onnxruntime-node; ~224 MB, downloaded on demand into ~/.cache/rasanai/models). [--matte-out m.png] [--no-trim]
+//   node art.mjs depth --in a.png --out depth.png [--bits 8|16] [--size 518] [--flip]
+//        a depth map (white = near) with Depth Anything V2 Small (Apache-2.0, ONNX, onnxruntime-node; ~99 MB, downloaded on demand).
+//        Bake it once; runtime/rasan-image-fx.js reads it for depth parallax. Never run at render time.
+//   node art.mjs plates --in a.png [--depth d.png] [--out dir] [--splits 0.4,0.7] [--feather 3] [--grow 6]
+//        a depth split into far / mid / near RGBA layers (dir/far.png, mid.png, near.png, plates.json): every layer behind another has
+//        the nearer content inpainted away (push-pull fill), so a camera move never shows a hole. Stack them with translate/scale at
+//        the `parallax` factors in plates.json (far 0, near 1), or let rasan-image-fx.js do depth parallax on the whole picture.
+//   node art.mjs mockup --in a.png --template billboard|poster-wall|phone|laptop|bus-shelter --out m.png [--size 1920x1080] [--fit cover|contain]
+//        [--grain 0.012] [--parts]       corner-pin a picture onto a built-in procedural template with the light matched; writes m.png and m.json
+//        (the quad, in pixels and in 0..1, for the live corner-pin in rasan-image-fx.js); --parts also writes m.back.png and m.over.png
+//        (the scene under and the glass/frame over the picture, to layer it live).  --list prints the templates.
+//        Your own plate (a generated "blank hoarding"): --bg plate.png --corners "x,y,x,y,x,y,x,y" (TL TR BR BL, plate pixels) [--over o.png] [--aspect 1.78]
+//   node art.mjs world init|check|make|lock --run R      the world bible (art/world.json, lib/world-bible.mjs): anchor, 30-45 word style line, sheets, palette,
+//        used_by per image. `check` is the reuse gate (conditional: 3+ uses per image and more than 6 images are warnings, zero photos is valid, no still static > 1.2 s is an error); `make` generates the anchor first,
+//        then the sheets, then the rest with the anchor as --ref (imagegen.mjs batch --world), then bakes each image's `derive` (depth, plates, cutout).
 //   node art.mjs treat --in a.png --out b.png --op gradient-map|duotone|halftone|dither|pixelate|xray|grade [--colors c1,c2,..] [--cell N]
 //        gradient-map also takes [--dither L] (grey levels of seeded noise before the ramp: no banding) [--grain 0.01] [--seed N]
 //   node art.mjs treat --in a.png --out b.png --halftone-collage [--card #f6f1e4] [--ink #1b1a18] [--cell N] [--keyline px] [--tilt deg] [--shadow 0.32]
@@ -42,6 +59,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "./lib/common.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import * as pngio from "./lib/png-io.mjs";
+import { depthMap, objectMatte } from "./lib/image-ml.mjs";
+import { splitLayers } from "./lib/layers.mjs";
+import { mockup as buildMockup, templateInfo, buildTemplate, TEMPLATE_IDS } from "./lib/mockup.mjs";
+import { loadWorld, checkWorld, batchPlan, skeleton, lockWorld, worldPath } from "./lib/world-bible.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
@@ -795,16 +817,133 @@ function check() {
   const noAnchor = gen.filter((a) => !a.anchor);
   if (noAnchor.length) problems.push(`style-split: ${noAnchor.map((a) => a.id).join(", ")} were generated without the style anchor`);
   if (A.anchor && gen.length > 1 && !byId.has(A.anchor)) warnings.push(`the style anchor ${A.anchor} is not an asset any more`);
+  // the world bible, when the film has one: the reuse gate (conditional; only a still static > 1.2 s is an error)
+  const wf = worldPath(run);
+  if (exists(wf)) { try { const g = checkWorld(loadWorld(wf), { run }); for (const p of g.problems) problems.push(`world: ${p}`); for (const x of g.warnings) warnings.push(`world: ${x}`); } catch (e) { problems.push(`world: ${e.message}`); } }
   const res = { ok: problems.length === 0, assets: P.assets.length, made: byId.size, todo: todoIds.size, problems, warnings };
   out(res);
   if (problems.length) { for (const p of problems) err(`PROBLEM: ${p}`); process.exit(1); }
+}
+
+
+// ------------------------------------------------------------------ depth, object cutout, plates, mockups, world bible
+async function depthCmd() {
+  const inp = abs(str(args.in) || fail("--in <png> required")), outp = abs(str(args.out) || fail("--out <png> required"));
+  const bits = Number(args.bits) === 16 ? 16 : 8, t0 = Date.now();
+  let d; try { d = await depthMap(inp, { size: Number(args.size) || 518, flip: !!args.flip }); } catch (e) { fail(`depth: ${e.message}`, 2); }
+  pngio.writeGrey(outp, d.w, d.h, d.v, bits);
+  out({ ok: true, out: outp, width: d.w, height: d.h, bits, model: d.model, licence: "Apache-2.0", near: "white", seconds: +((Date.now() - t0) / 1000).toFixed(1) });
+}
+async function cutoutObject(inp, outp, { pad = 0, trim = true, matteOut = "" } = {}) {
+  const m = await objectMatte(inp), img = readImage(inp);
+  const o = new Uint8ClampedArray(img.data);
+  for (let i = 0; i < m.v.length; i++) { const a = clamp((m.v[i] - 0.04) / 0.92, 0, 1); o[i * 4 + 3] = Math.round(o[i * 4 + 3] * a); }
+  if (matteOut) pngio.writeGrey(matteOut, m.w, m.h, m.v, 8);
+  const res = { w: img.w, h: img.h, data: o }, t = trim ? trimToContent(res, pad) : res;
+  if (!t) fail("cutout --object: nothing is left after removing the background", 2);
+  writePng(outp, t);
+  return { method: "birefnet-lite", model: m.model, licence: "MIT", ...dims(outp) };
+}
+async function platesCmd() {
+  const inp = abs(str(args.in) || fail("--in <png> required")), dir = abs(str(args.out) || path.join(path.dirname(inp), `${path.basename(inp).replace(/\.[^.]+$/, "")}-plates`));
+  fs.mkdirSync(dir, { recursive: true });
+  const img = pngio.readImage(inp, { maxW: Number(args.max) || 1920, maxH: Number(args.max) || 1920 });
+  let dpath = str(args.depth) ? abs(args.depth) : path.join(dir, "depth.png");
+  if (!str(args.depth)) { const d = await depthMap(inp, {}); pngio.writeGrey(dpath, d.w, d.h, d.v, 8); }
+  const dp = pngio.readPlane(dpath, { w: img.w, h: img.h });
+  const splits = (str(args.splits) || "0.4,0.7").split(",").map(Number).filter((x) => x > 0 && x < 1).sort((a, b) => a - b);
+  const layers = splitLayers(img, { v: dp.v }, { splits, feather: Number(args.feather) || 3, grow: Number(args.grow) || 6, choke: args.choke === undefined ? 1 : Number(args.choke) });
+  const rows = [];
+  for (const L of layers) { const f = path.join(dir, `${L.id}.png`); pngio.writePng(f, { w: img.w, h: img.h, data: L.rgba }); rows.push({ id: L.id, file: path.relative(dir, f), depth_min: L.depth_min, depth_max: L.depth_max, parallax: L.parallax }); }
+  const doc = { source: inp, width: img.w, height: img.h, depth: path.relative(dir, dpath), order: "far to near: stack in this order, same size, same origin", layers: rows, how: "translate each layer by camera * parallax * strength (strength about 2-3% of the width) and scale by 1 + zoom * (0.3 + 0.7 * parallax); the far layer is a full, hole-free plate" };
+  writeJSON(path.join(dir, "plates.json"), doc);
+  out({ ok: true, dir, ...doc });
+}
+const sizeArg = (v) => { const m = String(v || "").match(/^(\d+)x(\d+)$/); return m ? [+m[1], +m[2]] : [1920, 1080]; };
+function mockupCmd() {
+  if (args.list) return out({ ok: true, templates: templateInfo() });
+  const outp = abs(str(args.out) || fail("--out <png> required (a directory with --plate-only)")), [W, H] = sizeArg(args.size);
+  const base = outp.replace(/\.png$/i, "");
+  if (args["plate-only"]) { // the scene without the picture: back.png under, over.png above, and the quad to pin with the live runtime
+    const id = str(args.template) || "billboard", t = buildTemplate(id, W, H);
+    fs.mkdirSync(outp, { recursive: true });
+    pngio.writePng(path.join(outp, "back.png"), t.back); pngio.writePng(path.join(outp, "over.png"), t.over);
+    const doc = { template: id, size: [W, H], quad_px: t.quad.map((p) => p.map((v) => +v.toFixed(1))), quad: t.quad.map((p) => [+(p[0] / W).toFixed(5), +(p[1] / H).toFixed(5)]), aspect: +t.aspect.toFixed(4), radius: t.radius, emissive: t.emissive, files: { back: "back.png", over: "over.png" } };
+    writeJSON(path.join(outp, "mockup.json"), doc); return out({ ok: true, dir: outp, ...doc });
+  }
+  const inp = abs(str(args.in) || fail("--in <png> required"));
+  let corners = null;
+  if (str(args.corners)) { const n = str(args.corners).split(/[,\s]+/).map(Number); if (n.length !== 8 || n.some((v) => !Number.isFinite(v))) fail('--corners needs 8 numbers: "x,y,x,y,x,y,x,y" (top-left, top-right, bottom-right, bottom-left)'); corners = [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]], [n[6], n[7]]]; }
+  const tpl = str(args.template) || "billboard";
+  if (!str(args.bg) && !TEMPLATE_IDS.includes(tpl)) fail(`--template must be one of ${TEMPLATE_IDS.join(", ")}`);
+  let r; try { r = buildMockup(inp, { template: tpl, size: [W, H], bg: str(args.bg) ? abs(args.bg) : null, corners, over: str(args.over) ? abs(args.over) : null, aspect: args.aspect ? Number(args.aspect) : null, radius: args.radius !== undefined ? Number(args.radius) : null, fit: str(args.fit) || "cover", grain: args.grain !== undefined ? Number(args.grain) : 0.012, seed: Number(args.seed) || 1 }); } catch (e) { fail(`mockup: ${e.message}`, 2); }
+  pngio.writePng(outp, r.img);
+  const files = { out: path.basename(outp) };
+  if (args.parts) { pngio.writePng(`${base}.back.png`, r.back); pngio.writePng(`${base}.over.png`, r.over); files.back = path.basename(`${base}.back.png`); files.over = path.basename(`${base}.over.png`); }
+  const doc = { template: str(args.bg) ? "custom" : tpl, size: [W, H], quad_px: r.quad.map((p) => p.map((v) => +v.toFixed(1))), quad: r.quad.map((p) => [+(p[0] / W).toFixed(5), +(p[1] / H).toFixed(5)]), aspect: +r.aspect.toFixed(4), radius: r.radius, emissive: r.emissive, files };
+  writeJSON(`${base}.json`, doc);
+  out({ ok: true, out: outp, ...doc });
+}
+async function worldCmd() {
+  const sub = args._[1], run = runDir(), wf = worldPath(run);
+  if (sub === "init") {
+    if (exists(wf) && !args.force) fail(`${wf} exists (--force to replace it)`);
+    const chosen = jsonMaybe(path.join(run, "story", "chosen.json")), cs = chosen && (Array.isArray(chosen.shots) ? chosen.shots : chosen.concept && Array.isArray(chosen.concept.shots) ? chosen.concept.shots : null), shots = cs ? cs.map((sh, i) => String((sh && sh.id) || `s${String(i + 1).padStart(2, "0")}`)) : chosen && Array.isArray(chosen.beats) ? chosen.beats.map((_, i) => `s${String(i + 1).padStart(2, "0")}`) : []; // the concept's shot ids (s01...), else the beats'
+    writeJSON(wf, skeleton({ name: str(args.name), aspect: str(args.aspect) || "16:9", shots }));
+    return out({ ok: true, world: wf, next: "fill name/place/subject/style_line (30-45 words)/palette/prompts, then `art.mjs world check`, then `art.mjs world make`" });
+  }
+  if (!exists(wf)) fail(`no world bible at ${wf} (art.mjs world init --run <run>)`);
+  const w = loadWorld(wf);
+  if (sub === "check") {
+    const r = checkWorld(w, { run }); out(r);
+    if (!r.ok) { for (const p of r.problems) err(`PROBLEM: ${p}`); process.exit(1); }
+    return;
+  }
+  if (sub === "lock") { writeJSON(wf, lockWorld(w)); return out({ ok: true, hashes: w.hashes }); }
+  if (sub === "make") {
+    const g = checkWorld(w, { run });
+    const blocking = g.problems.filter((p) => /^(style-line|palette|anchor|images|image \S+: (no prompt|no file|role|needs|derive|the prompt))/.test(p));
+    if (blocking.length) { for (const p of blocking) err(`PROBLEM: ${p}`); fail("the world bible is not ready to generate (fix the problems above; reuse/static problems can wait until the shots are planned)", 1); }
+    const ig = imagegenState();
+    if (ig.state !== "ready") { noteDowngrade({ run, what: "image generation", instead: "no world images", why: `${ig.state}: ${ig.reason}`, impact: "the world bible's pictures are not generated" }); return out({ ok: false, imagegen: ig.state, reason: ig.reason, note: "image generation is unavailable: the world images are todos" }); }
+    if (!w.hashes || !w.hashes.anchor) { lockWorld(w); writeJSON(wf, w); }
+    const r = spawnSync(process.execPath, [path.join(HERE, "imagegen.mjs"), "batch", "--world", wf, "--concurrency", str(args.concurrency) || "3", ...(args.force ? ["--force"] : []), ...(str(args.only) ? ["--only", str(args.only)] : [])], { encoding: "utf8", timeout: 3600000, maxBuffer: 64 * 1024 * 1024 });
+    let res = {}; try { res = JSON.parse(r.stdout); } catch { /* none */ }
+    if (r.status !== 0 && !res.done) fail(`world batch failed: ${String(r.stderr).split("\n").filter(Boolean).slice(-3).join(" | ")}`, 2);
+    // bake the derivatives each image asked for
+    const derived = [];
+    for (const im of w.images) {
+      const f = path.resolve(run, im.file); if (!exists(f)) continue;
+      im.derivatives = Array.isArray(im.derivatives) ? im.derivatives : [];
+      const have = (k) => im.derivatives.some((d) => d.kind === k && exists(path.resolve(run, d.file)));
+      const dir = path.join(path.dirname(f), "derived");
+      for (const k of im.derive || []) {
+        if (have(k)) continue;
+        const dst = path.join(dir, `${im.id}.${k === "plates" ? "plates" : k === "depth" ? "depth.png" : "cut.png"}`);
+        const a = k === "depth" ? ["depth", "--in", f, "--out", dst] : k === "cutout" ? ["cutout", "--object", "--in", f, "--out", dst] : ["plates", "--in", f, "--out", dst, ...(have("depth") ? ["--depth", path.resolve(run, im.derivatives.find((d) => d.kind === "depth").file)] : [])];
+        const rr = spawnSync(process.execPath, [path.join(HERE, "art.mjs"), ...a], { encoding: "utf8", timeout: 900000 });
+        if (rr.status === 0) { im.derivatives.push({ kind: k, file: path.relative(run, k === "plates" ? path.join(dst, "plates.json") : dst) }); derived.push(`${im.id}:${k}`); } else err(`NOTE: ${im.id}: ${k} failed (${String(rr.stderr).trim().split("\n").pop().slice(0, 140)})`);
+      }
+    }
+    writeJSON(wf, w);
+    return out({ ok: r.status === 0, made: (res.done || []).map((d) => d.id), skipped: (res.skipped || []).map((d) => d.id), failed: res.failed || [], derived, world: wf });
+  }
+  fail("usage: art.mjs world init|check|make|lock --run <run>");
 }
 
 // ------------------------------------------------------------------ main
 if (cmd === "plan") plan();
 else if (cmd === "make") make();
 else if (cmd === "check") check();
-else if (cmd === "cutout") {
+else if (cmd === "depth") await depthCmd();
+else if (cmd === "plates") await platesCmd();
+else if (cmd === "mockup") mockupCmd();
+else if (cmd === "world") await worldCmd();
+else if (cmd === "cutout" && args.object) {
+  const inp = abs(str(args.in) || fail("--in <png> required")), outp = abs(str(args.out) || fail("--out <png> required"));
+  let r; try { r = await cutoutObject(inp, outp, { pad: Number(args.pad) || 0, trim: !args["no-trim"], matteOut: str(args["matte-out"]) ? abs(args["matte-out"]) : "" }); } catch (e) { fail(`cutout --object: ${e.message}`, 2); }
+  out({ ok: true, out: outp, ...r });
+} else if (cmd === "cutout") {
   const inp = abs(str(args.in) || fail("--in <png> required")), outp = abs(str(args.out) || fail("--out <png> required"));
   out({ ok: true, out: outp, ...cutout(inp, outp, { tol: Number(args.tol) || 40, pad: Number(args.pad) || 0 }) });
 } else if (cmd === "treat" && args["halftone-collage"]) {
@@ -822,4 +961,4 @@ else if (cmd === "cutout") {
   out({ ok: true, out: outp, ...hand(text, outp, { font: str(args.font) || "script", size: Number(args.size) || 120, weight: Number(args.weight) || 0, color: str(args.color) || "#111111", spacing: Number(args.spacing) || 0 }) });
 } else if (cmd === "plate") await plateCmd();
 else if (cmd === "recipe") await plateCmd(true);
-else fail("usage: art.mjs plan|make|cutout|treat|trace|hand|check|plate|recipe … (see the header)");
+else fail("usage: art.mjs plan|make|cutout|depth|plates|mockup|world|treat|trace|hand|check|plate|recipe … (see the header)");

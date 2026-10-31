@@ -34,7 +34,7 @@ const fails = [];
 const ok = (c, m) => { if (!c) fails.push(m); };
 const index = JSON.parse(fs.readFileSync(indexPath, "utf8"));
 ok(JSON.stringify(index) === JSON.stringify(generated), "index.json does not match the recipe exports (run check.mjs --write)");
-ok(Object.keys(mods).length === 6, `expected 6 recipes, found ${Object.keys(mods).length}`);
+ok(Object.keys(mods).length === 8, `expected 8 recipes, found ${Object.keys(mods).length}`);
 
 const ASSETS = { screenshot: "assets/shot.png", logoSvg: "assets/logo.svg", text: "Brand", iconSvg: "assets/icon.svg" };
 for (const [id, m] of Object.entries(mods)) {

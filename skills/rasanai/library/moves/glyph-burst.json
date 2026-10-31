@@ -1,0 +1,49 @@
+{
+  "id": "glyph-burst",
+  "n": 9,
+  "name": "Glyph burst",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 32,
+      "end_s": 33.5,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 0,
+      "end_s": 1,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "A phrase surrounded by / < > * // symbols at random angles, flying in and settling.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js"
+    ],
+    "build": "8-14 spans with seeded rotate and translate, staggered in; centre phrase about 20 px; removed on the beat."
+  },
+  "use_when": "Code, feature or capability beats that need technical density.",
+  "avoid": "Do not use for emotional beats; seed the angles (no Math.random).",
+  "duration_s": {
+    "min": 0.8,
+    "max": 1.5
+  },
+  "easing": "back.out(1.4)",
+  "carriers": [
+    "word-line",
+    "icon-set"
+  ],
+  "beat_roles": [
+    "middle",
+    "proof"
+  ],
+  "needs": []
+}

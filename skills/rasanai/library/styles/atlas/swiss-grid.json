@@ -1,0 +1,119 @@
+{
+  "format": "style-world@1",
+  "id": "swiss-grid",
+  "number": 9,
+  "name": "Swiss / International typographic motion",
+  "look": "strict grid, one grotesk, one signal colour, exact moves; whitespace as structure.",
+  "fits": {
+    "products": [
+      "fintech",
+      "dev infra",
+      "B2B",
+      "anything precise and serious"
+    ],
+    "tones": [
+      "precise",
+      "serious",
+      "calm"
+    ],
+    "notes": "fintech, dev infra, B2B, anything serious and precise. Looks like \"every B2B film\" if executed generically; needs one bold idea"
+  },
+  "avoid": {
+    "products": [
+      "generic execution with no bold idea",
+      "emotion-led stories"
+    ],
+    "tones": [
+      "whimsical"
+    ]
+  },
+  "when_not": [
+    "Avoid for generic execution with no bold idea.",
+    "Avoid for emotion-led stories."
+  ],
+  "type": {
+    "guidance": "Helvetica Now, Neue Haas, Aktiv Grotesk, Söhne",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "Helvetica Now, Neue Haas, Aktiv Grotesk, Söhne; black/white + red or International Orange.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is the single signal colour on black and white",
+    "type_role": "a Swiss grotesk close to the brand face; brand face wins where it is a grotesk",
+    "world_changes": "strict grid, rules that draw, integer-module moves",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "grid-snapping",
+      "masked type reveals",
+      "rule lines that draw",
+      "numeric counters",
+      "strict integer-module moves"
+    ],
+    "grammars": [
+      "editorial-grid",
+      "specimen-sheet"
+    ],
+    "grammars_planned": [
+      "editorial"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [],
+  "effects_note": "No shader finish needed; the style is carried by layout, type and motion.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 0,
+      "max": 1
+    },
+    "prompt_template": "one halftone photograph of {subject}, high contrast, plain background",
+    "animate_with": [],
+    "r1_note": "avoid; maybe one halftone photograph.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "vo-kinetic",
+    "alt_modes": [],
+    "palette": [
+      "metronomic clicks",
+      "minimal electronic",
+      "silence gaps"
+    ]
+  },
+  "build": {
+    "engine": "R/B",
+    "engine_meaning": "reference only (builder hand-codes it) / buildable today",
+    "recipe": "`styles/swiss-motion.md`, `personalities/swiss-precise.json`, `grammars/editorial-grid`, `specimen-sheet`. CSS grid + GSAP expo eases.",
+    "refs": [
+      "styles/swiss-motion.md",
+      "personalities/swiss-precise.json",
+      "grammars/editorial-grid",
+      "specimen-sheet"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Experimental Jetset",
+      "url": "https://www.experimentaljetset.nl",
+      "link_status": "unverified-from-memory"
+    },
+    {
+      "title": "Linear/Vercel/Stripe brand system notes (`systems/studios/linear-vercel-stripe-brand-systems.md`)",
+      "link_status": "in-repo-or-text-only"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

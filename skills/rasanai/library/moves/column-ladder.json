@@ -1,0 +1,43 @@
+{
+  "id": "column-ladder",
+  "n": 32,
+  "name": "Column ladder",
+  "family": "ui",
+  "source": [
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 62,
+      "end_s": 66,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "Comparison columns added one by one (hero column first), then the group tilts and handwritten arrows annotate.",
+  "recipe": {
+    "tech": [
+      "html",
+      "svg",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-ui.js",
+      "rasan-layout.js"
+    ],
+    "build": "Flex columns with stagger; rotateY(-12deg); SVG hand-drawn arrows via stroke-dashoffset."
+  },
+  "use_when": "Pricing, feature comparison, before/after.",
+  "avoid": "Do not use when the numbers are not real.",
+  "duration_s": {
+    "min": 3,
+    "max": 5
+  },
+  "easing": "power3.out",
+  "carriers": [
+    "ui-plane",
+    "card-field"
+  ],
+  "beat_roles": [
+    "proof"
+  ],
+  "needs": []
+}

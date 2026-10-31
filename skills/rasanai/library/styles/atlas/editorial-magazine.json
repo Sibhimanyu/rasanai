@@ -1,0 +1,136 @@
+{
+  "format": "style-world@1",
+  "id": "editorial-magazine",
+  "number": 28,
+  "name": "Editorial magazine / newspaper",
+  "look": "columns, pull quotes, rules, drop caps, serif display, paper stock.",
+  "fits": {
+    "products": [
+      "media",
+      "writing tools",
+      "finance with a point of view",
+      "luxury"
+    ],
+    "tones": [
+      "authoritative",
+      "literate",
+      "calm"
+    ],
+    "notes": "media, writing tools, finance with a point of view, luxury"
+  },
+  "avoid": {
+    "products": [
+      "fast noisy products"
+    ],
+    "tones": [
+      "frantic"
+    ]
+  },
+  "when_not": [
+    "Avoid fast, noisy products."
+  ],
+  "type": {
+    "guidance": "GT Sectra, Canela, Tiempos, Playfair",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "GT Sectra, Canela, Tiempos, Playfair; cream + black + a red; Didone contrast.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is the red of the style: rules, drop caps and highlights on cream",
+    "type_role": "a serif display that sits beside the brand face; the brand face stays on UI and claim",
+    "world_changes": "columns, pull quotes, rules, page turns",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "masked line reveals like ink",
+      "rule sweeps",
+      "page-turn and spread slides",
+      "caption flips",
+      "cropped-photo reveals"
+    ],
+    "grammars": [
+      "editorial-grid"
+    ],
+    "grammars_planned": [
+      "editorial"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "halftone",
+      "params": {
+        "mode": 0,
+        "size": 7,
+        "ink": "#1a1612",
+        "paper": "#f2ecde"
+      },
+      "role": "duotone newsprint on photos"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.06
+      },
+      "role": "paper stock"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 3
+    },
+    "prompt_template": "duotone photograph of {subject} with grain, or an engraved illustration, plain background",
+    "animate_with": [
+      {
+        "id": "A6",
+        "what": "camera on a plate (Ken Burns with grain and vignette)"
+      }
+    ],
+    "r1_note": "duotone photography with grain; engraved illustrations.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "vo-kinetic",
+    "alt_modes": [],
+    "palette": [
+      "paper",
+      "typewriter",
+      "piano or string quartet",
+      "low room tone"
+    ]
+  },
+  "build": {
+    "engine": "B/R",
+    "engine_meaning": "buildable today / reference only (builder hand-codes it)",
+    "recipe": "`grammars/editorial-grid`, `personalities/editorial-mask.json`, `systems/vernacular/newspaper-broadsheet.md`, `studios/the-economist-graphics.md`, `bloomberg-businessweek-turley.md`. CSS columns + clip-path masks.",
+    "refs": [
+      "grammars/editorial-grid",
+      "personalities/editorial-mask.json",
+      "systems/vernacular/newspaper-broadsheet.md",
+      "studios/the-economist-graphics.md",
+      "bloomberg-businessweek-turley.md"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "NYT Upshot / Economist graphics ; Bloomberg Businessweek",
+      "link_status": "in-repo-or-text-only"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

@@ -1,0 +1,52 @@
+{
+  "id": "spectral-silhouette",
+  "n": 23,
+  "name": "Spectral silhouette",
+  "family": "image",
+  "source": [
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 3.5,
+      "end_s": 3.5,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 43.5,
+      "end_s": 45.5,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    }
+  ],
+  "description": "A figure's body filled with the film's palette gradient (orange to blue) with a soft glow.",
+  "recipe": {
+    "tech": [
+      "canvas",
+      "shader",
+      "html"
+    ],
+    "runtime": [
+      "rasan-image-fx.js"
+    ],
+    "build": "Codex prompt of a figure filled with gradient light, long-exposure ghost; or cutout mask + gradient + blur layer."
+  },
+  "use_when": "A heroic action beat.",
+  "avoid": "Do not use for the product claim; one per film.",
+  "duration_s": {
+    "min": 1.5,
+    "max": 3
+  },
+  "easing": "sine.inOut",
+  "carriers": [
+    "palette-dither",
+    "object"
+  ],
+  "beat_roles": [
+    "turn",
+    "middle"
+  ],
+  "needs": [
+    "rasan-image-fx.js"
+  ]
+}

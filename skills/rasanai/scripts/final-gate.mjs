@@ -9,13 +9,16 @@
 // Steps (all on <project>/index.html and the render, never on capture/ pages or a draft):
 //   0 preflight  the planner's files exist (crew/plan.json, policy.json, motion/score.json) and no hand-made plan was logged; the render is not a
 //                draft; no fix round is open (every crew member's latest ledger row is accepted; no fix-brief newer than the render)
-//   1 frame-gate  2 motion-gate (end-hold, saved to <run>/motion/motion-gate.json)  3 slop (the film's index.html)  4 sound check  5 obey
+//   1 frame-gate  2 motion-gate (end-hold, saved to <run>/motion/motion-gate.json)  3 slop (the film's index.html)  4 sound check  5 obey  6 mix-duck (audio/mix.mix.json: duck.measured_db and duck.music_under_vo_lu; no duck is the default and 0 dB passes)
+//   7 text-qa (spell-check of the on-screen words in the film's index.html: doubled words, common typos, malformed contractions, number style; errors block)
+//   8 music-sync (music-map.mjs check: cuts and big visual hits land within 150 ms of music events; a film with no voice needs 50%)
 // Writes <run>/final-gate.json {ok, video, video_sha, steps}; exit 0 pass, 2 blocked. `verifyHandover(run, video)` is what console.mjs push calls.
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { textQa } from "./lib/text-qa.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const jr = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
@@ -109,6 +112,33 @@ export function main(args) {
     // the FINAL index.html is what is checked: a clip mounted there that is not in crew/sfx-plan.json is sfx-unplanned (an error)
     rec("sound-check", run1("sound.mjs", ["check", "--video", video, "--sfx", path.join(project, "index.html"), "--run", run, ...(hasScore ? ["--score", score] : []), ...(args["silent-by-choice"] ? ["--silent-by-choice", String(args["silent-by-choice"])] : [])].filter((x) => x !== undefined)));
     rec("obey", run1("obey.mjs", ["--project", project, "--run", run, "--json"]));
+    // the stem mix's receipt (sound.mjs mix --out <run>/audio/mix.wav writes mix.mix.json): the music must really sit under the voice (references/sound.md: no duck by default; a duck, when one is used for VO intelligibility, is 0 to 9 dB measured)
+    for (const mf of [path.join(run, "audio", "mix.mix.json"), path.join(run, "audio", "final-mix.mix.json")]) {
+      const mj = jr(mf);
+      if (!mj || !mj.duck) continue;
+      const md = mj.duck.measured_db, lu = mj.duck.music_under_vo_lu, bad = [];
+      // no duck is the default (the favourites keep the bed constant): 0 dB passes; only a duck deeper than 9 dB blocks
+      if (typeof md === "number" && (md < 0 || md > 9)) bad.push(`the music ducks ${md} dB under the voice (0 to 9 dB; none is the default)`);
+      if (Number(mj.duck.depth_set_db) > 0 && typeof lu === "number" && (lu < 9 || lu > 15)) bad.push(`the music sits ${lu} LU under the voice (9 to 15 LU)`);
+      steps.push({ step: "mix-duck", ok: !bad.length, file: path.relative(run, mf), measured_db: md ?? null, music_under_vo_lu: lu ?? null });
+      if (bad.length) blocked.push(`mix-duck: ${bad.join("; ")} (${path.relative(run, mf)}): re-mix with sound.mjs mix`);
+    }
+  }
+  // 7 text-qa: the words on screen, from the FINAL index.html (a typo on screen is a defect the person sees on every play)
+  if (project && ex(path.join(project, "index.html"))) {
+    try {
+      const html = fs.readFileSync(path.join(project, "index.html"), "utf8");
+      const brand = String((jr(path.join(run, "brief.json")) || {}).name || (jr(path.join(run, "brief.json")) || {}).product || "");
+      const q = textQa(html, { allow: brand.split(/\W+/).filter(Boolean) });
+      steps.push({ step: "text-qa", ok: q.ok, words: q.words, errors: q.errors.length, warnings: q.warnings.length });
+      if (!q.ok) blocked.push(`text-qa: ${q.errors.slice(0, 6).map((e) => `${e.kind} "${e.word}" (${e.context})`).join("; ")}: fix the words in index.html`);
+    } catch (e) { steps.push({ step: "text-qa", ok: false }); blocked.push(`text-qa: could not run (${String(e.message).slice(0, 120)})`); }
+  }
+  // 8 music-sync: cuts land on music events within 150 ms, measured on the final render
+  if (video && ex(video) && !blocked.some((b) => /^(preflight|--video)/.test(b))) {
+    const ms = run1("music-map.mjs", ["check", "--video", video, "--run", run]);
+    steps.push({ step: "music-sync", ok: ms.code === 0, ...(ms.json ? { measured: ms.json.measured, warnings: ms.json.warnings } : {}) });
+    if (ms.code !== 0) blocked.push(`music-sync: ${ms.json && ms.json.errors && ms.json.errors.length ? ms.json.errors.join("; ") : `could not run (exit ${ms.code}) ${ms.stderr.replace(/\s+/g, " ").slice(-160)}`}`);
   }
   const res = { ok: blocked.length === 0, t: new Date().toISOString(), video: video || null, video_sha: video && ex(video) ? sha(video) : null, project, steps, blocked };
   try { fs.writeFileSync(path.join(run, "final-gate.json"), JSON.stringify(res, null, 2)); } catch {}

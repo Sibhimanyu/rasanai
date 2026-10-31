@@ -1,0 +1,58 @@
+{
+  "id": "word-per-shot-sentence",
+  "n": 4,
+  "name": "Word-per-shot sentence",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 3,
+      "end_s": 5,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    },
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 33,
+      "end_s": 36,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 41,
+      "end_s": 43,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "A sentence builds word by word over footage or a still; one word is italic or a different weight.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js"
+    ],
+    "build": "SplitText words, stagger 0.12-0.2 s, one word font-style:italic; animate the container translateX to keep the line centred as words arrive."
+  },
+  "use_when": "Emotional lines over footage or a plate.",
+  "avoid": "More than 9 words; do not run it over busy UI.",
+  "duration_s": {
+    "min": 1.5,
+    "max": 3
+  },
+  "easing": "power2.out",
+  "carriers": [
+    "word-line",
+    "object",
+    "world-image"
+  ],
+  "beat_roles": [
+    "open",
+    "turn",
+    "close"
+  ],
+  "needs": []
+}

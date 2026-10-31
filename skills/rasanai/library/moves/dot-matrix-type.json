@@ -1,0 +1,46 @@
+{
+  "id": "dot-matrix-type",
+  "n": 11,
+  "name": "Dot-matrix type",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 35,
+      "end_s": 41,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "A heading built from circles (halftone) with coloured blocks sliding through.",
+  "recipe": {
+    "tech": [
+      "canvas",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-fx.js",
+      "rasan-type.js"
+    ],
+    "build": "Canvas: draw text offscreen, sample at 10 px, draw circles with radius = luminance; blocks are gradient rectangles; animate by scrolling the sample offset."
+  },
+  "use_when": "Planning, schedule or sprint ideas; any \"system\" language.",
+  "avoid": "Not for body copy; avoid when the style world is organic or painterly.",
+  "duration_s": {
+    "min": 2,
+    "max": 6
+  },
+  "easing": "linear",
+  "carriers": [
+    "palette-dither",
+    "dot",
+    "word-line"
+  ],
+  "beat_roles": [
+    "middle",
+    "proof"
+  ],
+  "needs": [
+    "rasan-fx.js"
+  ]
+}

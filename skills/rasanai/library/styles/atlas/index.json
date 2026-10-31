@@ -1,0 +1,1225 @@
+{
+  "format": "style-atlas@1",
+  "count": 34,
+  "source": ".context/creative-research/R1-style-atlas.md",
+  "fx_passes": [
+    "glitch",
+    "crt",
+    "halftone",
+    "ledmatrix",
+    "riso",
+    "dither",
+    "pixelate",
+    "aberration",
+    "grain",
+    "posterise"
+  ],
+  "sound_modes": [
+    "vo-kinetic",
+    "instrumental-arc",
+    "sfx-led",
+    "song-lyric"
+  ],
+  "styles": [
+    {
+      "id": "pixel-world",
+      "number": 1,
+      "name": "Pixel art / 8-bit game world",
+      "file": "pixel-world.json",
+      "engine": "B",
+      "fits": [
+        "dev tools",
+        "games",
+        "creative tools",
+        "playful consumer",
+        "anything with levels, quests or unlocks"
+      ],
+      "avoid": [
+        "finance trust",
+        "healthcare",
+        "luxury"
+      ],
+      "tones": [
+        "playful",
+        "nostalgic",
+        "energetic"
+      ],
+      "avoid_tones": [
+        "sober",
+        "premium",
+        "clinical"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "pixelate",
+        "crt"
+      ],
+      "medium_runtime": "runtime/medium-pixel-world.js",
+      "codex_images": [
+        3,
+        5
+      ],
+      "when_not": "Avoid for finance trust, healthcare, luxury; avoid if the film needs to look like the real app throughout (use pixel only as a layer, e."
+    },
+    {
+      "id": "pixel-companion",
+      "number": 2,
+      "name": "Pixel UI as a living screencast",
+      "file": "pixel-companion.json",
+      "engine": "B/R",
+      "fits": [
+        "dev tools",
+        "agents",
+        "automations",
+        "anything whose agent can be a mascot"
+      ],
+      "avoid": [
+        "products with no agent",
+        "random sprite quota"
+      ],
+      "tones": [
+        "friendly",
+        "clever",
+        "playful"
+      ],
+      "avoid_tones": [
+        "solemn"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "pixelate"
+      ],
+      "medium_runtime": "runtime/medium-pixel-companion.js",
+      "codex_images": [
+        1,
+        2
+      ],
+      "when_not": "Avoid if the mascot is not the product's agent; no random sprite quota."
+    },
+    {
+      "id": "voxel-diorama",
+      "number": 3,
+      "name": "Voxel / blocky 3D diorama",
+      "file": "voxel-diorama.json",
+      "engine": "G/R",
+      "fits": [
+        "infra",
+        "cloud",
+        "build / compose products",
+        "creative tools",
+        "family and playful"
+      ],
+      "avoid": [
+        "precise data stories"
+      ],
+      "tones": [
+        "playful",
+        "constructive",
+        "curious"
+      ],
+      "avoid_tones": [
+        "serious analytical"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "posterise",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        2
+      ],
+      "when_not": "Avoid for precise data stories."
+    },
+    {
+      "id": "clay",
+      "number": 4,
+      "name": "Claymation / soft clay look",
+      "file": "clay.json",
+      "engine": "R",
+      "fits": [
+        "friendly consumer",
+        "kids",
+        "food",
+        "wellness",
+        "human-made counter to AI slop"
+      ],
+      "avoid": [
+        "dense UI",
+        "data-heavy demos"
+      ],
+      "tones": [
+        "warm",
+        "friendly",
+        "handmade"
+      ],
+      "avoid_tones": [
+        "cold",
+        "technical"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        3,
+        6
+      ],
+      "when_not": "Avoid for dense UI; claymation can't carry readable screens, so show the UI on a clay \"device\"."
+    },
+    {
+      "id": "paper-cut",
+      "number": 5,
+      "name": "Paper cut and papercraft",
+      "file": "paper-cut.json",
+      "engine": "B",
+      "fits": [
+        "storytelling",
+        "education",
+        "nature",
+        "human brands",
+        "craft"
+      ],
+      "avoid": [
+        "fast-clicky B2B dashboards"
+      ],
+      "tones": [
+        "warm",
+        "human",
+        "crafted"
+      ],
+      "avoid_tones": [
+        "slick",
+        "cold"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": "runtime/medium-paper.js",
+      "codex_images": [
+        2,
+        5
+      ],
+      "when_not": "Avoid fast-clicky B2B dashboards."
+    },
+    {
+      "id": "collage-newsprint",
+      "number": 6,
+      "name": "Collage and photo cut-out (Gilliam / newsprint)",
+      "file": "collage-newsprint.json",
+      "engine": "R/B",
+      "fits": [
+        "culture",
+        "media",
+        "community",
+        "music",
+        "social products",
+        "photo-of-anything AI products"
+      ],
+      "avoid": [
+        "precise enterprise"
+      ],
+      "tones": [
+        "irreverent",
+        "raw",
+        "creative"
+      ],
+      "avoid_tones": [
+        "corporate",
+        "polished"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "halftone",
+        "grain"
+      ],
+      "medium_runtime": "runtime/medium-paper.js",
+      "codex_images": [
+        3,
+        6
+      ],
+      "when_not": "Avoid precise enterprise."
+    },
+    {
+      "id": "riso-print",
+      "number": 7,
+      "name": "Risograph and halftone print",
+      "file": "riso-print.json",
+      "engine": "R",
+      "fits": [
+        "indie",
+        "design",
+        "creative",
+        "community",
+        "editorial products"
+      ],
+      "avoid": [
+        "products needing exact brand colours beyond 3 inks"
+      ],
+      "tones": [
+        "artisanal",
+        "warm",
+        "playful"
+      ],
+      "avoid_tones": [
+        "corporate"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "riso",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "Avoid when colours must be exact brand (limit to 3 inks anyway)."
+    },
+    {
+      "id": "kinetic-type-only",
+      "number": 8,
+      "name": "Kinetic typography as the whole film",
+      "file": "kinetic-type-only.json",
+      "engine": "B/R",
+      "fits": [
+        "manifestos",
+        "rebrands",
+        "strong copy",
+        "keynote-style releases"
+      ],
+      "avoid": [
+        "demo-first products",
+        "weak copy"
+      ],
+      "tones": [
+        "bold",
+        "confident",
+        "punchy"
+      ],
+      "avoid_tones": [
+        "quiet"
+      ],
+      "sound_mode": "vo-kinetic",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        0,
+        1
+      ],
+      "when_not": "Avoid when the product demo is the point, or weak copy."
+    },
+    {
+      "id": "swiss-grid",
+      "number": 9,
+      "name": "Swiss / International typographic motion",
+      "file": "swiss-grid.json",
+      "engine": "R/B",
+      "fits": [
+        "fintech",
+        "dev infra",
+        "B2B",
+        "anything precise and serious"
+      ],
+      "avoid": [
+        "generic execution with no bold idea",
+        "emotion-led stories"
+      ],
+      "tones": [
+        "precise",
+        "serious",
+        "calm"
+      ],
+      "avoid_tones": [
+        "whimsical"
+      ],
+      "sound_mode": "vo-kinetic",
+      "effects": [],
+      "medium_runtime": null,
+      "codex_images": [
+        0,
+        1
+      ],
+      "when_not": "Avoid for generic execution with no bold idea."
+    },
+    {
+      "id": "brutalist",
+      "number": 10,
+      "name": "Brutalist / anti-design",
+      "file": "brutalist.json",
+      "engine": "R",
+      "fits": [
+        "indie dev tools",
+        "anti-corporate challengers",
+        "creative studios"
+      ],
+      "avoid": [
+        "health and trust",
+        "premium"
+      ],
+      "tones": [
+        "raw",
+        "confrontational",
+        "anti-polish"
+      ],
+      "avoid_tones": [
+        "reassuring",
+        "refined"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "dither"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        3
+      ],
+      "when_not": "Avoid for health/trust, premium."
+    },
+    {
+      "id": "isometric-diorama",
+      "number": 11,
+      "name": "Isometric 3D diorama / infographic",
+      "file": "isometric-diorama.json",
+      "engine": "B",
+      "fits": [
+        "infra",
+        "logistics",
+        "finance flow",
+        "platforms",
+        "how-it-works"
+      ],
+      "avoid": [
+        "emotion-led brand stories"
+      ],
+      "tones": [
+        "clear",
+        "orderly",
+        "explanatory"
+      ],
+      "avoid_tones": [
+        "intimate"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": "runtime/medium-isometric.js",
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "Avoid emotion-led brand stories."
+    },
+    {
+      "id": "soft-3d",
+      "number": 12,
+      "name": "Soft 3D / candy C4D render",
+      "file": "soft-3d.json",
+      "engine": "R/B",
+      "fits": [
+        "consumer apps",
+        "hardware",
+        "delightful brands"
+      ],
+      "avoid": [
+        "default pastel blobs with no concept"
+      ],
+      "tones": [
+        "delightful",
+        "friendly",
+        "glossy"
+      ],
+      "avoid_tones": [
+        "serious"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "aberration",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "Overused in 2020-22; avoid default pastel blobs without a concept."
+    },
+    {
+      "id": "liquid-chrome",
+      "number": 13,
+      "name": "Liquid / blob / chrome liquid metal",
+      "file": "liquid-chrome.json",
+      "engine": "R",
+      "fits": [
+        "AI",
+        "creative",
+        "music",
+        "beauty",
+        "fluid/adaptive products"
+      ],
+      "avoid": [
+        "slow tempo (reads as screensaver)"
+      ],
+      "tones": [
+        "fluid",
+        "futuristic",
+        "sensual"
+      ],
+      "avoid_tones": [
+        "sober"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "posterise",
+        "aberration"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        3
+      ],
+      "when_not": "Avoid for slow tempo (reads as screensaver)."
+    },
+    {
+      "id": "glitch-datamosh",
+      "number": 14,
+      "name": "Glitch / datamosh / VHS",
+      "file": "glitch-datamosh.json",
+      "engine": "R",
+      "fits": [
+        "AI",
+        "security",
+        "music",
+        "gaming",
+        "something-broke stories",
+        "bold challengers"
+      ],
+      "avoid": [
+        "reliability brands unless the glitch is the story"
+      ],
+      "tones": [
+        "edgy",
+        "urgent",
+        "disruptive"
+      ],
+      "avoid_tones": [
+        "calm",
+        "reassuring"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "glitch",
+        "aberration",
+        "crt",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        0,
+        2
+      ],
+      "when_not": "Overused as \"tech\" shorthand; avoid for reliability brands unless the glitch is the story."
+    },
+    {
+      "id": "dot-matrix-led",
+      "number": 15,
+      "name": "Dot-matrix and LED display",
+      "file": "dot-matrix-led.json",
+      "engine": "G",
+      "fits": [
+        "hardware",
+        "transit",
+        "data",
+        "fintech tickers",
+        "brands with a physical display"
+      ],
+      "avoid": [
+        "long reading text"
+      ],
+      "tones": [
+        "techy",
+        "precise",
+        "playful-technical"
+      ],
+      "avoid_tones": [
+        "warm literary"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "ledmatrix",
+        "aberration"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "Avoid long reading text."
+    },
+    {
+      "id": "ascii-terminal",
+      "number": 16,
+      "name": "ASCII / terminal CRT",
+      "file": "ascii-terminal.json",
+      "engine": "B/R",
+      "fits": [
+        "dev tools",
+        "CLIs",
+        "agents",
+        "security",
+        "hacker culture"
+      ],
+      "avoid": [
+        "consumer lifestyle",
+        "non-technical"
+      ],
+      "tones": [
+        "technical",
+        "dry",
+        "witty"
+      ],
+      "avoid_tones": [
+        "warm",
+        "soft"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "posterise",
+        "crt",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        2
+      ],
+      "when_not": "Avoid for consumer lifestyle or anything non-technical."
+    },
+    {
+      "id": "line-art",
+      "number": 17,
+      "name": "Line art / one continuous line",
+      "file": "line-art.json",
+      "engine": "B",
+      "fits": [
+        "concept stories",
+        "wellness",
+        "education",
+        "design tools"
+      ],
+      "avoid": [
+        "data-heavy demos"
+      ],
+      "tones": [
+        "thoughtful",
+        "calm",
+        "elegant"
+      ],
+      "avoid_tones": [
+        "loud"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": "runtime/medium-graphic.js",
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "Avoid for data-heavy demos."
+    },
+    {
+      "id": "sketchbook",
+      "number": 18,
+      "name": "Hand-drawn / sketchbook / cel boil",
+      "file": "sketchbook.json",
+      "engine": "B",
+      "fits": [
+        "human-centred products",
+        "creative tools",
+        "education",
+        "indie"
+      ],
+      "avoid": [
+        "anything needing exact UI proof"
+      ],
+      "tones": [
+        "warm",
+        "human",
+        "honest"
+      ],
+      "avoid_tones": [
+        "slick"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": "runtime/medium-cel.js",
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "Avoid anything needing exact UI proof."
+    },
+    {
+      "id": "rotoscope",
+      "number": 19,
+      "name": "Rotoscope / traced live action",
+      "file": "rotoscope.json",
+      "engine": "G/R",
+      "fits": [
+        "stories with people",
+        "music",
+        "health",
+        "culture"
+      ],
+      "avoid": [
+        "any film with no real footage"
+      ],
+      "tones": [
+        "human",
+        "poetic",
+        "artistic"
+      ],
+      "avoid_tones": [
+        "abstract"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "posterise",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        2
+      ],
+      "when_not": "Needs footage, which RasanAI doesn't generate; avoid if no footage."
+    },
+    {
+      "id": "toon-3d",
+      "number": 20,
+      "name": "Cel-shaded 3D / toon",
+      "file": "toon-3d.json",
+      "engine": "R",
+      "fits": [
+        "games",
+        "creative apps",
+        "youth brands"
+      ],
+      "avoid": [
+        "anything that must not look cheap without heavy craft"
+      ],
+      "tones": [
+        "energetic",
+        "bold",
+        "youthful"
+      ],
+      "avoid_tones": [
+        "restrained"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "posterise"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "Avoid for anything that must not look cheap without heavy craft."
+    },
+    {
+      "id": "y2k-aero",
+      "number": 21,
+      "name": "Y2K chrome / acid / Frutiger Aero",
+      "file": "y2k-aero.json",
+      "engine": "R",
+      "fits": [
+        "Gen-Z consumer",
+        "music",
+        "fashion",
+        "social"
+      ],
+      "avoid": [
+        "enterprise"
+      ],
+      "tones": [
+        "nostalgic",
+        "glossy",
+        "playful"
+      ],
+      "avoid_tones": [
+        "serious"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "aberration",
+        "posterise",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        2,
+        5
+      ],
+      "when_not": "Avoid enterprise."
+    },
+    {
+      "id": "retro-os",
+      "number": 22,
+      "name": "Retro OS / desktop UI (Win95, Mac OS 9, terminal windows)",
+      "file": "retro-os.json",
+      "engine": "R",
+      "fits": [
+        "dev tools",
+        "creative tools",
+        "indie",
+        "AI-as-OS stories"
+      ],
+      "avoid": [
+        "a signal of old or obsolete"
+      ],
+      "tones": [
+        "nostalgic",
+        "witty",
+        "playful"
+      ],
+      "avoid_tones": [
+        "futuristic-premium"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "dither",
+        "crt"
+      ],
+      "medium_runtime": "runtime/medium-retro-os.js",
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "Avoid if it signals \"old/obsolete\"."
+    },
+    {
+      "id": "blueprint",
+      "number": 23,
+      "name": "Blueprint / technical drawing / cyanotype",
+      "file": "blueprint.json",
+      "engine": "R",
+      "fits": [
+        "hardware",
+        "infra",
+        "engineering tools",
+        "architecture"
+      ],
+      "avoid": [
+        "emotional consumer stories"
+      ],
+      "tones": [
+        "precise",
+        "engineered",
+        "technical"
+      ],
+      "avoid_tones": [
+        "soft"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "posterise",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        3
+      ],
+      "when_not": "Avoid emotional consumer stories."
+    },
+    {
+      "id": "hud-fui",
+      "number": 24,
+      "name": "HUD / FUI / hologram",
+      "file": "hud-fui.json",
+      "engine": "R",
+      "fits": [
+        "AI",
+        "agents",
+        "security",
+        "analytics",
+        "defence-adjacent"
+      ],
+      "avoid": [
+        "warm consumer tones"
+      ],
+      "tones": [
+        "tense",
+        "intelligent",
+        "precise"
+      ],
+      "avoid_tones": [
+        "warm",
+        "soft"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "crt",
+        "aberration",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        2
+      ],
+      "when_not": "Avoid warm consumer tones."
+    },
+    {
+      "id": "particle-field",
+      "number": 25,
+      "name": "Generative / particle field",
+      "file": "particle-field.json",
+      "engine": "R/B",
+      "fits": [
+        "AI",
+        "data",
+        "music",
+        "intelligence brands"
+      ],
+      "avoid": [
+        "particles that mean nothing (AI wallpaper)"
+      ],
+      "tones": [
+        "awe",
+        "intelligent",
+        "ambient"
+      ],
+      "avoid_tones": [
+        "homely"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "aberration",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        2
+      ],
+      "when_not": "Avoid for particles that mean nothing (AI wallpaper)."
+    },
+    {
+      "id": "cinematic-ai-worlds",
+      "number": 26,
+      "name": "Cinematic AI worlds",
+      "file": "cinematic-ai-worlds.json",
+      "engine": "G",
+      "fits": [
+        "AI image/video tools",
+        "travel",
+        "ambitious consumer brands"
+      ],
+      "avoid": [
+        "claims it cannot prove",
+        "brands that need AI disclosure unless disclosed"
+      ],
+      "tones": [
+        "awe",
+        "ambitious",
+        "epic"
+      ],
+      "avoid_tones": [
+        "modest"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "grain",
+        "aberration",
+        "posterise"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        8,
+        12
+      ],
+      "when_not": "Avoid claims it can't prove; AI worlds feel generic fast."
+    },
+    {
+      "id": "photo-collage-surreal",
+      "number": 27,
+      "name": "Photo-collage with AI imagery (surreal cut-up)",
+      "file": "photo-collage-surreal.json",
+      "engine": "R/G",
+      "fits": [
+        "creative AI",
+        "culture",
+        "music",
+        "fashion"
+      ],
+      "avoid": [
+        "where authenticity of real people matters"
+      ],
+      "tones": [
+        "surreal",
+        "witty",
+        "bold"
+      ],
+      "avoid_tones": [
+        "earnest documentary"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "halftone",
+        "posterise"
+      ],
+      "medium_runtime": "runtime/medium-paper.js",
+      "codex_images": [
+        4,
+        8
+      ],
+      "when_not": "Avoid where authenticity of real people matters."
+    },
+    {
+      "id": "editorial-magazine",
+      "number": 28,
+      "name": "Editorial magazine / newspaper",
+      "file": "editorial-magazine.json",
+      "engine": "B/R",
+      "fits": [
+        "media",
+        "writing tools",
+        "finance with a point of view",
+        "luxury"
+      ],
+      "avoid": [
+        "fast noisy products"
+      ],
+      "tones": [
+        "authoritative",
+        "literate",
+        "calm"
+      ],
+      "avoid_tones": [
+        "frantic"
+      ],
+      "sound_mode": "vo-kinetic",
+      "effects": [
+        "halftone",
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        1,
+        3
+      ],
+      "when_not": "Avoid fast, noisy products."
+    },
+    {
+      "id": "minimal-luxury",
+      "number": 29,
+      "name": "Minimal luxury / quiet premium",
+      "file": "minimal-luxury.json",
+      "engine": "B",
+      "fits": [
+        "premium hardware",
+        "high-end tools",
+        "wellness"
+      ],
+      "avoid": [
+        "audiences that expect energy"
+      ],
+      "tones": [
+        "quiet",
+        "refined",
+        "patient"
+      ],
+      "avoid_tones": [
+        "loud",
+        "playful"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        2,
+        4
+      ],
+      "when_not": "premium hardware, high-end tools, wellness; avoid when the audience expects energy."
+    },
+    {
+      "id": "dark-keynote",
+      "number": 30,
+      "name": "Dark keynote / product-glow UI (today's default)",
+      "file": "dark-keynote.json",
+      "engine": "B",
+      "fits": [
+        "SaaS",
+        "dev tools with UI proof"
+      ],
+      "avoid": [
+        "being the only look of the film (it is the default that makes films alike)"
+      ],
+      "tones": [
+        "crisp",
+        "confident",
+        "modern"
+      ],
+      "avoid_tones": [
+        "quirky"
+      ],
+      "sound_mode": "vo-kinetic",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        0,
+        1
+      ],
+      "when_not": "Avoid for being the only look of the film (it is the default that makes films alike)."
+    },
+    {
+      "id": "bauhaus",
+      "number": 31,
+      "name": "Bauhaus / geometric primaries",
+      "file": "bauhaus.json",
+      "engine": "R",
+      "fits": [
+        "design tools",
+        "education",
+        "systems products"
+      ],
+      "avoid": [
+        "sensory or organic products"
+      ],
+      "tones": [
+        "rational",
+        "playful-geometric",
+        "confident"
+      ],
+      "avoid_tones": [
+        "organic",
+        "soft"
+      ],
+      "sound_mode": "instrumental-arc",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": "runtime/medium-graphic.js",
+      "codex_images": [
+        0,
+        1
+      ],
+      "when_not": "Avoid anything sensory/organic."
+    },
+    {
+      "id": "sticker-maximal",
+      "number": 32,
+      "name": "Sticker / maximalist / bold-outline explainer",
+      "file": "sticker-maximal.json",
+      "engine": "R",
+      "fits": [
+        "consumer",
+        "social",
+        "creator tools",
+        "youth"
+      ],
+      "avoid": [
+        "serious B2B"
+      ],
+      "tones": [
+        "loud",
+        "fun",
+        "youthful"
+      ],
+      "avoid_tones": [
+        "serious"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [],
+      "medium_runtime": "runtime/medium-sticker.js",
+      "codex_images": [
+        4,
+        8
+      ],
+      "when_not": "Avoid serious B2B."
+    },
+    {
+      "id": "data-story",
+      "number": 33,
+      "name": "Infographic / data story",
+      "file": "data-story.json",
+      "engine": "B",
+      "fits": [
+        "analytics",
+        "fintech",
+        "research",
+        "reports"
+      ],
+      "avoid": [
+        "no real data (never fabricate)"
+      ],
+      "tones": [
+        "credible",
+        "insightful",
+        "calm"
+      ],
+      "avoid_tones": [
+        "whimsical"
+      ],
+      "sound_mode": "vo-kinetic",
+      "effects": [],
+      "medium_runtime": null,
+      "codex_images": [
+        0,
+        1
+      ],
+      "when_not": "Avoid when you have no real data (never fabricate)."
+    },
+    {
+      "id": "stop-motion-tabletop",
+      "number": 34,
+      "name": "Stop-motion object / tabletop macro",
+      "file": "stop-motion-tabletop.json",
+      "engine": "R",
+      "fits": [
+        "hardware",
+        "creative tools",
+        "food",
+        "handmade brands"
+      ],
+      "avoid": [
+        "flat lighting that exposes the fake"
+      ],
+      "tones": [
+        "handmade",
+        "tactile",
+        "warm"
+      ],
+      "avoid_tones": [
+        "slick"
+      ],
+      "sound_mode": "sfx-led",
+      "effects": [
+        "grain"
+      ],
+      "medium_runtime": null,
+      "codex_images": [
+        4,
+        8
+      ],
+      "when_not": "Avoid for flat lighting that exposes the fake."
+    }
+  ]
+}

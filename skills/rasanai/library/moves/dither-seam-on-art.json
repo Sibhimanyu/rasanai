@@ -1,0 +1,61 @@
+{
+  "id": "dither-seam-on-art",
+  "n": 22,
+  "name": "Dither seam on generated art",
+  "family": "image",
+  "source": [
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 3.5,
+      "end_s": 5,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 10,
+      "end_s": 12,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 15.5,
+      "end_s": 18,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    }
+  ],
+  "description": "Silhouette edges and gradients carry a halftone dot band (dither).",
+  "recipe": {
+    "tech": [
+      "canvas",
+      "shader"
+    ],
+    "runtime": [
+      "rasan-image-fx.js",
+      "rasan-fx.js"
+    ],
+    "build": "Codex prompt: dither/halftone edge where subject meets background; or post: a dot screen masked by a Sobel edge map with mix-blend-mode:screen."
+  },
+  "use_when": "Brand signature for the imagery across all plates.",
+  "avoid": "Do not use on UI screenshots; use one dot size per film.",
+  "duration_s": {
+    "min": 0.1,
+    "max": 53
+  },
+  "easing": "none",
+  "carriers": [
+    "palette-dither"
+  ],
+  "beat_roles": [
+    "open",
+    "middle",
+    "proof",
+    "close"
+  ],
+  "needs": [
+    "rasan-image-fx.js",
+    "rasan-fx.js"
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "id": "cinematic-world",
+  "name": "Cinematic world",
+  "style_world": [
+    "cinematic",
+    "ai world",
+    "film",
+    "painterly",
+    "photoreal",
+    "dream",
+    "epic",
+    "landscape",
+    "worldbuilding",
+    "concept art"
+  ],
+  "concept_tags": [
+    "cinematic",
+    "world",
+    "epic",
+    "journey",
+    "fantasy",
+    "sci-fi",
+    "landscape",
+    "mood",
+    "dream",
+    "trailer",
+    "story"
+  ],
+  "source": "A product told inside one generated world: a few Codex plates of a place (an anchor image, a character or object sheet) animated as depth parallax, slow dollies, light shifts and particles, cut like a trailer with big titles and a score. Described from the atlas cinematic AI-world entry; no images are carried.",
+  "motion_language": "camera",
+  "kit": [
+    "runtime/rasan-camera.js",
+    "runtime/rasan-optics.js",
+    "runtime/rasan-orbs.js"
+  ],
+  "frame_device": {
+    "what": "Letterboxed 2.39:1 or full-frame plates of one world with a consistent light and grade, a soft vignette, film grain and a title lockup that returns.",
+    "moves": "A slow dolly or crane over the plates in 2.5D; the camera pushes in on the hero element for each idea; light and fog drift; the title cards arrive on the score's hits."
+  },
+  "ground_motion": "Depth parallax between 3 to 5 plate layers, drifting fog or particles and a breathing grade keep the world alive; the camera never stops between hits.",
+  "type": {
+    "classes": "A wide-tracked light serif or a clean caps sans for trailer titles; one small support face for credits and qualifiers.",
+    "behaviour": "Titles fade and track out slowly on hits; one idea per card, 2 to 5 words; the claim card is large and held 1.5 s."
+  },
+  "image": {
+    "treatment": "3 to 6 Codex plates sharing one world bible (anchor image, style line), split into layers with depth, graded and grained; product UI is composited as a real screen plate inside the world (a holographic panel, a monolith, a window).",
+    "behaviour": "Each plate is used 3 or more times (crops, dolly directions, grade shifts); no still holds for more than 1.2 s; every move has an ease and a purpose."
+  },
+  "transitions": [
+    "dolly through a gap into the next plate",
+    "light flare or bloom wipe on a hit",
+    "match cut on a shape between plates",
+    "fog or dust wipe",
+    "dip to black on the downbeat"
+  ],
+  "techniques": [
+    {
+      "id": "depth-dolly",
+      "name": "Depth dolly",
+      "what": "A plate is pulled apart in depth and the camera pushes through the layers.",
+      "route": "RasanCamera on 2.5D layers (cut-out plates with depth) with z-offset scale and drift; 4 to 6 s power1.inOut."
+    },
+    {
+      "id": "hero-push-in",
+      "name": "Hero push-in",
+      "what": "The camera pushes in on the hero element for the key idea.",
+      "route": "Scale 1 to 1.35 and a 3 percent drift toward the focus over 3 s; rack the focus with RasanOptics where a blur is allowed."
+    },
+    {
+      "id": "light-shift",
+      "name": "Light shift",
+      "what": "The world's light changes with the story (dawn to night, cool to warm).",
+      "route": "Animate a gradient-map or colour-overlay layer through 2 to 3 held grades; 1.5 s power2.inOut."
+    },
+    {
+      "id": "particle-drift",
+      "name": "Particle drift",
+      "what": "Dust, embers or snow drift through the frame to give air.",
+      "route": "RasanOrbs or a seeded canvas particle field, parallax per layer, never random."
+    },
+    {
+      "id": "title-hit",
+      "name": "Title hit",
+      "what": "A trailer title lands on the score's hit and tracks out.",
+      "route": "Letter-spacing 0.4em to 0.55em over 2.5 s power1.out with a 0.3 s fade-in; hit time snapped to the music grid."
+    },
+    {
+      "id": "screen-in-world",
+      "name": "Screen in world",
+      "what": "The real product UI is a lit surface inside the world.",
+      "route": "A UI plate in a perspective plane with a rim glow only on the one control; the camera pushes into it for the proof beat."
+    },
+    {
+      "id": "match-cut-shape",
+      "name": "Match cut on a shape",
+      "what": "A circle in one plate becomes the sun or a lens in the next.",
+      "route": "Place matching shape in both plates at the same screen position and scale at the cut; 0.4 s dolly through it."
+    },
+    {
+      "id": "dip-to-black",
+      "name": "Dip to black",
+      "what": "The film dips to black on a downbeat and returns in a new place.",
+      "route": "Black layer opacity 0 to 1 in 0.25 s, hold 0.2 s, back in 0.5 s; the music drops out for the hold."
+    },
+    {
+      "id": "word-choreo",
+      "name": "Word choreography",
+      "what": "Each word of a line enters from its own place and settles into the line with a lift; the key word last with a little more overshoot.",
+      "route": "Titles are split into words and each word fades in with a 20 px drift, 0.8 s power2.out, stagger 0.2 s, tracking easing out; the key word lands last on the hit."
+    }
+  ],
+  "signature": "The camera pushes through the last plate into black, and the title card with the product's name holds for two beats.",
+  "density": {
+    "change_every_s": 1.6,
+    "note": "A new plate, move or title every 1.6 to 3 s; layers at the peak: 5 to 8 (back plate, mid, hero, fog, particles, grade, grain, title)."
+  },
+  "palette": {
+    "ground": "#0b0d12",
+    "ink": "#f2efe8",
+    "accent": "#ffb259",
+    "note": "The world bible sets the grade; a brand colour is the title tint and the screen plate's glow."
+  },
+  "do": [
+    "Share one world bible across every plate",
+    "Keep the camera moving with an ease and a purpose",
+    "Cut on the score's hits",
+    "Use each plate 3 or more times",
+    "Put the real UI inside the world as a lit surface"
+  ],
+  "dont": [
+    "Do not hold a still for more than 1.2 s",
+    "Do not mix art styles between plates",
+    "Do not generate readable UI text; typeset it",
+    "Do not stack effects on every layer"
+  ],
+  "fits": [
+    "brand film",
+    "launch ladder",
+    "trailer",
+    "story",
+    "epic",
+    "title sequence",
+    "music video"
+  ],
+  "flat_ok": false
+}

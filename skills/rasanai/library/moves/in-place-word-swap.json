@@ -1,0 +1,58 @@
+{
+  "id": "in-place-word-swap",
+  "n": 3,
+  "name": "In-place word swap",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 4,
+      "end_s": 6,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 36,
+      "end_s": 37,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 27,
+      "end_s": 30,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    }
+  ],
+  "description": "The text stays where it is: the old word masks out upward, the new one rises in at the same spot.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js"
+    ],
+    "build": "One overflow:hidden line box, two stacked spans, y 100% to 0 and 0 to -100% over 0.35 s power3.out; static words never move."
+  },
+  "use_when": "Any refrain, ladder or changing object; the default way to change a word.",
+  "avoid": "Never reposition the line; never fade a swap in a different place.",
+  "duration_s": {
+    "min": 0.3,
+    "max": 0.5
+  },
+  "easing": "power3.out",
+  "carriers": [
+    "all"
+  ],
+  "beat_roles": [
+    "open",
+    "turn",
+    "middle",
+    "proof",
+    "close"
+  ],
+  "needs": []
+}

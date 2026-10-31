@@ -1,0 +1,142 @@
+{
+  "format": "style-world@1",
+  "id": "collage-newsprint",
+  "number": 6,
+  "name": "Collage and photo cut-out (Gilliam / newsprint)",
+  "look": "scissored photos with white edges, torn newsprint, tape, handwritten arrows, jerky puppet motion.",
+  "fits": {
+    "products": [
+      "culture",
+      "media",
+      "community",
+      "music",
+      "social products",
+      "photo-of-anything AI products"
+    ],
+    "tones": [
+      "irreverent",
+      "raw",
+      "creative"
+    ],
+    "notes": "culture, media, community, music, social products; AI-image-powered (\"photo of anything\") products"
+  },
+  "avoid": {
+    "products": [
+      "precise enterprise"
+    ],
+    "tones": [
+      "corporate",
+      "polished"
+    ]
+  },
+  "when_not": [
+    "Avoid precise enterprise."
+  ],
+  "type": {
+    "guidance": "mixed ransom-note type, Times + grotesk, highlighter yellow, red, black on newsprint.",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "mixed ransom-note type, Times + grotesk, highlighter yellow, red, black on newsprint.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is the highlighter or the flat colour field",
+    "type_role": "mixed ransom-note type for scraps, brand face for the one clean claim",
+    "world_changes": "scissored photos, tape and stamps on a poster that assembles",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "pieces jump at 8 to 12 fps",
+      "rubber-stamp slams",
+      "paste-ups assembling into a poster",
+      "marker circles drawn on"
+    ],
+    "grammars": [
+      "catalogue-cards",
+      "pixel-collage"
+    ],
+    "grammars_planned": ["collage"],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "halftone",
+      "params": {
+        "mode": 0,
+        "size": 8,
+        "ink": "#14110f",
+        "paper": "#efe6cf"
+      },
+      "role": "newsprint grade on photo cut-outs"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.1
+      },
+      "role": "print grit"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 3,
+      "max": 6
+    },
+    "prompt_template": "cut-out {subject} photo with white outline, scissored edge, on flat colour, consistent lighting, plus newsprint texture and torn-edge mask",
+    "animate_with": [
+      {
+        "id": "A1",
+        "what": "parallax cut-out (split plates, 2.5D drift)"
+      },
+      {
+        "id": "A2",
+        "what": "step-print (8-12 fps quantised time)"
+      }
+    ],
+    "r1_note": "cut-out subjects with white outlines on flat colour, newsprint textures, torn-edge masks; A1 + A2.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "tape snaps",
+      "stamps",
+      "cheap drum machine",
+      "record scratches"
+    ]
+  },
+  "build": {
+    "engine": "R/B",
+    "engine_meaning": "reference only (builder hand-codes it) / buildable today",
+    "recipe": "`library/styles/collage.md`, `paperclip.md`, `motion/collage/cutout-collage-gilliam.md`, `medium-paper.js`; `art.mjs treat` halftone. SVG filter edges (feMorphology white outline), CSS `mix-blend-mode: multiply`.",
+    "refs": [
+      "library/styles/collage.md",
+      "paperclip.md",
+      "motion/collage/cutout-collage-gilliam.md",
+      "medium-paper.js",
+      "art.mjs treat",
+      "mix-blend-mode: multiply"
+    ],
+    "medium_runtime": "runtime/medium-paper.js",
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "gbro halftone collage (in `third_party`); Paperclip-style explainers",
+      "link_status": "in-repo-or-text-only"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

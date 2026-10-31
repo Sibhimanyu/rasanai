@@ -4,6 +4,57 @@ Claude decides the sound craft; the user only picks the track (by ear, in the co
 
 The one rule behind all of it: **the picture flexes, the music doesn't.** Scene lengths are code, so scenes snap to the track's bars. The music is never chopped to fit arbitrary scene times, and it is never looped.
 
+## Sound mode: decide it with the story (scripts/lib/sound-mode.mjs)
+
+Decide the MODE before music, SFX or VO, and show it in the decisions drawer with its reason. `node scripts/sound.mjs mode --length <s> --platform site|muted-social|keynote|... [--claims n] [--answer "<the person's words>"]` returns `{mode, reason, recommend_vo: {yes, style, why}, words_budget, alternatives, ask}`. The person's answer always wins. **song-lyric is a first-class mode** (R6: the owner's favourite SOVRA.FM is a sung song that is the pitch): the mode decision suggests it (`suggest_song`) for a brand or consumer launch of 40-70 s where tone matters and the claims are few, and a supplied song wins by default.
+
+| Mode | Use when | Avoid when |
+|---|---|---|
+| **vo-kinetic** (a voice, with on-screen type that follows it word by word; bed carved at 150-300 Hz and held constant under the voice (no duck by default), sparse SFX) | The story needs explaining: more than 2 claims, a price or CTA, a new category; 30-90 s; site, YouTube, keynote, B2B. Also a 15-30 s film with a one-line thesis (a VO hook, then picture and music carry it) | Muted-autoplay without burned-in captions; under 15 s; the story is a feeling, not a claim |
+| **instrumental-arc** (music carries a 12-20 LU arc: sparse intro, lift, drop, held peak, clean ending; SFX tied to the hits) | The picture is self-explaining; 15-60 s; teasers, reveals, motion reels | The audience must learn facts that are not on screen |
+| **sfx-led** (UI sound, one riser into one impact, room tone; no music or a quiet drone) | Interface demos; 6-20 s loops; muted-first placements (it also works captioned); premium restraint | Emotional story films; anything over about 25 s (it thins out) |
+| **song-lyric** (a song that is the pitch: supplied and licensed, or a lyric written in the story stage and set to music; no VO) | Brand and consumer launches where tone matters, 45-60 s at about 120 BPM; the lyric is five acts (complaint, turn, mechanism, benefits, tagline), rhymed, product vocabulary on the downbeats, the tagline the last line. The on-screen type may follow the lyric word by word, or run its own short script of 12-14 lines beside it (SOVRA.FM does the latter: 1 clean match in 37 lines) | A product with 5+ claims that must be read and heard (use vo-kinetic); no licensed song and no lyric pass; a muted-first placement without captions |
+
+Platform: muted autoplay (X, LinkedIn, Instagram feed, a muted site hero) is designed picture-first with an immediate hit for the unmute, and a voice only with burned-in captions. Site, YouTube, Product Hunt: -14 LUFS. Keynote or event screen: -16 LUFS, a wider range (LRA 8-14), ship a no-VO bed stem too. Broadcast: -23 LUFS (EBU R128).
+
+### When to recommend a voiceover
+
+Recommend VO when the story has more than 2 claims, the film is 30 s or longer, the destination is a site, YouTube or a keynote, or it is B2B. The budget is about 2.4 words per second, less 15% for air (the reference films run about 2.5). Recommend a one-line hook when the film is 15-30 s and has a thesis, or is a brand manifesto. Recommend no VO under 15 s, on muted-first placements without captions, for a picture-only product reveal, for kinetic type (the text is the voice), and in sfx-led and song-lyric films. Ask once about voice identity: a stock voice, or the person's brand voice. Never clone a voice without the owner's say, and disclose an AI voice where the platform asks.
+
+### Making the voice: scripts/vo.mjs
+
+`node scripts/vo.mjs make --script lines.txt --out <run>/audio/vo` writes `vo.wav` (48 kHz stereo) and `words.json` ({words:[{w,start,end,line}], lines:[{i,text,start,end,speech_start,speech_end}]}) so the type can follow the voice word by word. Lines may carry `at` (the film second they start) in a JSON script. Providers, in order: ElevenLabs (`ELEVENLABS_API_KEY`), OpenAI TTS (`OPENAI_API_KEY`, steerable with `--tone`), macOS `say` (free, a scratch voice for timing only). Word times come from `whisper-cli` (DTW word timing, matched to the script's own words), never from the provider. `node scripts/vo.mjs providers` shows what is available. Verify the finished voice with `voice.mjs verify`.
+
+For a song the person supplies: `node scripts/vo.mjs lyrics --track song.mp3 [--lyrics lyrics.txt] --out <dir>` writes `lyrics.json` (lines, each with timed words) and a flat `words.json`, the same data a kinetic lyric-video composition reads (see references/lyrics.md for the browser side). **Force-align the supplied lyric text; never trust a raw whisper transcript** (it heard "hosts" as "hoes" and "Sovra" as "Silver"). `vo.mjs lyrics --lyrics <text>` runs whisper for word timings and aligns them to the given text (`lib/lyrics.mjs` `alignLyrics`), so the cue sheet is the lyric as written. The song's licence is the person's, declared in LICENSES.json.
+
+## The layered mix (scripts/lib/mix.mjs)
+
+`node scripts/sound.mjs mix --spec mix.json --out <mix.wav> --platform web|keynote|broadcast` (or `mixFilm` in lib/audio.mjs). Three stems are rendered on their own (music.wav, vo.wav, sfx.wav, kept in `stems/`), then summed, glued and mastered. Layering is by band and by level, never by muting:
+
+- **Carve, no duck by default.** With a voice, the bed gets an EQ carve at 220 Hz (-3.5 dB, width 150-300 Hz), 1.8 kHz (-3) and 3 kHz (-1.5): the hole where the body of the voice and the bass of the music fight. The favourites keep the bed constant under the voice and under the SFX (measured: the bed moves -1.8 to +0.5 dB), so the default duck is 0 dB. A duck is an **option for VO intelligibility** when a measured masking check (`voice.mjs verify`) says a word is lost: set `duck_db` (0-9 dB) in the mix spec and the smooth gain lane (0.3 s in, starting 0.25 s before the first word, held 0.4 s after the last, 0.8 s out; from the word timings, so deterministic) is applied. The measured duck and the music-under-VO gap (aim about 12 LU) are in the receipt; final-gate `mix-duck` passes a 0 dB duck and blocks one deeper than 9 dB.
+- **VO is dead centre**, high-passed at 80 Hz, with the mud at 200 Hz taken out, presence at 3.5 kHz added, compressed 3:1 and limited.
+- **SFX sit on hit points.** Each cue's measured sync point lands on the picture's hit (within 60 ms) or, failing that, the nearest beat of the grid (within 60 ms). Risers END on the hit (start = hit minus the riser's length); whooshes land 3 frames early; impacts land on the frame. Level is by role against the bed (accent +3 dB, carrier +5, transition +7, button +8, reveal +12 peak over the bed's loudness). Whooshes and risers are high-passed at 200 Hz so the sub is kept for the impact only; impacts lose 2 dB at 250 Hz while the voice speaks. Pan follows the on-screen x (never past 70%, constant power); the music is a little wider; voice and hits are centre.
+- **Master.** Glue compressor (1.6:1), pre-master peak held under -6 dBFS, then masterFile (static gain and a 4x-oversampled true-peak limiter) to the platform: web -14, keynote -16, broadcast -23 LUFS. `variants: ["no-vo","no-music"]` also writes the bed-only and voice-only mixes (a keynote presenter talks over the bed).
+- **Shape by mode.** vo-kinetic: LRA about 2.5-5, bed compressed and under. instrumental-arc: LRA about 8-15, the peak is the music's drop plus an impact, SFX layered to the drop, the payoff and the button, and a 0.1-0.3 s dry stop before the payoff hit. Silence only at the head or tail, as punctuation.
+
+## The sound palette (library/sfx/palettes.json, scripts/lib/sfx-synth.mjs)
+
+A film does not use generic ticks. It carries a palette of 3-5 signature sounds tied to its carrier (dot, word-line, icon-set, palette-field, dither-edge, ui-plane), each with a role (carrier, accent, transition, reveal, button) so the mix knows where to put it. `node scripts/sound.mjs palette --carrier "<carrier>" --key-hz 220 --seed <film id> --dir <run>/audio/palette` renders them with ffmpeg only (deterministic: every noise source has a fixed seed) and writes `palette.json`; set `--key-hz` to the bed's key so stingers and ticks are in tune. A mix cue names a palette sound (`{"palette":"dot-whoosh","at":12.4}`). The synthesised kinds are riser (noise opening in three bands with a rising tone, cut on the hit), impact (falling sub, noise crack, rumble), whoosh (a band-limited swell, louder in one channel first), stinger (a tonal motif in the key), subdrop and tick; `sound.mjs sfx-synth --kind ...` makes one on its own. The same sound repeating at every carrier move is the point: it is what makes the film sound like one object.
+
+## Sound sources and their licences (scripts/lib/sound-sources.mjs)
+
+The person's own `--track` always wins. Every adapter below runs only when its key is set, and `node scripts/sound.mjs sources` says which are on. Paid generation also needs the film's consent (`--allow-generation`). `music.mjs` ranks the track of every available source by arc fit (lib/audio.mjs `arcFit`: sparse intro, lift at the turn, break before the end card, peak between turn and payoff), so a generated track must beat the catalog on the film's own arc, not on who answered first.
+
+| Adapter | Key | Use | Licence note |
+|---|---|---|---|
+| ElevenLabs Music, SFX, TTS | `ELEVENLABS_API_KEY` | beds, effects, voice | **Film and ad use is UNVERIFIED** (a 2026 guide says self-serve plans exclude film, TV and studio games). A warning prints on every use; confirm on the vendor's terms before a launch film runs as an ad; record the plan and date. |
+| Stable Audio 2 | `STABILITY_API_KEY` | instrumental beds, short SFX | Stability terms or Community Licence (revenue thresholds) (verify). |
+| Freesound | `FREESOUND_API_KEY` | foley, SFX | CC0 only (filter applied and re-checked per result); CC BY and NC are never pulled. |
+| ACE-Step, local | `ACESTEP_CMD` (an executable taking `--prompt --duration --out [--lyrics]`) | free beds, optional vocals | Check the model card of the installed version (verify). Runs in its own process; RasanAI never installs it, and no librosa or numba is ever imported. |
+| OpenAI TTS | `OPENAI_API_KEY` | voice | Disclose an AI voice. |
+
+Never: Suno or Udio downloads (terms unsettled; user-driven for song mode only), MusicGen weights (CC-BY-NC), scraping any library. Paid libraries (Artlist, Musicbed, Epidemic) stay `--track --library <name>` with the person's declared licence.
+
 ## Commands
 
 | Step | Command | What it gives |
@@ -111,7 +162,7 @@ Never: Jamendo's API (its terms allow non-commercial use only and forbid caching
 - The shortlist offers up to three genuinely different candidates; fewer is an honest result. Evidence is stated per candidate: metadata reviewed, auditioned, or approved in a finished mix. A Look sound recommendation is not consent. Rights are recorded by use.
 - Effects have their own levels, layering (purpose-aware layered cues, bounded aggregation) and authored silence; endings are a choice (button, ring-out, fade, cut), not a default.
 - One bus and automation definition, in dB, converted only at the boundary. Ordinary SFX never duck, mute or restart the music bed; speech space comes from the voice only. Scoped sound revisions touch only what was asked.
-- The old fixed 12 LU duck and 3-6 dB lane figures below are measured references, not a universal amount.
+- The old fixed 12 LU duck and 3-6 dB lane figures below are measured references, not a universal amount; the default is no duck.
 - Music dropout: the cause is not established. Treat the guardrails in mix-bus as protection only and never claim a fix.
 
 **Three options, three moods** (warm minimal, driving, airy…): never three takes of one mood; the console shows each as a fitted preview with its licence badge (No credit / Credit needed / Your licence / AI) and lets the user A/B them on the animatic. **Credits:** CC BY needs the credit wherever the video is posted: `$RUN/music/description.txt` holds the paste-ready line (Title, Author, Source, Licence) and `music.mjs credits --pick <id> --description <file>` appends it to the final's description text; offer an end-card credit for ads without a description. Ketsa's line names "Ketsa.uk" (that is what keeps a video claim-free).
@@ -210,14 +261,14 @@ Give each hit in the score one of these (`treatment` on the event; the kind pick
 | Integrated loudness | **-14 LUFS ±1** (-16 for calm VO-led explainers) |
 | True peak | **≤ -1.0 dBTP** on the encoded MP4 (limit at -1.5 before AAC) |
 | Loudness range | 4-9 LU (VO films 4-7); under 2.0 LU is a flat bed (`flat-dynamics`): a launch with a real arc measures about 3 LU or more |
-| Music under VO | **12 LU under the voice** (9-15), measured over the VO spans, not a fixed duck. A -12 dB duck on a quiet bed left music 17 LU under, which is inaudible |
+| Music under VO | **12 LU under the voice** (9-15), measured over the VO spans, set by the bed's level and the EQ carve, not by a duck (default 0 dB). A -12 dB duck on a quiet bed left music 17 LU under, which is inaudible |
 | Music without VO | 2-4 LU under where a voice would sit; the drop may reach it |
 | Head | sound by 0.3 s; the first second within 8 dB of the body (unless a premium soft open is intended) |
 | Tail | the ending (or the button's tail) reaches the last frame; ≤ 1.5 s of silence; the last 30 ms faded below -40 dBFS |
 | Inside | no silence ≥ 0.4 s unless it's a designed music stop |
 | Loops | no restart of the track's opening, no verbatim repeat ≥ 12 s at a lag ≥ 16 s |
 
-Ducking: prefer HyperFrames' Voiceover carve (`data-fx-carve`, 0.35-0.8, against a group of VO clips) plus a gentle 3-6 dB lane over a 12-18 dB blanket duck. For a lane: merge VO phrases with gaps < 1.2 s, go down 0.25 s before the first word over 0.3 s, come back 0.4 s after the last word over 0.8 s, and start the lane with an explicit `{t:0, v:1}`.
+Ducking: none by default; the 150-300 Hz carve does the separating (HyperFrames' Voiceover carve, `data-fx-carve`, 0.35-0.8, against a group of VO clips). Only when measured masking needs it add a gentle lane of 3-6 dB (never a 12-18 dB blanket duck). For a lane: merge VO phrases with gaps < 1.2 s, go down 0.25 s before the first word over 0.3 s, come back 0.4 s after the last word over 0.8 s, and start the lane with an explicit `{t:0, v:1}`.
 
 ## Never
 
@@ -229,3 +280,10 @@ Ducking: prefer HyperFrames' Voiceover carve (`data-fx-carve`, 0.35-0.8, against
 - A riser placed by file length; any SFX placed by the file start.
 - A quiet first second (unless premium on purpose); a fixed duck amount that buries the music.
 - Two different tracks in a film under 60 s.
+
+## The favourites: SFX, the music map, masters (R6, measured on the owner's three favourite films)
+
+- **SFX density 1.5-2.2 designed SFX per 10 s** (2.2, 1.6, 2.1). About 60-70% are air-band risers or sweeps of 0.3-0.7 s that END on a cut or a section change; 30-40% are hits or clicks on the cut itself, plus **sub hits on colour-world flips** and on planned thin spots, and one tonal ping per 20-30 s on UI events in a VO film. Variety is small: riser, hit, ping, click. No carpet of ticks. Use a hit on a cut only when no VO word sits on it. Do not rely on SFX for rhythm: the music's own percussion carries it.
+- **Level: 0 to +6 dB over the bed in the full band** (the transient sits +10 to +30 dB over the local highs). **The bed stays constant under SFX: no duck.**
+- **Music event map first.** `node scripts/music-map.mjs make --audio <bed|song> --out <run>/audio/music-map.json` lists onsets, big hits (a rise of 6 dB or more), breaks, thin spots before a drop, BPM and `cut_points`. It is made **before imagery and picture planning** (phase `music-map`): the picture follows the music's events, not a metronome grid (only 6 of 25 changes sit on the BPM grid in KINSO: chance is 22%). Cuts and big visual hits land **within 150 ms** of a music event; the first world flip is the loudest hit; a break sits inside the proof; the last hit is on the end-card cut; 2-4 big hits per 50 s. `final-gate` runs `music-map.mjs check` on the final render (an error under 50% of cuts on music in a film with no voice; a voice-led film cuts on the words and only warns).
+- **Constant loud master, gestures by removal:** -14 to -15 LUFS, LRA 2.5-3.3 LU for these films, short-term loudness within 3 LU, true peak 0 dBTP at most. Gestures: a 0.5-1 s pre-drop thinning, one planned 1-3 s break, a crash or hit at each section start. Ending options: fade (6 s outro), or **hard stop at the last big hit and a 3-4 s silent end card**.

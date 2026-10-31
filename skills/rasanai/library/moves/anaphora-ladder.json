@@ -1,0 +1,73 @@
+{
+  "id": "anaphora-ladder",
+  "n": 7,
+  "name": "Anaphora ladder",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 19,
+      "end_s": 23,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 34,
+      "end_s": 37,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 27,
+      "end_s": 30,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    },
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 34,
+      "end_s": 39,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-4934",
+      "brand": "PickUs",
+      "start_s": 8,
+      "end_s": 11,
+      "frames": ".context/review-refs/Video-4934/f2/"
+    }
+  ],
+  "description": "A shared first word (\"Every\", \"IDEAS don't need\") with changing endings, each rung on a new plate or icon; 3-5 rungs at 0.8-1.5 s.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "rasan-image-fx.js"
+    ],
+    "build": "Stable left part; right word swaps per move 3; plate or icon swaps on the same timing; micro-meter or specimen under each rung."
+  },
+  "use_when": "The middle section; the strongest story spine.",
+  "avoid": "Do not change the stable words; do not give two rungs the same picture.",
+  "duration_s": {
+    "min": 3,
+    "max": 8
+  },
+  "easing": "power3.out",
+  "carriers": [
+    "word-line",
+    "icon-set",
+    "palette-dither"
+  ],
+  "beat_roles": [
+    "middle"
+  ],
+  "needs": [
+    "rasan-image-fx.js"
+  ]
+}

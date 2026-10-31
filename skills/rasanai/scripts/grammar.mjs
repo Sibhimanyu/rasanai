@@ -7,7 +7,11 @@
 //   node grammar.mjs list                       -> every grammar {id, name, flat_ok, fits, techniques}
 //   node grammar.mjs show <id>                  -> the whole grammar
 //   node grammar.mjs pick --run <run> [--flat] [--exclude a,b] [--count 3]
-//        -> grammars that fit the story shape and the brand constraints, best first. --flat (a graphic-route brand: the brand film
+//        -> grammars that fit the concept's style world and subject first, then the story shape and the brand constraints, best first.
+//           Style world (the strongest signal, +3 per hit, up to 6): the chosen concept's style_world / shots[].style_world / carrier text
+//           (story/chosen.json, decisions.json, crew/plan.json) or --style "pixel, game"; each grammar lists style_world terms. Concept tags
+//           (+1 per hit, up to 3): the concept's title, premise, shots and signature moment against each grammar's concept_tags
+//           (or --concept "text"). Story-shape fits still count. Output has style_signal / concept_signal so the pick is explainable. --flat (a graphic-route brand: the brand film
 //           measured no finish, FILM-STYLE.json measured.finish.layerOff; set by itself from the card) keeps only flat_ok
 //           grammars (flat_ok false = the grammar's look is glow or blur on every element; budgets apply to every grammar)
 //   node grammar.mjs write --run <run> --id <id> [--label Sure|Bold|Wild] [--out <path>] [--brand <DESIGN.md>]
@@ -32,6 +36,17 @@ function shapeText(run) {
   const f = br.fields || br;
   const plan = readJ(path.join(run, "crew", "plan.json")) || {};
   return [dec.route, plan.route, dec.format, dec.kind, f.kind, f.sentence, f.brief, ch.shape, ch.device, ch.kind, ch.title].filter((x) => typeof x === "string").join(" ").toLowerCase();
+}
+// flatten any JSON value (string, list, object) into lowercase words, so a concept in any shape can be matched
+const flat = (v, d = 0) => (v == null || d > 4 ? "" : typeof v === "string" ? v : Array.isArray(v) ? v.map((x) => flat(x, d + 1)).join(" ") : typeof v === "object" ? Object.values(v).map((x) => flat(x, d + 1)).join(" ") : String(v));
+// the concept's style world (declared) and its subject (concept words): what the story planned visually, not its story-shape text
+function conceptSignals(run, args) {
+  const ch = readJ(path.join(run, "story", "chosen.json")) || {}, dec = readJ(path.join(run, "decisions.json")) || {}, plan = readJ(path.join(run, "crew", "plan.json")) || {};
+  const c = ch.concept && typeof ch.concept === "object" ? ch.concept : ch;
+  const shots = Array.isArray(c.shots) ? c.shots : Array.isArray(ch.shots) ? ch.shots : [];
+  const style = [args.style !== true && args.style, c.style_world, ch.style_world, dec.style_world, plan.style_world, shots.map((s) => s && s.style_world)].map((x) => flat(x)).join(" ").toLowerCase();
+  const subject = [args.concept !== true && args.concept, c.title, c.premise, c.logline, c.idea, c.carrier, c.signature_moment, c.signature, c.device, shots.map((s) => s && (s.what || s.see || s.move)), dec.concept].map((x) => flat(x)).join(" ").toLowerCase();
+  return { style, subject };
 }
 const SHAPES = [["launch ladder", /launch|promo|product|reveal|announce|feature|demo|ad\b/], ["explainer", /explain|how|topic|faceless|tutorial|concept/], ["brand film", /brand|manifesto|identity|company|story/], ["music video", /music|lyric|song/], ["reel", /reel|showreel|sizzle/]];
 // graphic route: the brand film measured no finish (brandfilm.mjs measure: measured.finish.layerOff); older cards fall back to their words
@@ -63,6 +78,7 @@ if (cmd === "list") {
   const ex = new Set(String(args.exclude && args.exclude !== true ? args.exclude : "").split(",").map((s) => s.trim()).filter(Boolean));
   const count = Math.max(1, Number(args.count) || 3);
   const text = shapeText(run);
+  const sig = conceptSignals(run, args);
   const shapes = SHAPES.filter(([, re]) => re.test(text)).map(([n]) => n);
   let pool = loadGrammars();
   if (!pool.length) die(`no grammars in ${grammarLibDir()}`);
@@ -75,10 +91,13 @@ if (cmd === "list") {
     // language (squash, back.out, elastic) loses a point there, and one built for UI (glow-panels, editorial-grid, viewfinder-reel) gains one
     const uiLed = uiActor(run, text), chars = String(g.motion_language || "").toLowerCase() === "character";
     const adj = uiLed ? (chars ? -2 : /glow-panels|editorial-grid|viewfinder-reel|catalogue-cards/.test(g.id) ? 1 : 0) : 0;
-    const why = [hit.length ? `fits ${hit.join(", ")}` : "no stated fit for this story shape", adj < 0 ? "character motion: not for a UI-led film (stays on the brand's easing)" : adj > 0 ? "built for product UI" : ""].filter(Boolean).join("; ");
-    return { id: g.id, name: g.name, flat_ok: g.flat_ok, motion_language: g.motion_language || null, score: hit.length + adj, why, _t: tie(run, g.id) };
+    // style world first: the grammar's own style_world terms against the concept's declared world; then its concept_tags against the concept's words
+    const styleHit = (g.style_world || []).filter((t) => sig.style.includes(String(t).toLowerCase())), tagHit = (g.concept_tags || []).filter((t) => sig.subject.includes(String(t).toLowerCase()) || sig.style.includes(String(t).toLowerCase()));
+    const styleScore = Math.min(6, styleHit.length * 3), tagScore = Math.min(3, tagHit.length);
+    const why = [styleHit.length ? `style world: ${styleHit.join(", ")}` : "", tagHit.length ? `concept: ${tagHit.join(", ")}` : "", hit.length ? `fits ${hit.join(", ")}` : "no stated fit for this story shape", adj < 0 ? "character motion: not for a UI-led film (stays on the brand's easing)" : adj > 0 ? "built for product UI" : ""].filter(Boolean).join("; ");
+    return { id: g.id, name: g.name, flat_ok: g.flat_ok, motion_language: g.motion_language || null, score: hit.length + adj + styleScore + tagScore, style_signal: styleHit, concept_signal: tagHit, why, _t: tie(run, g.id) };
   }).sort((a, b) => b.score - a.score || a._t - b._t).slice(0, count).map(({ _t, ...r }) => r);
-  console.log(JSON.stringify({ flat, shape: shapes, excluded: [...ex], dropped_not_flat: dropped, picks: rows }, null, 2));
+  console.log(JSON.stringify({ flat, shape: shapes, style_world: sig.style.trim().slice(0, 160) || null, excluded: [...ex], dropped_not_flat: dropped, picks: rows }, null, 2));
 } else if (cmd === "write") {
   if (!args.run || !args.id || args.id === true) die("--run <run dir> and --id <grammar id> required");
   const run = path.resolve(String(args.run));

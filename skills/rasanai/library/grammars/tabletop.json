@@ -1,0 +1,144 @@
+{
+  "id": "tabletop",
+  "name": "Tabletop",
+  "style_world": [
+    "clay",
+    "toy",
+    "stop-motion",
+    "diorama",
+    "miniature",
+    "felt",
+    "craft",
+    "paper-craft",
+    "tabletop"
+  ],
+  "concept_tags": [
+    "toy",
+    "handmade",
+    "craft",
+    "miniature",
+    "stop-motion",
+    "tactile",
+    "playful",
+    "kids",
+    "food",
+    "friendly"
+  ],
+  "source": "A product told as a small physical set on a table: clay or felt or paper figures and props, a macro lens, a soft key light and a shallow depth of field, everything moving on twos like stop-motion. Described from the atlas clay-toy, diorama and paper-craft entries; no assets are carried.",
+  "motion_language": "character",
+  "kit": [
+    "stage3d/recipes/clay-toy.js",
+    "stage3d/recipes/voxel-diorama.js",
+    "runtime/medium-paper.js"
+  ],
+  "frame_device": {
+    "what": "A tabletop set seen through a macro camera: a seamless paper or cloth sweep, a few handmade props and one hero figure; the table edge and a soft window light stay constant.",
+    "moves": "Figures hop, squash and settle on twos; the camera dollies a few centimetres per beat and racks focus between props; a hand-made prop slides in from off-table for each new idea."
+  },
+  "ground_motion": "The key light drifts a few degrees, dust motes and fabric fibres sit still but the boil wobble (a tiny seeded rotation per held frame) keeps every prop alive on twos.",
+  "type": {
+    "classes": "Chunky rounded or hand-cut type made as a physical object (clay letters, felt cut-outs, paper stencil) with one clean support face for the claim.",
+    "behaviour": "Words are objects: they are placed, tipped and pulled out of frame by the same hands; the claim line is typeset sharp and fades in under the macro blur."
+  },
+  "image": {
+    "treatment": "Soft physical materials (clay, gummy, felt, paper) with a believable key and fill, shallow depth of field, a faint table grain; Codex plates for backdrops and props, product UI as a small tablet or card prop.",
+    "behaviour": "Everything moves on twos (12 fps) with squash and stretch; no smooth sliding, no motion blur; boil on outlines."
+  },
+  "transitions": [
+    "a hand-made prop wipes the frame (cloth pull, paper slide)",
+    "rack focus from one prop to the next",
+    "camera dolly through a gap between objects",
+    "the table turns on a lazy susan to the next set",
+    "squash-pop replace: one toy hops out as the next hops in"
+  ],
+  "techniques": [
+    {
+      "id": "hop-on-twos",
+      "name": "Hop on twos",
+      "what": "A toy hops with a crouch, a stretch in the air, a landing squash and a settle, on held frames.",
+      "route": "recipes/clay-toy.js build(k, {count, hopS, squash, stepFps: 12}); pose(t) is the held read of t; hits are the landings."
+    },
+    {
+      "id": "macro-rack-focus",
+      "name": "Macro rack focus",
+      "what": "Focus slides from one tiny prop to the next while the camera creeps in.",
+      "route": "Rasan3D camera keys with fstop 2 to 4 and focus distance keys per beat; recipe focus-pull.js between the props."
+    },
+    {
+      "id": "diorama-rise",
+      "name": "Diorama rise",
+      "what": "A little block world rises on the table as the product's world.",
+      "route": "recipes/voxel-diorama.js with a small grid (12 to 16); camera orbit 30 to 50 degrees."
+    },
+    {
+      "id": "prop-slide-in",
+      "name": "Prop slide-in",
+      "what": "A hand-made prop (a card, a sign, a screen) slides in from off-table to carry the next line.",
+      "route": "Plane with a product plate or text texture; position key from off-frame, 0.4 s power3.out, 2 frame overshoot, held on twos."
+    },
+    {
+      "id": "boil-wobble",
+      "name": "Boil wobble",
+      "what": "Outlines and props tremble by a hair each frame, the stop-motion tell.",
+      "route": "clay-toy pose uses boil 0.2 to 0.5; or RasanShape.stepped(tl, {fps: 12}) and a seeded rotation per step on DOM props."
+    },
+    {
+      "id": "cloth-wipe",
+      "name": "Cloth wipe",
+      "what": "A cloth or paper sheet is pulled across the table and the next set is under it.",
+      "route": "Full-frame textured plane or DOM layer translating x -120% to 120% on twos; the incoming scene sits beneath."
+    },
+    {
+      "id": "object-says-the-word",
+      "name": "An object says the word",
+      "what": "One toy or prop takes the stage as the beat's noun and the word sits beside it.",
+      "route": "Hero toy to centre (x 0.4 s), word placed as a clay-lettered plane or sharp DOM text; others exit by hopping out."
+    },
+    {
+      "id": "lazy-susan-turn",
+      "name": "Lazy-susan turn",
+      "what": "The whole set turns to reveal the next scene on its back.",
+      "route": "Parent group rotation.y 0 to 180 degrees over 1.0 s power2.inOut, held on twos; each side is a set."
+    },
+    {
+      "id": "word-choreo",
+      "name": "Word choreography",
+      "what": "Each word of a line enters from its own place and settles into the line with a lift; the key word last with a little more overshoot.",
+      "route": "RasanShape.split on the sharp support face; words rise 20 px with a 4% squash on arrival, 0.5 s, stagger 0.08 s, key word last with back.out(1.4); object lettering is placed one letter per held frame."
+    }
+  ],
+  "signature": "The last toy settles on its mark, the camera racks to the product card, and the table holds still for one beat with the claim in sharp type.",
+  "density": {
+    "change_every_s": 1.1,
+    "note": "A hop, a rack or a prop change every 1.1 to 1.8 s; layers at the peak: 4 to 7 (sweep, set, hero toy, prop, light, support type)."
+  },
+  "palette": {
+    "ground": "#efe6d6",
+    "ink": "#2b2622",
+    "accent": "#e8613c",
+    "note": "A brand palette dresses the toys and props; the soft light and the materials stay."
+  },
+  "do": [
+    "Keep every figure on twos with squash and stretch",
+    "Use one material family per film",
+    "Light it like a real tabletop: one key, one fill, soft shadow",
+    "Make each idea a physical prop that arrives by hand",
+    "Keep the claim in sharp type"
+  ],
+  "dont": [
+    "Do not slide or glide objects smoothly",
+    "Do not mix flat vector icons with clay props",
+    "Do not add glow, bloom or lens flare",
+    "Do not crowd the table; 3 props in a shot"
+  ],
+  "fits": [
+    "brand film",
+    "launch ladder",
+    "explainer",
+    "kids",
+    "food",
+    "playful B2C",
+    "title sequence"
+  ],
+  "flat_ok": false
+}

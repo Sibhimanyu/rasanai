@@ -68,6 +68,14 @@
 //   offset_s (the intended lead or lag of its accent, default +0.010 s); --profile <rasanai-house|ebu-r128|atsc-a85> sets the loudness target and true-peak limit
 //   (lib/mix-receipt.mjs PROFILES; --lufs still wins; the house profile is the old -14 LUFS / -1.5 dBTP). The records live in soundplan.mjs (references/sound.md "Sound direction").
 //   node sound.mjs probe <sfx files...>        -> sync point, lead silence, audible end, harshness
+//   node sound.mjs mix --spec <mix.json> --out <mix.wav> [--stems <dir>]   the layered stem mix (lib/mix.mjs mixFilm: music + VO + SFX stems, 150-300 Hz carve, no duck by default (spec.duck_db 0-9 only when measured masking needs it)
+//       and 3 dB under key SFX, SFX snapped to hit points and the beat grid, master to --platform web -14 | keynote -16 | broadcast -23 LUFS); spec fields are in lib/mix.mjs
+//   node sound.mjs sfx-synth --kind riser|impact|whoosh|stinger|subdrop|tick --out <wav> [--dur s] [--f hz] [--root hz] [--dir lr|rl]   one synthesised effect (ffmpeg only)
+//   node sound.mjs palette --carrier "<carrier>" --dir <run>/audio/palette [--key-hz 220] [--seed <film id>]   the film's sound palette: 3-5 signature sounds for its carrier (library/sfx/palettes.json)
+//   node sound.mjs sources                      -> which keyed adapters this environment can use (ElevenLabs, Stable Audio, Freesound CC0, local ACE-Step), with licence caveats
+//   node sound.mjs sfx-find --query "<words>" --out <file> [--from freesound|elevenlabs|stable] [--dur s]   one effect from a keyed source (only when its key is set)
+//   node sound.mjs mode --length <s> --platform muted-social|social|site|youtube|keynote|broadcast [--claims n] [--answer "<the person's words>"] [--interface] [--kinetic] [--brand] [--captions] [--lyric-track <file> | --lyric-text <text>] [--consumer] [--no-song]
+//       -> the sound mode (vo-kinetic | instrumental-arc | sfx-led | song-lyric) with its reason and the VO recommendation (lib/sound-mode.mjs)
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -1098,6 +1106,45 @@ if (cmd === "analyze") {
   track("Mastering the sound to -14 LUFS", "Sound mastered");
   const src = exists(path.resolve(String(args.video || args.audio || need("audio", "<file> (or --video <mp4>)"))), "input");
   out(masterFile(src, String(need("out", "<file>")), { lufs: targetLufs(), tp: limitTp() }));
+} else if (cmd === "mix") {
+  track("Mixing the film's stems", "Stems mixed");
+  const specFile = exists(path.resolve(need("spec", "<mix.json>")), "mix spec");
+  const spec = readJSON(specFile);
+  const base = path.dirname(specFile);
+  const abs = (p) => (p && !path.isAbsolute(p) ? path.resolve(base, p) : p);
+  for (const k of ["music", "vo"]) if (spec[k] && spec[k].file) spec[k].file = abs(spec[k].file);
+  if (spec.vo && typeof spec.vo.words === "string") spec.vo.words = abs(spec.vo.words);
+  if (spec.palette_dir) spec.palette_dir = abs(spec.palette_dir);
+  if (typeof spec.beats === "string") spec.beats = abs(spec.beats);
+  for (const c of spec.sfx || []) if (c.file) c.file = abs(c.file);
+  if (args.platform && args.platform !== true) spec.platform = String(args.platform);
+  if (args.mode && args.mode !== true) spec.mode = String(args.mode);
+  const { mixFilm } = await import("./lib/audio.mjs");
+  out(await mixFilm(spec, path.resolve(need("out", "<mix.wav>")), { workDir: args.stems && args.stems !== true ? path.resolve(String(args.stems)) : undefined }));
+} else if (cmd === "sfx-synth") {
+  const { synth } = await import("./lib/sfx-synth.mjs");
+  const p = {};
+  for (const k of ["dur", "f", "root", "lo", "hi", "tail"]) if (args[k] != null && args[k] !== true) p[k] = Number(args[k]);
+  for (const k of ["dir", "color"]) if (args[k] != null && args[k] !== true) p[k] = String(args[k]);
+  if (args.seed != null && args.seed !== true) p.seed = Number(args.seed);
+  out(synth(String(need("kind", "riser|impact|whoosh|stinger|subdrop|tick")), path.resolve(need("out", "<wav>")), p));
+} else if (cmd === "palette") {
+  track("Making the film's sound palette", "Palette made");
+  const { renderPalette } = await import("./lib/sfx-synth.mjs");
+  out(renderPalette({ carrier: String(args.carrier || "default"), keyHz: args["key-hz"] != null ? Number(args["key-hz"]) : 220, seed: String(args.seed || "film"), dir: path.resolve(need("dir", "<dir>")) }));
+} else if (cmd === "sources") {
+  const { adapters } = await import("./lib/sound-sources.mjs");
+  out(adapters());
+} else if (cmd === "sfx-find") {
+  // a keyed SFX source: --from freesound (CC0 only) | elevenlabs | stable; the licence and caveat go in the JSON, save them in the run's LICENSES.json
+  const SS = await import("./lib/sound-sources.mjs");
+  const from = String(args.from || "freesound"), q = String(need("query", "<words>")), o = path.resolve(need("out", "<file>")), secs = args.dur != null ? Number(args.dur) : 2;
+  if (from !== "freesound") SS.warn(from === "stable" ? "stable" : "elevenlabs");
+  out(from === "freesound" ? await SS.freesoundSfx({ query: q, out: o }) : from === "stable" ? await SS.stableAudio({ prompt: q, seconds: secs, out: o }) : await SS.elevenSfx({ prompt: q, seconds: secs, out: o }));
+} else if (cmd === "mode") {
+  const { decideSoundMode } = await import("./lib/sound-mode.mjs");
+  const flag = (k) => (args[k] === true ? true : undefined);
+  out(decideSoundMode({ lengthS: args.length != null ? Number(args.length) : undefined, platform: args.platform && args.platform !== true ? String(args.platform) : "site", claims: args.claims != null ? Number(args.claims) : undefined, userAnswer: args.answer && args.answer !== true ? String(args.answer) : undefined, interface: flag("interface"), kineticType: flag("kinetic"), brand: flag("brand"), captions: flag("captions"), lyricTrack: args["lyric-track"] && args["lyric-track"] !== true ? String(args["lyric-track"]) : undefined, songOptIn: flag("no-song") ? false : undefined, consumer: flag("consumer"), lyricText: args["lyric-text"] && args["lyric-text"] !== true ? String(args["lyric-text"]) : undefined }));
 } else if (cmd === "probe") {
   const files = args._.slice(1);
   if (!files.length) die("usage: sound.mjs probe <sfx files...>");
@@ -1112,5 +1159,5 @@ if (cmd === "analyze") {
   track("Measuring the mix: loudness, peaks, loops, SFX density", "Audio checked");
   check();
 } else {
-  die("usage: sound.mjs analyze|fit|render|loop-bed|sfx-plan|check|lock|master|probe ... (see the header)");
+  die("usage: sound.mjs analyze|fit|render|loop-bed|sfx-plan|check|lock|master|mix|sfx-synth|palette|mode|sources|sfx-find|probe ... (see the header)");
 }

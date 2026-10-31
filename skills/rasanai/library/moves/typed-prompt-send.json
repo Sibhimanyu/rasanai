@@ -1,0 +1,64 @@
+{
+  "id": "typed-prompt-send",
+  "n": 26,
+  "name": "Typed prompt plus send",
+  "family": "ui",
+  "source": [
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 9,
+      "end_s": 11,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    },
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 14,
+      "end_s": 17,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    },
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 18,
+      "end_s": 19,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 22,
+      "end_s": 27,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "A prompt is typed, the cursor clicks the send arrow, the result pops.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-ui.js",
+      "rasan-type.js"
+    ],
+    "build": "HTML UI, typewriter text (GSAP text tween), a cursor div on a Bezier path, a click ripple, the result card scale 0.9 to 1 with y."
+  },
+  "use_when": "The \"how it works\" core.",
+  "avoid": "Do not type more than about 12 words; the result must be the real output.",
+  "duration_s": {
+    "min": 3,
+    "max": 6
+  },
+  "easing": "power2.out",
+  "carriers": [
+    "ui-plane",
+    "dot",
+    "word-line"
+  ],
+  "beat_roles": [
+    "proof"
+  ],
+  "needs": []
+}

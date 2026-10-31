@@ -1,0 +1,44 @@
+{
+  "id": "lone-dot-carrier-iris",
+  "n": 33,
+  "name": "Lone dot carrier plus iris",
+  "family": "world",
+  "source": [
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 4,
+      "end_s": 22,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    }
+  ],
+  "description": "A single dot persists as bullet, spinner, hole, then scales into the white screen of the next scene.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-motion.js",
+      "rasan-layout.js"
+    ],
+    "build": "One absolutely positioned circle as a persistent element; at the transition scale it to cover the frame (circle clip-path)."
+  },
+  "use_when": "Any film that must cross worlds without a cut.",
+  "avoid": "Do not reuse an eye, pupil or slit (house ban); the dot must carry a different meaning each use.",
+  "duration_s": {
+    "min": 0.8,
+    "max": 2
+  },
+  "easing": "power3.inOut",
+  "carriers": [
+    "dot"
+  ],
+  "beat_roles": [
+    "open",
+    "turn",
+    "middle",
+    "close"
+  ],
+  "needs": []
+}

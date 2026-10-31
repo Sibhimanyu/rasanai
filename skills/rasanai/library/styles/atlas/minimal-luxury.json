@@ -1,0 +1,131 @@
+{
+  "format": "style-world@1",
+  "id": "minimal-luxury",
+  "number": 29,
+  "name": "Minimal luxury / quiet premium",
+  "look": "dark or warm-neutral, huge restraint, one object, slow light.",
+  "fits": {
+    "products": [
+      "premium hardware",
+      "high-end tools",
+      "wellness"
+    ],
+    "tones": [
+      "quiet",
+      "refined",
+      "patient"
+    ],
+    "notes": "premium hardware, high-end tools, wellness"
+  },
+  "avoid": {
+    "products": [
+      "audiences that expect energy"
+    ],
+    "tones": [
+      "loud",
+      "playful"
+    ]
+  },
+  "when_not": [
+    "premium hardware, high-end tools, wellness; avoid when the audience expects energy."
+  ],
+  "type": {
+    "guidance": "thin serif or light grotesk (Canela, Söhne Breit)",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "thin serif or light grotesk (Canela, Söhne Breit); black/warm stone/gold or one soft hue.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour as the single soft light or the hairline; black and warm stone around it",
+    "type_role": "thin serif or light grotesk; brand face for the claim",
+    "world_changes": "one object, long holds, slow light",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "hairline draws",
+      "long holds",
+      "soft specular sweeps",
+      "slow push-ins",
+      "centre reveal masks",
+      "focus pulls"
+    ],
+    "grammars": [
+      "viewfinder-reel"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.1,
+        "size": 1.8
+      },
+      "role": "slow film grain on dark ground"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 2,
+      "max": 4
+    },
+    "prompt_template": "macro material study of {material}, warm neutral, soft specular light, shallow depth of field, no text",
+    "animate_with": [
+      {
+        "id": "A6",
+        "what": "camera on a plate (Ken Burns with grain and vignette)"
+      }
+    ],
+    "r1_note": "hero material studies and macro textures; A6.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "low piano",
+      "single bowed string",
+      "room air",
+      "soft sub"
+    ]
+  },
+  "build": {
+    "engine": "B",
+    "engine_meaning": "buildable today",
+    "recipe": "`personalities/luxe-minimal.json`, `cinematic-slow.json`, `stage3d/recipes/hero-turntable.js`, `focus-pull.js`, `motion/cinematic/macro-product-closeup.md`.",
+    "refs": [
+      "personalities/luxe-minimal.json",
+      "cinematic-slow.json",
+      "stage3d/recipes/hero-turntable.js",
+      "focus-pull.js",
+      "motion/cinematic/macro-product-closeup.md"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": "stage3d/recipes/hero-turntable.js"
+  },
+  "examples": [
+    {
+      "title": "Apple product films",
+      "url": "https://www.apple.com/newsroom",
+      "link_status": "unverified-from-memory"
+    },
+    {
+      "title": "`systems/studios/apple-product-films.md`",
+      "link_status": "in-repo-or-text-only"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

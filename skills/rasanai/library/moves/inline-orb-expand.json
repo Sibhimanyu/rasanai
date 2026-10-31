@@ -1,0 +1,46 @@
+{
+  "id": "inline-orb-expand",
+  "n": 35,
+  "name": "Inline orb expand",
+  "family": "world",
+  "source": [
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 13,
+      "end_s": 15,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "The inline blob in a sentence grows to the full frame and becomes the brand gradient world, with the logo.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-fx.js",
+      "rasan-type.js"
+    ],
+    "build": "Blob div with a gradient, scale 1 to 40 with origin at its centre, text fades; the logo appears on top."
+  },
+  "use_when": "Brand reveal.",
+  "avoid": "Do not use before the turn.",
+  "duration_s": {
+    "min": 1,
+    "max": 2
+  },
+  "easing": "power3.in",
+  "carriers": [
+    "dot",
+    "object",
+    "mark"
+  ],
+  "beat_roles": [
+    "turn",
+    "close"
+  ],
+  "needs": [
+    "rasan-fx.js"
+  ]
+}

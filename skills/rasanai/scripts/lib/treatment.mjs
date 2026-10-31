@@ -49,6 +49,16 @@ export const defaultTreatment = (over = {}) => ({
 });
 
 // accept the writer's spellings (title, vo, id-less beats) and give every beat a stable id; never mutates the input
+// The visual plan of a concept (creative-engine redesign): a concept is a sequence of SHOTS in a style world with one carrier, one signature moment and a sound mode;
+// words are a layer on top. Carried through normalizeTreatment and toLegacyPitch so story.mjs check (gate GV) and the Studio card see it.
+export const VISUAL_FIELDS = ["style_world", "style", "carrier", "signature_moment", "sound_mode", "product_truth", "first_watch"];
+function visualPlan(r) {
+  const o = {};
+  for (const k of VISUAL_FIELDS) if (r[k] != null) o[k] = typeof r[k] === "object" ? r[k] : str(r[k]);
+  if (isObj(o.style_world)) { const sw = o.style_world; o.style_world = str(sw.id || sw.name); if (!isObj(o.style) && (sw.palette || sw.font)) o.style = { ...(sw.palette ? { palette: sw.palette } : {}), ...(sw.font ? { font: sw.font } : {}) }; } // canonical: an id string + optional style {palette, font}
+  if (Array.isArray(r.shots)) o.shots = r.shots.filter(isObj).map((sh, i) => ({ id: str(sh.id) || `s${String(i + 1).padStart(2, "0")}`, t: Number(sh.t) || 0, see: str(sh.see), style: str(sh.style), carrier_state: str(sh.carrier_state), move: str(isObj(sh.move) ? sh.move.id : sh.move), transition: str(sh.transition), words: str(sh.words), ...(str(sh.image) ? { image: str(sh.image) } : {}) }));
+  return o;
+}
 export function normalizeTreatment(raw) {
   const r = isObj(raw) ? raw : {};
   const used = new Set();
@@ -73,6 +83,7 @@ export function normalizeTreatment(raw) {
     treatment_title: T(r.treatment_title || r.title), premise: T(r.premise), logline: T(r.logline), communication_kind: T(r.communication_kind), proposition: T(r.proposition),
     viewer_takeaway: T(r.viewer_takeaway), perspective: T(r.perspective), takeaways: take, beats,
     coverage: { ledger: arr(r.coverage && r.coverage.ledger), excluded: arr(r.coverage && r.coverage.excluded) }, claims: arr(r.claims), optional_tools: arr(r.optional_tools),
+    ...visualPlan(r),
   });
 }
 
@@ -196,6 +207,11 @@ export function validateTreatment(raw, ctx = {}) {
   const g = STORY_GRAMMARS[kind] || null;
   const evById = new Map(arr(ctx.evidence).map((e) => [e && e.id, e]));
 
+  // --- the visual plan (not required on a legacy run: ctx.noVisualPlan, or story.mjs --no-visual-plan)
+  if (!ctx.noVisualPlan && !t.legacy) {
+    for (const k of ["style_world", "carrier", "signature_moment", "sound_mode"]) if (!T(isObj(t[k]) ? t[k].id || t[k].name || t[k].what : t[k])) add(`${k}-missing`, null, `${k} is missing: a concept names its style world, carrier, signature moment and sound mode`, "error", `name the ${k.replace("_", " ")} (see agents/concept-writer-*.md); words are a layer on top of the shot list`, "mechanical");
+    if (!Array.isArray(t.shots) || t.shots.length < 3) add("shots-missing", null, `shots[] has ${Array.isArray(t.shots) ? t.shots.length : 0} entries (3 at least): the concept is a shot list: see, style, carrier_state, move, transition, words`, "error", "write the shots first, then the words", "mechanical");
+  }
   // --- mechanical / factual errors
   if (!T(t.treatment_title)) add("title-missing", null, "treatment_title is empty", "error", "write a title that helps a person choose this film (what it is, not a strategy label)", "mechanical");
   if (!kind || !KIND_IDS.includes(kind)) add("kind-unknown", null, `communication_kind ${JSON.stringify(kind)}`, "error", `set communication_kind to one of ${KIND_IDS.join(", ")}`, "mechanical");
@@ -460,6 +476,7 @@ export function toLegacyPitch(raw, { label = null } = {}) {
     story_format: STORY_FORMAT, treatment_id: t.id, label: label || t.tag || t.id, angle: t.tag || "", title: t.treatment_title, treatment_title: t.treatment_title, premise: t.premise,
     logline: t.logline, proposition: t.proposition, communication_kind: t.communication_kind, aim: { takeaway: t.viewer_takeaway || t.proposition, feel: "", action: "", audience: "" },
     perspective: t.perspective, coverage_ledger: coverageLedger(t).rows,
+    ...Object.fromEntries([...VISUAL_FIELDS, "shots"].filter((k) => t[k] != null).map((k) => [k, t[k]])),
     ...(isObj(t.extensions) && isObj(t.extensions.creative_thinking) ? { extensions: { creative_thinking: t.extensions.creative_thinking }, concept_card: conceptCard(t) } : {}),
     beats: t.beats.map((b) => ({ id: b.id, name: b.internal_beat_label || b.id, on_screen: b.on_screen, vo: b.voiceover == null ? "" : b.voiceover, visual: evText(b.visual_event), picture: b.visual_event.change,
       duration_s: b.duration_provisional_s, buys: b.viewer_takeaway, viewer_takeaway: b.viewer_takeaway, viewer_before: b.visual_event.before, viewer_after: b.visual_event.after,

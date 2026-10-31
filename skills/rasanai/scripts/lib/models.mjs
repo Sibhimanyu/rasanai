@@ -92,19 +92,27 @@ export function detectModel(env = process.env) {
 const GATHER = new Set(["product-researcher", "brand-researcher", "brand-film-analyst", "screens-researcher", "local-scout"]);
 const ORDER = { fast: 0, strong: 1, frontier: 2 };
 const FAST_ALIAS = { claude: "sonnet", gpt: null, other: null };
+// Who runs on what (Claude). Creative roles: Opus at high effort. Builders and fixers: Sonnet. Mechanical work: Haiku.
+export const CREATIVE = new Set(["script-writer", "treatment-writer", "visual-writer", "footage-writer", "concept-writer-story", "concept-writer-style", "concept-writer-wild", "script-editor", "concept-critic", "story-planner", "design-system-designer", "design-researcher", "styleframe-designer", "frame-designer", "move-inventor", "move-juror", "frame-juror", "style-frame-juror", "ab-juror", "structure-critic", "critic", "motion-director", "art-director", "character-designer"]);
+export const BUILDERS = new Set(["film-builder", "scene-animator", "quick-builder", "brand-compiler"]);
+export const MECHANICAL = new Set(["footage-logger", "retrospective", "move-sketcher", "brand-kit-builder", "selects-producer"]);
 export function tierFor(role, profile) {
-  // the concept critic is a quick, cheap pre-flight read of the script and look against the brief: Sonnet is the right model (never the session's Opus);
-  // so are the move juror (binary gates and pairwise picks on fixed cards) and the move sketcher (a grey-box rough of a card already written)
-  const gather = GATHER.has(role) || ["concept-critic", "move-juror", "move-sketcher"].includes(role);
+  // the concept critic, the move juror and the juries are creative judgement now (Opus, high effort); only mechanical roles and gatherers may run light
+  const gather = GATHER.has(role) || MECHANICAL.has(role);
   const min = gather ? "fast" : "strong";
   // the roles where the film is won or lost: a frontier model when one is running the session
   const prefer = gather ? "fast" : ["motion-director", "scene-animator", "film-builder", "move-inventor", "frame-designer", "styleframe-designer", "frame-juror", "treatment-writer", "script-writer", "critic"].includes(role) ? "frontier" : "strong";
   const ok = ORDER[profile.tier] >= ORDER[min];
   const useFast = gather && profile.tier !== "fast";
-  // a fast tier is a cheaper model of the same family: on Claude a smaller model, on Codex the same model at low effort
-  const model = useFast ? FAST_ALIAS[profile.family] || null : null;
-  const effort = profile.family === "gpt" ? (gather ? "low" : prefer === "frontier" ? "high" : "medium") : null;
-  return { role, min, prefer, ok, fast: useFast, model, effort, note: ok ? undefined : `${role} never goes below ${min}: run it on a ${min} model or the session's` };
+  // Claude routing (the usage rule): creative roles run on Opus at high effort; builders and fixers on Sonnet; mechanical work on Haiku.
+  // Gathering researchers stay on Sonnet (the existing FAST_ALIAS). On Codex the same model runs at an effort set by the role.
+  let model = null, effort = null;
+  if (profile.family === "claude") {
+    model = CREATIVE.has(role) ? "opus" : MECHANICAL.has(role) ? "haiku" : BUILDERS.has(role) ? "sonnet" : gather ? FAST_ALIAS.claude : null;
+    effort = CREATIVE.has(role) ? "high" : null;
+  } else if (profile.family === "gpt") effort = gather ? "low" : prefer === "frontier" ? "high" : "medium";
+  const useLight = profile.family === "claude" ? model === "sonnet" || model === "haiku" : useFast;
+  return { role, min, prefer, ok, fast: useLight, creative: CREATIVE.has(role), model, effort, note: ok ? undefined : `${role} never goes below ${min}: run it on a ${min} model or the session's` };
 }
 
 // ---------------------------------------------------------------- adapt
@@ -155,8 +163,11 @@ export function adapt({ role, text, dare, profile }) {
 }
 
 // ---------------------------------------------------------------- dispatch line, per harness
-export function dispatchFor(profile, { desc, file, role, tier }) {
+export function dispatchFor(profile, { desc, file, role, tier, model: pinModel, effort: pinEffort, pinned = false }) {
   const T = tierFor(role, profile);
+  if (pinned) { T.model = null; T.effort = profile.family === "gpt" ? T.effort : null; }
+  if (pinModel !== undefined) T.model = pinModel;
+  if (pinEffort !== undefined) T.effort = pinEffort;
   const msg = `Read ${file} in full, then do the job it describes. Your Dispatch context is at its end.`;
   if (profile.harness === "codex") {
     const eff = T.effort ? ` -c model_reasoning_effort=${T.effort}` : "";
@@ -164,8 +175,10 @@ export function dispatchFor(profile, { desc, file, role, tier }) {
     return `codex exec${m}${eff} -s danger-full-access "${msg}" < /dev/null > ${file.replace(/\.md$/, ".log")} 2>&1 &   # background; ${desc}`;
   }
   if (profile.harness === "claude-code") {
-    const model = T.fast && T.model ? `, model: "${T.model}"` : "";
-    return `Agent(description: "${desc}", prompt: "${msg}", run_in_background: true${model})`;
+    // always name the model (and the effort for creative roles) so a role never silently inherits the session's
+    const model = T.model ? `, model: "${T.model}"` : "";
+    const think = T.effort ? `${msg} Think at ${T.effort} effort: this is creative work.` : msg;
+    return `Agent(description: "${desc}", prompt: "${think}", run_in_background: true${model})`;
   }
   return `Run a fresh agent session with the prompt: "${msg}"  (${desc}); if you can't, do it yourself in sequence (--lean)`;
 }
@@ -194,10 +207,11 @@ export function allocate({ role, profile, policy = null, attempt = 1, failed = n
   } else if (requested) out.notes.push(`requested ${requested} is a recommendation only: routing stays within the models already authorized for this run`);
   if (BOOKKEEPING.has(role) && out.effort) out.effort = "low"; // no maximum effort for deterministic bookkeeping
   if (!T.ok) out.notes.push(T.note); // the session's model is below this role's floor: say so, never pretend
-  if (DIRECTION.has(role) && (T.fast || p.tier === "fast")) { out.fast = false; out.model = null; out.notes.push("story and visual-direction work is not given to a fast model to hit a cost target"); }
+  if (DIRECTION.has(role) && !CREATIVE.has(role) && out.model === "haiku") { out.model = "sonnet"; out.notes.push("direction work is never given to Haiku"); }
+  if (CREATIVE.has(role) && !pinned && p.family === "claude") out.notes.push("creative role: Opus at high effort");
   if (failed && attempt > 1) {
     out.repair = { packet: "focused", scope: "the failing findings only", rerun_full_crew: false };
-    if (!pinned && T.fast) { out.fast = false; out.model = null; out.escalation = { from: "fast", to: "session model", reason: String(failed.reason || failed).slice(0, 200), attempt, record: "ledger event escalate: compare the repaired result with the first attempt in Plan 14" }; }
+    if (!pinned && T.fast && !MECHANICAL.has(role)) { out.fast = false; out.model = null; out.escalation = { from: "fast", to: "session model", reason: String(failed.reason || failed).slice(0, 200), attempt, record: "ledger event escalate: compare the repaired result with the first attempt in Plan 14" }; }
     else if (pinned) out.notes.push("the person pinned a model: repair is retried on it, not escalated");
   }
   return out;

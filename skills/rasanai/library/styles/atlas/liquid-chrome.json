@@ -1,0 +1,140 @@
+{
+  "format": "style-world@1",
+  "id": "liquid-chrome",
+  "number": 13,
+  "name": "Liquid / blob / chrome liquid metal",
+  "look": "gooey metaballs, mercury chrome, drops merging, logos condensing.",
+  "fits": {
+    "products": [
+      "AI",
+      "creative",
+      "music",
+      "beauty",
+      "fluid/adaptive products"
+    ],
+    "tones": [
+      "fluid",
+      "futuristic",
+      "sensual"
+    ],
+    "notes": "AI, creative, music, beauty; \"fluid/adaptive\" products. Needs speed: liquid on slow tempo looks screensaver"
+  },
+  "avoid": {
+    "products": [
+      "slow tempo (reads as screensaver)"
+    ],
+    "tones": [
+      "sober"
+    ]
+  },
+  "when_not": [
+    "Avoid for slow tempo (reads as screensaver)."
+  ],
+  "type": {
+    "guidance": "wide extended (Monument Extended, Neue Machina), chrome gradient",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "wide extended (Monument Extended, Neue Machina), chrome gradient; black + one hot colour.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "black plus the brand colour as the one hot colour",
+    "type_role": "wide extended display for the logo word; brand face for the claim",
+    "world_changes": "drops merge, the logo condenses from liquid metal",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "SVG gooey filter (blur + threshold matrix)",
+      "metaball fragment shader",
+      "domain-warped noise",
+      "raymarched SDF blobs",
+      "chrome via environment map"
+    ],
+    "grammars": [
+      "glyph-chain"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "posterise",
+      "params": {
+        "mode": 1,
+        "steps": 0,
+        "palette": [
+          "#050505",
+          "#3a3f4a",
+          "#c9ced8",
+          "#ffffff"
+        ]
+      },
+      "role": "chrome gradient-map on a blob mask"
+    },
+    {
+      "pass": "aberration",
+      "params": {
+        "shift": 0.01
+      },
+      "role": "prismatic edge"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 3
+    },
+    "prompt_template": "equirectangular chrome studio environment map, high contrast, black and {accent} accent",
+    "animate_with": [
+      {
+        "id": "A3",
+        "what": "displacement / warp (shader fed by noise or depth)"
+      }
+    ],
+    "r1_note": "chrome/studio environment maps (equirect), reference stills for colour.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "wet bass",
+      "glass tones",
+      "reversed swells",
+      "resonant filter sweeps"
+    ]
+  },
+  "build": {
+    "engine": "R",
+    "engine_meaning": "reference only (builder hand-codes it)",
+    "recipe": "`motion/other/liquid-morph.md`, `3d-cgi/liquid-metal-blob-3d.md`, `3d-cgi/raymarched-abstract-iq.md`, `systems/material/chrome-liquid-metal-cgi.md`, skill `shader-glsl`. Three.js metaballs with MarchingCubes (addons exist) or fullscreen SDF shader; env-map from a Codex-generated studio plate.",
+    "refs": [
+      "motion/other/liquid-morph.md",
+      "3d-cgi/liquid-metal-blob-3d.md",
+      "3d-cgi/raymarched-abstract-iq.md",
+      "systems/material/chrome-liquid-metal-cgi.md",
+      "shader-glsl"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Buck \"Moshing\" for Apple Music Korea (custom glitch/liquid tooling)",
+      "url": "https://buck.co/sandbox/moshing",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

@@ -1,0 +1,135 @@
+{
+  "format": "style-world@1",
+  "id": "soft-3d",
+  "number": 12,
+  "name": "Soft 3D / candy C4D render",
+  "look": "glossy soft-clay or glass objects, cloner arrays rippling, held hero compositions.",
+  "fits": {
+    "products": [
+      "consumer apps",
+      "hardware",
+      "delightful brands"
+    ],
+    "tones": [
+      "delightful",
+      "friendly",
+      "glossy"
+    ],
+    "notes": "consumer apps, hardware, \"delightful\" brands. Overused in 2020-22"
+  },
+  "avoid": {
+    "products": [
+      "default pastel blobs with no concept"
+    ],
+    "tones": [
+      "serious"
+    ]
+  },
+  "when_not": [
+    "Overused in 2020-22; avoid default pastel blobs without a concept."
+  ],
+  "type": {
+    "guidance": "rounded sans (Circular, Recoleta, Gilroy)",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "rounded sans (Circular, Recoleta, Gilroy); pastel gradients, 3 colours.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour on the hero object and light; pastel gradient from the brand tints",
+    "type_role": "rounded sans for display; brand face for the claim",
+    "world_changes": "glossy objects, cloner ripples, orbit with DOF breathing",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "staggered scale ripples",
+      "jiggle with spring physics",
+      "camera orbit",
+      "depth-of-field breathing",
+      "transmission/refraction"
+    ],
+    "grammars": [
+      "glow-panels"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "aberration",
+      "params": {
+        "shift": 0.003
+      },
+      "role": "subtle lens fringe"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.05
+      },
+      "role": "avoid CG banding"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 2,
+      "max": 4
+    },
+    "prompt_template": "soft studio environment plate and hero object reference render of {subject}, glossy soft-clay or glass, pastel gradient background",
+    "animate_with": [
+      {
+        "id": "A1",
+        "what": "parallax cut-out (split plates, 2.5D drift)"
+      },
+      {
+        "id": "A3",
+        "what": "displacement / warp (shader fed by noise or depth)"
+      }
+    ],
+    "r1_note": "HDRI-like environment plates, hero object reference renders; or full-frame stills used as plates with A1/A3.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "marimba pops",
+      "bubbly bass",
+      "soft whooshes"
+    ]
+  },
+  "build": {
+    "engine": "R/B",
+    "engine_meaning": "reference only (builder hand-codes it) / buildable today",
+    "recipe": "`styles/3d-render.md`, `motion/3d-cgi/*`, `stage3d/recipes/hero-turntable.js`, `product-slab-evidence.js`. Three.js MeshPhysicalMaterial (transmission), RectAreaLight, bloom pass; `gsap` springs seeded by `t`.",
+    "refs": [
+      "styles/3d-render.md",
+      "motion/3d-cgi/*",
+      "stage3d/recipes/hero-turntable.js",
+      "product-slab-evidence.js",
+      "gsap",
+      "t"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": "stage3d/recipes/hero-turntable.js"
+  },
+  "examples": [
+    {
+      "title": "Nothing Phone launch films by FutureDeluxe",
+      "url": "https://www.stashmedia.tv/?p=113405",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

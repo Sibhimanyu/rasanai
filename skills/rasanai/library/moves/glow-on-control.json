@@ -1,0 +1,52 @@
+{
+  "id": "glow-on-control",
+  "n": 28,
+  "name": "Glow on control",
+  "family": "ui",
+  "source": [
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 20,
+      "end_s": 20,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 18.5,
+      "end_s": 18.5,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    }
+  ],
+  "description": "The key control is lit by a blurred radial glow while the other UI dims.",
+  "recipe": {
+    "tech": [
+      "html",
+      "css"
+    ],
+    "runtime": [
+      "rasan-ui.js",
+      "rasan-fx.js"
+    ],
+    "build": "A dark overlay with a radial hole (mask), a glow div beneath."
+  },
+  "use_when": "Focus attention on the one control that matters.",
+  "avoid": "Do not glow more than one control per beat. Bundle into move 25 when the set must be small.",
+  "duration_s": {
+    "min": 0.6,
+    "max": 1.5
+  },
+  "easing": "power2.out",
+  "carriers": [
+    "ui-plane"
+  ],
+  "beat_roles": [
+    "proof"
+  ],
+  "needs": [
+    "rasan-fx.js"
+  ],
+  "light": true,
+  "bundle_into": 25
+}

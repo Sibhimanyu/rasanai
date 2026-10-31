@@ -1,0 +1,163 @@
+{
+  "format": "style-world@1",
+  "id": "pixel-world",
+  "number": 1,
+  "name": "Pixel art / 8-bit game world",
+  "look": "chunky integer-scaled pixels, 16 to 32 colours, sprites on 2s, parallax by whole pixels, dither; the product lives inside a game level.",
+  "fits": {
+    "products": [
+      "dev tools",
+      "games",
+      "creative tools",
+      "playful consumer",
+      "anything with levels, quests or unlocks"
+    ],
+    "tones": [
+      "playful",
+      "nostalgic",
+      "energetic"
+    ],
+    "notes": "dev tools, games, creative tools, nostalgia, playful B2C, \"unlocks/levels/quests\" metaphors"
+  },
+  "avoid": {
+    "products": [
+      "finance trust",
+      "healthcare",
+      "luxury"
+    ],
+    "tones": [
+      "sober",
+      "premium",
+      "clinical"
+    ]
+  },
+  "when_not": [
+    "Avoid for finance trust, healthcare, luxury; avoid if the film needs to look like the real app throughout (use pixel only as a layer, e."
+  ],
+  "type": {
+    "guidance": "Press Start 2P, Silkscreen, Pixelify Sans, or m5x7 for UI",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "Press Start 2P, Silkscreen, Pixelify Sans, or m5x7 for UI; pair with a clean grotesk for the real claim. 8-colour palettes (PICO-8, Sweetie-16, Game Boy 4-green); one signal colour for the product.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour becomes the single signal colour of the palette; the other 7-15 colours come from the game palette",
+    "type_role": "pixel face for in-world UI and labels; brand face sets the real claim line in clean type",
+    "world_changes": "the product lives inside a game level; the real UI is a screen plate inside it",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "render a low-res canvas (320x180) and `image-rendering: pixelated` scale",
+      "palette-swap day-to-night as a story beat",
+      "screen-shatter into pixels (close-c5 mosaic-pixel-resolve exists)",
+      "iris wipe",
+      "scanline dissolve",
+      "\"level clear\" bar as a progress device",
+      "sprite walks to the feature"
+    ],
+    "grammars": [
+      "pixel-collage"
+    ],
+    "grammars_planned": [
+      "game-world"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "pixelate",
+      "params": {
+        "size": 4,
+        "palette": "pico8",
+        "dither": 0.35
+      },
+      "role": "snap any plate or DOM-snapshot to the game palette"
+    },
+    {
+      "pass": "crt",
+      "params": {
+        "curve": 0.06,
+        "scan": 0.25,
+        "mask": 0,
+        "bloom": 0.2
+      },
+      "role": "optional light CRT on the finale"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 3,
+      "max": 5
+    },
+    "prompt_template": "16-bit side-scroller {subject}, limited {palette_size}-colour palette, no anti-aliasing, flat evenly lit flat chroma-green (#00FF00) background, equal 4x4 grid, no text; sprite sheet 4x4 of one character in poses (idle, walk, carry, celebrate), same seed words as the tileset",
+    "animate_with": [
+      {
+        "id": "A4",
+        "what": "sprite sheet (slice and step)"
+      },
+      {
+        "id": "A1",
+        "what": "parallax cut-out (split plates, 2.5D drift)"
+      }
+    ],
+    "r1_note": "sprite sheets (A4), tilesets, a hero scene plate \"16-bit side-scroller, limited palette, no anti-aliasing\"; then snap to palette in canvas. Stills animate via A4 and A1 with integer steps.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "chiptune (square/triangle), coin pick-ups, 8-bit blips synced to cuts",
+      "a bitcrushed bass drop. Procedural music in `rasan-music.js` can do square waves"
+    ]
+  },
+  "build": {
+    "engine": "B",
+    "engine_meaning": "buildable today",
+    "recipe": "`runtime/medium-pixel.js` + `medium-pixel-companion.js`, grammar `pixel-collage`, style `pixel.md`, `systems/vernacular/pixel-game-ui.md`. Offscreen canvas at low res, draw rects, GSAP drives `time`, quantise to whole px with `Math.round`. Palette via a lookup quantiser in a tiny fragment shader. Three.js voxel scenes (see #3) are the 3D cousin.",
+    "refs": [
+      "runtime/medium-pixel.js",
+      "medium-pixel-companion.js",
+      "pixel-collage",
+      "pixel.md",
+      "systems/vernacular/pixel-game-ui.md",
+      "time",
+      "Math.round"
+    ],
+    "medium_runtime": "runtime/medium-pixel-world.js",
+    "medium_runtime_extra": [
+      "runtime/medium-pixel.js",
+      "runtime/medium-pixel-companion.js"
+    ],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Canal+ pixel teaser (Gedeon)",
+      "url": "https://www.gedeon.com/projects/canal",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Bell \"Solo Pixel Blipverts\"",
+      "url": "https://vimeo.com/9501997",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Karl Lagerfeld Pixel Capsule campaign (SMACK)",
+      "url": "https://creativepool.com/smackagency/projects/karl-lagerfeld-pixel-capsule-collection-campaign-for-karl-lagerfeld",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

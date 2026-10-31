@@ -1,0 +1,61 @@
+{
+  "id": "pixel-square-wipe",
+  "n": 17,
+  "name": "Pixel-square wipe",
+  "family": "world",
+  "source": [
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 13,
+      "end_s": 14,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    },
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 3.5,
+      "end_s": 3.5,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    },
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 0,
+      "end_s": 53,
+      "note": "pixel dissolves throughout",
+      "frames": ".context/review-refs/Video-8191/f2/"
+    }
+  ],
+  "description": "Random squares of the old scene flip to the new one; squares also tint to white.",
+  "recipe": {
+    "tech": [
+      "canvas",
+      "shader",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-fx.js"
+    ],
+    "build": "Grid of divs or a WebGL mask with a noise threshold and a seeded stagger."
+  },
+  "use_when": "A mode change (light to dark) without a cut.",
+  "avoid": "Do not use more than twice in a film.",
+  "duration_s": {
+    "min": 0.5,
+    "max": 1
+  },
+  "easing": "steps(6)",
+  "carriers": [
+    "palette-dither",
+    "dot",
+    "all"
+  ],
+  "beat_roles": [
+    "turn",
+    "middle"
+  ],
+  "needs": [
+    "rasan-fx.js"
+  ]
+}

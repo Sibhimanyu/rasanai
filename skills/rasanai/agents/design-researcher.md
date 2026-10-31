@@ -36,7 +36,7 @@ You research the **visual world of this film's subject**, on the spot, so the de
 4. **Shortlist for blending, not for picking.** Each reference earns its place by one or two traits (a palette logic, a grid, a texture, a camera move, a timing curve) that the subject's world justifies. Prefer the pair that clashes productively over two that agree.
 5. **Write both files**, then run the check.
 
-**Branded launch, promo or brand film (`brand_film`)**: your shortlist is not library references. Study the brand's own visual world through `brand-film/FILM-STYLE.md` and the brand notes; write `research/design-refs.json` as `{"references": [], "world": {...}}` (the world block as usual, drawn from the brand's film and product) and say in `design.md` that the look is the brand film's grammar. Outside designers, directors and library styles are for unbranded films only.
+**Branded launch, promo or brand film (`brand_film`)**: your shortlist is not library references. Study the brand's own visual world through `brand-film/FILM-STYLE.md` and the brand notes; write `research/design-refs.json` as `{"references": [], "world": {...}}` (the world block as usual, drawn from the brand's film and product) and say in `design.md` that the look is the brand film's grammar. Library styles and the style atlas are allowed for looks B and C on a branded film (brand colour, type and logo stay locked); only a strict brand film (the user asked) refuses them. Add `style_worlds`: the 3 atlas ids you would offer (`design.mjs style-worlds --run "$RUN"`), different in material and finish.
 
 ## Medium hints (additive, small)
 

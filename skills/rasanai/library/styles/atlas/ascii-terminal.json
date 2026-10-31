@@ -1,0 +1,156 @@
+{
+  "format": "style-world@1",
+  "id": "ascii-terminal",
+  "number": 16,
+  "name": "ASCII / terminal CRT",
+  "look": "all characters, monospace grid, phosphor glow, typed output.",
+  "fits": {
+    "products": [
+      "dev tools",
+      "CLIs",
+      "agents",
+      "security",
+      "hacker culture"
+    ],
+    "tones": [
+      "technical",
+      "dry",
+      "witty"
+    ],
+    "notes": "dev tools, CLIs, agents, security, hacker culture"
+  },
+  "avoid": {
+    "products": [
+      "consumer lifestyle",
+      "non-technical"
+    ],
+    "tones": [
+      "warm",
+      "soft"
+    ]
+  },
+  "when_not": [
+    "Avoid for consumer lifestyle or anything non-technical."
+  ],
+  "type": {
+    "guidance": "JetBrains Mono, IBM Plex Mono, Berkeley Mono",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "JetBrains Mono, IBM Plex Mono, Berkeley Mono; green/amber/white on black.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "phosphor colour is the brand colour; falls back to green or amber if it is too dark",
+    "type_role": "a monospace; brand face for the claim line",
+    "world_changes": "all characters on a monospace grid, typed output, scanlines",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "typewriter reveal",
+      "video-to-ASCII conversion (sample brightness to glyph ramp)",
+      "cursor blink",
+      "command-prompt cuts",
+      "scanline and curvature"
+    ],
+    "grammars": [
+      "glyph-chain"
+    ],
+    "grammars_planned": [
+      "os-desktop"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "posterise",
+      "params": {
+        "mode": 1,
+        "steps": 0,
+        "palette": [
+          "#020a04",
+          "#0b5a1c",
+          "#6cff8c"
+        ]
+      },
+      "role": "phosphor gradient-map on glyph canvas"
+    },
+    {
+      "pass": "crt",
+      "params": {
+        "curve": 0.1,
+        "scan": 0.45,
+        "mask": 0.25,
+        "bloom": 0.7
+      },
+      "role": "CRT curvature, scanlines, glow"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.08
+      },
+      "role": "signal noise"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 2
+    },
+    "prompt_template": "portrait or product photo of {subject}, high contrast, plain background, to be converted to ASCII",
+    "animate_with": [
+      {
+        "id": "A3",
+        "what": "displacement / warp (shader fed by noise or depth)"
+      }
+    ],
+    "r1_note": "an image to convert to ASCII (portrait, product); A3.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "key clatter",
+      "floppy seeks",
+      "modem tones",
+      "low CRT hum"
+    ]
+  },
+  "build": {
+    "engine": "B/R",
+    "engine_meaning": "buildable today / reference only (builder hand-codes it)",
+    "recipe": "`styles/ascii-crt.md`, `personalities/retro-terminal.json`, `systems/vernacular/terminal-crt.md`. Canvas glyph grid, shader scanlines; ASCII-ify a render target by sampling to a glyph atlas. close-c9 typed-prompt exists.",
+    "refs": [
+      "styles/ascii-crt.md",
+      "personalities/retro-terminal.json",
+      "systems/vernacular/terminal-crt.md"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Framer ASCII Motion component",
+      "url": "https://www.framer.com/marketplace/components/ascii-motion/",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Andreas Gysin (text-in-motion artist)",
+      "url": "https://brightmoments.io/quarterly/andreas-gysin",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

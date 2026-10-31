@@ -16,8 +16,9 @@
 //        --keep-stale keeps it). Sidecars from before the hash existed are kept as they are.
 //        --transparent: an opaque PNG (no alpha: the tool ignored the ask) is regenerated once on a flat #00FF00 and keyed (colorkey + despill),
 //        and every transparent result has alpha >= 250 snapped to 255. Identical bytes from two parallel runs (a collision) are regenerated once.
-//   node imagegen.mjs batch --plan <images.json> [--concurrency 3] [--only id,id] [--force]
-//     plan: {aspect, style, avoid, refs: [...], anchor?: "<id>", images: [{id, prompt, out, aspect?, refs?, transparent?}]}
+//   node imagegen.mjs batch (--plan <images.json> | --world <art/world.json>) [--concurrency 3] [--only id,id] [--force]
+//     --world: the film's world bible (lib/world-bible.mjs): the anchor is made first, then the character/object sheets (`needs`), then every shot, each with the anchor (and its sheets) as --ref
+//     plan: {aspect, style, avoid, refs: [...], anchor?: "<id>", images: [{id, prompt, out, aspect?, refs?, needs?: [id], transparent?}]}
 //     -> writes <plan minus .json>.result.json and prints {ok, result, done: [{id,out,seconds}], skipped: [...], failed: [{id,error}]}
 //        full prompt = "<prompt>. Style: <style>. Avoid: <avoid>."; existing outs are skipped unless --force; the anchor
 //        image is made first and passed as an extra reference to every other image. Paths are relative to the plan.
@@ -92,6 +93,7 @@ export function buildInstruction({ prompt, aspect, w, h, refs, transparent, part
     refs.length ? (refs.length > 1 ? "The attached images are references for style, palette and composition. They are not edit targets: make a new image." : "The attached image is a reference for style, palette and composition. It is not an edit target: make a new image.") : "",
     `Image to create: ${prompt}`,
     `Aspect ratio: ${aspectWords(aspect, w, h)}.`,
+    /sprite[\s-]?sheet/i.test(String(prompt)) ? "This is a sprite sheet: use a flat chroma-green background (#00FF00), an equal grid of cells with the same size and spacing, one pose or state per cell, and no text, labels, numbers or grid lines." : "",
     keyed ? "Draw the subject alone on a perfectly flat, solid, pure green background (#00FF00, chroma-key green) that fills the whole frame: no shadow, no floor, no gradient, no vignette, no green light or reflections on the subject, and no green anywhere in the subject. Do not try to make the background transparent." : transparent ? "Use a plain transparent background (the subject alone, no backdrop, no shadow plane)." : "",
     `When the image is generated, copy the generated PNG file to exactly this path: ${part}`,
     "Reply with only that path.",
@@ -311,7 +313,14 @@ async function cmdGenerate() {
 }
 
 async function cmdBatch() {
-  if (!args.plan || args.plan === true) fail("batch needs --plan <images.json>");
+  if (args.world && args.world !== true) { // a world bible (art/world.json): its plan is written beside it, anchor first, sheets before the shots that need them
+    const { loadWorld, batchPlan } = await import("./lib/world-bible.mjs");
+    const wp = path.resolve(args.world), world = loadWorld(wp);
+    const bp = wp.replace(/\.json$/i, "") + ".batch.json";
+    fs.writeFileSync(bp, JSON.stringify(batchPlan(world, path.dirname(path.dirname(wp)), bp), null, 2));
+    args.plan = bp;
+  }
+  if (!args.plan || args.plan === true) fail("batch needs --plan <images.json> (or --world <art/world.json>)");
   const planPath = path.resolve(args.plan);
   let plan; try { plan = JSON.parse(fs.readFileSync(planPath, "utf8")); } catch (e) { fail(`cannot read plan ${args.plan}: ${e.message}`); }
   if (!Array.isArray(plan.images) || !plan.images.length) fail("the plan has no images[]");
@@ -334,7 +343,10 @@ async function cmdBatch() {
   };
   const wanted = plan.images.filter((im) => !only.size || only.has(im.id));
   const anchorOut = plan.anchor ? rel(plan.images.find((i) => i.id === plan.anchor).out) : null;
-  const refsOf = (im, anchorFile) => [...new Set([...(plan.refs || []).map(rel), ...(im.refs || []).map(rel), ...(anchorFile && im.id !== plan.anchor ? [anchorFile] : [])])];
+  // `needs: [id]` = another image of the plan that is a reference for this one (a character or object sheet): made before it, passed as --ref
+  const needFiles = (im) => (im.needs || []).map((id) => { const o = plan.images.find((x) => x.id === id); return o ? rel(o.out) : null; }).filter(Boolean);
+  const needed = new Set(plan.images.flatMap((i) => i.needs || []));
+  const refsOf = (im, anchorFile) => [...new Set([...(plan.refs || []).map(rel), ...(im.refs || []).map(rel), ...needFiles(im), ...(anchorFile && im.id !== plan.anchor ? [anchorFile] : [])])];
   const missingOut = (im) => !fs.existsSync(rel(im.out)) || fs.statSync(rel(im.out)).size === 0;
   const anchorRedo = !!plan.anchor && !args["keep-stale"] && wanted.some((im) => im.id === plan.anchor) && (force || missingOut(plan.images.find((i) => i.id === plan.anchor)) || isStale(plan.images.find((i) => i.id === plan.anchor), null));
   // a plate whose sidecar hash no longer matches its prompt / aspect / transparency / references is stale (an older sidecar with no hash is kept)
@@ -357,7 +369,7 @@ async function cmdBatch() {
   err(`BATCH ${todo.length} image(s) to make, ${skipped.length} skipped, concurrency ${conc}`);
 
   const make = async (im, extraRefs) => {
-    const refs = [...(plan.refs || []).map(rel), ...(im.refs || []).map(rel), ...extraRefs];
+    const refs = [...(plan.refs || []).map(rel), ...(im.refs || []).map(rel), ...needFiles(im).filter((f) => fs.existsSync(f)), ...extraRefs];
     const r = await generateOne({ id: im.id, prompt: im.prompt, fullPrompt: full(im), out: rel(im.out), aspect: im.aspect || plan.aspect, refs: [...new Set(refs)], transparent: !!im.transparent, timeout: args.timeout, force: true });
     if (r.ok) { done.push({ id: im.id, out: r.out, seconds: r.seconds, model: r.model }); err(`IMAGE ${im.id} done ${r.seconds}s`); }
     else { failed.push({ id: im.id, error: r.error }); err(`IMAGE ${im.id} failed ${r.error}`); }
@@ -375,18 +387,35 @@ async function cmdBatch() {
     }
     if (fs.existsSync(rel(anchorIm.out))) anchorFile = rel(anchorIm.out);
   }
-  let next = 0;
-  const worker = async () => {
-    while (next < queue.length) {
-      const im = queue[next++];
-      await make(im, anchorFile && im !== anchorIm ? [anchorFile] : []);
-    }
+  const runPool = async (list) => {
+    let next = 0;
+    const worker = async () => {
+      while (next < list.length) {
+        const im = list[next++];
+        await make(im, anchorFile && im !== anchorIm ? [anchorFile] : []);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(conc, list.length) }, worker));
   };
-  await Promise.all(Array.from({ length: Math.min(conc, queue.length) }, worker));
+  await runPool(queue.filter((im) => needed.has(im.id))); // sheets first, so the shots that need them can use them as references
+  await runPool(queue.filter((im) => !needed.has(im.id)));
 
   const resultPath = planPath.replace(/\.json$/i, "") + ".result.json";
   const result = { ok: failed.length === 0, plan: planPath, result: resultPath, done, skipped, ...(staleIds.length ? { stale_regenerated: staleIds } : {}), failed, finished: new Date().toISOString() };
-  fs.writeFileSync(resultPath, JSON.stringify(result, null, 2));
+  // --concept <concept.json> (with --world): write each plate's path into the shots that use it (shot.image), so the story board and style frames show the real plate
+  if (args.concept && args.concept !== true && args.world && args.world !== true) {
+    try {
+      const { loadWorld, linkShotImages } = await import("./lib/world-bible.mjs");
+      const wp = path.resolve(args.world), cp = path.resolve(args.concept), cj = JSON.parse(fs.readFileSync(cp, "utf8"));
+      const target = Array.isArray(cj.shots) ? cj : cj.concept && Array.isArray(cj.concept.shots) ? cj.concept : null;
+      if (target) {
+        const r = linkShotImages(target, loadWorld(wp), path.dirname(path.dirname(wp)), { force: !!args.relink });
+        fs.writeFileSync(cp, JSON.stringify(cj, null, 2));
+        result.shots_linked = r.linked.length; if (r.unknown.length) result.unknown_shots = r.unknown;
+        fs.writeFileSync(resultPath, JSON.stringify(result, null, 2));
+      } else err("--concept has no shots[]; nothing linked");
+    } catch (e) { err(`could not link plates into the concept: ${e.message}`); }
+  }
   out(result);
   process.exit(failed.length ? 2 : 0);
 }

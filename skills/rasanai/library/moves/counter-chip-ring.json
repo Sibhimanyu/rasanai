@@ -1,0 +1,50 @@
+{
+  "id": "counter-chip-ring",
+  "n": 29,
+  "name": "Counter chip with ring",
+  "family": "ui",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 30,
+      "end_s": 32,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 59,
+      "end_s": 62,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "A pill with a number rolling up and a ring stroking around it.",
+  "recipe": {
+    "tech": [
+      "html",
+      "svg",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-ui.js"
+    ],
+    "build": "Number tween with snap, SVG ring stroke-dashoffset, scale pulse per tick."
+  },
+  "use_when": "Social proof, points, votes, the one countable fact.",
+  "avoid": "Do not use a number that is not real and sourced.",
+  "duration_s": {
+    "min": 1,
+    "max": 2.5
+  },
+  "easing": "power2.out",
+  "carriers": [
+    "ui-plane",
+    "dot",
+    "icon-set"
+  ],
+  "beat_roles": [
+    "proof"
+  ],
+  "needs": []
+}

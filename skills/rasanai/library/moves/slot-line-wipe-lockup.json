@@ -1,0 +1,42 @@
+{
+  "id": "slot-line-wipe-lockup",
+  "n": 14,
+  "name": "Slot-line wipe lockup",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-4934",
+      "brand": "PickUs",
+      "start_s": 17,
+      "end_s": 17.5,
+      "frames": ".context/review-refs/Video-4934/f2/"
+    }
+  ],
+  "description": "A word is held between two thin rule lines and rolls up into the logo.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "rasan-layout.js"
+    ],
+    "build": "Two 2 px lines, a mask between them, word translateY out, logo in, slight blur."
+  },
+  "use_when": "Wordmark landings.",
+  "avoid": "Do not use as an opener.",
+  "duration_s": {
+    "min": 0.5,
+    "max": 1
+  },
+  "easing": "power3.inOut",
+  "carriers": [
+    "mark",
+    "word-line"
+  ],
+  "beat_roles": [
+    "close"
+  ],
+  "needs": []
+}

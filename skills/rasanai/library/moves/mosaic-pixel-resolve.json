@@ -1,0 +1,52 @@
+{
+  "id": "mosaic-pixel-resolve",
+  "n": 16,
+  "name": "Mosaic pixel resolve",
+  "family": "image",
+  "source": [
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 3,
+      "end_s": 3.5,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 1,
+      "end_s": 5,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    }
+  ],
+  "description": "A block mosaic whose block size shrinks to 1 px.",
+  "recipe": {
+    "tech": [
+      "canvas",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-image-fx.js"
+    ],
+    "build": "drawImage to a tiny size then scale up with imageSmoothingEnabled=false; tween block size from 64 to 1."
+  },
+  "use_when": "Transitions between a collage or idea and its realised image.",
+  "avoid": "Do not use on faces at small block sizes held too long.",
+  "duration_s": {
+    "min": 0.6,
+    "max": 2
+  },
+  "easing": "steps(8)",
+  "carriers": [
+    "palette-dither",
+    "icon-set",
+    "card-field"
+  ],
+  "beat_roles": [
+    "turn",
+    "middle"
+  ],
+  "needs": [
+    "rasan-image-fx.js"
+  ]
+}
