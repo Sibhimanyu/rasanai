@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.27.2 beta 1</title>
+      <pubDate>Sat, 31 Oct 2026 17:26:26 GMT</pubDate>
+      <description><![CDATA[<ul><li>Inspiration clips play with their original sound where we could recover it; others say so and link to the original post.</li><li>Scrolling the Inspiration tab is smooth now and no longer slows the rest of your Mac: pictures stay ready as you scroll back, only the card under the pointer does any extra drawing, and the preview clip is fully shut down when you move away.</li></ul>]]></description>
+      <sparkle:version>74</sparkle:version>
+      <sparkle:shortVersionString>0.27.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.27.2-beta.1/RasanAI-Studio-0.27.2.dmg" sparkle:edSignature="D+oSmjb32pe6fNKQp8OhHlo2RYP2aDIARxq2ltOtyf4V2hEz/C6seIJTiO7fwFZe6YGENbq8+MTLuxjoH25tAw==" length="98104595" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.27.1 beta 1</title>
       <pubDate>Sat, 31 Oct 2026 14:49:55 GMT</pubDate>
       <description><![CDATA[<ul><li>Home now uses one window-wide ambient background that continues behind the translucent sidebar and through the bottom safe area.</li><li>Sidebar navigation scrolls independently while Settings stays anchored; the sidebar and Home detail share the same background wash.</li><li>Home transitions and loading states keep that background consistent instead of painting separate solid backgrounds.</li></ul>]]></description>
