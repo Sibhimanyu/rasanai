@@ -6,6 +6,12 @@ import SwiftUI
 @MainActor @Observable
 final class HomeMeshClock {
     private(set) var elapsed: Double = 0
+    private(set) var viewportSize: CGSize = .zero
+
+    func setViewportSize(_ size: CGSize) {
+        guard viewportSize != size else { return }
+        viewportSize = size
+    }
 
     func run() async {
         let start = ContinuousClock.now
@@ -20,22 +26,12 @@ final class HomeMeshClock {
 
 /// A low-contrast native interpretation of the flowing mesh reference. Only this decorative layer redraws on its clock.
 struct HomeMeshWash: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
-    @State private var clock = HomeMeshClock()
-    @State private var appHidden = false
+    @Environment(HomeMeshClock.self) private var clock
 
     var body: some View {
-        let animate = !reduceMotion && !appHidden
         HomeMeshField(phase: clock.elapsed / 5, opacity: colorScheme == .dark ? 0.14 : 0.12)
-        .allowsHitTesting(false).accessibilityHidden(true)
-        .onAppear { appHidden = NSApp.isHidden }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didHideNotification)) { _ in appHidden = true }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didUnhideNotification)) { _ in appHidden = false }
-        .task(id: animate) {
-            guard animate else { return }
-            await clock.run()
-        }
+            .allowsHitTesting(false).accessibilityHidden(true)
     }
 
 }

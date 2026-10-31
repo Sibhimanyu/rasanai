@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// What the cards need to take part in Home's reveal: the shared namespace the posters are matched in (keyed by project
@@ -71,24 +72,67 @@ struct HomePeekOpener: View {
 
 /// Home's complete ambient wash. StudioView hosts it once behind both split-view columns.
 struct HomeAmbientGlow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(HomeMeshClock.self) private var clock
+    @State private var appHidden = false
+    private var animates: Bool { !reduceMotion && !appHidden }
+
+    var body: some View {
+        HomeWindowAmbientField()
+        .onAppear { appHidden = NSApp.isHidden }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didHideNotification)) { _ in appHidden = true }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didUnhideNotification)) { _ in appHidden = false }
+        .task(id: animates) {
+            guard animates else { return }
+            await clock.run()
+        }
+    }
+}
+
+/// Renders one window-sized field and offsets it into each clipped column, so the sidebar and detail sample identical
+/// colors at their shared edge instead of restarting the mesh at each column's local origin.
+struct HomeWindowAmbientField: View {
+    @Environment(HomeMeshClock.self) private var clock
+
+    var body: some View {
+        GeometryReader { geometry in
+            let origin = geometry.frame(in: .named("studioBackdrop")).origin
+            let size = clock.viewportSize
+            ZStack(alignment: .topLeading) {
+                HomeMeshWash()
+                    .frame(width: size.width, height: size.height)
+                    .offset(x: -origin.x, y: -origin.y)
+                HomeBottomGlow(viewportHeight: size.height)
+                    .frame(width: size.width, height: size.height)
+                    .offset(x: -origin.x, y: -origin.y)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+            .clipped()
+        }
+        .allowsHitTesting(false).accessibilityHidden(true)
+    }
+}
+
+/// The static low blue light at Home's foot, shared with the sidebar extension.
+struct HomeBottomGlow: View {
     let viewportHeight: CGFloat
     var body: some View {
         ZStack {
-            HomeMeshWash()
-            ZStack {
             LinearGradient(stops: [.init(color: .clear, location: 0),
                                    .init(color: Color(red: 0.45, green: 0.60, blue: 0.88).opacity(0.025), location: 0.38),
                                    .init(color: Color(red: 0.45, green: 0.60, blue: 0.88).opacity(0.08), location: 1)],
                            startPoint: .top, endPoint: .bottom)
             RadialGradient(colors: [Color(red: 0.45, green: 0.60, blue: 0.88).opacity(0.06), .clear],
                            center: .bottom, startRadius: 0, endRadius: max(viewportHeight * 0.55, 200))
-            }
-            .frame(height: viewportHeight * 0.42)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .allowsHitTesting(false).accessibilityHidden(true)
+        .frame(height: viewportHeight * 0.42)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
+}
+
+/// A quiet, phase-locked continuation of Home's wash under the floating sidebar glass.
+struct HomeSidebarAmbientGlow: View {
+    var body: some View { HomeWindowAmbientField() }
 }
 
 /// A quiet way back from the films to the prompt.

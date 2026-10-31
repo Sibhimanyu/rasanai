@@ -78,10 +78,6 @@ struct HomeView: View {
         Group {
             if mode == nil { homePage } else { libraryPage }
         }
-        .background {
-            // Home's animated field is shared behind the split view; library pages keep their opaque canvas.
-            if mode != nil { Color.appBackground }
-        }
         .navigationTitle(mode?.title ?? "Home")
         .pageHeader(mode?.title ?? "Home") {
             ToolbarSearchField(text: $store.projectSearch, prompt: "Search films").frame(width: 220)

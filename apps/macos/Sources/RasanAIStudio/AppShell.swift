@@ -25,9 +25,13 @@ enum StudioPlace: Hashable {
     static let inspireSymbol = "rectangle.stack.badge.play"                  // a collection of clips to watch
 }
 
+struct SidebarAmbientBoundsPreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
+}
+
 struct AppSidebar: View {
     @Bindable var store: StudioStore
-    var fullScreenToolbar = false
 
     private var current: StudioPlace? {
         switch store.path.last {
@@ -65,82 +69,73 @@ struct AppSidebar: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    Button { store.goHome() } label: {
-                        HStack(spacing: 12) {
-                            RasanMark().fill(Color.rasanInk).frame(width: 22, height: 26).frame(width: 24)
-                            Text("RasanAI").font(.system(size: 20, weight: .semibold)).tracking(-0.5)
-                                .foregroundStyle(.primary)
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        Button { store.goHome() } label: {
+                            HStack(spacing: 12) {
+                                RasanMark().fill(Color.rasanInk).frame(width: 22, height: 26).frame(width: 24)
+                                Text("RasanAI").font(.system(size: 20, weight: .semibold)).tracking(-0.5)
+                                    .foregroundStyle(.primary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 14).padding(.horizontal, 6)
+                            .contentShape(Rectangle())
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 14).padding(.horizontal, 6)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .padding(.bottom, 8)
+                        .accessibilityLabel("RasanAI Home")
+                        .help("Go to Home")
+                        navRow("Films", symbol: "movieclapper", place: .home)
+                        navRow("All films", symbol: StudioPlace.allSymbol, place: .all)
+                        if needsYouCount > 0 {
+                            navRow("Needs review", symbol: StudioPlace.needsReviewSymbol, place: .needsReview, count: needsYouCount)
+                        }
+                        navRow("Brands", symbol: "square.3.layers.3d", place: .brands)
+                        navRow("Series", symbol: StudioPlace.seriesSymbol, place: .series)
+                        navRow("Inspiration", symbol: StudioPlace.inspireSymbol, place: .inspire)
+                        navRow("Queue", symbol: StudioPlace.queueSymbol, place: .queue, count: store.queuedCount)
+                        SidebarRecentSection(store: store, currentFilm: currentFilm, focused: $focused, go: go)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 10)
                     .padding(.bottom, 8)
-                    .accessibilityLabel("RasanAI Home")
-                    .help("Go to Home")
-                    navRow("Films", symbol: "movieclapper", place: .home)
-                    navRow("All films", symbol: StudioPlace.allSymbol, place: .all)
-                    if needsYouCount > 0 {
-                        navRow("Needs review", symbol: StudioPlace.needsReviewSymbol, place: .needsReview, count: needsYouCount)
+                }
+                // Up and Down arrive here from whichever row has focus; they move focus only, Return or Space opens the row.
+                .onMoveCommand { direction in
+                    let places = order
+                    guard !places.isEmpty, direction == .up || direction == .down else { return }
+                    let from = focused ?? current
+                    let index = from.flatMap { places.firstIndex(of: $0) }
+                    let next: Int
+                    switch (direction, index) {
+                    case (.down, let i?): next = min(i + 1, places.count - 1)
+                    case (.up, let i?): next = max(i - 1, 0)
+                    case (.down, nil): next = 0
+                    default: next = places.count - 1
                     }
-                    navRow("Brands", symbol: "square.3.layers.3d", place: .brands)
-                    navRow("Series", symbol: StudioPlace.seriesSymbol, place: .series)
-                    navRow("Inspiration", symbol: StudioPlace.inspireSymbol, place: .inspire)
-                    navRow("Queue", symbol: StudioPlace.queueSymbol, place: .queue, count: store.queuedCount)
-                    SidebarRecentSection(store: store, currentFilm: currentFilm, focused: $focused, go: go)
+                    focused = places[next]
+                    proxy.scrollTo(places[next])
                 }
-                .padding(.horizontal, 10)
-                .padding(.bottom, 8)
-            }
-            // Up and Down arrive here from whichever row has focus; they move focus only, Return or Space opens the row.
-            .onMoveCommand { direction in
-                let places = order
-                guard !places.isEmpty, direction == .up || direction == .down else { return }
-                let from = focused ?? current
-                let index = from.flatMap { places.firstIndex(of: $0) }
-                let next: Int
-                switch (direction, index) {
-                case (.down, let i?): next = min(i + 1, places.count - 1)
-                case (.up, let i?): next = max(i - 1, 0)
-                case (.down, nil): next = 0
-                default: next = places.count - 1
+                .onChange(of: needsYouCount) { _, count in
+                    if count == 0, focused == .needsReview { focused = .all }
                 }
-                focused = places[next]
-                proxy.scrollTo(places[next])
             }
-            .onChange(of: needsYouCount) { _, count in
-                if count == 0, focused == .needsReview { focused = .all }
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+
             SidebarRowButton(selected: current == .settings, action: { go(.settings) }) {
                 SidebarNavLabel(title: "Settings", symbol: "gearshape", selected: current == .settings)
             }
             .focused($focused, equals: .settings)
             .padding(.horizontal, 10).padding(.vertical, 8)
         }
-        .navigationSplitViewColumnWidth(min: 190, ideal: 230, max: 300)
-        .overlay(alignment: .top) {
-            if fullScreenToolbar {
-                Rectangle()
-                    .fill(.ultraThickMaterial)
-                    .overlay(Color.appBackground.opacity(0.55))
-                    .mask {
-                        LinearGradient(stops: [.init(color: .black, location: 0),
-                                               .init(color: .black, location: 0.28),
-                                               .init(color: .clear, location: 1)],
-                                       startPoint: .top, endPoint: .bottom)
-                    }
-                    .frame(height: 34)
-                    .offset(y: -1)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(key: SidebarAmbientBoundsPreferenceKey.self,
+                                       value: geometry.frame(in: .named("studioBackdrop")))
             }
         }
+        .navigationSplitViewColumnWidth(min: 190, ideal: 230, max: 300)
     }
 
     /// A place as a spacious, full-width button. No List selection is involved: the row is active when the path says so,
