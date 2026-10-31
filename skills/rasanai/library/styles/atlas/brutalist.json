@@ -1,0 +1,130 @@
+{
+  "format": "style-world@1",
+  "id": "brutalist",
+  "number": 10,
+  "name": "Brutalist / anti-design",
+  "look": "raw system fonts, hard borders, harsh colours, no easing, deliberate \"ugly\".",
+  "fits": {
+    "products": [
+      "indie dev tools",
+      "anti-corporate challengers",
+      "creative studios"
+    ],
+    "tones": [
+      "raw",
+      "confrontational",
+      "anti-polish"
+    ],
+    "notes": "indie dev tools, anti-corporate challengers, creative studios"
+  },
+  "avoid": {
+    "products": [
+      "health and trust",
+      "premium"
+    ],
+    "tones": [
+      "reassuring",
+      "refined"
+    ]
+  },
+  "when_not": [
+    "Avoid for health/trust, premium."
+  ],
+  "type": {
+    "guidance": "Times New Roman, Courier, Arial Black, Space Mono",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "Times New Roman, Courier, Arial Black, Space Mono; #0000FF / #FF0 / black / white.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour replaces the harsh blue or yellow; the rest stays black, white",
+    "type_role": "system fonts for chrome (Times, Courier, Arial Black); brand face still sets the claim",
+    "world_changes": "hard cuts, stepped jumps, overlapping boxes, no easing",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "hard cuts",
+      "stepped jumps",
+      "overlapping text boxes",
+      "default blue links",
+      "banner marquees",
+      "stretched type",
+      "inverted flashes"
+    ],
+    "grammars": [
+      "catalogue-cards"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "dither",
+      "params": {
+        "levels": 2,
+        "mono": 1,
+        "size": 2
+      },
+      "role": "photocopy look on image plates"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 3
+    },
+    "prompt_template": "rough photocopied scan of {subject}, high contrast, harsh, plain background",
+    "animate_with": [
+      {
+        "id": "A2",
+        "what": "step-print (8-12 fps quantised time)"
+      }
+    ],
+    "r1_note": "rough scans, photocopied textures.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "harsh clicks",
+      "system beeps",
+      "silence-to-noise",
+      "one-bar hard techno"
+    ]
+  },
+  "build": {
+    "engine": "R",
+    "engine_meaning": "reference only (builder hand-codes it)",
+    "recipe": "`personalities/brutalist-step.json`, `movements/brutalist-web.md`, `vaporwave-and-anti-design-net-art.md`, skill `industrial-brutalist-ui`. `steps()` eases, no blur.",
+    "refs": [
+      "personalities/brutalist-step.json",
+      "movements/brutalist-web.md",
+      "vaporwave-and-anti-design-net-art.md",
+      "industrial-brutalist-ui",
+      "steps()"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Gumroad/Figma \"anti\" campaigns ; Brutalist Websites gallery",
+      "url": "https://brutalistwebsites.com",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

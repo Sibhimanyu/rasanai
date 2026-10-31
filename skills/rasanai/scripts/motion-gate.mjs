@@ -125,7 +125,7 @@ import { measureCamera, cameraKind, cameraFloor } from "./lib/camera-moves.mjs";
 import { whiteFlashes, seamBlanks, holdDrift, decodeFrames } from "./lib/frame-guards.mjs";
 import { rgbToLab } from "./lib/pixels.mjs";
 import { loadManifest, wordsOf } from "./lib/film-events.mjs";
-import { launchGrammarFindings, doctrineFindings, motionMdOrderFindings } from "./lib/launch-grammar.mjs";
+import { launchGrammarFindings, doctrineFindings, motionMdOrderFindings, isLaunchKind } from "./lib/launch-grammar.mjs";
 import { beatStats, busyChecks, energyArcChecks, resultHoldChecks } from "./lib/film-energy.mjs";
 
 export const GATE = {
@@ -605,11 +605,15 @@ export async function gate({ events = null, vo = null, video = null, project = n
           const top = stills.map(([a, b]) => ({ a, len: (b - a + 1) / fps })).sort((x, y) => y.len - x.len).slice(0, 3).map((x) => `${tOf(x.a)} s (${r2(x.len)} s)`);
           add({ check: "coverage", severity: still, at: null, region: "whole film", message: `visible motion in ${Math.round(coverage * 100)}% of frames (${Math.round(GATE.coverage * 100)}% at least)${top.length ? `; the longest still stretches start at ${top.join(", ")}` : ""}`, fix: "overlap the gestures (the next starts at 55-75% of the last) and keep a living layer through holds (a camera push or drift on the world, ambient on the ground); a composed hold is fine, a dead frame is not" });
         }
+        // art/world.json (world-bible): each plate's used_by[] {shot, start, end, mover} says when a plate is held and what moves it; a still stretch inside a window with a declared mover is a broken mover, not a deliberate hold
+        const worldMovers = (() => { try { const root = project ? path.resolve(project) : plan ? path.resolve(path.dirname(path.resolve(plan)), "..") : null; if (!root) return []; const wj = JSON.parse(fs.readFileSync(path.join(root, "art", "world.json"), "utf8")); return (wj.images || []).flatMap((im) => (Array.isArray(im.used_by) ? im.used_by : []).filter((u) => u && typeof u === "object" && Number.isFinite(Number(u.start)) && Number.isFinite(Number(u.end))).map((u) => ({ image: im.id, shot: u.shot, start: Number(u.start), end: Number(u.end), mover: String(u.mover || "none") }))); } catch { return []; } })();
         for (const [a, b] of stills) {
           const len = (b - a + 1) / fps;
           if (len >= freezeS - 1e-6) {
             const inEnd = endStart != null && a / fps >= endStart;
-            add({ check: "freeze", severity: still, at: tOf(a - 1 >= 0 ? a - 1 : a), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}: ${freezeS} s at most`, fix: "let the hold breathe instead of dying: a camera push on the world, a secondary that settles late, the next element starting early; or cut it shorter" });
+            const wm = worldMovers.find((u) => u.mover !== "none" && Math.min(b / fps, u.end) - Math.max(a / fps, u.start) >= len / 2);
+            if (wm) measured.world_mover_still = [...(measured.world_mover_still || []), { image: wm.image, shot: wm.shot, mover: wm.mover, at: tOf(a) }];
+            add({ check: "freeze", severity: still, at: tOf(a - 1 >= 0 ? a - 1 : a), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}${wm ? `; art/world.json says plate "${wm.image}" has mover "${wm.mover}" in shot ${wm.shot} (${wm.start} to ${wm.end} s): the mover is not running` : ""}: ${freezeS} s at most`, fix: "let the hold breathe instead of dying: a camera push on the world, a secondary that settles late, the next element starting early; or cut it shorter" });
           }
         }
         // empty frames: near-empty = foreground under GATE.empty_fg (foregroundShare); the end hold and declared breaths are exempt
@@ -933,6 +937,25 @@ export async function gate({ events = null, vo = null, video = null, project = n
         if (n && h.carrier && h.start < rb.start - 0.1) add({ check: "reveal", severity: "error", at: r2(h.start), element: h.src, message: `the carrier ${h.src} holds a brand mark from ${r2(h.start)} s, before the reveal beat "${br}"`, fix: "start the mark's carrier at the reveal" });
       }
       if (!marks) skipped.push("reveal: no element is tagged data-brand-mark, so the code can't show where the mark appears (tag every logo)");
+    }
+    // Hook and brand-timing gate (launch / promo films; R6 favourites): no logo in the first 3 s, the viewer is addressed or a problem is shown, an object enters
+    // within 2 s; the brand is revealed at 20-30% of the runtime (the favourites: 20%, 29%) or at the end (88%). score.json carries
+    // `hook: { viewer_addressed: bool, problem_shown: bool, object_enters_s: number }`.
+    if (isLaunchKind(kind) && plan && beats.length && !Array.isArray(P.brandReveal) && P.brandReveal != null && P.brandReveal !== "") {
+      const total = P.duration || beats[beats.length - 1].end, rb = beats.find((b) => b.id === String(P.brandReveal));
+      if (rb && total > 0) {
+        const frac = rb.start / total;
+        if (rb.start < 3) add({ check: "hook-logo", severity: "error", at: r2(rb.start), message: `the brand is revealed at ${r2(rb.start)} s: no logo in the first 3 s (the hook is the viewer's problem and one object, not the brand)`, fix: "move the brand reveal after the pain beat: 20 to 30% of the runtime, or the end card" });
+        else if (frac < 0.18 || (frac > 0.32 && frac < 0.8)) add({ check: "brand-timing", severity: "warning", at: r2(rb.start), message: `the brand is revealed at ${Math.round(frac * 100)}% of the runtime (the favourites reveal at 20 to 30%, or at the very end)`, fix: "reveal at 20 to 30% of the runtime after the pain and the turn, or hold the reveal for the end card" });
+      }
+      const hk = P.plan && P.plan.hook;
+      if (!hk || typeof hk !== "object") add({ check: "hook-undeclared", severity: "warning", at: null, message: "score.json declares no hook {viewer_addressed, problem_shown, object_enters_s}: the first 3 s cannot be checked", fix: "declare the hook: address the viewer or show the problem, and name when the first object enters (within 2 s)" });
+      else {
+        if (!hk.viewer_addressed && !hk.problem_shown) add({ check: "hook-address", severity: "error", at: 0, message: "the first 3 s neither address the viewer nor show a problem", fix: "open on the viewer's own problem or a direct address (\"Your next deal...\", \"Stop\"), not a logo or a claim" });
+        const oe = Number(hk.object_enters_s);
+        if (!Number.isFinite(oe) || hk.object_enters_s === "" || hk.object_enters_s == null) add({ check: "hook-object", severity: "warning", at: 0, message: "score.hook.object_enters_s is missing", fix: "name the second an object (dock with badges, photo cards, a now-playing pill) enters; within 2 s" });
+        else if (oe > 2) add({ check: "hook-object", severity: "error", at: r2(oe), message: `the first object enters at ${r2(oe)} s (within 2 s)`, fix: "bring one physical object in within the first 2 s" });
+      }
     }
     // Creative recovery (W06): the optional output trace (<run>/creative/execution-map.json, beside motion/) is read for traceability only: it owns no timing, and metadata
     // that matches proves a link, never that the event was delivered. Warnings, never errors; a missing file is simply not checked.

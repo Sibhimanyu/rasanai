@@ -1,0 +1,137 @@
+{
+  "format": "style-world@1",
+  "id": "dot-matrix-led",
+  "number": 15,
+  "name": "Dot-matrix and LED display",
+  "look": "everything is made of round or square lit dots/segments: text scrolling on LED boards, images resolved from amber/red dot grids.",
+  "fits": {
+    "products": [
+      "hardware",
+      "transit",
+      "data",
+      "fintech tickers",
+      "brands with a physical display"
+    ],
+    "tones": [
+      "techy",
+      "precise",
+      "playful-technical"
+    ],
+    "notes": "hardware, transit, data, fintech tickers, Nothing-style tech; brand with a physical display"
+  },
+  "avoid": {
+    "products": [
+      "long reading text"
+    ],
+    "tones": [
+      "warm literary"
+    ]
+  },
+  "when_not": [
+    "Avoid long reading text."
+  ],
+  "type": {
+    "guidance": "5x7 dot fonts (DotGothic16, Doto, Nothing's NDot), amber/red/white on black.",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "5x7 dot fonts (DotGothic16, Doto, Nothing's NDot), amber/red/white on black.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "lit dot colour is the brand colour (or amber / white when the brand is dark neutral)",
+    "type_role": "5x7 dot font for the board; brand face for the claim in a clear frame",
+    "world_changes": "everything is made of lit dots, scrolling tickers, row wipes",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "dot grid shader sampling a source texture (luminance to dot size or brightness)",
+      "scroll ticker",
+      "wipe by row",
+      "flip-disc/split-flap variants",
+      "pixel-glow bloom"
+    ],
+    "grammars": [
+      "dot-system"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "ledmatrix",
+      "params": {
+        "cell": 12,
+        "color": "{brand_colour}",
+        "glow": 0.6
+      },
+      "role": "resolve any plate or DOM snapshot into lit dots"
+    },
+    {
+      "pass": "aberration",
+      "params": {
+        "shift": 0.003
+      },
+      "role": "optional glass fringe"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 2,
+      "max": 4
+    },
+    "prompt_template": "high-contrast portrait / product photo of {subject} on plain black background, to be resolved into dots",
+    "animate_with": [
+      {
+        "id": "A3",
+        "what": "displacement / warp (shader fed by noise or depth)"
+      }
+    ],
+    "r1_note": "stills (portraits, products) used as the source for dot resolve; A3.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "relay clicks",
+      "split-flap clacks",
+      "airport dings",
+      "sine blips"
+    ]
+  },
+  "build": {
+    "engine": "G",
+    "engine_meaning": "gap (nothing yet)",
+    "recipe": "canvas 2D or fragment shader: render DOM/video to a low-res texture then draw as dots (radial falloff, additive blend, bloom). Nearest to `dot-system` grammar and `hud` style; needs a \"display\" runtime.",
+    "refs": [
+      "dot-system",
+      "hud"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Nothing Phone (3) Glyph Matrix films (FutureDeluxe)",
+      "url": "https://www.stashmedia.tv/?p=113405",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Framer dot-matrix text component",
+      "url": "https://www.framer.com/community/marketplace/components/text-dotmatrix/",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

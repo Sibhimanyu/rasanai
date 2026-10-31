@@ -1,0 +1,47 @@
+{
+  "id": "dot-field-resolve-to-photo",
+  "n": 15,
+  "name": "Dot-field resolve to photo",
+  "family": "image",
+  "source": [
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 5.5,
+      "end_s": 8.5,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    }
+  ],
+  "description": "A sparse field of coloured dots multiplies and resolves into a full photo.",
+  "recipe": {
+    "tech": [
+      "canvas",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-image-fx.js",
+      "rasan-fx.js"
+    ],
+    "build": "Canvas grid of N dots; each dot's radius and colour tween from noise to the sampled photo colour with a distance-from-centre delay; at the end crossfade to the real img."
+  },
+  "use_when": "First reveal of the generated hero image or of the product's output.",
+  "avoid": "Do not use with a flat, low-detail image (nothing to resolve).",
+  "duration_s": {
+    "min": 2,
+    "max": 3.5
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "dot",
+    "palette-dither"
+  ],
+  "beat_roles": [
+    "open",
+    "turn",
+    "proof"
+  ],
+  "needs": [
+    "rasan-image-fx.js",
+    "rasan-fx.js"
+  ]
+}

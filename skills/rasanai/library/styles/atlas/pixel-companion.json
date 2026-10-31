@@ -1,0 +1,120 @@
+{
+  "format": "style-world@1",
+  "id": "pixel-companion",
+  "number": 2,
+  "name": "Pixel UI as a living screencast",
+  "look": "a real hi-res interface with a low-res pixel mascot living and acting inside it.",
+  "fits": {
+    "products": [
+      "dev tools",
+      "agents",
+      "automations",
+      "anything whose agent can be a mascot"
+    ],
+    "tones": [
+      "friendly",
+      "clever",
+      "playful"
+    ],
+    "notes": "dev tools, agents, automations (the mascot IS the agent)"
+  },
+  "avoid": {
+    "products": [
+      "products with no agent",
+      "random sprite quota"
+    ],
+    "tones": [
+      "solemn"
+    ]
+  },
+  "when_not": [
+    "Avoid if the mascot is not the product's agent; no random sprite quota."
+  ],
+  "type": {
+    "guidance": "product's real UI type",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "product's real UI type; mascot in a 5-colour palette from the brand.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "mascot palette is 5 colours drawn from the brand",
+    "type_role": "the product's real UI type, unchanged",
+    "world_changes": "a hi-res real interface with a low-res pixel mascot acting inside it",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "mascot hops between real buttons, \"eats\" a log line, carries a card",
+      "pixel-to-vector shear at its boundary",
+      "the mascot's resolution is the contrast"
+    ],
+    "grammars": [
+      "pixel-collage"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "pixelate",
+      "params": {
+        "size": 4,
+        "palette": "pico8",
+        "dither": 0.2
+      },
+      "role": "on the mascot canvas only; the real UI plate stays hi-res"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 2
+    },
+    "prompt_template": "sprite sheet of {mascot}: idle, walk, carry, celebrate, equal 4x4 grid, 5-colour brand-derived palette, flat pure chroma-green (#00FF00) background, equal cells with even gutters, no text, no labels",
+    "animate_with": [
+      {
+        "id": "A4",
+        "what": "sprite sheet (slice and step)"
+      }
+    ],
+    "r1_note": "sprite sheet of the mascot (idle, walk, carry, celebrate), A4.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "tiny UI ticks plus soft pixel chirps per action"
+    ]
+  },
+  "build": {
+    "engine": "B/R",
+    "engine_meaning": "buildable today / reference only (builder hand-codes it)",
+    "recipe": "style `living-screencast.md`; `medium-pixel-companion.js`; DOM UI plate + canvas sprite on top.",
+    "refs": [
+      "living-screencast.md",
+      "medium-pixel-companion.js"
+    ],
+    "medium_runtime": "runtime/medium-pixel-companion.js",
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "lemo-opuscar `living-screencast` (in repo, third_party); Duolingo's mascot-in-UI work",
+      "url": "https://blog.duolingo.com",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

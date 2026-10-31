@@ -1,0 +1,116 @@
+{
+  "format": "style-world@1",
+  "id": "data-story",
+  "number": 33,
+  "name": "Infographic / data story",
+  "look": "charts drawn mark by mark, annotations, one narrative axis.",
+  "fits": {
+    "products": [
+      "analytics",
+      "fintech",
+      "research",
+      "reports"
+    ],
+    "tones": [
+      "credible",
+      "insightful",
+      "calm"
+    ],
+    "notes": "analytics, fintech, research, reports"
+  },
+  "avoid": {
+    "products": [
+      "no real data (never fabricate)"
+    ],
+    "tones": [
+      "whimsical"
+    ]
+  },
+  "when_not": [
+    "Avoid when you have no real data (never fabricate)."
+  ],
+  "type": {
+    "guidance": "tabular grotesk + serif annotations",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "tabular grotesk + serif annotations; 2 data hues + highlight.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is the highlight series; 2 data hues otherwise",
+    "type_role": "tabular grotesk + serif annotations; brand face for headings",
+    "world_changes": "charts drawn mark by mark with one narrative axis",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "draw-on",
+      "highlight the one bar/line",
+      "annotation callouts",
+      "scale shifts",
+      "Gapminder bubbles"
+    ],
+    "grammars": [
+      "specimen-sheet",
+      "editorial-grid"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [],
+  "effects_note": "No shader finish needed; the style is carried by layout, type and motion.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 0,
+      "max": 1
+    },
+    "prompt_template": "hand-drawn annotation marks (arrows, circles, underlines), single ink, plain background",
+    "animate_with": [
+      {
+        "id": "A7",
+        "what": "mask reveal (clip-path / SVG mask / wipe)"
+      }
+    ],
+    "r1_note": "hand-drawn annotation marks only.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "vo-kinetic",
+    "alt_modes": [],
+    "palette": [
+      "ticks synced to values",
+      "soft pad",
+      "one accent chord on the key number"
+    ]
+  },
+  "build": {
+    "engine": "B",
+    "engine_meaning": "buildable today",
+    "recipe": "`styles/dataviz.md`, `manim-math.md`, `motion/data-viz/*`, `references/dataviz.md`; SVG/D3 + GSAP.",
+    "refs": [
+      "styles/dataviz.md",
+      "manim-math.md",
+      "motion/data-viz/*",
+      "references/dataviz.md"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "NYT Upshot / Gapminder",
+      "url": "https://www.gapminder.org",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

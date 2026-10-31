@@ -1,0 +1,62 @@
+{
+  "id": "torn-edge-wipe",
+  "n": 18,
+  "name": "Torn-edge wipe",
+  "family": "world",
+  "source": [
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 15.5,
+      "end_s": 15.5,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 34.5,
+      "end_s": 34.5,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 0,
+      "end_s": 0,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    }
+  ],
+  "description": "Reveal along a rough paper edge, with a dither dot band.",
+  "recipe": {
+    "tech": [
+      "html",
+      "svg",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-fx.js",
+      "rasan-image-fx.js"
+    ],
+    "build": "clip-path:polygon() with 60-100 jittered points on a moving line, plus a 12 px halftone overlay mask near the edge."
+  },
+  "use_when": "From words to image; from a manifesto poster to full-bleed art.",
+  "avoid": "Do not use in a clean glass or UI-only style world.",
+  "duration_s": {
+    "min": 0.5,
+    "max": 1
+  },
+  "easing": "power3.inOut",
+  "carriers": [
+    "palette-dither",
+    "word-line",
+    "object"
+  ],
+  "beat_roles": [
+    "open",
+    "turn"
+  ],
+  "needs": [
+    "rasan-fx.js",
+    "rasan-image-fx.js"
+  ]
+}

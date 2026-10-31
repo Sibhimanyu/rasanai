@@ -1,0 +1,67 @@
+{
+  "id": "inline-glyph-slot",
+  "n": 5,
+  "name": "Inline glyph slot",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 10,
+      "end_s": 11,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 13,
+      "end_s": 13,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 51,
+      "end_s": 51,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 14,
+      "end_s": 17,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    }
+  ],
+  "description": "An icon or small object sits inside the sentence like a word and later becomes the next scene.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "rasan-layout.js"
+    ],
+    "build": "inline-flex row with an inline-block tile; spring scale 0 to 1 while neighbouring words slide apart (animate flex-gap or width); later scale-to-fill."
+  },
+  "use_when": "Make the product or an object a verb in the line.",
+  "avoid": "Do not use more than one slot per beat.",
+  "duration_s": {
+    "min": 0.6,
+    "max": 1.4
+  },
+  "easing": "back.out(1.6)",
+  "carriers": [
+    "icon-set",
+    "dot",
+    "object",
+    "mark"
+  ],
+  "beat_roles": [
+    "turn",
+    "middle",
+    "proof"
+  ],
+  "needs": []
+}

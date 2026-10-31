@@ -1,0 +1,45 @@
+{
+  "id": "voxel-disintegrate-reform",
+  "n": 37,
+  "name": "Voxel disintegrate and re-form",
+  "family": "world",
+  "source": [
+    {
+      "video": "Video-4934",
+      "brand": "PickUs",
+      "start_s": 3.5,
+      "end_s": 6,
+      "frames": ".context/review-refs/Video-4934/f2/"
+    }
+  ],
+  "description": "A pixel or voxel icon shatters into cubes which re-form as the next icon.",
+  "recipe": {
+    "tech": [
+      "three"
+    ],
+    "runtime": [
+      "stage3d/recipes/voxel-diorama.js",
+      "rasan-fx.js"
+    ],
+    "build": "InstancedMesh of 600-2000 cubes; positions tween between two sampled point sets with a seeded random delay; motion blur via shader or stretched scale."
+  },
+  "use_when": "Swapping metaphors (telling to showing); pixel or retro brand styles.",
+  "avoid": "Do not use in a flat editorial or photographic style world.",
+  "duration_s": {
+    "min": 1.5,
+    "max": 2.5
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "icon-set",
+    "object"
+  ],
+  "beat_roles": [
+    "turn",
+    "middle"
+  ],
+  "needs": [
+    "stage3d/recipes/voxel-diorama.js",
+    "rasan-fx.js"
+  ]
+}

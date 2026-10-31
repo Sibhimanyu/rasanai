@@ -1,0 +1,67 @@
+{
+  "id": "hold-and-sign-off",
+  "n": 40,
+  "name": "Hold and sign-off",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 47,
+      "end_s": 53,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    },
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 37,
+      "end_s": 40,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 66,
+      "end_s": 71,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 25,
+      "end_s": 29,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    }
+  ],
+  "description": "The mark arrives by drawing or typing, the tagline types in with one coloured word, then a 3-5 s hold.",
+  "recipe": {
+    "tech": [
+      "html",
+      "svg",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "rasan-fx.js"
+    ],
+    "build": "SVG stroke for the logo outline then fill; text typed at 0.04 s per character; one word in accent; a static hold with micro-grain."
+  },
+  "use_when": "Every film's end card.",
+  "avoid": "Do not animate during the hold except grain; do not add a second CTA.",
+  "duration_s": {
+    "min": 3,
+    "max": 5
+  },
+  "easing": "none",
+  "carriers": [
+    "mark",
+    "word-line",
+    "all"
+  ],
+  "beat_roles": [
+    "close"
+  ],
+  "needs": [
+    "rasan-fx.js"
+  ]
+}

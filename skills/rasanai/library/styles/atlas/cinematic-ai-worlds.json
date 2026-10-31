@@ -1,0 +1,158 @@
+{
+  "format": "style-world@1",
+  "id": "cinematic-ai-worlds",
+  "number": 26,
+  "name": "Cinematic AI worlds",
+  "look": "photoreal or painterly generated environments, camera flies through, product placed in an impossible place.",
+  "fits": {
+    "products": [
+      "AI image/video tools",
+      "travel",
+      "ambitious consumer brands"
+    ],
+    "tones": [
+      "awe",
+      "ambitious",
+      "epic"
+    ],
+    "notes": "AI image/video tools, travel, ambitious consumer brands"
+  },
+  "avoid": {
+    "products": [
+      "claims it cannot prove",
+      "brands that need AI disclosure unless disclosed"
+    ],
+    "tones": [
+      "modest"
+    ]
+  },
+  "when_not": [
+    "Avoid claims it can't prove; AI worlds feel generic fast."
+  ],
+  "type": {
+    "guidance": "restrained serif or thin sans",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "restrained serif or thin sans; film grade (teal-orange or desaturated).",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "the grade is tinted toward the brand colour; the product placement carries the brand colour",
+    "type_role": "restrained serif or thin sans; brand face for the claim",
+    "world_changes": "generated worlds the camera flies through; the product is placed in an impossible place",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "still plate to 2.5D fly-through (A1 + depth maps)",
+      "match-cut between worlds",
+      "light-leak transitions",
+      "DOF breathing",
+      "volumetric god-rays"
+    ],
+    "grammars": [
+      "viewfinder-reel"
+    ],
+    "grammars_planned": ["cinematic-world"],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.16,
+        "size": 1.8
+      },
+      "role": "film grain"
+    },
+    {
+      "pass": "aberration",
+      "params": {
+        "shift": 0.004
+      },
+      "role": "lens fringe"
+    },
+    {
+      "pass": "posterise",
+      "params": {
+        "mode": 1,
+        "steps": 0,
+        "palette": [
+          "#0a1620",
+          "#2b4a5a",
+          "#c98a5a",
+          "#f5e1c2"
+        ]
+      },
+      "role": "teal-orange grade (mix lowered)"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 8,
+      "max": 12
+    },
+    "prompt_template": "{world_style_line}, cinematic wide plate of {scene}, volumetric light, film grade, no text, no logos, consistent with the anchor image",
+    "animate_with": [
+      {
+        "id": "A1",
+        "what": "parallax cut-out (split plates, 2.5D drift)"
+      },
+      {
+        "id": "A6",
+        "what": "camera on a plate (Ken Burns with grain and vignette)"
+      },
+      {
+        "id": "A3",
+        "what": "displacement / warp (shader fed by noise or depth)"
+      }
+    ],
+    "r1_note": "",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "orchestral build",
+      "wind/air beds",
+      "cinematic risers",
+      "impact booms"
+    ]
+  },
+  "build": {
+    "engine": "G",
+    "engine_meaning": "gap (nothing yet)",
+    "recipe": "Codex stills (8 to 12 per film, one `## Imagery` art-direction), depth via a monocular depth model or hand-painted mask, Three.js plane-stack with a camera spline; `volumetric-light-god-rays.md`; `one-take-through-scenes.md`. Needs an asset pipeline for depth maps (gap).",
+    "refs": [
+      "## Imagery",
+      "volumetric-light-god-rays.md",
+      "one-take-through-scenes.md"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Apple event films (shot-language analysis)",
+      "url": "https://www.ithinkdiff.com/apple-iphone-18-pro-event-film-james-bond-influence/",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Buck for Nothing Playground",
+      "url": "https://www.stashmedia.tv/?p=115653",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

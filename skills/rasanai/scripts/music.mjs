@@ -58,8 +58,12 @@ import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromH
 import { resolveIdentity, renderScore, identityPlan, sidecarPath, readSidecar } from "./lib/procedural-score.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText, styleExclusions } from "./lib/music-lib.mjs";
 import { readSoundChoices, resolveSound } from "./lib/sound-choices.mjs";
+import { KEY as SRC_KEY, CAVEATS, warn as warnLicence, aceStep } from "./lib/sound-sources.mjs";
 import { normalizeConstraints, rankCandidates, pickThree, reviseShortlist, candidateFromOption, buildShortlistRecord, previewPlan } from "./lib/music-shortlist.mjs";
 
+// the plain env names the vendors document work too (ELEVENLABS_API_KEY, STABILITY_API_KEY); the RASANAI_ names stay first
+if (!process.env[KEYS.elevenlabs] && process.env.ELEVENLABS_API_KEY) process.env[KEYS.elevenlabs] = process.env.ELEVENLABS_API_KEY;
+if (!process.env[KEYS.stable] && process.env.STABILITY_API_KEY) process.env[KEYS.stable] = process.env.STABILITY_API_KEY;
 const args = parseArgs();
 const mode = ["gate", "chain", "credits", "verify", "revise"].includes(args._[0]) ? args._[0] : "run";
 const ws = process.cwd();
@@ -164,6 +168,14 @@ const EXCL = styleExclusions({ direction: DIRECTION, constraints: CONSTRAINTS })
 const trackArg = args.track || (SR && SR.user_track && SR.user_track.file && fs.existsSync(path.resolve(String(SR.user_track.file))) ? SR.user_track.file : null);
 if (SR && SR.music_source === "user_track" && !trackArg) notes.push("you chose your own track, but no file was given or found (--track <file>): the options below are alternatives, not a replacement for it");
 const chain = sourceChain(process.env, { user: !!trackArg, noAi: !!args["no-ai"], generationConsent: !!args["allow-generation"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null });
+// local ACE-Step lane (after the paid generators): on only when the person's own install is set up and the film consents to generation
+{
+  const aiLane = chain.find((c) => c.id === "ai");
+  const cmd0 = SRC_KEY.acestep() ? String(SRC_KEY.acestep()).split(/\s+/)[0] : null;
+  const ok = !!(cmd0 && fs.existsSync(cmd0));
+  const consent = !!args["allow-generation"] || !!(args.sources && String(args.sources).split(",").includes("acestep"));
+  chain.splice(chain.indexOf(aiLane) + 1, 0, { id: "acestep", on: ok && consent && !args["no-ai"], consent, threshold: 65, why: ok ? (consent ? "local ACE-Step via ACESTEP_CMD, in its own process (never installed by RasanAI)" : "ACESTEP_CMD found, but generation is off for this film: pass --allow-generation") : "no ACESTEP_CMD (a local ACE-Step wrapper) in the environment" });
+}
 const on = (id) => (chain.find((c) => c.id === id) || {}).on;
 const scoreFile = path.resolve(String(args.run), "motion", "score.json");
 let { arc, derived: arcDerived } = readArc(args.arc || (fs.existsSync(scoreFile) ? scoreFile : null), film || 30);
@@ -434,6 +446,7 @@ async function fromHeygen() {
 const FORMAT_SUBJECT = { launch: "launch film", explainer: "explainer film", reel: "reel", kinetic: "kinetic-type film", brand: "brand film", premium: "premium brand film" };
 const promptExtras = () => (SR || CONSTRAINTS ? { subject: FORMAT_SUBJECT[String(args.format || "launch")] || "film", tone: SR ? [SR.feeling && SR.feeling.value !== "unset" && SR.feeling.value !== "custom" ? SR.feeling.value : null, `${SR.energy.perceived} energy`].filter(Boolean).join(", ") : "", exclusions: EXCL } : {});
 async function aiElevenLabs(it, bpm, key) {
+  warnLicence("elevenlabs");
   const p = buildPrompt({ film, bpm, family: it.family, arc, narrated, ...promptExtras() });
   const body = { composition_plan: elevenPlan(p, it.family, SR || CONSTRAINTS ? EXCL : null), model_id: "music_v1" };
   const res = await fetch(`${process.env.RASANAI_ELEVENLABS_API_BASE || "https://api.elevenlabs.io"}/v1/music?output_format=mp3_44100_128`, { method: "POST", headers: { "xi-api-key": key, "content-type": "application/json", "user-agent": UA }, body: JSON.stringify(body), signal: AbortSignal.timeout(600000) });
@@ -469,7 +482,26 @@ async function fromAI() {
     const id = `ai-${it.family.id}-${n}`;
     const file = path.join(dir, `${id}.${got.ext}`);
     fs.writeFileSync(file, got.bytes);
-    found.push({ id, title: `Made to the cut: ${it.family.id.replace("-", " ")}, ${bpm} BPM`, file, source: `AI generation (${got.vendor})`, kind: "ai", origin: `ai:${got.vendor}`, license: "Commercial use under the vendor plan active at generation time", attribution: null, url: null, intent: it, targetBpm: bpm, generation: { vendor: got.vendor, prompt: got.prompt, request: got.request, date: new Date().toISOString(), plan_note: "the licence depends on the vendor plan at this date: record the plan" } });
+    found.push({ id, title: `Made to the cut: ${it.family.id.replace("-", " ")}, ${bpm} BPM`, file, source: `AI generation (${got.vendor})`, kind: "ai", origin: `ai:${got.vendor}`, license: "Commercial use under the vendor plan active at generation time", ...(got.vendor.startsWith("elevenlabs") ? { caveat: CAVEATS.elevenlabs } : {}), attribution: null, url: null, intent: it, targetBpm: bpm, generation: { vendor: got.vendor, prompt: got.prompt, request: got.request, date: new Date().toISOString(), plan_note: "the licence depends on the vendor plan at this date: record the plan" } });
+  }
+}
+
+// a local ACE-Step install (ACESTEP_CMD), run as an isolated child process; generation consent applies exactly as for the paid vendors
+async function fromAceStep() {
+  let n = 0;
+  for (const it of intents.slice(0, count)) {
+    const bpm = Math.round(tempoOf(it));
+    n++;
+    const p = buildPrompt({ film, bpm, family: it.family, arc, narrated, ...promptExtras() });
+    const id = `acestep-${it.family.id}-${n}`;
+    const file = path.join(dir, `${id}.wav`);
+    try {
+      warnLicence("acestep");
+      const r = await aceStep({ prompt: p.text, seconds: Math.ceil(p.sections.reduce((a, s) => a + s.duration_ms, 0) / 1000), out: file });
+      found.push({ id, title: `Made locally to the cut: ${it.family.id.replace("-", " ")}, ${bpm} BPM`, file, source: "Local generation (ACE-Step)", kind: "ai", origin: "ai:ace-step/local", license: r.licence, caveat: r.caveat, attribution: null, url: null, intent: it, targetBpm: bpm, generation: { vendor: r.vendor, prompt: r.prompt, date: r.date } });
+    } catch (e) {
+      notes.push(`ACE-Step failed for ${it.family.id}: ${String(e.message).slice(0, 200)}`);
+    }
   }
 }
 
@@ -744,7 +776,9 @@ else if (silentByChoice) notes.push("music source is None in the sound choices: 
 const usableCount = () => options.filter((o) => o.usable).length;
 const mineFirst = () => !!trackArg && !args.more && options.some((o) => o.usable && o.origin === "user");
 const runSource = async (name, fn) => {
-  if (!on(name) || usableCount() >= count || mineFirst()) return;
+  // generated lanes (paid vendors, local ACE-Step) always run when they are on, so every available source competes: ranking is by arc fit (lib/audio.mjs arcFit), not by who answered first
+  const competes = name === "ai" || name === "acestep";
+  if (!on(name) || (usableCount() >= count && !competes) || mineFirst()) return;
   if (silentByChoice) return;
   const before = found.length;
   await fn();
@@ -756,7 +790,7 @@ if (procChain.explicit) await runSource("procedural", fromProcedural);
 // with an arc, the original score is tried right after the user's own track: it is built to the story's events, so it is the preferred path when it fits the arc (ranking decides)
 else if (arcGate && !args["no-procedural"] && !args.sources) await runSource("procedural", fromProcedural);
 // the chain is the one source of order: user, then the licensed/local catalog, then generation (only with the film's consent, unless a --sources list pins ai first), then the rest
-const HANDLERS = { ai: fromAI, catalog: fromCatalog, heygen: fromHeygen, ccmixter: fromCcmixter, openverse: fromOpenverse };
+const HANDLERS = { ai: fromAI, acestep: fromAceStep, catalog: fromCatalog, heygen: fromHeygen, ccmixter: fromCcmixter, openverse: fromOpenverse };
 for (const c of chain) if (HANDLERS[c.id]) await runSource(c.id, HANDLERS[c.id]);
 const aiLane = chain.find((c) => c.id === "ai");
 if (aiLane && !aiLane.on && aiLane.vendors && aiLane.vendors.length && !aiLane.consent && !args["no-ai"] && !silentByChoice) notes.push("generated music is off: a key was found but this film has no generation consent (--allow-generation). The licensed and local library was used.");

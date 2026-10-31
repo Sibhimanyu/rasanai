@@ -4,6 +4,10 @@
 // reads back through brand.mjs, so a user can drop it in their repo and RasanAI uses it as their brand.
 //   node design-system.mjs export --id <preset id> [--out DESIGN.md]
 //   node design-system.mjs export-all --out <dir>        -> <dir>/<id>.md for every preset + index.json
+//   node design-system.mjs export --id <preset id> --style-world <atlas id> [--brand-colour #hex] [--out DESIGN.md]
+//        -> the same DESIGN.md plus a "## Style world" section from library/styles/atlas/<id>.json: the world's look, how the brand lock applies
+//           (brand colour, type and logo stay; the world changes), motion grammar, rasan-fx finish, Codex recipe, sound pairing, and when not to use it
+//   node design-system.mjs style-world --id <atlas id> [--brand-colour #hex]   -> just that section (to append to a bespoke DESIGN.md)
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +31,28 @@ function loadPresets() {
 const term = (T, dim, id) => ((T.byId[dim] || {}).options || []).find((o) => o.id === id);
 const SHADOW = { none: null, soft: "0 18px 44px rgba(0,0,0,0.16)", hard: "10px 10px 0 {ink}", long: "18px 18px 0 {ink}", inset: "inset 0 5px 12px rgba(0,0,0,0.22)", neu: "12px 12px 26px rgba(0,0,0,0.16), -12px -12px 26px rgba(255,255,255,0.7)", glow: "0 0 24px {accent}", layered: "7px 7px 0 {accent}, 14px 14px 0 {ink}", float: "0 40px 70px -16px rgba(0,0,0,0.3)" };
 const SURFACE = { flat: "flat fills, no gradients", gradient: "soft gradient washes from the surface toward the accent", glass: "translucent frosted panels (backdrop blur) over colour", metal: "brushed/chrome metallic gradients", clay: "inflated, soft-lit clay surfaces with inner highlights", paper: "off-white paper with visible fibre", neon: "dark panels with lit accent edges" };
+
+const ATLAS = path.join(HERE, "..", "library", "styles", "atlas");
+export function atlasEntry(id) {
+  try { return JSON.parse(fs.readFileSync(path.join(ATLAS, String(id).replace(/[^a-z0-9-]/gi, "") + ".json"), "utf8")); } catch { return null; }
+}
+// The "## Style world" section of a DESIGN.md: the world a look lives in, under the brand lock.
+export function styleWorldSection(e, { brandColour } = {}) {
+  const fill = (t) => String(t).replace(/\{brand_colour\}/g, brandColour || "the brand colour").replace(/\{second_ink\}/g, "a supporting hue");
+  const fx = e.effects.map((x) => `- \`${x.pass}\` ${JSON.stringify(x.params).replace(/"/g, "")}: ${x.role}`);
+  return [
+    "## Style world", "",
+    `**${e.name}** (atlas id \`${e.id}\`). ${e.look}`, "",
+    "### Brand lock", "",
+    `Brand colour, brand type and the logo stay; the style world changes. Colour: ${fill(e.brand_lock.colour_role)}. Type: ${e.brand_lock.type_role}. World: ${e.brand_lock.world_changes}.`, "",
+    "### Motion grammar", "", ...e.motion_grammar.hints.map((h) => `- ${h}`), "",
+    "### Finish (rasan-fx)", "", ...(fx.length ? fx.map(fill) : ["- none: the style is carried by layout, type and motion"]), "",
+    "### Imagery (Codex)", "",
+    e.codex_assets.use ? `${e.codex_assets.images.min} to ${e.codex_assets.images.max} images. Prompt: ${fill(e.codex_assets.prompt_template)}. Animate with ${e.codex_assets.animate_with.map((a) => a.id + " " + a.what).join("; ") || "n/a"}.` : "Generated pictures are optional here.", "",
+    "### Sound", "", `Mode ${e.sound.mode}. Palette: ${e.sound.palette.join("; ")}.`, "",
+    "### When not to use it", "", ...e.when_not.map((w) => `- ${w}`), ""
+  ].join("\n");
+}
 
 export function designMd(p) {
   const T = loadTaxonomy();
@@ -115,10 +141,19 @@ export function designMd(p) {
   return fm.join("\n") + "\n" + body.join("\n");
 }
 
-if (cmd === "export") {
+if (cmd === "style-world") {
+  const e = atlasEntry(args.id);
+  if (!e) die(`no style world ${args.id}; see library/styles/atlas/index.json`);
+  process.stdout.write(styleWorldSection(e, { brandColour: args["brand-colour"] && args["brand-colour"] !== true ? String(args["brand-colour"]) : undefined }) + "\n");
+} else if (cmd === "export") {
   const p = loadPresets().find((x) => x.id === String(args.id || ""));
   if (!p) die(`no style ${args.id}; see presets.mjs list`);
-  const md = designMd(p);
+  let md = designMd(p);
+  if (args["style-world"] && args["style-world"] !== true) {
+    const e = atlasEntry(args["style-world"]);
+    if (!e) die(`no style world ${args["style-world"]}; see library/styles/atlas/index.json`);
+    md = md.replace(/\n*$/, "\n\n") + styleWorldSection(e, { brandColour: args["brand-colour"] && args["brand-colour"] !== true ? String(args["brand-colour"]) : undefined }) + "\n";
+  }
   if (args.out) { writeFile(path.resolve(String(args.out)), md); console.log(JSON.stringify({ ok: true, out: String(args.out), style: p.name })); }
   else process.stdout.write(md);
 } else if (cmd === "export-all") {
@@ -129,5 +164,5 @@ if (cmd === "export") {
   writeFile(path.join(out, "index.json"), JSON.stringify(all.map((p) => ({ id: p.id, name: p.name, family: p.family, file: `${p.id}.md` }))) + "\n");
   console.log(JSON.stringify({ ok: true, systems: all.length, out: path.relative(process.cwd(), out) }));
 } else {
-  die("usage: design-system.mjs export --id <id> [--out DESIGN.md] | export-all --out <dir>");
+  die("usage: design-system.mjs export --id <id> [--style-world <atlas id>] [--out DESIGN.md] | export-all --out <dir> | style-world --id <atlas id>");
 }

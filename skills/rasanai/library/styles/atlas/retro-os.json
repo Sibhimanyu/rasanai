@@ -1,0 +1,139 @@
+{
+  "format": "style-world@1",
+  "id": "retro-os",
+  "number": 22,
+  "name": "Retro OS / desktop UI (Win95, Mac OS 9, terminal windows)",
+  "look": "beveled windows, title bars, 1-bit icons, cursor, dialog boxes as the characters.",
+  "fits": {
+    "products": [
+      "dev tools",
+      "creative tools",
+      "indie",
+      "AI-as-OS stories"
+    ],
+    "tones": [
+      "nostalgic",
+      "witty",
+      "playful"
+    ],
+    "notes": "dev tools, creative tools, indie, nostalgia, AI \"operating system\" angle"
+  },
+  "avoid": {
+    "products": [
+      "a signal of old or obsolete"
+    ],
+    "tones": [
+      "futuristic-premium"
+    ]
+  },
+  "when_not": [
+    "Avoid if it signals \"old/obsolete\"."
+  ],
+  "type": {
+    "guidance": "Chicago, MS Sans, VT323, Geneva",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "Chicago, MS Sans, VT323, Geneva; system grey, teal, navy.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is the desktop accent and the selected-state colour; chrome stays system grey",
+    "type_role": "system pixel font for chrome (Chicago / MS Sans / VT323); brand face for dialog claim",
+    "world_changes": "windows, dialogs and a cursor are the characters",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "windows opening/dragging",
+      "dialog stacking",
+      "cursor flights",
+      "pixel-type error boxes",
+      "desktop wallpapers as scene changes"
+    ],
+    "grammars": [
+      "catalogue-cards"
+    ],
+    "grammars_planned": [
+      "os-desktop"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "dither",
+      "params": {
+        "levels": 4,
+        "size": 2
+      },
+      "role": "1-bit-ish wallpapers"
+    },
+    {
+      "pass": "crt",
+      "params": {
+        "curve": 0.05,
+        "scan": 0.2,
+        "mask": 0
+      },
+      "role": "light CRT on the finale"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 2,
+      "max": 4
+    },
+    "prompt_template": "pixel icon set and wallpaper for {subject}, system grey, teal and navy, pixel cursor, as a sheet on a flat pure chroma-green (#00FF00) background, equal grid, no text",
+    "animate_with": [
+      {
+        "id": "A1",
+        "what": "parallax cut-out (split plates, 2.5D drift)"
+      }
+    ],
+    "r1_note": "icon sets, wallpapers, pixel cursors.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "startup chimes",
+      "error dings",
+      "HDD whirrs",
+      "key clicks"
+    ]
+  },
+  "build": {
+    "engine": "R",
+    "engine_meaning": "reference only (builder hand-codes it)",
+    "recipe": "`systems/vernacular/pixel-game-ui.md`, `terminal-crt.md`; HTML/CSS bevels, draggable window choreography via GSAP, cursor sprite on canvas.",
+    "refs": [
+      "systems/vernacular/pixel-game-ui.md",
+      "terminal-crt.md"
+    ],
+    "medium_runtime": "runtime/medium-retro-os.js",
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "A24 Y2K microsite",
+      "url": "https://www.creativereview.co.uk/y2k-film-microsite-a24-design/",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Poolside.fm",
+      "url": "https://poolside.fm",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

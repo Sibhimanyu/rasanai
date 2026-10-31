@@ -1,0 +1,139 @@
+{
+  "format": "style-world@1",
+  "id": "photo-collage-surreal",
+  "number": 27,
+  "name": "Photo-collage with AI imagery (surreal cut-up)",
+  "look": "generated or stock photos cut and recombined: heads on objects, scale jokes, colour-field backdrops.",
+  "fits": {
+    "products": [
+      "creative AI",
+      "culture",
+      "music",
+      "fashion"
+    ],
+    "tones": [
+      "surreal",
+      "witty",
+      "bold"
+    ],
+    "notes": "creative AI, culture, music, fashion"
+  },
+  "avoid": {
+    "products": [
+      "where authenticity of real people matters"
+    ],
+    "tones": [
+      "earnest documentary"
+    ]
+  },
+  "when_not": [
+    "Avoid where authenticity of real people matters."
+  ],
+  "type": {
+    "guidance": "editorial serif + grotesk",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "editorial serif + grotesk; one flat colour field + b/w photos.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is the flat colour field behind black and white photos",
+    "type_role": "editorial serif + grotesk; brand face for the claim",
+    "world_changes": "cut-up photos with scale jokes and heads on objects",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "cut-out pops",
+      "scale jumps",
+      "layered clipping paths",
+      "halftone grade",
+      "hot gradient-map treatment"
+    ],
+    "grammars": [
+      "catalogue-cards"
+    ],
+    "grammars_planned": ["collage"],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "halftone",
+      "params": {
+        "mode": 1,
+        "size": 9
+      },
+      "role": "CMYK screen on cut-outs"
+    },
+    {
+      "pass": "posterise",
+      "params": {
+        "mode": 1,
+        "steps": 0,
+        "palette": [
+          "#111111",
+          "#e8473f",
+          "#ffd37a"
+        ]
+      },
+      "role": "hot gradient-map grade"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 4,
+      "max": 8
+    },
+    "prompt_template": "isolated {subject} (portrait, hand or object) on flat background, consistent lighting, high contrast",
+    "animate_with": [
+      {
+        "id": "A1",
+        "what": "parallax cut-out (split plates, 2.5D drift)"
+      },
+      {
+        "id": "A2",
+        "what": "step-print (8-12 fps quantised time)"
+      }
+    ],
+    "r1_note": "isolated subjects on flat bg (portraits, hands, objects), consistent lighting; or full surreal scenes.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "sampled voices",
+      "sharp stings",
+      "record-scratch edit"
+    ]
+  },
+  "build": {
+    "engine": "R/G",
+    "engine_meaning": "reference only (builder hand-codes it) / gap (nothing yet)",
+    "recipe": "`styles/halftone-collage.md`, `scripts/art.mjs treat --halftone-collage`, `medium-paper.js`; A1 + A2.",
+    "refs": [
+      "styles/halftone-collage.md",
+      "scripts/art.mjs treat --halftone-collage",
+      "medium-paper.js"
+    ],
+    "medium_runtime": "runtime/medium-paper.js",
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "gbro collage (`third_party`); Paperclip style",
+      "link_status": "in-repo-or-text-only"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

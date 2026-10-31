@@ -1,0 +1,123 @@
+{
+  "format": "style-world@1",
+  "id": "isometric-diorama",
+  "number": 11,
+  "name": "Isometric 3D diorama / infographic",
+  "look": "miniature isometric world, flat 3-tone blocks, rail-style camera, labels in thin ink.",
+  "fits": {
+    "products": [
+      "infra",
+      "logistics",
+      "finance flow",
+      "platforms",
+      "how-it-works"
+    ],
+    "tones": [
+      "clear",
+      "orderly",
+      "explanatory"
+    ],
+    "notes": "infra, logistics, finance flow, platforms, \"how it works\""
+  },
+  "avoid": {
+    "products": [
+      "emotion-led brand stories"
+    ],
+    "tones": [
+      "intimate"
+    ]
+  },
+  "when_not": [
+    "Avoid emotion-led brand stories."
+  ],
+  "type": {
+    "guidance": "DM Mono, Inter",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "DM Mono, Inter; 3-tone per colour (top/left/right), pastel + one accent.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "3 tones of the brand colour on the hero structure; pastels elsewhere",
+    "type_role": "mono or neutral sans for labels in thin ink; brand face for the claim",
+    "world_changes": "miniature isometric world, rail-style camera",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "buildings grow, belts move, pipes fill, camera tracks along an isometric axis",
+      "pieces pop in on a beat"
+    ],
+    "grammars": [
+      "catalogue-cards"
+    ],
+    "grammars_planned": [
+      "game-world"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.04
+      },
+      "role": "print-like finish"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 2,
+      "max": 4
+    },
+    "prompt_template": "isometric {subject} building / prop sprite sheet on a flat pure chroma-green (#00FF00) background, equal grid cells, no text, 3-tone shading, one consistent light direction",
+    "animate_with": [
+      {
+        "id": "A1",
+        "what": "parallax cut-out (split plates, 2.5D drift)"
+      }
+    ],
+    "r1_note": "isometric building/prop sprites on flat bg (A1); keep one consistent light direction.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "tick-tock mechanical",
+      "soft clicks",
+      "light synth arps"
+    ]
+  },
+  "build": {
+    "engine": "B",
+    "engine_meaning": "buildable today",
+    "recipe": "`runtime/medium-isometric.js`, `styles/isometric.md`, `iso-infographic.md`, `motion/other/isometric-motion.md`. SVG polygons or Three.js ortho at 35.264/45 degrees.",
+    "refs": [
+      "runtime/medium-isometric.js",
+      "styles/isometric.md",
+      "iso-infographic.md",
+      "motion/other/isometric-motion.md"
+    ],
+    "medium_runtime": "runtime/medium-isometric.js",
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Monument Valley ; Stripe Sessions isometric illustration",
+      "url": "https://stripe.com/sessions",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

@@ -1,0 +1,144 @@
+{
+  "id": "editorial",
+  "name": "Editorial",
+  "style_world": [
+    "editorial",
+    "magazine",
+    "swiss",
+    "print",
+    "poster",
+    "newspaper",
+    "grid",
+    "serif",
+    "fashion"
+  ],
+  "concept_tags": [
+    "editorial",
+    "magazine",
+    "report",
+    "story",
+    "feature",
+    "essay",
+    "luxury",
+    "culture",
+    "journal",
+    "profile"
+  ],
+  "source": "A product told like a magazine spread: a strict grid, a serif and a grotesk pairing, big cropped photographs or plates, captions, rules and folios, pages turning and columns reflowing. Described from the atlas editorial and print entries; no layouts are carried.",
+  "motion_language": "ui",
+  "kit": [
+    "runtime/rasan-layout.js",
+    "runtime/rasan-type-only.js",
+    "runtime/medium-paper.js"
+  ],
+  "frame_device": {
+    "what": "A visible grid (column rules, a folio, a running head) on a paper or cream ground, with one big image area and one big type area per spread.",
+    "moves": "Spreads turn or slide on the grid; columns reflow word by word; a pull-quote scales up out of the body text; captions and rules draw on."
+  },
+  "ground_motion": "A slow page-paper tone drift and a 1 to 2 percent camera creep across the spread; hairline rules shimmer by a pixel on beats; the grid never moves.",
+  "type": {
+    "classes": "A high-contrast serif for headlines and pull-quotes, a neutral grotesk for captions, folios and labels; sizes in a strict scale (display, deck, body, caption).",
+    "behaviour": "Headlines enter by line or word with a mask reveal; captions fade in 0.2 s after their image; pull-quotes scale from the body text; everything sits on the grid."
+  },
+  "image": {
+    "treatment": "Large cropped photographs or Codex plates with one consistent grade, hard rectangular crops, thin keylines; the real product UI appears as a framed figure with a caption.",
+    "behaviour": "Images enter by mask reveal or a page turn, drift 2 percent inside their frame, and are re-cropped between beats (the same image reused 3 or more times)."
+  },
+  "transitions": [
+    "page turn or slide on the grid",
+    "mask reveal wipe up from a rule",
+    "crop punch-in to a detail of the same image",
+    "column reflow",
+    "rule draws across and the next spread is under it"
+  ],
+  "techniques": [
+    {
+      "id": "grid-draw-on",
+      "name": "Grid draw-on",
+      "what": "Column rules, a folio and a running head draw on to set the page.",
+      "route": "SVG lines with RasanShape.drawOn(tl, svg, {at, duration: 0.8, stagger: 0.05}); folio text fades in."
+    },
+    {
+      "id": "headline-mask-up",
+      "name": "Headline mask reveal",
+      "what": "A big serif headline rises line by line out of its baseline.",
+      "route": "RasanType.maskReveal(tl, el, {at, duration: 0.6, dir: 'up', stagger: 0.1}) on RasanShape.split lines."
+    },
+    {
+      "id": "image-crop-reuse",
+      "name": "Image crop reuse",
+      "what": "The same plate is re-cropped to a new detail on each beat.",
+      "route": "Image in an overflow:hidden frame; scale and translate keys per beat (2.0x focus on a detail), 0.7 s power3.inOut."
+    },
+    {
+      "id": "pull-quote-scale",
+      "name": "Pull-quote scale",
+      "what": "A phrase from the body copy grows into the pull-quote.",
+      "route": "RasanShape.split words of the body, scale the chosen span 1 to 4 with a position tween to the quote slot, others fade to 0.15."
+    },
+    {
+      "id": "page-turn",
+      "name": "Page turn",
+      "what": "The spread turns to the next on a hinge at the gutter.",
+      "route": "CSS 3D rotateY 0 to -180 on a page half with perspective 2000 px over 0.8 s power2.inOut; the back face is the next spread."
+    },
+    {
+      "id": "caption-follows",
+      "name": "Caption follows",
+      "what": "A caption and a keyline arrive after their image, 0.2 s late.",
+      "route": "Keyline drawOn then the caption opacity 0 to 1 with y 8 to 0, 0.4 s, at image end + 0.2 s."
+    },
+    {
+      "id": "column-reflow",
+      "name": "Column reflow",
+      "what": "Body text re-wraps from two columns to three, word by word.",
+      "route": "RasanType.reorder(tl, wordSpans, {order, at, duration: 0.9, stagger: 0.01}) between two layouts measured at build."
+    },
+    {
+      "id": "figure-ui-plate",
+      "name": "Figure UI plate",
+      "what": "The real product UI appears as a captioned figure inside the grid.",
+      "route": "Screen plate in a keylined frame with a 'Fig. 1' caption; slides in on the grid with a 12 px rise; glow only on the one control."
+    },
+    {
+      "id": "word-choreo",
+      "name": "Word choreography",
+      "what": "Each word of a line enters from its own place and settles into the line with a lift; the key word last with a little more overshoot.",
+      "route": "RasanShape.split(el, {by: 'words'}); words rise 16 to 40 px with a mask reveal, 0.5 s, stagger 0.07 s, key word last with back.out(1.2); grid-locked, never overshooting its column."
+    }
+  ],
+  "signature": "The final spread turns to a full-bleed plate with the product name set as a single masthead line.",
+  "density": {
+    "change_every_s": 1.2,
+    "note": "A new crop, turn or reveal every 1.2 to 2 s; layers at the peak: 4 to 7 (paper, grid, image, headline, caption, rule, folio)."
+  },
+  "palette": {
+    "ground": "#f3eee3",
+    "ink": "#141414",
+    "accent": "#c8321e",
+    "note": "A brand palette replaces the accent and the ink; the cream ground and the grid stay."
+  },
+  "do": [
+    "Keep every element on the visible grid",
+    "Reuse one plate 3 or more times with new crops",
+    "Pair one serif with one grotesk",
+    "Draw rules and keylines on",
+    "Caption every figure"
+  ],
+  "dont": [
+    "Do not add glow, 3D or particle effects",
+    "Do not break the grid for effect",
+    "Do not use more than two typefaces",
+    "Do not leave a plate static for more than 1.2 s"
+  ],
+  "fits": [
+    "brand film",
+    "explainer",
+    "luxury",
+    "launch ladder",
+    "report",
+    "culture",
+    "profile"
+  ],
+  "flat_ok": true
+}

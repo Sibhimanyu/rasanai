@@ -1660,3 +1660,23 @@ export function arcFit(file, arc, film) {
   if (!peakOk) problems.push(`the loudest second is at ${r1(bestAt)} s, not between the turn and the payoff`);
   return { score, parts, intro_below_db: r1(introBelow), lift_db: r1(lift), break_below_db: r1(breakBelow), loudest_at_s: r1(bestAt), body_db: r1(body), problems };
 }
+
+// ---------------------------------------------------------------- platform loudness and the layered mix (lib/mix.mjs)
+
+// web/social -14 LUFS, keynote -16 (room playback), broadcast -23 (EBU R128); true-peak ceilings in dBTP. "house" is the legacy -14 / -1.5.
+export const LOUDNESS_TARGETS = Object.freeze({
+  web: { lufs: -14, tp: -1.5, label: "web / social" },
+  keynote: { lufs: -16, tp: -1.5, label: "keynote / event screen" },
+  broadcast: { lufs: -23, tp: -1.0, label: "broadcast (EBU R128)" },
+});
+export const loudnessTarget = (platform) => (typeof platform === "object" && platform ? { lufs: platform.lufs ?? -14, tp: platform.tp ?? -1.5 } : LOUDNESS_TARGETS[platform] || LOUDNESS_TARGETS.web);
+// the master path for a platform name: the same measure, static gain and true-peak limiter masterFile always did, with the platform's numbers
+export function masterForPlatform(input, out, platform = "web") {
+  const t = loudnessTarget(platform);
+  return masterFile(input, out, { lufs: t.lufs, tp: t.tp });
+}
+// the stem mix: music + SFX + VO stems, carved and ducked, SFX on the beat grid and hit points, mastered through masterFile. See lib/mix.mjs mixFilm for the spec.
+export async function mixFilm(spec, out, opts) {
+  const { mixFilm: run } = await import("./mix.mjs");
+  return run(spec, out, opts);
+}

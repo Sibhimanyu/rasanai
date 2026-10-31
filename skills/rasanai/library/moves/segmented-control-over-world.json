@@ -1,0 +1,47 @@
+{
+  "id": "segmented-control-over-world",
+  "n": 30,
+  "name": "Segmented control over world",
+  "family": "ui",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 27,
+      "end_s": 29,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    }
+  ],
+  "description": "A UI chip floats over a dreamy generated landscape with a camera push; the control switches the active segment.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-image-fx.js",
+      "rasan-ui.js",
+      "rasan-camera.js"
+    ],
+    "build": "Codex landscape layers (sky, hills, flowers) with parallax; a segmented control as HTML glass; GSAP slide of the active pill."
+  },
+  "use_when": "A \"magic\" moment the product delivers.",
+  "avoid": "Needs a layered world plate; do not use over a flat colour.",
+  "duration_s": {
+    "min": 2,
+    "max": 4
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "ui-plane",
+    "palette-dither",
+    "object"
+  ],
+  "beat_roles": [
+    "proof",
+    "middle"
+  ],
+  "needs": [
+    "rasan-image-fx.js"
+  ]
+}

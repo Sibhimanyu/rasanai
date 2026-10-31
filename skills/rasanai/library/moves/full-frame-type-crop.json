@@ -1,0 +1,63 @@
+{
+  "id": "full-frame-type-crop",
+  "n": 6,
+  "name": "Full-frame type crop",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 4,
+      "end_s": 5,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 54,
+      "end_s": 55,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 44,
+      "end_s": 44,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 6.5,
+      "end_s": 8,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    }
+  ],
+  "description": "Type larger than the frame, cropped by its edges, panning with motion blur.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "rasan-camera.js"
+    ],
+    "build": "font-size 28-40vh, horizontal translate -30%, filter:blur() coupled to velocity (blur = |dx| * k), occasional skewX."
+  },
+  "use_when": "The pain or scale beat; cut away right after.",
+  "avoid": "Do not hold longer than about 1 s; never for the claim itself.",
+  "duration_s": {
+    "min": 0.8,
+    "max": 1.5
+  },
+  "easing": "power2.in",
+  "carriers": [
+    "word-line"
+  ],
+  "beat_roles": [
+    "open",
+    "middle"
+  ],
+  "needs": []
+}

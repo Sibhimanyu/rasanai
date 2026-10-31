@@ -4,14 +4,17 @@
 //
 // Scene fields the checks read (score scene or scenes.json scene; a composition may carry the same as data- attributes on its scene root):
 //   layout       a short name for the composition ("type-full", "ui-tilt", "split", "world-wide"); no layout in more than 2 beats in a row
-//   scale        shot scale: "type" (full-frame type), "ui" (close or cropped UI, in perspective), "world" (wide, field, 3D, generated world), "person" (a person or photo)
-//   ui_fill      how much of the frame the product UI fills (0..1, or a percent); at least one beat must reach 0.5
-//   frame_change how the beat arrives: "cut" | "morph" | "camera" | "none" (informational; the render measures the real rate in frame-gate)
+//   scale        shot scale: "type" (full-frame type), "ui" (close or cropped UI, in perspective), "world" (wide, field, 3D, generated world), "person" (a person or photo),
+//                "illustration" (drawn or pixel-art art, a sticker, a sprite), "object" (a physical or 3D object, a mascot or character), "world-image" (a generated image world)
+//   ui_fill      how much of the frame the product UI fills (0..1, or a percent). It applies ONLY when the score has a UI-proof beat (a scene with scale "ui",
+//                a ui_fill above 0, ui_proof: true, or a score-level ui_proof: true): then at least one beat must reach 0.5. A film with no UI-proof beat owes none.
+//   frame_change how the beat arrives: "cut" | "morph" | "camera" | "none" (informational; the render measures the real shot-length distribution in frame-gate: median 1.5-2.5 s, p10 >= 0.5 s, p90 <= 5 s)
 // A score may also say has_users: true|false (the product has people using it: a person or photo beat is then owed) and actor ("ui" | "object" | "mascot" ...).
 import fs from "node:fs";
 import path from "node:path";
 
-export const LG = { min_change_per_10s: 3, max_same_layout_run: 2, ui_hero_fill: 0.5 };
+// the frame-change rate is replaced by the shot-length distribution (frame-gate.mjs, R6): median about 1.5-2.5 s, p10 >= 0.5 s, p90 <= about 5 s, no long static hold
+export const LG = { shot_median_s: [1.5, 2.5], shot_p10_min_s: 0.5, shot_p90_max_s: 5, max_same_layout_run: 2, ui_hero_fill: 0.5 };
 
 const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
 const readT = (f) => { try { return fs.readFileSync(f, "utf8"); } catch { return ""; } };
@@ -39,9 +42,14 @@ export function filmKind({ kind, plan, project, run } = {}) {
 }
 
 const pct = (v) => { const n = Number(String(v).replace("%", "")); if (!Number.isFinite(n)) return null; return n > 1 ? n / 100 : n; };
+export const SCALES = ["type", "ui", "world", "person", "illustration", "object", "world-image"];
 const scaleOf = (s) => {
-  const v = String(s || "").toLowerCase();
+  const v = String(s || "").toLowerCase().trim();
   if (!v) return null;
+  if (SCALES.includes(v)) return v;
+  if (/world[- ]?image|image[- ]?world|generated (image|world)/.test(v)) return "world-image";
+  if (/illustrat|drawn|sticker|sprite|pixel[- ]?art|comic|cartoon|vector art/.test(v)) return "illustration";
+  if (/\bobject\b|\bprop\b|mascot|character|hero object|product shot|toy|3d object/.test(v)) return "object";
   if (/type|word|text|glyph|headline|numeral/.test(v)) return "type";
   if (/ui|screen|product|crop|close|perspective|tilt/.test(v)) return "ui";
   if (/person|people|human|photo|face|portrait|footage/.test(v)) return "person";
@@ -49,14 +57,20 @@ const scaleOf = (s) => {
   return null;
 };
 
+// does the film have a UI-proof beat? score.ui_proof says so explicitly (true or false), else any scene on scale ui, with a ui_fill above 0, or marked ui_proof
+export const uiProof = (rows, plan) => {
+  if (plan && typeof plan.ui_proof === "boolean") return plan.ui_proof;
+  return rows.some((r) => r.ui_proof || r.scale === "ui" || (r.ui_fill != null && r.ui_fill > 0));
+};
+
 // scene rows from the score (or scenes.json), then data- attributes on the composition's scene roots
 export function sceneRows(scenes, htmlTexts = []) {
-  const rows = (Array.isArray(scenes) ? scenes : []).map((s, i) => ({ id: String(s.id || s.n || i + 1), layout: s.layout || (s.composition && typeof s.composition === "string" ? s.composition : null) || null, scale: scaleOf(s.scale || s.shot_scale), ui_fill: s.ui_fill != null ? pct(s.ui_fill) : null, text: [s.on_screen, s.headline, s.title].filter((x) => typeof x === "string").join(" ") }));
+  const rows = (Array.isArray(scenes) ? scenes : []).map((s, i) => ({ id: String(s.id || s.n || i + 1), layout: s.layout || (s.composition && typeof s.composition === "string" ? s.composition : null) || null, scale: scaleOf(s.scale || s.shot_scale), ui_fill: s.ui_fill != null ? pct(s.ui_fill) : null, ui_proof: s.ui_proof === true || /^(ui[- ]?proof|proof|demo)$/i.test(String(s.role || s.beat_role || "")), text: [s.on_screen, s.headline, s.title].filter((x) => typeof x === "string").join(" ") }));
   if (rows.some((r) => r.layout || r.scale)) return rows;
   const out = [];
   for (const html of htmlTexts) for (const m of html.matchAll(/<[a-z][^>]*\bdata-(?:layout|scale)=[^>]*>/gi)) {
     const t = m[0], at = (n) => (t.match(new RegExp(`data-${n}="([^"]*)"`, "i")) || [])[1];
-    out.push({ id: at("scene") || at("id") || `s${out.length + 1}`, layout: at("layout") || null, scale: scaleOf(at("scale")), ui_fill: at("ui-fill") != null ? pct(at("ui-fill")) : null, text: "" });
+    out.push({ id: at("scene") || at("id") || `s${out.length + 1}`, layout: at("layout") || null, scale: scaleOf(at("scale")), ui_fill: at("ui-fill") != null ? pct(at("ui-fill")) : null, ui_proof: /^(true|1)$/i.test(at("ui-proof") || ""), text: "" });
   }
   return out.length ? out : rows;
 }
@@ -123,18 +137,22 @@ export function launchGrammarFindings({ plan = null, scenes = [], project = null
   if (rows.length >= 4 && !scaled.length) add("error", "shot-scale-undeclared", "no scene names its shot scale (score scenes[].scale: type | ui | world | person): the mix cannot be checked", "tag every scene with its scale; the film needs full-frame type, close or cropped UI in perspective, and wide or world shots (and a person or photo when the product has users)");
   else if (scaled.length) {
     const have = new Set(scaled.map((r) => r.scale));
-    const need = [["type", "full-frame type"], ["ui", "close or cropped UI in perspective"], ["world", "a wide or world shot"]];
+    const hasUI = uiProof(rows, plan);
+    const need = [["type", "full-frame type"]];
+    if (hasUI) need.push(["ui", "close or cropped UI in perspective"]);
     const hasUsers = (plan && plan.has_users === true);
     if (hasUsers) need.push(["person", "a person or photo"]);
-    const miss = need.filter(([s]) => !have.has(s)).map(([, d]) => d);
-    if (miss.length) add("error", "shot-scale-mix", `the film has no ${miss.join(", no ")} (scales used: ${[...have].join(", ")})`, "mix the scales across the film: giant words that bleed off the frame, the UI cropped and tilted in perspective, a wide world or field, and a person or photo when the product has users");
+    const miss = need.filter(([sc]) => !have.has(sc)).map(([, d]) => d);
+    // the picture scales are interchangeable: a wide world, a generated image world, an illustration or an object all give the film its second scale
+    if (!["world", "world-image", "illustration", "object"].some((sc) => have.has(sc))) miss.push("a wide world, an image world, an illustration or an object shot");
+    if (miss.length) add("error", "shot-scale-mix", `the film has no ${miss.join(", no ")} (scales used: ${[...have].join(", ")})`, "mix the scales across the film: giant words that bleed off the frame, a wide world, an image world, an illustration or an object shot, the UI cropped and tilted in perspective where there is a UI-proof beat, and a person or photo when the product has users");
     else if (!hasUsers && !have.has("person") && plan && plan.has_users == null) F.push({ severity: "warning", check: "shot-scale-person", message: "no person or photo beat: if the product has users, one is owed (set score.has_users)", fix: "add a real person or photo beat, or set has_users: false with a reason", basis: "score" });
   }
-  // 4. a UI hero beat
+  // 4. a UI hero beat: only when the score has a UI-proof beat (a film built on illustration, objects or type owes no UI card)
   const fills = rows.map((r) => r.ui_fill).filter((v) => v != null);
-  if (rows.length >= 4) {
-    if (!fills.length) add("error", "ui-hero-undeclared", "no scene says how much of the frame the product UI fills (score scenes[].ui_fill, 0 to 1): the UI hero beat cannot be checked", "declare ui_fill on the scenes that show the product; one must reach 0.5");
-    else if (Math.max(...fills) < LG.ui_hero_fill) add("error", "ui-hero-small", `the product UI never fills more than ${Math.round(Math.max(...fills) * 100)}% of the frame (50% at least once)`, "give the UI one hero beat: scaled up, tilted and cropped until it fills half the frame or more; never small cards only");
+  if (rows.length >= 4 && uiProof(rows, plan)) {
+    if (!fills.length) add("error", "ui-hero-undeclared", "the score has a UI-proof beat but no scene says how much of the frame the product UI fills (score scenes[].ui_fill, 0 to 1): the UI hero beat cannot be checked", "declare ui_fill on the scenes that show the product; the UI-proof beat must reach 0.5 (or set ui_proof: false on the score if the film has no UI-proof beat, with the reason)");
+    else if (Math.max(...fills) < LG.ui_hero_fill) add("error", "ui-hero-small", `the product UI never fills more than ${Math.round(Math.max(...fills) * 100)}% of the frame (50% at least once, because the film has a UI-proof beat)`, "give the UI-proof beat one hero moment: scaled up, tilted and cropped until it fills half the frame or more; never small cards only");
   }
   // 5. deck chrome: counters, page numbers, persistent pills (the composition HTML, the on-screen text, the contract)
   const chrome = deckChrome([...htmls, ...rows.map((r) => `<p>${r.text}</p>`), ...contract.map((c) => c.text.split("\n").map((l) => (/\b\d{1,2}\s*\/\s*\d{1,2}\b/.test(l) && /counter|step|page|progress/i.test(l) ? `<p>${(l.match(/\b\d{1,2}\s*\/\s*\d{1,2}\b/) || [""])[0]}</p>` : "")).join(""))]);

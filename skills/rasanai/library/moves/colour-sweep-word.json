@@ -1,0 +1,46 @@
+{
+  "id": "colour-sweep-word",
+  "n": 12,
+  "name": "Colour-sweep word",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 23,
+      "end_s": 25,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    }
+  ],
+  "description": "The brand word reveals with a moving gradient across its letters.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap",
+      "css"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "rasan-fx.js"
+    ],
+    "build": "background-clip:text gradient with background-position animating; letters appear on a stagger; the rest stays black."
+  },
+  "use_when": "The brand or claim word at the pay-off.",
+  "avoid": "Do not sweep more than the one claim word.",
+  "duration_s": {
+    "min": 1,
+    "max": 2
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "word-line",
+    "mark"
+  ],
+  "beat_roles": [
+    "turn",
+    "close"
+  ],
+  "needs": [
+    "rasan-fx.js"
+  ]
+}

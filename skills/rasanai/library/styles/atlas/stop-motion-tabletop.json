@@ -1,0 +1,128 @@
+{
+  "format": "style-world@1",
+  "id": "stop-motion-tabletop",
+  "number": 34,
+  "name": "Stop-motion object / tabletop macro",
+  "look": "real-feeling tabletop objects shot at 12 fps, hands in shot, found materials.",
+  "fits": {
+    "products": [
+      "hardware",
+      "creative tools",
+      "food",
+      "handmade brands"
+    ],
+    "tones": [
+      "handmade",
+      "tactile",
+      "warm"
+    ],
+    "notes": "hardware, creative tools, food, \"handmade\" brands. Needs a believable real-world set; faux versions fail if lighting is flat"
+  },
+  "avoid": {
+    "products": [
+      "flat lighting that exposes the fake"
+    ],
+    "tones": [
+      "slick"
+    ]
+  },
+  "when_not": [
+    "Avoid for flat lighting that exposes the fake."
+  ],
+  "type": {
+    "guidance": "hand-cut or label-maker type",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "hand-cut or label-maker type; kraft, felt, primary-coloured props.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is one prop colour (kraft, felt and primary props otherwise)",
+    "type_role": "hand-cut or label-maker type; brand face for the claim on a card prop",
+    "world_changes": "tabletop set, objects hop on twos, hands in shot",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "cardboard/foam-core sets, objects hop on 2s, hand-held light flicker, macro DOF",
+      "tabletop rig feel"
+    ],
+    "grammars": [],
+    "grammars_planned": [
+      "tabletop"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.12,
+        "size": 2
+      },
+      "role": "photographic grain"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 4,
+      "max": 8
+    },
+    "prompt_template": "tabletop photo-real {object} plate on kraft / felt background, soft directional shadow, found-object look, 3 variants for 12 fps boil",
+    "animate_with": [
+      {
+        "id": "A2",
+        "what": "step-print (8-12 fps quantised time)"
+      },
+      {
+        "id": "A5",
+        "what": "boil (2-3 redraws swapped every 2 frames)"
+      }
+    ],
+    "r1_note": "tabletop photo-real object plates and background boards; the \"found-object\" look.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "foley-heavy",
+      "wood",
+      "plastic clicks",
+      "music box"
+    ]
+  },
+  "build": {
+    "engine": "R",
+    "engine_meaning": "reference only (builder hand-codes it)",
+    "recipe": "`motion/stop-motion/stop-motion-laika-replacement.md`; Three.js physical scene with fixed-fps stepping, shadow-heavy lighting; or A1 + A2 with Codex plates.",
+    "refs": [
+      "motion/stop-motion/stop-motion-laika-replacement.md"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Peugeot \"Paperwork\"",
+      "url": "https://vimeo.com/35385239",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Pepsi Homemade",
+      "url": "https://allthingspaper.net/2015/10/commercial-stop-motion-paper.html",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

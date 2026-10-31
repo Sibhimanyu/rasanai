@@ -298,7 +298,6 @@ export function checkSystem(dir, opts = {}) {
   if (bl.style_refs !== undefined) {
     const sr = Array.isArray(bl.style_refs) ? bl.style_refs : [];
     if (!Array.isArray(bl.style_refs)) P.push("blend.style_refs must be an array of library/styles slugs");
-    else if (FILM && STRICT && sr.length) P.push(`${label}: film style: blend.style_refs must be empty on a branded film (it cites ${sr.map((r) => (r && r.id) || r).join(", ")}): the look is the brand film's own grammar`);
     else for (const r of sr) {
       const id = typeof r === "string" ? r : r && r.id;
       if (!id || !exists(path.join(SKILL_DIR, "library", "styles", `${id}.md`))) P.push(`blend.style_refs cites "${id}", which is not in library/styles/ (library/styles/README.md lists the slugs)`);
@@ -306,7 +305,7 @@ export function checkSystem(dir, opts = {}) {
   }
   const refs = Array.isArray(bl.references) ? bl.references : [];
   const ids = [...new Set(refs.map((r) => r && r.id).filter(Boolean))];
-  if (FILM && STRICT) { if (ids.length) P.push(`${label}: film style: blend.references must be empty on a branded film (it cites ${ids.join(", ")}): outside designers, directors and library references are for unbranded films only; the look is the brand film's own grammar`); }
+  if (FILM && STRICT) { /* brand lock is palette, type, logo: library references and style_refs are allowed on branded looks (the style world is what varies); no quota */ }
   else if (MEDIUM) {
     // a coherent single medium is valid: no reference-count quota, but the originality must be explainable
     if (ids.length < 2 && !(String(bl.originality || "").trim().length >= 20 || (Array.isArray(bl.style_refs) && bl.style_refs.length))) P.push(`blend.json cites ${ids.length} library references and has no "originality" (20+ characters: what makes this single-medium treatment this film's own) or style_refs: say what the look is made from`);

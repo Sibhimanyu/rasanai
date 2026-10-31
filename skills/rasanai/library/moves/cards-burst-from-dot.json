@@ -1,0 +1,43 @@
+{
+  "id": "cards-burst-from-dot",
+  "n": 20,
+  "name": "Cards burst from a dot",
+  "family": "image",
+  "source": [
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 20.5,
+      "end_s": 22,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    }
+  ],
+  "description": "Cards fly out from a central point at different sizes with a tiny 3D rotate, then the camera pushes through.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap",
+      "css3d"
+    ],
+    "runtime": [
+      "rasan-camera.js"
+    ],
+    "build": "All cards start at the centre at scale 0, stagger to polar positions, then scale the container to 6x with the dot as an iris."
+  },
+  "use_when": "Show the range of outputs.",
+  "avoid": "Do not use without a persistent dot carrier.",
+  "duration_s": {
+    "min": 1.2,
+    "max": 2.2
+  },
+  "easing": "power3.out",
+  "carriers": [
+    "dot",
+    "card-field"
+  ],
+  "beat_roles": [
+    "middle",
+    "proof"
+  ],
+  "needs": []
+}

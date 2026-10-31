@@ -1,0 +1,157 @@
+{
+  "format": "style-world@1",
+  "id": "glitch-datamosh",
+  "number": 14,
+  "name": "Glitch / datamosh / VHS",
+  "look": "broken codec blocks, RGB split, pixel smears, tracking noise, scan tears.",
+  "fits": {
+    "products": [
+      "AI",
+      "security",
+      "music",
+      "gaming",
+      "something-broke stories",
+      "bold challengers"
+    ],
+    "tones": [
+      "edgy",
+      "urgent",
+      "disruptive"
+    ],
+    "notes": "AI, security, music, gaming, \"something broke\" stories, bold challenger. Overused as \"tech\" shorthand"
+  },
+  "avoid": {
+    "products": [
+      "reliability brands unless the glitch is the story"
+    ],
+    "tones": [
+      "calm",
+      "reassuring"
+    ]
+  },
+  "when_not": [
+    "Overused as \"tech\" shorthand; avoid for reliability brands unless the glitch is the story."
+  ],
+  "type": {
+    "guidance": "mono or grotesk",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "mono or grotesk; cyan/magenta/black; white timecode.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour replaces cyan or magenta in the split; black and white around",
+    "type_role": "mono or grotesk; white timecode; brand face for the claim, never glitched past legibility",
+    "world_changes": "the film breaks and reforms around the product",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "datamosh smear between scenes (motion vectors dragged over the next scene)",
+      "RGB channel offset",
+      "block displacement",
+      "VHS tracking bar",
+      "flicker frames",
+      "timecode overlays"
+    ],
+    "grammars": [
+      "viewfinder-reel"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "glitch",
+      "params": {
+        "amount": 0.8,
+        "smear": 0.8,
+        "mosh": 0.7,
+        "rate": 12
+      },
+      "role": "scene-change datamosh: pass the outgoing frame with setPrev"
+    },
+    {
+      "pass": "aberration",
+      "params": {
+        "shift": 0.005
+      },
+      "role": "RGB split"
+    },
+    {
+      "pass": "crt",
+      "params": {
+        "curve": 0,
+        "scan": 0.3,
+        "mask": 0
+      },
+      "role": "tracking-line texture"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.12
+      },
+      "role": "tape noise"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 0,
+      "max": 2
+    },
+    "prompt_template": "a deliberately broken frame of {subject}: codec block corruption, RGB split, scan tears",
+    "animate_with": [
+      {
+        "id": "A3",
+        "what": "displacement / warp (shader fed by noise or depth)"
+      }
+    ],
+    "r1_note": "no need; stills can be glitched as plates if you want custom \"broken\" frames.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "bitcrush stutters",
+      "tape stops",
+      "digital screeches",
+      "sub hits on tear"
+    ]
+  },
+  "build": {
+    "engine": "R",
+    "engine_meaning": "reference only (builder hand-codes it)",
+    "recipe": "`library/motion/glitch/glitch-datamosh.md`; implement in GLSL: block-hash displacement + chroma split, accumulation buffer for smear (Three.js with render targets, seek-safe via seeded hashes on `floor(t*fps)`). Apple-keynote-clean otherwise.",
+    "refs": [
+      "library/motion/glitch/glitch-datamosh.md",
+      "floor(t*fps)"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "\"The Glitch\" (BBDO, Alzheimer Forschung Initiative, datamosh transitions)",
+      "url": "https://adsoftheworld.com/campaigns/the-glitch",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Buck \"Moshing\"",
+      "url": "https://buck.co/sandbox/moshing",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

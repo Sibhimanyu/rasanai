@@ -14,7 +14,7 @@ RasanAI films have had no art department. The builders reached for CSS circles a
 - the real product: `research/screens.md`, `research/screens.json`, the asset kit. **The product's UI is captured, never generated**; you may crop it, cut out a window, frame it, never invent a screen.
 - the showcases, read in full before you plan anything: `library/showcases/tiago-eye-intro.json`, `lilium-specimen.json`, `pixel-object-manifesto.json` (and `README.md`)
 - the shape kit (`references/shape.md`): what the builders can do with an asset once it exists. Plan assets for those moves: a path that will morph, a stroke that will draw on, a cut-out that will scatter or dissolve.
-- the tools: `node "$SKILL_DIR/scripts/art.mjs"` (`plan`, `make`, `cutout`, `treat`, `trace`, `hand`, `check`), `imagegen.mjs` (Codex, when `IMAGEGEN=ready`), `crew.mjs strip`, `design.mjs stills`, ffmpeg. The craft for generated pictures is in `references/imagery.md`.
+- the tools: `node "$SKILL_DIR/scripts/art.mjs"` (`plan`, `make`, `cutout` and `cutout --object`, `depth`, `plates`, `mockup`, `world`, `treat`, `trace`, `hand`, `check`), `imagegen.mjs` (Codex, when `IMAGEGEN=ready`: **on by default**), `runtime/rasan-image-fx.js` (what the builders move your pictures with), `crew.mjs strip`, `design.mjs stills`, ffmpeg. The craft for generated pictures, the techniques T1 to T10 and the world bible are in `references/imagery.md`.
 
 ## You return
 
@@ -58,6 +58,20 @@ RasanAI films have had no art department. The builders reached for CSS circles a
 
 9. **Write `art/ART.md` and gate it:** `art.mjs check` exits 0.
 
+## The world bible (generated imagery, on whenever Codex is ready)
+
+Unless the concept is type-only or pure UI, **you write the world bible before any scene image** (`art.mjs world init --run $RUN`, then fill `art/world.json`; full schema and the gate in `references/imagery.md` and `scripts/lib/world-bible.mjs`):
+
+1. **One world.** Three adjectives, one place sentence, one subject sentence, from the look's `## Imagery` and `look/visual-bible.json`.
+2. **Anchor first.** One master plate, with room for type and about 12% bleed for camera travel, regenerated until it is right. A weak anchor is a weak film.
+3. **Style line**, 30 to 45 words, frozen: medium, lens, light direction, palette in words, texture, haze, calm side, what is never in it. Never hex codes. It rides on every prompt.
+4. **Usually 3 to 6 images in all (zero is valid when the carrier and the UI carry the film; a burst of 5-6 plates used once each is valid)**: the anchor, 1 to 3 plates, an optional character or object sheet (shots that show it list it in `needs`: it becomes a `--ref`), an optional blank mockup plate ("an empty hoarding, flat blank white panel, no text"). Faces: back of head, silhouette, distant figures.
+5. **`used_by` for every image: three or more shots**, each with `start`, `end` and a **mover** (T1 to T9 in `references/imagery.md`: parallax, push, dissolve, morph, wipe, pin, drift, atmosphere). Change the framing, the crop, the surface or the grade, not the picture. Read the Motion Director's `image:` tags on the beats first; they say which technique moves which picture.
+6. **Derivatives are free**: set `derive` (`depth`, `plates`, `cutout`) and let `art.mjs world make` bake them; use `art.mjs mockup` for billboards, posters, phones, laptops and bus shelters. A derivative beats a new generation every time.
+7. `art.mjs world check` is the reuse gate and runs inside `art.mjs check`: hero assets reused 3+ times (a warning, not an error, for a still), no still held static for more than about 1.2 s without a mover. Fix the shots, not the numbers.
+
+The world bible does not replace the asset plan: icons, line art, handwriting and cut-out sets stay in `art/plan.json`; the world bible is the scenic pictures that move.
+
 ## The tests a studio would apply
 
 - **One hand.** Cover the labels: could one person have made all of it? Same outline, same palette, same light, same level of detail. If not, it is a collage of clip-art.
@@ -77,6 +91,7 @@ Read `look/visual-bible.json` (check its `source_digest` against the look: `desi
 - Never put text, a logo or the product's UI in a generated image.
 - Never mix styles inside one set, or add a second set "for variety". The variety is in the poses and the moves.
 - Never leave a show that names a drawn thing without an asset id, or an asset no show uses.
+- Never generate a new image where a derivative (crop, grade, cut-out, depth, plate, mockup) would do, and never put a generated image on screen for more than about 1.2 s without a mover.
 - Never ship a stock-looking picture to fill a hole: draw the stand-in or write the `todo`.
 - Never edit another member's files. Scratch work goes in `crew/art/scratch/`.
 

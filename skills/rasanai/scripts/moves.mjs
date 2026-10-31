@@ -52,6 +52,14 @@
 //   node moves.mjs record --run <run>
 //        -> appends the chosen heroes {date, run, title, generator, carrier} of <run>/story/moves.json to
 //           $RASANAI_HOME/moves-ledger.json (200 entries at most; the next film's pack bans repeating them).
+//   node moves.mjs list [--family type|image|ui|world] [--role open|turn|middle|proof|close] [--carrier <kind>]
+//   node moves.mjs search --need "<what the beat must do>" [--role r] [--carrier c] [--family f] [--limit n]
+//   node moves.mjs show <move id>
+//        -> the 40 reference moves (library/moves/index.json plus one <id>.json each: source video and timecode, recipe with runtime,
+//           use_when, avoid, duration_s, easing, carriers, beat_roles). list/search print the short form, show prints the whole file.
+//   node moves.mjs validate-score --file <motion/score.json|concept.json> | --run <run>
+//        -> {ok, errors, warnings}; exit 0 / 2. Every beat (beats[]|scenes[]|shots[]) names a real move id in move, move_id or moves[].
+//           Errors: no-beats, beat-no-move, unknown-move. Warnings: legacy-move (an old library.json id), role-mismatch, carrier-mismatch, move-variety.
 //
 // The library is <skill>/library/moves/ (generators, library, stimuli, choreography, banned: .json); RASANAI_MOVES_LIBRARY
 // points at another folder (the tests do). Schemas: SPEC / references/moves.md; the checks: scripts/lib/moves-lib.mjs.
@@ -524,8 +532,79 @@ if (cmd === "pack") {
   const ledger = [...readLedger().filter((e) => !(e && e.run === name && added.some((a) => a.id === e.id))), ...added].slice(-200);
   writeFile(LEDGER, JSON.stringify(ledger, null, 2) + "\n");
   out({ ok: true, ledger: LEDGER, added: added.length, entries: ledger.length });
+} else if (cmd === "list" || cmd === "search" || cmd === "show" || cmd === "validate-score") {
+  const idx = jsonMaybe(path.join(LIB(), "index.json"));
+  if (!idx || !Array.isArray(idx.moves)) die(`${path.join(LIB(), "index.json")} not found or has no moves[] (the 40 reference moves)`);
+  const legacy = jsonMaybe(path.join(LIB(), "library.json"));
+  const legacyIds = new Set(Array.isArray(legacy) ? legacy.map((m) => m && m.id).filter(Boolean) : []);
+  const byId = new Map(idx.moves.map((m) => [m.id, m]));
+  const brief = (m) => ({ id: m.id, name: m.name, family: m.family, use_when: m.use_when, roles: m.beat_roles, carriers: m.carriers, duration_s: m.duration_s, runtime: m.runtime });
+  const hasCarrier = (m, c) => !c || (m.carriers || []).includes("all") || (m.carriers || []).includes(c);
+  const hasRole = (m, r) => !r || (m.beat_roles || []).includes(r);
+  if (cmd === "list") {
+    const rows = idx.moves.filter((m) => (!args.family || m.family === args.family) && hasRole(m, str(args.role)) && hasCarrier(m, str(args.carrier)));
+    out({ ok: true, count: rows.length, moves: rows.map(brief) });
+  } else if (cmd === "show") {
+    const id = str(args._[1] || args.id);
+    const m = byId.get(id);
+    if (!m) die(`no move "${id}" (moves.mjs list)`);
+    out({ ok: true, move: jsonMaybe(path.join(LIB(), m.file)) });
+  } else if (cmd === "search") {
+    // by need: --need "swap the claim word without moving the line" (or words after the command); filters --role --carrier --family
+    const need = str(args.need || args._.slice(1).join(" ")).toLowerCase();
+    const words = need.split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !["the", "and", "for", "with", "that", "this", "into", "from"].includes(w));
+    if (!words.length && !args.role && !args.carrier && !args.family) die("moves.mjs search --need \"<what the beat must do>\" [--role open|turn|middle|proof|close] [--carrier dot|word-line|icon-set|palette-dither|card-field|ui-plane|object|mark] [--family type|image|ui|world]");
+    const hits = [];
+    for (const m of idx.moves) {
+      if (!hasRole(m, str(args.role)) || !hasCarrier(m, str(args.carrier)) || (args.family && m.family !== args.family)) continue;
+      const full = jsonMaybe(path.join(LIB(), m.file)) || {};
+      const hay = `${m.name} ${m.family} ${full.description || ""} ${m.use_when || ""} ${full.id || ""}`.toLowerCase();
+      let score = 0;
+      for (const w of words) { if (hay.includes(w)) score += (m.name.toLowerCase().includes(w) || (m.use_when || "").toLowerCase().includes(w)) ? 3 : 1; }
+      if (words.length && !score) continue;
+      hits.push({ score, ...brief(m) });
+    }
+    hits.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+    out({ ok: true, need, count: hits.length, moves: hits.slice(0, Number(args.limit) || 8) });
+  } else {
+    // validate-score: every beat of the score (motion/score.json beats[]|scenes[]|shots[], or a concept's shots[]) names a real move id
+    // in "move", "move_id" or "moves[]" (strings or {id}).
+    let file = str(args.file);
+    if (!file && args.run) file = [path.join(path.resolve(str(args.run)), "motion", "score.json"), path.join(path.resolve(str(args.run)), "story", "concept.json")].find(exists) || "";
+    if (!file) die("moves.mjs validate-score --file <score.json|concept.json> | --run <run>");
+    const sc = jsonMaybe(path.resolve(file));
+    if (sc === null) die(`${file} not found`);
+    if (!sc || typeof sc !== "object") die(`${file} is not valid JSON`);
+    const beats = [sc.beats, sc.scenes, sc.shots].find((a) => Array.isArray(a) && a.length) || [];
+    const errors = [], warnings = [], used = [];
+    const carrierKind = str(sc.carrier_kind || (sc.carrier && typeof sc.carrier === "object" ? sc.carrier.kind : ""));
+    if (sc.shots && !sc.beats && !sc.scenes) { // a concept: the canonical schema (references/concept-schema.md): style_world and shot ids are checked against their indexes
+      const { lintConcept } = await import("./lib/concept-schema.mjs");
+      for (const w of lintConcept(sc).warnings) warnings.push({ id: "concept-schema", msg: w });
+    }
+    if (!beats.length) errors.push({ id: "no-beats", msg: "the score has no beats[], scenes[] or shots[]" });
+    beats.forEach((b, i) => {
+      const where = str((b && (b.id || b.name)) || `#${i + 1}`);
+      const raw = b && (b.moves || b.move_id || b.move);
+      const ids = (Array.isArray(raw) ? raw : raw ? [raw] : []).map((x) => (x && typeof x === "object" ? str(x.id) : str(x))).filter(Boolean);
+      if (!ids.length) { errors.push({ id: "beat-no-move", beat: where, msg: "name the move this beat adapts (moves.mjs search --need ...)" }); return; }
+      for (const id of ids) {
+        used.push(id);
+        const m = byId.get(id);
+        if (m) {
+          if (b.role && !hasRole(m, str(b.role)) && ["open", "turn", "middle", "proof", "close"].includes(str(b.role))) warnings.push({ id: "role-mismatch", beat: where, move: id, msg: `${id} is meant for ${m.beat_roles.join("/")}, not ${b.role}` });
+          if (!hasCarrier(m, carrierKind)) warnings.push({ id: "carrier-mismatch", beat: where, move: id, msg: `${id} does not list the carrier kind "${carrierKind}" (${m.carriers.join(", ")})` });
+        } else if (legacyIds.has(id)) {
+          warnings.push({ id: "legacy-move", beat: where, move: id, msg: "an older library.json reference move; fine, but it has no recipe or carrier list" });
+        } else errors.push({ id: "unknown-move", beat: where, move: id, msg: `"${id}" is not a move id (moves.mjs list)` });
+      }
+    });
+    const distinct = new Set(used);
+    if (beats.length >= 6 && distinct.size < 3) warnings.push({ id: "move-variety", msg: `only ${distinct.size} distinct move(s) across ${beats.length} beats` });
+    out({ ok: !errors.length, file: cwdRel(file), beats: beats.length, moves_used: [...distinct], errors, warnings }, errors.length ? 2 : 0);
+  }
 } else {
-  die("usage: moves.mjs pack|check|check-set|check-verdict|rough-kinds|rough|check-rough|payload|choose|record … (see the header)");
+  die("usage: moves.mjs pack|check|check-set|check-verdict|rough-kinds|rough|check-rough|payload|choose|record|list|search|show|validate-score … (see the header)");
 }
 
 // mean absolute difference (0-255, on 64 px wide gray frames) of every frame against the first; flat = every pixel the same

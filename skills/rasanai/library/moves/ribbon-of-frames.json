@@ -1,0 +1,52 @@
+{
+  "id": "ribbon-of-frames",
+  "n": 31,
+  "name": "Ribbon of frames",
+  "family": "ui",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 11,
+      "end_s": 12.5,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-4934",
+      "brand": "PickUs",
+      "start_s": 1,
+      "end_s": 3,
+      "frames": ".context/review-refs/Video-4934/f2/"
+    }
+  ],
+  "description": "A curved strip of cards (photos or icon tiles) arches through frame, glowing at the base.",
+  "recipe": {
+    "tech": [
+      "three",
+      "html",
+      "css3d"
+    ],
+    "runtime": [
+      "rasan-camera.js"
+    ],
+    "build": "(No stage3d kit: a CSS 3D card ring built on rasan-camera.js.) Three.js strip with PlaneGeometry segments bent along a spline, a texture per card; or CSS 3D cards rotateY on a ring."
+  },
+  "use_when": "Thousands of items, timelines, filmstrips.",
+  "avoid": "Do not use on 9:16 without re-bending; keep under 24 cards.",
+  "duration_s": {
+    "min": 1.5,
+    "max": 3
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "card-field",
+    "icon-set"
+  ],
+  "beat_roles": [
+    "open",
+    "middle"
+  ],
+  "needs": [
+    "rasan-camera.js"
+  ]
+}

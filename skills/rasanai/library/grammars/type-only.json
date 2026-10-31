@@ -1,0 +1,141 @@
+{
+  "id": "type-only",
+  "name": "Type only",
+  "style_world": [
+    "kinetic type",
+    "typography",
+    "type only",
+    "text",
+    "lyric",
+    "manifesto",
+    "word"
+  ],
+  "concept_tags": [
+    "words",
+    "manifesto",
+    "voiceover",
+    "statement",
+    "poem",
+    "headline",
+    "quote",
+    "message",
+    "slogan"
+  ],
+  "source": "A film in which type is the only actor: one to four words per beat, full-frame crops, word-per-shot cuts, in-place word swaps, a rolling word drum and a sentence ladder, usually riding a voice-over. Described from the reference reels' kinetic-type entries; no files are carried.",
+  "motion_language": "type",
+  "kit": [
+    "runtime/rasan-type-only.js",
+    "runtime/rasan-type.js",
+    "runtime/rasan-shape.js"
+  ],
+  "frame_device": {
+    "what": "A full-frame colour field and one typeface; the repeated phrase spine (a refrain) holds the same place in the frame while the words around it change.",
+    "moves": "Words cut, swap in place, roll past a window or crop to a letter; the colour of the field flips on the beat; a repeat of the spine returns with a new word or a new moment."
+  },
+  "ground_motion": "The field breathes by 1 to 2 percent in tone and the type holds a slow 1 to 2 percent scale creep between cuts; nothing sits dead for more than 0.6 s.",
+  "type": {
+    "classes": "One heavy display face (grotesk, serif or condensed) at 60 to 100 percent of the frame width for hero words, and one small support size for qualifiers; 1 to 4 words per beat.",
+    "behaviour": "Hero words fill the frame and may be cropped by it while moving, but every word is whole and readable at rest; swaps happen in place and the line width follows; words land on the voice-over's word timings."
+  },
+  "image": {
+    "treatment": "No imagery by default: colour, type and at most one graphic mark; if a picture is needed it sits inside a letter or a cut-out as a mask.",
+    "behaviour": "Colour flips are hard cuts on the beat; masks and crops are the only transitions between ideas."
+  },
+  "transitions": [
+    "hard cut with a colour flip on the beat",
+    "full-frame crop push into a letter, next word emerges from it",
+    "word swap in place (the line holds, one word changes)",
+    "word drum roll to the next word",
+    "mask reveal up from the baseline"
+  ],
+  "techniques": [
+    {
+      "id": "word-per-shot",
+      "name": "Word per shot",
+      "what": "Each word is its own full-frame shot on a hard cut, the colours cycling.",
+      "route": "RasanTypeOnly.wordPerShot(tl, stage, words, {at, per: 0.4, font, bg: [...], ink: [...], fill: 0.9}); per = the voice's word time."
+    },
+    {
+      "id": "full-frame-crop",
+      "name": "Full-frame crop",
+      "what": "A word is pushed into until a single letter fills the frame.",
+      "route": "RasanTypeOnly.crop(tl, el, {at, duration: 1.4, from: 1, to: 2.4, focus: [0.15, 0.5]}); the next shot starts inside the letter's counter."
+    },
+    {
+      "id": "in-place-swap",
+      "name": "In-place word swap",
+      "what": "The line holds and one word is replaced where it stands.",
+      "route": "RasanTypeOnly.swap(tl, slotEl, ['fast', 'safe', 'yours'], {at, every: 0.7}); the slot width follows (0.3 s power3.inOut)."
+    },
+    {
+      "id": "word-drum",
+      "name": "Word drum",
+      "what": "A column of words rolls past a window like a slot machine, landing on the right one.",
+      "route": "RasanTypeOnly.drum(tl, hostEl, words, {at, every: 0.55, rows: 5}); finish on the target word (steps = target index)."
+    },
+    {
+      "id": "sentence-ladder",
+      "name": "Sentence ladder",
+      "what": "Each rung repeats the refrain and adds a word, older rungs dim as new ones climb in.",
+      "route": "RasanTypeOnly.ladder(tl, stage, ['We make it.', 'We make it fast.', 'We make it fast for you.'], {at, every: 1})."
+    },
+    {
+      "id": "colour-flip",
+      "name": "Colour flip",
+      "what": "Ground and ink swap on the beat, a one-frame change of mood.",
+      "route": "tl.set(stage, {background: c}, t) and tl.set(text, {color: ink}, t) on the cut; no fade."
+    },
+    {
+      "id": "outline-fill",
+      "name": "Outline to fill",
+      "what": "A word starts as an outline and fills with colour as it is said.",
+      "route": "RasanType.outlineFill(tl, el, {at, duration: 0.5, dir: 'to-fill'})."
+    },
+    {
+      "id": "mask-reveal-up",
+      "name": "Mask reveal up",
+      "what": "A word rises out of an invisible baseline.",
+      "route": "RasanType.maskReveal(tl, el, {at, duration: 0.5, dir: 'up', stagger: 0.04})."
+    },
+    {
+      "id": "word-choreo",
+      "name": "Word choreography",
+      "what": "Each word of a line enters from its own place and settles into the line with a lift; the key word last with a little more overshoot.",
+      "route": "RasanShape.split(el, {by: 'words'}); each word from its own offset 24 to 80 px, scale 0.88 to 1.15, blur 6 to 12 px to rest, 0.55 s, stagger 0.09 s, last word back.out(1.4); the next line starts 0.2 s before this one settles."
+    }
+  ],
+  "signature": "The refrain returns one last time with the product's name as the changed word, and the frame holds on that whole line for a beat.",
+  "density": {
+    "change_every_s": 0.45,
+    "note": "A new word, swap or crop every 0.35 to 0.8 s; 1 to 4 words per beat; layers at the peak: 2 to 4 (field, hero word, support line, mark)."
+  },
+  "palette": {
+    "ground": "#111111",
+    "ink": "#ffffff",
+    "accent": "#ff3b30",
+    "note": "A brand palette supplies 2 to 3 field colours and one ink; the type stays one family."
+  },
+  "do": [
+    "Keep 1 to 4 words per beat and land them on the voice",
+    "Hold one repeated phrase as the film's spine",
+    "Flip the field colour on the beat",
+    "Swap words in place so the line never leaves",
+    "Make crops motion states that resolve to a whole word"
+  ],
+  "dont": [
+    "Do not fill a beat with a sentence of body copy",
+    "Do not mix more than one typeface family",
+    "Do not crop a word that is held at rest",
+    "Do not add decoration to carry the film; type is the actor"
+  ],
+  "fits": [
+    "manifesto",
+    "brand film",
+    "launch ladder",
+    "explainer",
+    "lyric video",
+    "announcement",
+    "voice-over led"
+  ],
+  "flat_ok": true
+}

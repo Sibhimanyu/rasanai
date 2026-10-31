@@ -1,0 +1,43 @@
+{
+  "id": "flank-frame-hold",
+  "n": 1,
+  "name": "Flank frame hold",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 0,
+      "end_s": 1.5,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    }
+  ],
+  "description": "Two small words sit at opposite sides of a hero object (a selfie card), later joined by two more lines.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-layout.js",
+      "rasan-type.js"
+    ],
+    "build": "3-column flex; the centre div morphs (border-radius, clip-path) while the side texts stay 14-18 px; gsap.from(..., {y:12, opacity:0})."
+  },
+  "use_when": "The very first beat: set an event or situation with one object in the middle.",
+  "avoid": "Do not use mid-film or with more than 4 side words.",
+  "duration_s": {
+    "min": 1.2,
+    "max": 2.5
+  },
+  "easing": "power2.out",
+  "carriers": [
+    "object",
+    "word-line",
+    "card-field"
+  ],
+  "beat_roles": [
+    "open"
+  ],
+  "needs": []
+}

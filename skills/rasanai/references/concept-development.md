@@ -2,13 +2,13 @@
 
 Read by the script writer (treatments mode) and the script editor. Applies when a treatment carries `extensions.creative_thinking` (the v3 concept layer, `lib/treatment.mjs`); a legacy treatment or a revision-1 film is judged by `references/story.md` as before. Nothing here adds an approval stage, a card key or a question: Brief > Story > Look > Storyboard > Build > Final is unchanged, and the user still picks one of the existing Story cards.
 
-## The development pass (one reasoning pass, bounded)
+## The development pass (three writers, a pool of 12+, a jury)
 
-1. Read the brief's audience, purpose, emotional movement and factual constraints. Name the obvious category film and say whether it is the right film for this assignment (it often is).
-2. Develop a small pool in one pass: about four compact ideas for Fast, up to six for Standard, a user-budgeted bound for Thorough (starting limits to calibrate, not measured optima). An explicit user count wins. No swarm of extra jobs.
-3. Per idea, one sentence that predicts what happens on screen: opening, development, consequence, ending. Then the record below.
-4. Pick three that are real alternatives. When the brief fixes a format (a quiet tutorial, a lyric film, a footage cut) the three differ inside it, never by a genre quota. When it fixes nothing, a product documentary, a character piece and a material or typographic one are examples, not slots.
-5. The script editor challenges the set in its existing pass (below). Revise only named weaknesses, once. An infeasible candidate is replaced before the user is asked to choose it; a taste limit is disclosed in the card detail.
+1. **Read the brief** (audience, purpose, emotional movement, factual constraints, the claim and its scope). Name the obvious category film and say whether it is the right film (it often is; it is also the one every competitor makes).
+2. **Three independent concept writers** run in parallel, each at **high effort** on the strongest model, each told to think hard and to overgenerate (12+ raw seeds, then 4+ developed ideas): `concept-writer-story` (a human moment), `concept-writer-style` (a visual world first), `concept-writer-wild` (a game, a myth, a format hijack, a world, a character, a type poem). They do not see each other's files. The pool is **12 or more developed-or-sketched ideas**; an explicit user count wins. They write `story/ideas-<lane>.json`; each idea is a **visual plan** (`style_world`, `carrier`, `signature_moment`, `sound_mode`, `product_truth`, `first_watch`, `shots[]`), not an outline of headlines.
+3. **The jury picks three** (the script editor, with the concept critic's questions in mind): the three must differ in **organizing idea AND style world** (and not in pace). Reject an idea whose shots are mostly UI cards and headlines, whose claim or real product is not unmistakable by 60%, or that needs a capability the product does not have. Prefer one idea from each lane when the pool allows, but never a weaker idea to fill a lane; two from one lane is fine if they are the strongest and differ. Record the choice and the reasons (including why the obvious film lost) in `story/jury.json`: `{ picks: [{id, lane, why}], dropped: [{id, why}], obvious_film, distinctness: "<how the three differ in idea and in style>" }`.
+4. **The script writer develops the three** into full treatments or pitches (it does not replace them). Each keeps its visual plan.
+5. The editor challenges the set once (below). Revise only named weaknesses, once. An infeasible idea is replaced from the pool (the cut ideas are the bench) before the user is asked to choose.
 
 ## The concept record
 
@@ -32,7 +32,7 @@ Read by the script writer (treatments mode) and the script editor. Applies when 
 
 ## Contrast: the editor decides, the helper only structures
 
-`validateConceptContrast(set, ctx)` checks structure only: every candidate has a record, `distinct_from` cites real sibling ids and says how, and in proposal mode the brief's mechanism is not adopted by every candidate. It also reports hints (identical organizing mechanism text, the `compareCandidates` similarity numbers). It never measures token distance as a verdict: different wording does not prove a different idea and a repeated noun does not prove duplication.
+The gate `story.mjs check` also errors `shared-style-world` when two pitches use the same `style_world`, and warns on the same shape or carrier. `validateConceptContrast(set, ctx)` checks structure only: every candidate has a record, `distinct_from` cites real sibling ids and says how, and in proposal mode the brief's mechanism is not adopted by every candidate. It also reports hints (identical organizing mechanism text, the `compareCandidates` similarity numbers). It never measures token distance as a verdict: different wording does not prove a different idea and a repeated noun does not prove duplication.
 
 The script editor, in its existing bounded pass:
 - reads the hints, then judges whether two candidates are the same film reordered or re-skinned (three card tours that only reorder the same headline/card feature walk are one organizing mechanism: name the substantive alternative that is missing, by its mechanism);
@@ -71,7 +71,7 @@ The concept serves the kind's proof; it never replaces it, and no kind demands a
 
 ## Not banned, not required
 
-Cards, tutorials, transformation, stillness, montage, a metaphor, a joke, clean typography, a typographic essay: examples, never quotas or bans. Cover-the-logo and competitor-swap are diagnostics for generic thinking, not hard tests: some factual demonstrations are inherently category-like and still right. A quiet authoritative tutorial is not rejected for lacking a surprise.
+Cards, tutorials, transformation, stillness, montage, a metaphor, a world, a character, a game, a myth, an illustration, a joke, clean typography, a typographic essay: examples, never quotas or bans. Product truth (the claim and the real product unmistakable by 60%) is the only fixed rule on a launch. Cover-the-logo and competitor-swap are diagnostics for generic thinking, not hard tests: some factual demonstrations are inherently category-like and still right. A quiet authoritative tutorial is not rejected for lacking a surprise.
 
 ## Deferred acceptance cases (specs only, not run)
 

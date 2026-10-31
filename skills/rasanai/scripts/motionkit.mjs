@@ -6,6 +6,9 @@
 //
 //   node motionkit.mjs install --project videos/<name>    copies the runtime into <project>/assets/rasan-motion/
 //                                                         with the project's motion.md contract baked in
+//   node motionkit.mjs install-world --project videos/<name>
+//                                                         copies the style-world runtimes (rasan-fx, rasan-image-fx, medium-pixel(-world), medium-retro-os,
+//                                                         medium-sticker, rasan-type-only) into <project>/assets/rasan-world/; load them after GSAP
 //   node motionkit.mjs demo --out <dir> [--times 0,0.4,0.8,1.2,1.8,2.6]
 //                                                         a headless test page: the tell (one ease, one duration,
 //                                                         an even stagger) next to the same content in RasanMotion,
@@ -21,7 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
-import { install, collect, usesMotion, runtimeVersion } from "./lib/motionkit.mjs";
+import { install, installWorld, collect, usesMotion, runtimeVersion } from "./lib/motionkit.mjs";
 import { BASE_CURVES, shapeOfName } from "./lib/fluent.mjs";
 import { serve } from "./lib/stage3d.mjs";
 import { launch } from "./lib/cdp.mjs";
@@ -166,6 +169,11 @@ if (cmd === "install") {
   if (!fs.existsSync(root)) die(`not found: ${root}`);
   const inst = install(root);
   out({ ok: true, ...inst, dir: path.relative(process.cwd(), inst.dir), use: '<script src="../../assets/rasan-motion/rasan-motion.js"></script> after GSAP (relative to the composition), then var M = RasanMotion.kit(tl, { seed: "<film>/<beat>" })' });
+} else if (cmd === "install-world") {
+  const root = path.resolve(str(args.project) || die("--project <videos/name> required"));
+  if (!fs.existsSync(root)) die(`not found: ${root}`);
+  const inst = installWorld(root);
+  out({ ok: true, ...inst, dir: path.relative(process.cwd(), inst.dir), use: "load each <script src=\"../../assets/rasan-world/<file>\"> AFTER GSAP (relative to the composition); medium-pixel-world.js after medium-pixel.js; read each file's header for its API" });
 } else if (cmd === "demo") {
   const dir = path.resolve(str(args.out) || die("--out <dir> required"));
   const times = (str(args.times) || "0,0.4,0.8,1.2,1.8,2.6").split(",").map(Number).filter((x) => x >= 0);

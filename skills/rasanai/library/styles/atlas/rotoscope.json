@@ -1,0 +1,128 @@
+{
+  "format": "style-world@1",
+  "id": "rotoscope",
+  "number": 19,
+  "name": "Rotoscope / traced live action",
+  "look": "real footage traced into flat colour/line, wobbling edges.",
+  "fits": {
+    "products": [
+      "stories with people",
+      "music",
+      "health",
+      "culture"
+    ],
+    "tones": [
+      "human",
+      "poetic",
+      "artistic"
+    ],
+    "notes": "stories with people, music, health, culture. Needs footage, which RasanAI doesn't generate"
+  },
+  "avoid": {
+    "products": [
+      "any film with no real footage"
+    ],
+    "tones": [
+      "abstract"
+    ]
+  },
+  "when_not": [
+    "Needs footage, which RasanAI doesn't generate; avoid if no footage."
+  ],
+  "type": {
+    "guidance": "hand lettering",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "hand lettering; limited palette of 4 to 6 colours.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "traced fills use 4-6 colours with the brand colour as the accent",
+    "type_role": "hand lettering; brand face for the claim",
+    "world_changes": "real footage traced into flat colour with wobbling edges",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "edge-detect + posterise shader",
+      "hand-colour overlays",
+      "trace-line shimmer",
+      "switch between real and traced"
+    ],
+    "grammars": [
+      "viewfinder-reel"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "posterise",
+      "params": {
+        "mode": 0,
+        "steps": 4,
+        "contrast": 1.2
+      },
+      "role": "flat-colour trace of footage frames"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.1
+      },
+      "role": "hand-traced shimmer feel"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 2
+    },
+    "prompt_template": "stylised first and last frame of {subject}, flat colour trace look; the footage itself stays real",
+    "animate_with": [
+      {
+        "id": "A5",
+        "what": "boil (2-3 redraws swapped every 2 frames)"
+      }
+    ],
+    "r1_note": "stylised first/last frames; keep footage real.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "dry foley",
+      "field recording",
+      "sparse guitar"
+    ]
+  },
+  "build": {
+    "engine": "G/R",
+    "engine_meaning": "gap (nothing yet) / reference only (builder hand-codes it)",
+    "recipe": "`motion/traditional/rotoscope.md`; GLSL Sobel + k-means-ish posterise on a video texture; HyperFrames video clip as input.",
+    "refs": [
+      "motion/traditional/rotoscope.md"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "A-ha \"Take On Me\"",
+      "url": "https://www.youtube.com/watch?v=djV11Xbc914",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

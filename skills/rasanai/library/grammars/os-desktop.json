@@ -1,0 +1,143 @@
+{
+  "id": "os-desktop",
+  "name": "OS desktop",
+  "style_world": [
+    "retro os",
+    "desktop",
+    "mac classic",
+    "win95",
+    "y2k",
+    "operating system",
+    "windows",
+    "nostalgia",
+    "internet"
+  ],
+  "concept_tags": [
+    "desktop",
+    "windows",
+    "retro",
+    "nostalgia",
+    "internet",
+    "files",
+    "software",
+    "os",
+    "dialog",
+    "cursor"
+  ],
+  "source": "A product told as an old computer desktop: windows open, stack and drag, dialogs ask questions, a cursor does the acting, in the conventions of Mac Classic, Windows 95 or a Y2K candy-glass desktop. Described from the atlas retro-OS entry; no vendor art, icons or sounds are carried.",
+  "motion_language": "ui",
+  "kit": [
+    "runtime/medium-retro-os.js",
+    "runtime/rasan-type-only.js"
+  ],
+  "frame_device": {
+    "what": "A full-frame desktop in one era (classic, win95 or y2k) with a wallpaper, a few desktop icons, a taskbar or menu bar and a cursor that is the film's actor.",
+    "moves": "The cursor travels and clicks; windows open from icons, drag, stack in cascades and close; a dialog interrupts with the beat's question and the cursor answers it."
+  },
+  "ground_motion": "The cursor idles with a pixel-step drift, a clock or a progress bar ticks in a window, the wallpaper may scroll a few pixels; nothing is frozen between clicks.",
+  "type": {
+    "classes": "The era's system face (a Chicago-like pixel face, a bitmap sans, or a rounded Y2K sans) at UI sizes, plus one display face for a title window.",
+    "behaviour": "Text appears as typed (cursor + blink) or as window content that opens; dialog text is sentence case and fully readable at rest; the claim sits inside a dialog or a document window."
+  },
+  "image": {
+    "treatment": "Flat era chrome (1-bit dither, bevels or candy glass) built in CSS; the product's real UI sits inside a window as a screen plate; generated art only as icons or wallpaper in the era's style.",
+    "behaviour": "Windows pop or zoom-rect; the cursor moves in steps; no motion blur; classic uses wireframe zoom-rects, win95 uses instant pops, y2k uses bounce and gloss."
+  },
+  "transitions": [
+    "zoom-rect from an icon to a window (classic)",
+    "window stack cascade cut",
+    "dialog pops over the scene",
+    "the screen shuts down to a dot or restarts to a boot screen",
+    "scene drags off in a window and the next window slides under it"
+  ],
+  "techniques": [
+    {
+      "id": "window-open",
+      "name": "Window open",
+      "what": "A window opens from an icon with the era's own open move.",
+      "route": "RasanRetroOS.open(tl, win, {at, duration: 0.4, from: iconBox}); classic = zoom-rect, win95/y2k = pop."
+    },
+    {
+      "id": "cursor-click",
+      "name": "Cursor click",
+      "what": "The cursor crosses the screen to a control and presses it.",
+      "route": "RasanRetroOS.click(tl, cursor, target, {at, duration: 0.5}); cursor stepped: true for period hardware."
+    },
+    {
+      "id": "window-drag",
+      "name": "Window drag",
+      "what": "The cursor grabs a title bar and carries the window to a new place.",
+      "route": "RasanRetroOS.drag(tl, cursor, win, {at, duration: 0.8, to: [x, y]}); the window lands on top (zIndex set)."
+    },
+    {
+      "id": "window-stack",
+      "name": "Window stack cascade",
+      "what": "Five windows open in a cascade, each offset from the last, a pile of work.",
+      "route": "RasanRetroOS.stack(tl, wins, {at, offset: [36, 28], stagger: 0.18})."
+    },
+    {
+      "id": "dialog-question",
+      "name": "Dialog question",
+      "what": "A dialog asks the beat's question and the cursor clicks the answer.",
+      "route": "RasanRetroOS.dialog(d, {title, text, buttons: ['Yes', 'No']}) opened with open(); click(tl, cursor, win.buttons[0])."
+    },
+    {
+      "id": "typed-document",
+      "name": "Typed document",
+      "what": "A text window fills with typed lines at reading speed.",
+      "route": "RasanTypeOnly or a char-by-char tl.set reveal on the window body at 14 cps with a blinking caret via tl.set every 0.5 s."
+    },
+    {
+      "id": "era-switch",
+      "name": "Era switch",
+      "what": "The same desktop is re-skinned from one era to the next as the story moves through time.",
+      "route": "Swap the desktop class (classic to win95 to y2k) with tl.set on a hard cut at a beat; same window content, new chrome."
+    },
+    {
+      "id": "shutdown-dot",
+      "name": "Shutdown to a dot",
+      "what": "The screen collapses to a bright dot and the film ends or restarts.",
+      "route": "A full-frame black layer; scaleY 1 to 0.01 then scaleX to 0.01 over 0.3 s, power2.in; the dot fades 0.4 s later."
+    },
+    {
+      "id": "word-choreo",
+      "name": "Word choreography",
+      "what": "Each word of a line enters from its own place and settles into the line with a lift; the key word last with a little more overshoot.",
+      "route": "RasanShape.split(el, {by: 'words'}) on dialog and title text; each word from its own 20 to 60 px offset, 0.5 s, stagger 0.08 s; window text is typed instead."
+    }
+  ],
+  "signature": "A dialog box carries the product claim, the cursor presses OK, and the desktop shuts down to a single dot.",
+  "density": {
+    "change_every_s": 0.8,
+    "note": "A new window, click or dialog every 0.8 to 1.4 s; layers at the peak: 5 to 9 (wallpaper, icons, 2 to 4 windows, dialog, cursor)."
+  },
+  "palette": {
+    "ground": "#008080",
+    "ink": "#111111",
+    "accent": "#ffd23f",
+    "note": "The era sets the palette (classic 1-bit, win95 teal and grey, y2k candy); a brand colour is the accent and the title-bar tint."
+  },
+  "do": [
+    "Pick one era per film (or one planned era switch)",
+    "Let the cursor be the actor and move it in steps",
+    "Keep dialog text fully readable at rest",
+    "Show the real product as a window screen plate",
+    "Build the chrome in CSS, not stock screenshots"
+  ],
+  "dont": [
+    "Do not copy a vendor's logos, icons or sounds",
+    "Do not mix three eras in one frame",
+    "Do not blur or glow the chrome",
+    "Do not skip the cursor; the film needs its actor"
+  ],
+  "fits": [
+    "launch ladder",
+    "brand film",
+    "explainer",
+    "developer tool",
+    "nostalgia",
+    "software",
+    "internet culture"
+  ],
+  "flat_ok": true
+}

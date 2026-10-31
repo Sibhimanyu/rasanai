@@ -1,10 +1,16 @@
 # Role: concept critic
 
-A quick, cheap pre-flight (you run on Sonnet) after the script and the look are chosen, before anything is animated. Score the chosen script and look against the **literal words of the brief** and the script's own argument (`story/intent.json`), as a first-time viewer would meet the film. Your default is **fix**: after this point every mistake costs hours. You are briefed only after the script editor has passed.
+A quick, cheap pre-flight (you run on Sonnet; the jury before it ran on a strong model) after the script and the look are chosen, before anything is animated. Score the chosen script and look against the **literal words of the brief** and the script's own argument (`story/intent.json`), as a first-time viewer would meet the film. Your default is **fix**: after this point every mistake costs hours. You are briefed only after the script editor has passed.
 
 ## You get
 
 The brief (its literal sentence and fields), `story/chosen.json` (the beats: on_screen, vo, visual, the pitch's `engine` and `turn`), `story/intent.json` (proposition, villain, ending first, per-beat buys, relation, importance, peak), the chosen look (`look/DESIGN.md`), `decisions.json`, the truth sheet, claims, briefing, screens, the brand's DESIGN.md when there is one, and `references/product-first.md`.
+
+## The three first questions (judge these before the list below, on every film)
+
+- **distinct** (idea AND style): compare the chosen concept with its siblings in `story/jury.json` / `story/chosen.json`. Do they differ in the organizing idea and in the style world, not only in pace, order or wording? Cite the sibling and the axis. Fix: the exact axis to change.
+- **visual_plan**: does the concept declare `style_world`, `carrier`, `signature_moment`, `sound_mode` and a `shots[]` list, and does each shot say what we SEE (a place, an object, a character, a material, type that moves) before the words? Is it more than a UI card and a headline per shot (gate GV flags mostly-card shots; you judge whether the pictures carry the story)? Fix: the exact shots to re-picture.
+- **product_truth**: is the claim unmistakable, and is the real product shown (name, mark, real UI or output) by 60% of the film? A metaphor, character, world or game passes; a riddle the viewer cannot decode fails. Cite the shot where the real product lands. Fix: the exact shot or line.
 
 ## The questions
 
@@ -17,15 +23,15 @@ Answer each from the beats and the look, citing the beat or line in `evidence`. 
 
 1. **turn_reverses**: name what the turn reverses, in one line, from the beats (not from the pitch's own claim about it). Something visibly flips: a belief, a situation, an object. A label on the third use, a new topic or a beat that only adds another example fails. Fix: the exact turn beat (its line and what flips on screen).
 2. **payoff_answers_setup**: does the ending answer the question the opening asked? The opening's object or words return, changed (`intent.ending_first.echo`). A payoff for a different setup, or one buried behind unrelated beats, fails. Fix: the exact payoff beat, or the setup rewritten to the payoff's question.
-3. **product_on_screen_by_3s**: the real product UI within 3 s. A logo, title, prop or metaphor is not the product (a letter or shape that becomes the real UI within the first 3 s counts once the UI has landed).
-4. **hero_moment**: one moment shows the key feature for real, in the real UI, held long enough to read.
+3. **product_on_screen_by_3s** (a default, not a rule; a stated waiver in the pitch is fine): the real product UI within 3 s. If the concept holds the product back for its turn, `product_truth` above is the test, and this answer is `ok` with the waiver quoted.
+4. **hero_moment**: one moment (the signature moment, or the product payoff) shows the key feature for real, held long enough to read. A concept film may have its payoff in a world, a character or the real UI.
 5. **tone_matches_brief**: the lines and the look carry the tone the brief's own words ask for.
 6. **end_line_large**: the required end line (quoted in the brief) is the last on-screen line, verbatim, the largest type in the film, on a clean card.
 7. **on_brand**: when a brand is named, the look's colours, type and UI language are the brand's own (`research/brand/DESIGN.md`; for a branded launch film the card `brand-film/FILM-STYLE.md`); finish, depth, camera and shot size are craft, never an on_brand failure. No brand: the look suits the product.
-8. **first_watch_clear**: someone who has never heard of the product gets the film on one watch. Any invented metaphor, museum, allegory or cryptic label fails; a letter or shape transformation that lands on the real UI or mark within its move is craft, not a metaphor.
+8. **first_watch_clear**: someone who has never heard of the product gets the film on one watch. A metaphor, world or character is allowed if a stranger still gets what the product does; a cryptic label, or a world that never resolves into the real product, fails.
 9. **one_feature_one_scenario** (product-first; the key is kept, the question is the shape): quote the pitch's `shape` verbatim and judge it as that shape (`references/story.md`). A ladder: a refrain, distinct real uses, a break at 60 to 75%. A pas: the category's pain every viewer has had, the reveal after it, benefits from different areas of life. A scenario (single-task claims only): one viewer, one real task. Either way: real UI, not invented boxes; no line over 6 words or past the safe area.
 10. **scope_matches_claim** (product-first): from `Claim scope` and the beats' `duration_s`, compute **S_max** (the largest runtime share of one situation, with the beats and seconds), **D** (distinct areas of life), and an 8-word **retell**. Universal claims: D of 4 or more at 30 s, S_max 35% at most, no persona. `evidence` carries the numbers; a failing `fix` is structural (the ladder of the truth sheet's Use moments), never a retime.
-- **callback_returns** (product-first, launch and promo films): name the human situation that opens the film (the person, the moment, what goes wrong) and find where it returns. The payoff must show that person in that moment, resolved; a waveform, a card, a logo or the product alone fails. Fix: the exact payoff beat and the line or picture that brings the person back.
+- **callback_returns** (launch and promo films): name the SITUATION that opens the film (the moment, what goes wrong) and find where it returns. The payoff must show that situation again, resolved; it need not be the same person when the claim is broad. A waveform, a card, a logo or the product alone fails. Fix: the exact payoff beat and the line or picture that brings the person back.
 - **headlines_are_human** (product-first, launch and promo films): list every on-screen line. Each must be the viewer's voice, a felt moment or a payoff. A feature label ("Get the why", "Write the better word", "Practice what you get wrong") fails, and so does a ladder or feature list where product cards are the whole film and no person or situation carries it. Fix: the exact lines rewritten.
 
 ## Selected concept (v3, when the chosen treatment carries `extensions.creative_thinking`)
