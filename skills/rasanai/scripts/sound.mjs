@@ -636,6 +636,36 @@ function filmWords() {
 // where the lock lives: --locked <file>, else <run>/sound-lock.json, else next to the audio
 const lockPath = (file) => path.resolve(args.locked && args.locked !== true ? String(args.locked) : args.lock && args.lock !== true ? String(args.lock) : args.run && args.run !== true ? path.join(String(args.run), "sound-lock.json") : path.join(path.dirname(file), "sound-lock.json"));
 
+// SFX come ONLY from the film's sfx-plan.json (sound.mjs sfx-plan): with --sfx <index.html> and a run (or --sfx-plan <file>), every sound clip in the index must map to a planned cue
+// (same start within 0.12 s), the count may not pass the plan's own budget, and typing ticks are capped (one texture per burst). Blocking (problems).
+function sfxProvenance(cues, mode, dur, P, warnings, measures) {
+  const sfxArg = String(args.sfx);
+  if (!/\.html?$/i.test(sfxArg)) return;
+  const run = args.run && args.run !== true ? path.resolve(String(args.run)) : null;
+  const planFile = args["sfx-plan"] && args["sfx-plan"] !== true ? path.resolve(String(args["sfx-plan"])) : run ? path.join(run, "crew", "sfx-plan.json") : null;
+  if (!planFile) return; // no run, no plan named: the density checks alone
+  if (!fs.existsSync(planFile)) { if (cues.length) P("sfx without a plan", `${cues.length} SFX mounted, no sfx-plan.json`, "every SFX comes from sound.mjs sfx-plan", `run sound.mjs sfx-plan (writes ${path.relative(process.cwd(), planFile)}) and mount only its cues; hand-mounted SFX are not allowed`); return; }
+  let plan; try { plan = JSON.parse(fs.readFileSync(planFile, "utf8")); } catch { return; }
+  const planned = (plan.cues || []).map((c) => ({ t: Number(c.start ?? c.t), t0: Number(c.t), file: c.file ? path.basename(c.file) : null }));
+  // every sound clip in the index, not only el-sfx-* ids: music, bed, voice and texture beds are not SFX
+  const html = fs.readFileSync(path.resolve(sfxArg), "utf8");
+  const clips = [];
+  for (const m of html.matchAll(/<audio\b[^>]*>/gi)) {
+    const id = (m[0].match(/\bid="([^"]*)"/) || [])[1] || "", src = (m[0].match(/\bsrc="([^"]*)"/) || [])[1] || "", st = Number((m[0].match(/data-start="([\d.]+)"/) || [])[1]);
+    if (/^(bed|music)|^el-(texture|music|voice|vo)/i.test(id) || /music|bgm|\/texture-|voice|(^|[-_/])vo[-_.]|narrat/i.test(src) || !Number.isFinite(st)) continue;
+    clips.push({ id, t: st, file: path.basename(src) });
+  }
+  const unplanned = clips.filter((c) => !planned.some((p) => (Math.abs(p.t - c.t) <= 0.12 || Math.abs(p.t0 - c.t) <= 0.12) ));
+  const max = plan.budget && Number(plan.budget.max_sfx) > 0 ? Number(plan.budget.max_sfx) : sfxLimit(mode, dur);
+  const typing = clips.filter((c) => /typ|key|tick/i.test(c.id + c.file)).sort((a, b) => a.t - b.t);
+  let burst = 0, maxBurst = 0;
+  typing.forEach((c, i) => { burst = i && c.t - typing[i - 1].t < 0.8 ? burst + 1 : 1; maxBurst = Math.max(maxBurst, burst); });
+  measures.sfx_provenance = { plan: path.relative(process.cwd(), planFile), planned: planned.length, mounted: clips.length, unplanned: unplanned.length, budget: max, typing_ticks: typing.length, longest_typing_burst: maxBurst };
+  if (unplanned.length) P("SFX not in sfx-plan", `${unplanned.length} of ${clips.length} mounted SFX are not planned cues (${unplanned.slice(0, 5).map((c) => c.id + "@" + r1(c.t)).join(", ")})`, `only the ${planned.length} cues of sfx-plan.json`, "delete the hand-mounted clips: mount sfx-plan.json's cues only (no per-keystroke clips)");
+  if (clips.length > max) P("SFX budget", `${clips.length} SFX mounted`, `<= ${max} (the plan's budget)`, "keep the planned cues only");
+  if (maxBurst > 2 || typing.length > Math.max(4, Math.ceil(planned.filter((c) => c.file && /typ|key|tick/i.test(c.file)).length) + 1)) P("typing ticks", `${typing.length} typing clips, up to ${maxBurst} in one burst`, "one texture per burst, at most 4 in the film", "one typing texture per burst (the plan's own cue), never a clip per keystroke");
+}
+
 function check() {
   const src = args.video || args.audio;
   if (!src) die("--video <mp4> or --audio <file> required");
@@ -652,6 +682,9 @@ function check() {
   if (expectX.required === false && !(args["silent-by-choice"] && args["silent-by-choice"] !== true)) args["silent-by-choice"] = expectX.silent_by_choice; // the direction gave effects no role: zero cues is intended
   const problems = [], warnings = [];
   const P = (what, measured, target, fix) => problems.push({ what, measured, target, fix });
+  // the arc is blocking on a run's final check: a flat payoff, no break and a bed that never moves fail it (exit 2). --lenient-arc keeps them as warnings
+  const arcStrict = !args["lenient-arc"] && (!!(args.run && args.run !== true) || !!args["strict-arc"]);
+  const ARC = (w, what, measured, target, fix) => { if (arcStrict) P(what, measured, target, fix); else warnings.push(w); };
   const L = loudness(file);
   const dur = probeDuration(file);
   const y = decode(file);
@@ -676,7 +709,7 @@ function check() {
 
   if (L.lufs == null || Math.abs(L.lufs - target) > 1) P("integrated loudness", `${L.lufs} LUFS`, `${target} LUFS +/-1`, `gain the master by ${r1(target - (L.lufs ?? target))} dB (static gain + a true-peak limiter at -1.5 dBTP; sound.mjs render does this for a bed)`);
   if (L.true_peak == null || L.true_peak > -1) P("true peak", `${L.true_peak} dBTP`, "<= -1.0 dBTP", "limit at -1.5 dBTP (4x oversampled) before AAC encoding, then re-check the encoded file");
-  if (L.lra != null && L.lra < 2.0) warnings.push(`flat-dynamics: loudness range ${L.lra} LU is under 2.0 LU: the bed never moves (a soft intro, a drop on the reveal, a break before the payoff: references/sound.md, the arc; score music_arc)`);
+  if (L.lra != null && L.lra < 2.0) ARC(`flat-dynamics: loudness range ${L.lra} LU is under 2.0 LU: the bed never moves (a soft intro, a drop on the reveal, a break before the payoff: references/sound.md, the arc; score music_arc)`, "flat dynamics", `loudness range ${L.lra} LU`, ">= 2.0 LU", "give the bed a shape: quiet intro, a drop at the turn, a break before the end card (music.mjs --arc)");
   if (L.lra != null && L.lra > 11) warnings.push(`loudness range ${L.lra} LU is wide for a short film (target 4-9 LU): compress the VO or tame the loudest section`);
   if (first_audible != null && first_audible > 0.3) P("silent head", `${r1(first_audible)} s of silence`, "sound by 0.3 s", "start the bed at frame 0 (a strong phrase, 'already playing'); trim the file's lead silence");
   if (first_second_db < body - 8) P("quiet opening", `first second ${r1(first_second_db)} dB vs body ${r1(body)} dB`, "within 8 dB of the body", "start the music on a strong section, not its intro (sound.mjs fit picks one); premium styles may open soft on purpose: say so");
@@ -782,7 +815,7 @@ function check() {
       const m = { at: r3(T), from: src, on: args.music ? "music stem" : "mix", payoff_db: r1(after), before_db: r1(before), lift_db: r1(lift), median_db: r1(median), deepest_break_db: r1(deepest), break_below_median_db: r1(breakDb), loudest_1s_at: r1(bestAt), loudest_1s_db: r1(best), loudest_above_payoff_db: r1(loudAbove) };
       const liftNeed = gateValue("sound.payoff_lift_db", 2), liftNotes = gateNotes(["sound.payoff_lift_db"]);
       if (liftNotes.length) m.lesson = liftNotes;
-      if (lift < liftNeed && breakDb < 6) warnings.push(`${tag}flat-payoff: the payoff at ${r1(T)} s is ${r1(lift)} dB against the 1.5 s before it (needs +${liftNeed} dB${liftNotes.length ? ", " + liftNotes.join("; ") : ""}) and the 2 s before it have no break (deepest ${r1(breakDb)} dB under the film's median, needs 6 dB): pull the bed out (a stop or a filter dip) 0.3-0.8 s before the reveal and land the reveal on a hit; the payoff should be the loudest moment (references/sound.md)`);
+      if (lift < liftNeed && breakDb < 6) ARC(`${tag}flat-payoff: the payoff at ${r1(T)} s is ${r1(lift)} dB against the 1.5 s before it (needs +${liftNeed} dB${liftNotes.length ? ", " + liftNotes.join("; ") : ""}) and the 2 s before it have no break (deepest ${r1(breakDb)} dB under the film's median, needs 6 dB): pull the bed out (a stop or a filter dip) 0.3-0.8 s before the reveal and land the reveal on a hit; the payoff should be the loudest moment (references/sound.md)`, "flat payoff", `lift ${r1(lift)} dB, break ${r1(breakDb)} dB under the median`, `lift >= ${liftNeed} dB or a break >= 6 dB before it`, "pull the bed out 0.3-0.8 s before the reveal and land the reveal on a hit, or re-pick the music to the arc (music.mjs --arc)");
       if (loudAbove > 3 && (bestAt + 1.0 < T - 0.5 || bestAt > T + 2)) warnings.push(`${tag}loudest-not-payoff: the loudest second of the film is at ${r1(bestAt)} s, ${r1(loudAbove)} dB above the payoff at ${r1(T)} s: the busiest moment is not the loudest; the payoff is (references/sound.md)`);
       return m;
     };
@@ -801,7 +834,7 @@ function check() {
     const B = designedBreaks(momentaryDb(my, 0.1), 0.1);
     const needB = dur >= 20 ? 2 : 1;
     shape.breaks = { on: args.music ? "music stem" : "mix", median_db: B.median, found: B.breaks, need: needB };
-    if (dur >= 6 && B.breaks.length < needB) warnings.push(`no-breath: ${B.breaks.length} designed break${B.breaks.length === 1 ? "" : "s"} in the ${args.music ? "music" : "mix"} of a ${r1(dur)} s film (needs ${needB}: a 0.25 s or longer stretch 10 dB under the median level, not in the first 0.5 s or the tail): the bed never lets go; stop it or dip it before the reveal and before a turn in the story so the next hit has room (references/sound.md, the arc)`);
+    if (dur >= 6 && B.breaks.length < needB) ARC(`no-breath: ${B.breaks.length} designed break${B.breaks.length === 1 ? "" : "s"} in the ${args.music ? "music" : "mix"} of a ${r1(dur)} s film (needs ${needB}: a 0.25 s or longer stretch 10 dB under the median level, not in the first 0.5 s or the tail): the bed never lets go; stop it or dip it before the reveal and before a turn in the story so the next hit has room (references/sound.md, the arc)`, "no break in the bed", `${B.breaks.length} designed break(s)`, `>= ${needB}`, "stop or dip the bed before the reveal and before the end card (music.mjs --arc with a break)");
     // split edits: narrated films (--narrated, --vo, or word timings given), cut times from --scenes, else the plan's scenes, else transition events; the VO's phrases from word timings or the stem
     if (args.narrated || args.vo || (args.words && args.words !== true)) {
       const sc = args.scenes ? readScenes(String(args.scenes)).scenes : null;
@@ -885,6 +918,7 @@ function check() {
     const cues = sfxTimes(String(args.sfx)).sort((a, b) => a.t - b.t);
     const narrated = !!args.narrated || !!args.vo;
     const mode = sfxMode({ format: args.format, narrated }), B = BUDGET[mode];
+    sfxProvenance(cues, mode, dur, P, warnings, measures);
     const maxWin = cues.reduce((m, c) => Math.max(m, cues.filter((d) => d.t >= c.t && d.t < c.t + 1).length), 0);
     const whooshes = cues.filter((c) => /whoosh/i.test(c.kind)).length;
     if (!cues.length && dur >= 15) {

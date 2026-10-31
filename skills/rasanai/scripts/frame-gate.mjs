@@ -73,7 +73,7 @@ export const GATE = {
   colourful_p90: 35, // R12
   chars_warn: 40, chars_error: 70, // R4
   scale_ratio: 5, giant_h: 20, giant_share: 0.10, peak_h: 35, // R5
-  asl_s: 5, asl_min_dur: 8, comp_rate: 10, // a long shot is fine when the composition keeps changing in it (v9721: ASL 5.3 s, 11 per 10 s) // R17 (4.5 s on the refs' own detector; 5 on this one, see done-W2.md)
+  min_frame_change: 3, asl_s: 5, asl_min_dur: 8, comp_rate: 10, // a long shot is fine when the composition keeps changing in it (v9721: ASL 5.3 s, 11 per 10 s) // R17 (4.5 s on the refs' own detector; 5 on this one, see done-W2.md)
   ink: 0.82, // rendered line box -> glyph ink box (what OCR measures)
   min_line_pct: 0.8, // lines under 0.8% of the frame height are not readable (OCR floor in R1)
   min_opacity: 0.35, min_object_pct: 4, // an object counts as a hero candidate from 4% of the frame height
@@ -517,6 +517,13 @@ export async function measureFrames(opts = {}) {
 
   // cut rhythm (R17)
   if (res.kind === "video" && dur >= GATE.asl_min_dur && film.aslS > GATE.asl_s && film.compositionsPer10s < GATE.comp_rate && !/^(brand|explainer)/i.test(opts.kind || "")) add("warning", "cut-rhythm", `average hard-cut shot ${film.aslS} s and ${film.compositionsPer10s} composition changes per 10 s (a launch film cuts at ${GATE.asl_s} s or less, or keeps changing composition inside its long shots: ${GATE.comp_rate} per 10 s; ${film.hardCuts} hard cuts in ${r1(dur)} s)`, `cut to a contrasting ground or size at least every 4 s, or make the in-frame transformations clear changes of composition; ${seeCraft}`, { value: film.aslS, limit: GATE.asl_s });
+
+  // frame-change rate (launch / promo films): the references remake the whole frame 1.25 to 8 times per 10 s (median about 4); a film below 3 is one slow composition
+  if (res.kind === "video" && dur >= GATE.asl_min_dur && /^(launch|promo)/i.test(opts.kind || "")) {
+    const rate = r1(10 * film.hardCuts / dur);
+    film.frameChangesPer10s = rate;
+    if (rate < GATE.min_frame_change) add("error", "frame-change-rate", `${film.hardCuts} whole-frame changes in ${r1(dur)} s (${rate} per 10 s; ${GATE.min_frame_change} at least): the frame is not being remade often enough`, "change the whole frame at least 3 times per 10 s: a hard cut, a full-frame morph, or a camera move to a new composition (a new ground, scale or layout each time); references/launch-film.md section 6", { value: rate, limit: GATE.min_frame_change });
+  }
 
   // boldness: enough big moments (a giant glyph, a frame-filling mass, a colour field) for a film of 15 s or more
   const bd = film.boldness;

@@ -136,7 +136,7 @@ export function sectionsFromEvents(events, duration, identity) {
   if (payoff == null || payoff <= drop + 1) payoff = Math.max(drop + 1, duration * 0.75);
   const d = clamp(drop, 0.5, duration - 2), p = clamp(payoff, d + 1, duration - 0.5);
   return [
-    { name: "intro", start_s: 0, end_s: r6(d), energy: 0.5, voices: new Set(["pluck", "pad"]) },
+    { name: "intro", start_s: 0, end_s: r6(d), energy: 0.3, voices: new Set(["pluck", "pad"]) },
     { name: "peak", start_s: r6(d), end_s: r6(p), energy: 0.8, voices: new Set(["bass", "perc", "pluck", "pad", "lead"]) },
     { name: "resolve", start_s: r6(p), end_s: r6(duration), energy: 0.55, voices: new Set(["pad", "lead", "pluck"]) },
   ];
@@ -182,6 +182,14 @@ export function buildPlan(inEvents, identity, opts = {}) {
   const gates = [];
   if (peak) gates.push({ id: "pause", from: r6(Math.max(0.6, peak.at_s - pauseLen)), to: r6(peak.at_s), floor: 0.05 });
   const payoffT = cueOf(events, "payoff_at");
+  // the break before the end card: the arc's break cues, else (a film with room) the second before the closing cadence; the bed is pulled out, the cadence lands into the gap
+  {
+    const bs = cueOf(events, "break_start"), be = cueOf(events, "break_end"), cad = endT - 2 * beat;
+    let from = null, to = null;
+    if (bs != null && be != null && be > bs && be <= endT - 0.2) { from = bs; to = Math.min(be, endT - 0.2); }
+    else if (cad - 1.1 > Math.max(payoffT ?? 0, peak ? peak.at_s : 0) + 1.5) { from = cad - 1.1; to = cad - 0.05; }
+    if (from != null && to - from >= 0.25 && !gates.some((g) => from < g.to && to > g.from)) gates.push({ id: "break", from: r6(from), to: r6(to), floor: 0.06 });
+  }
   if (payoffT != null && payoffT < endT - 1 && (!peak || Math.abs(payoffT - peak.at_s) > 1)) gates.push({ id: "breath", from: r6(payoffT - 0.32), to: r6(payoffT), floor: 0.12 });
 
   const notes = [];
@@ -255,7 +263,8 @@ export function buildPlan(inEvents, identity, opts = {}) {
     chordDegs(root, false).concat([root + 7]).forEach((dg, j) => add({ voice: "stab", t: peak.at_s, dur: 1.6, midi: degMidi(id, dg, 3), vel: 0.55, pan: [-0.3, 0.3, -0.1, 0.1][j], key: `${peak.id}|${j}` }));
     add({ voice: "bass", t: peak.at_s, dur: 1.2, midi: degMidi(id, root, 0), vel: 0.95, pan: 0 });
     add({ voice: "impact", t: peak.at_s, dur: 2.2, midi: 38, vel: 0.8, pan: 0, key: peak.id });
-    add({ voice: "swell", t: Math.max(0, peak.at_s - pauseLen * 0.55), dur: pauseLen * 0.55, midi: 70, vel: 0.5, pan: 0, key: peak.id });
+    const riser = clamp(Math.min(bar * 1.5, peak.at_s - 0.6), pauseLen * 0.55, 3.2); // a riser into the drop, not a blip
+    add({ voice: "swell", t: Math.max(0, peak.at_s - riser), dur: riser, midi: 70, vel: 0.6, pan: 0, key: peak.id });
   }
   if (payoffT != null && payoffT < endT - 0.5 && (!peak || Math.abs(payoffT - peak.at_s) > 1)) {
     const si = sections.findIndex((s) => payoffT >= s.start_s && payoffT < s.end_s);

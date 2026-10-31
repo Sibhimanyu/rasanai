@@ -36,6 +36,13 @@ function shapeText(run) {
 const SHAPES = [["launch ladder", /launch|promo|product|reveal|announce|feature|demo|ad\b/], ["explainer", /explain|how|topic|faceless|tutorial|concept/], ["brand film", /brand|manifesto|identity|company|story/], ["music video", /music|lyric|song/], ["reel", /reel|showreel|sizzle/]];
 // graphic route: the brand film measured no finish (brandfilm.mjs measure: measured.finish.layerOff); older cards fall back to their words
 const runIsFlat = (run) => { const c = readJ(path.join(run, "brand-film", "FILM-STYLE.json")); if (!c) return false; const f = c.measured && c.measured.finish; if (f && typeof f.layerOff === "boolean") return f.layerOff; return FLAT_RE.test(`${(c.slots || {}).motionVocabulary || ""} ${(c.slots || {}).notes || ""}`); };
+// the actor is the product UI: a launch / promo shape and no declared object actor (decisions.json / score actor)
+function uiActor(run, text) {
+  const dec = readJ(path.join(run, "decisions.json")) || {}, sc = readJ(path.join(run, "motion", "score.json")) || {};
+  const a = String(dec.actor || sc.actor || "").toLowerCase();
+  if (a) return /\bui\b|product|screen/.test(a) || !/object|mascot|character|carrier|glyph/.test(a);
+  return /launch|promo|product|reveal|announce|feature|demo|app\b/.test(text);
+}
 const tie = (run, id) => parseInt(crypto.createHash("sha1").update(`${run}|${id}`).digest("hex").slice(0, 6), 16);
 
 const args = parseArgs();
@@ -64,7 +71,12 @@ if (cmd === "list") {
   const rows = pool.map((g) => {
     const fits = (g.fits || []).map((x) => String(x).toLowerCase());
     const hit = fits.filter((f) => shapes.some((s) => f.includes(s) || s.includes(f)) || (f.length > 3 && text.includes(f)));
-    return { id: g.id, name: g.name, flat_ok: g.flat_ok, score: hit.length, why: hit.length ? `fits ${hit.join(", ")}` : "no stated fit for this story shape (still allowed)", _t: tie(run, g.id) };
+    // a UI-led launch / promo film (the actor is the product) stays on the brand's easing: a grammar built on the character
+    // language (squash, back.out, elastic) loses a point there, and one built for UI (glow-panels, editorial-grid, viewfinder-reel) gains one
+    const uiLed = uiActor(run, text), chars = String(g.motion_language || "").toLowerCase() === "character";
+    const adj = uiLed ? (chars ? -2 : /glow-panels|editorial-grid|viewfinder-reel|catalogue-cards/.test(g.id) ? 1 : 0) : 0;
+    const why = [hit.length ? `fits ${hit.join(", ")}` : "no stated fit for this story shape", adj < 0 ? "character motion: not for a UI-led film (stays on the brand's easing)" : adj > 0 ? "built for product UI" : ""].filter(Boolean).join("; ");
+    return { id: g.id, name: g.name, flat_ok: g.flat_ok, motion_language: g.motion_language || null, score: hit.length + adj, why, _t: tie(run, g.id) };
   }).sort((a, b) => b.score - a.score || a._t - b._t).slice(0, count).map(({ _t, ...r }) => r);
   console.log(JSON.stringify({ flat, shape: shapes, excluded: [...ex], dropped_not_flat: dropped, picks: rows }, null, 2));
 } else if (cmd === "write") {

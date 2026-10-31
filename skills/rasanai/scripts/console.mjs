@@ -766,6 +766,13 @@ if (cmd === "push") {
     if (ph && ph.fresh) next.proxy = ph.proxy;
     else if (ph) spawnProxy(args.step, ph.video);
   }
+  // Handover guard: a film reaches the person only as the finished render, with no fix round open, after final-gate.mjs passed on exactly that file.
+  if (["render", "final"].includes(args.step) && ["awaiting", "done"].includes(next.status) && fs.existsSync(path.join(RUN, "crew"))) {
+    const nv = newestVideo(next), vf = nv ? payloadFile(nv) : null;
+    const FG = await import("./final-gate.mjs");
+    const h = FG.verifyHandover(RUN, vf);
+    if (!h.ok) die("not handed over: " + h.why.slice(0, 5).join(" | ") + ". Fix it (or STOP and report); a draft, an open fix round or an ungated render never goes to the person.");
+  }
   // V3 W09 (policy revision >= 2 only; revision 1 and legacy runs are untouched): the render/final push states what the output truly is. The assessment rides in the existing note slot
   // and in creative_completion; the approve action, step order and controls are unchanged. Guarded: a missing helper never blocks a push.
   if (["render", "final"].includes(args.step) && ["awaiting", "done"].includes(next.status)) {

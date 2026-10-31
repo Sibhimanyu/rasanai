@@ -639,6 +639,39 @@ const covKey = (r) => (r.claim != null ? `claim:${String(r.claim).toLowerCase()}
 const covMatch = (row, req) => (req.claim != null ? row.claim != null && String(row.claim).toLowerCase() === String(req.claim).toLowerCase() : row.feature != null && (nz8(row.feature) === nz8(req.feature) || nz8(row.feature).includes(nz8(req.feature)) || nz8(req.feature).includes(nz8(row.feature))));
 const covName = (r) => (r.claim != null ? String(r.claim) : `"${r.feature}"`);
 const wordsN = (x) => String(x || "").trim().split(/\s+/).filter(Boolean).length;
+// a person in the picture or the line: the viewer, a named role, a body, a voice
+const PERSON_RE = /\b(you|your|you're|i|i'm|my|me|we|he|she|they|him|her|his|their|person|people|woman|man|boy|girl|kid|kids|founder|boss|manager|colleague|coworker|client|customer|student|teacher|designer|engineer|writer|speaker|presenter|someone|everyone|nobody|face|hands?|voice|mouth|speaks?|speaking|says?|said|talks?|asks?|stumbles?|freezes?|frozen)\b/i;
+const STOP_CB = new Set("the a an and or of to in on at by for with from is it its this that as be are was you your we our i my me not no so but if then than into onto over up out all any one has have had will can just very".split(" "));
+const cbWords = (t) => new Set(nz8(t).split(" ").filter((w) => w.length > 3 && !STOP_CB.has(w)));
+const beatBlob = (b) => [b && b.on_screen, b && b.vo, b && b.visual, b && b.picture, ...(Array.isArray(b && b.shows) ? b.shows.map((r) => (r && typeof r === "object" ? r.line : "")) : [])].filter(Boolean).join(" ");
+// a headline that is a feature label: no viewer voice, no felt moment, no payoff. "Get the why", "Write the better word", "Practice what you get wrong".
+const FEATURE_VERB_RE = /^\s*(get|write|practice|practise|see|learn|track|build|find|create|use|try|discover|explore|improve|master|unlock|access|review|check|compare|save|organi[sz]e|manage|customi[sz]e|boost|enhance|streamline|analy[sz]e|search|browse)\b/i;
+const VOICE_RE = /\b(you|your|you're|you'll|i|i'm|i've|my|me|we|nobody|everyone|someone)\b|[?!]|\.{3}/i;
+const FELT_RE = /\b(never|again|finally|still|sorry|oops|wait|um+|uh+|didn't|don't|can't|couldn't|wasn't|froze|freeze|stuck|blank|late|spoke|said|says?|sounds?|heard|meant)\b/i;
+function featureLabelOf(text) {
+  const t = String(text || "").trim();
+  if (!t || wordsN(t) > 8) return false;
+  if (FEATURE_VERB_RE.test(t) && !/[?!]|\.{3}/.test(t) && !/^\s*\w+\s+(me|us)\b/i.test(t)) return true; // an imperative that names a feature ("Get the why", "Practice what you get wrong"), not a moment
+  if (VOICE_RE.test(t)) return false; // the viewer's voice
+  if (FELT_RE.test(t)) return false; // a felt moment
+  return !/\b(is|are|was|were|be|am|has|have|had|do|does|did|can|will|would|they|he|she)\b|\w+(ing|ed)\b/i.test(t); // a bare noun phrase
+}
+// The recommendation for the console: the pitch that passes the bar, ranked by originality + memorability first.
+// Never recommend a pitch with originality <= 3 when another passing pitch scores >= 4 on originality. The reason is shown in the console data.
+function recommendPitch(results) {
+  const rows = results.filter((r) => r && r.scores && r.scores.adjusted).map((r) => ({ label: r.label || r.pitch, ship: r.verdict === "ship", o: r.scores.adjusted.originality, m: r.scores.adjusted.memorability, total: r.scores.total, rank: Math.round(((r.scores.adjusted.originality * 1.5 + r.scores.adjusted.memorability * 1.25) * 100)) / 100 + r.scores.total / 10 }));
+  if (!rows.length) return null;
+  const pool = rows.some((r) => r.ship) ? rows.filter((r) => r.ship) : rows;
+  const bold = pool.filter((r) => r.o >= 4);
+  const eligible = bold.length ? bold : pool;
+  const pick = [...eligible].sort((a, b) => b.rank - a.rank || b.total - a.total)[0];
+  const skipped = pool.filter((r) => r !== pick && r.o <= 3 && pick.o >= 4);
+  const why = skipped.length
+    ? `${pick.label} (originality ${pick.o}, memorability ${pick.m}, weighted ${pick.total}) over ${skipped.map((r) => `${r.label} (originality ${r.o}, weighted ${r.total})`).join(", ")}: a pitch with originality 3 or less is not recommended while another passing pitch scores 4+ on originality`
+    : `${pick.label}: highest originality + memorability among ${rows.some((r) => r.ship) ? "the pitches that pass the bar" : "the pitches (none passes the bar)"} (originality ${pick.o}, memorability ${pick.m}, weighted ${pick.total})`;
+  return { recommended: pick.label, why, ranking: rows.map((r) => ({ label: r.label, originality: r.o, memorability: r.m, weighted: r.total, passes: r.ship })).sort((a, b) => b.originality + b.memorability - (a.originality + a.memorability) || b.weighted - a.weighted) };
+}
+
 const ANGLE_STOP = new Set("the a an and or of to in on at by for with from is it its this that as be are was you your we our i my me not no so but if then than into onto over up out all any one every each just get gets can will".split(" "));
 const angleWords = (a) => new Set(nz8(a).split(" ").filter((w) => w.length >= 3 && !ANGLE_STOP.has(w)).map(stem));
 
@@ -944,7 +977,8 @@ if (cmd === "truth") {
   const allV2 = pitches.every((p) => p.story_format === "v2");
   const portfolio = pitches.length > 1 ? (allV2 ? checkV2Portfolio(pitches) : checkPortfolio(pitches.filter((p) => p.story_format !== "v2"), results.filter((r, i) => pitches[i].story_format !== "v2"), opts)) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
-  out(pitches.length === 1 && !portfolio ? results[0] : { ok: ship, verdict: ship ? "ship" : "rewrite", pitches: results, portfolio });
+  const recommendation = pitches.length > 1 ? recommendPitch(results) : null;
+  out(pitches.length === 1 && !portfolio ? results[0] : { ok: ship, verdict: ship ? "ship" : "rewrite", pitches: results, portfolio, recommendation });
   process.exitCode = results.some((r) => r.verdict === "invalid") ? 1 : ship ? 0 : 2; // exitCode, not exit(): a large report on a pipe must flush
 } else if (cmd === "intent") {
   if (!args.intent || args.intent === true) die("--intent <story/intent.json> required");
@@ -1075,6 +1109,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   const warnings = [];
   const gates = [];
   const gate = (id, title, reasons, extra = {}) => gates.push({ id, gate: title, pass: !reasons.length, reasons, ...extra });
+  let ladderCardsOnly = false;
 
   // shape
   const deviceIds = (Array.isArray(p.device) ? p.device : [p.device]).filter(Boolean);
@@ -1455,6 +1490,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       });
       warnings.push(...w10);
       if (!rungs.some(({ b }) => b.break === true)) warnings.push('ladder: no rung is "break": true (the rung at 60-75% where the pattern changes: the product finishes the line, the refrain stops, the format flips; not just the next use)');
+      ladderCardsOnly = beats.length >= 3 && !beats.some((b) => PERSON_RE.test(String(b.on_screen || "") + " " + String(b.situation || "") + " " + String(b.picture || b.visual || "")) && !/\b(card|ui|screen|panel|window)\b/i.test(String(b.situation || ""))) && !(p.callback && typeof p.callback === "object") && !String(p.situation || "").trim();
       gate("G10", "Ladder (a refrain verb, distinct everyday uses that escalate, each a real UI cause and effect, a close)", g10, { shape: "ladder", refrain: verb || null, rungs: rungs.length, rung_range: [lo, hi] });
     } else {
       const g10 = [];
@@ -1814,6 +1850,26 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const LIFE_G = new RegExp(LIFE_RE.source, "gi");
     const sit = bnf.map(({ b, i }) => ({ i, w: [...new Set((String(b.benefit || "").match(LIFE_G) || []).map((x) => x.toLowerCase()).filter((x) => !/^\d|^(before|while|when|day|days|week|hours?|minutes?|late)$/.test(x)))] }));
     for (let a = 0; a < sit.length; a++) for (let c = a + 1; c < sit.length; c++) { const same = sit[a].w.find((w) => sit[c].w.includes(w)); if (same) { warnings.push(`same-situation: benefits ${sit[a].i + 1} and ${sit[c].i + 1} both name "${same}": each benefit is a different moment of life, never one persona's day twice`); break; } }
+    // headline critic: every on-screen line is the viewer's voice, a felt moment or a payoff, never a feature label
+    {
+      const closeRoles = new Set(["close", "cta", "proof", "end"]);
+      const hl = rows.filter((r) => !closeRoles.has(roles12[r.i]) && String(beats[r.i].role || "").toLowerCase() !== "cta");
+      const labels = hl.filter((r) => featureLabelOf(r.text));
+      if (labels.length >= 2 && labels.length / Math.max(1, hl.length) >= 0.34) g12.push(`feature-label-headlines: ${labels.length} of ${hl.length} on-screen lines name a feature, not a moment (${labels.slice(0, 3).map((r) => `beat ${r.i + 1} "${r.text}"`).join("; ")}): write each as the viewer's own voice, a felt moment, or a payoff ("I know what I meant. Why does it sound wrong?"), never "Get the why" / "Write the better word"`);
+      else if (labels.length) warnings.push(`feature-label-headline: ${labels.map((r) => `beat ${r.i + 1} "${r.text}"`).join("; ")} reads as a feature label: make it the viewer's voice, a felt moment, or a payoff`);
+    }
+    // callback: the human situation that opens the film returns at the payoff, with the person, resolved
+    if (beats.length >= 3 && !opts.footageLed) {
+      const cb = p.callback && typeof p.callback === "object" ? p.callback : null;
+      const productWords = cbWords(String((truth && (truth.product || truth.name)) || p.product || ""));
+      const openTxt = cb && String(cb.opening || "").trim() ? String(cb.opening) : beatBlob(beats[0]) + " " + (starts[1] < 0.2 * lengthS ? beatBlob(beats[1]) : "");
+      const payIdx = beats.map((b, i) => i).filter((i) => starts[i] >= 0.7 * lengthS - 1e-9 || i >= beats.length - 2);
+      const payTxt = cb && String(cb.payoff || "").trim() ? String(cb.payoff) : payIdx.map((i) => beatBlob(beats[i])).join(" ");
+      const ow = [...cbWords(openTxt)].filter((w) => !productWords.has(w)), pw = cbWords(payTxt);
+      if (!PERSON_RE.test(openTxt) || !/\b(situation|moment|meeting|call|room|desk|inbox|stumbl|freez|stuck|blank|can't|couldn't|trying|tries|try|wait|late|when|while|before|every)\b/i.test(openTxt)) g12.push("callback-open: the film does not open on a human situation (a person in a moment: who, where, what goes wrong); open on the viewer's own moment before any product");
+      else if (!PERSON_RE.test(payTxt) || !ow.some((w) => pw.has(w))) g12.push(`callback-missing: the opening situation does not return at the payoff with the person, resolved (opening words: ${ow.slice(0, 6).join(", ")}); the last beats must show the same person in the same kind of moment, now going well (pitch.callback { opening, payoff, resolved }); a waveform, a card or the logo alone is not a callback`);
+      else if (cb && !String(cb.resolved || "").trim()) warnings.push("callback: pitch.callback.resolved missing (one line: how the opening moment ends differently)");
+    }
     gate("G12", "Viewer first (second person early, the reveal after the pain, a benefit per use, proof, a concrete cta, one line per 1.5-2.5 s)", g12, { shape: shape12, lines: rows.length, seconds_per_line: secPerLine == null ? null : r1d(secPerLine), proof: hasProof });
   }
 
@@ -1868,7 +1924,10 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   if (order >= 3 && adj.originality > 3) bump("originality", 3 - adj.originality, `${order} default beats in order: originality capped at 3`);
   if (!gates.find((g) => g.id === "G3").pass && adj.clarity > 2) bump("clarity", 2 - adj.clarity, "the device isn't clear by second 4");
   for (const k of DIMS) adj[k] = Math.max(1, Math.min(5, adj[k]));
-  const W = { originality: 0.25, clarity: 0.2, fit: 0.2, memorability: 0.2, feasibility: 0.15 };
+  // originality and memorability carry the most weight: a safe, clear script that nobody retells is the failure this scorer exists to catch
+  const W = { originality: 0.3, memorability: 0.25, clarity: 0.15, fit: 0.15, feasibility: 0.15 };
+  // ladder / feature-list shape: product cards must not be the whole film (the person and the situation carry it)
+  if (ladderCardsOnly) { warnings.push("ladder-cards-only: every beat is a product rung and no beat shows a person in a situation: open on the human moment (a person, a place, the thing they stumble on) and return to them at the close; the cards are the answer, not the film"); bump("memorability", -1, "a ladder of product cards with no person or situation carrying the story"); }
   const total = Math.round(DIMS.reduce((s, k) => s + W[k] * adj[k], 0) * 100) / 100;
   const low = DIMS.filter((k) => adj[k] < 3);
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // brandfilm.mjs: learn a brand's real film style, and check our film against it.
 //
-//   find     --brand "<name>" [--product "<p>"] --out <dir>      candidate official videos (yt-dlp search, no download)
+//   find     --brand "<name>" [--url <site>] [--product "<p>"] --out <dir>   candidate official videos (no download); a result must name the brand AND (the site domain or the official channel), else none
 //   fetch    --url <url> | --file <path> --out <dir> [--max-height 720] [--max-duration 180]
 //   frames   --in <video> --out <dir>                            cut-detected + 1 fps frames (<=60 JPGs, 640 px) and 6x6 contact sheets
 //   measure  --in <video|frames dir> --out <grammar.json> [--film <name>] [--structure one-take|montage|...]
@@ -298,25 +298,40 @@ function find() {
     if (r.error || (r.status !== 0 && !r.stdout)) return { err: (r.error?.message || r.stderr || "yt-dlp failed").slice(0, 300), items: [] };
     return { items: r.stdout.split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) };
   };
-  const q = `ytsearch10:"${brand} ${product} official launch"`.replace(/\s+/g, " ");
+  // the brand's domain (--url / --domain): a result is accepted only when it names the brand AND (the domain OR the official channel)
+  const urlOpt = opt("url") || opt("domain") || "";
+  const domain = (() => { if (!urlOpt) return ""; try { return new URL(/^https?:/i.test(urlOpt) ? urlOpt : "https://" + urlOpt).hostname.replace(/^www\./, "").toLowerCase(); } catch { return String(urlOpt).toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]; } })();
+  const squash = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const bq = squash(brand), dq = squash(domain.split(".")[0] || "");
+  const q = `ytsearch10:"${brand}" ${product} ${domain || "official launch"} official`.replace(/\s+/g, " ");
   const first = flat(q, 10);
   if (first.err && !first.items.length) out({ ok: false, offline: true, error: first.err }, 1);
-  const b = brand.toLowerCase();
-  const isOfficial = (e) => { const c = (e.channel || e.uploader || "").toLowerCase(); return c.includes(b) || e.channel_is_verified === true; };
-  // identify the official channel: most common brand-named channel among the results
+  const hay = (e) => [e.title, e.channel, e.uploader, e.description, e.channel_url, e.uploader_url].filter(Boolean).join(" ").toLowerCase();
+  const namesBrand = (e) => { const h = hay(e); return h.includes(brand.toLowerCase()) || squash(h).includes(bq); };
+  const namesDomain = (e) => !!domain && hay(e).includes(domain);
+  // an official channel is the brand's own name (or the brand plus a company suffix, or the domain's handle), never "<brand> Productions", "<brand> TV" and the like
+  const NOT_BRAND = /(production|productions|tv|television|films?|entertainment|media|studios?|pictures|records|music|news|reviews?|tutorials?|fan|clips|trailers?)$/;
+  const isOfficial = (e) => {
+    const c = squash(e.channel || e.uploader || ""), h = squash((e.channel_url || e.uploader_url || "").split("/").pop());
+    const own = (x) => x && (x === bq || (dq && x === dq) || (x.startsWith(bq) && /^(hq|app|apps|official|inc|labs|ai|software|team|co|io|dev|support|english)$/.test(x.slice(bq.length))));
+    return own(c) || own(h) || (e.channel_is_verified === true && c.includes(bq) && !NOT_BRAND.test(c.slice(bq.length) || "x") && !NOT_BRAND.test(c));
+  };
+  const accept = (e) => namesBrand(e) && (namesDomain(e) || isOfficial(e));
+  // identify the official channel: the most common brand-owned channel among the results
   const tally = {};
-  for (const e of first.items) if ((e.channel || "").toLowerCase().includes(b) && e.channel_url) tally[e.channel_url] = (tally[e.channel_url] || 0) + 1;
+  for (const e of first.items) if (e.channel_url && isOfficial(e)) tally[e.channel_url] = (tally[e.channel_url] || 0) + 1;
   const chanUrl = Object.entries(tally).sort((x, y) => y[1] - x[1])[0]?.[0];
   let items = first.items;
-  if (chanUrl) items = items.concat(flat(chanUrl.replace(/\/$/, "") + "/videos", 10).items);
+  if (chanUrl) items = items.concat(flat(chanUrl.replace(/\/$/, "") + "/videos", 10).items.map((e) => ({ ...e, channel: e.channel || e.uploader, channel_url: e.channel_url || chanUrl })));
   const seen = new Set();
-  const cands = items.filter((e) => e.id && !seen.has(e.id) && seen.add(e.id)).map((e) => ({
+  const cands = items.filter((e) => e.id && !seen.has(e.id) && seen.add(e.id)).filter((e) => accept(e) || (chanUrl && (e.channel_url === chanUrl) && namesBrand(e))).map((e) => ({
     title: e.title, url: e.url || `https://www.youtube.com/watch?v=${e.id}`, channel: e.channel || e.uploader || null,
     duration: e.duration ?? null, uploadDate: e.upload_date || (e.timestamp ? new Date(e.timestamp * 1000).toISOString().slice(0, 10).replace(/-/g, "") : null),
-    views: e.view_count ?? null, officialGuess: isOfficial(e),
+    views: e.view_count ?? null, officialGuess: isOfficial(e), matched: { brand: true, domain: namesDomain(e), officialChannel: isOfficial(e) },
   }));
   cands.sort((a, c) => (c.officialGuess - a.officialGuess) || String(c.uploadDate || "").localeCompare(String(a.uploadDate || "")));
-  const res = { ok: true, brand, product, officialChannel: chanUrl || null, candidates: cands };
+  if (!cands.length) { const none = { ok: true, none: true, brand, product, domain: domain || null, officialChannel: null, candidates: [], note: `none found: no result names "${brand}" with ${domain ? `the domain ${domain} or ` : ""}the brand's official channel; fall back to the website and product screenshots and say so` }; fs.writeFileSync(path.join(dir, "candidates.json"), JSON.stringify(none, null, 2)); out(none); return; }
+  const res = { ok: true, brand, product, domain: domain || null, officialChannel: chanUrl || null, candidates: cands };
   fs.writeFileSync(path.join(dir, "candidates.json"), JSON.stringify(res, null, 2));
   out(res);
 }

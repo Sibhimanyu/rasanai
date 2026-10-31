@@ -111,7 +111,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "./lib/common.mjs";
+import { parseArgs, readFrontmatterDoc } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { textFit, cuesOf, seeAndSay, captionDupes } from "./lib/textfit.mjs";
 import { analyse as fluencyOf, scoreFluency, scanFrames, findPops, loopSeam, LOOP } from "./lib/fluency.mjs";
@@ -125,6 +125,7 @@ import { measureCamera, cameraKind, cameraFloor } from "./lib/camera-moves.mjs";
 import { whiteFlashes, seamBlanks, holdDrift, decodeFrames } from "./lib/frame-guards.mjs";
 import { rgbToLab } from "./lib/pixels.mjs";
 import { loadManifest, wordsOf } from "./lib/film-events.mjs";
+import { launchGrammarFindings, doctrineFindings, motionMdOrderFindings } from "./lib/launch-grammar.mjs";
 import { beatStats, busyChecks, energyArcChecks, resultHoldChecks } from "./lib/film-energy.mjs";
 
 export const GATE = {
@@ -196,7 +197,7 @@ async function main() {
     const beside = path.join(path.dirname(path.dirname(path.resolve(str(args.plan)))), "scenes.json");
     if (fs.existsSync(beside)) scenesArg = beside;
   }
-  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: scenesArg, endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null, medium: str(args.medium) || null });
+  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: scenesArg, endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null, medium: str(args.medium) || null, kind: str(args.kind), run: str(args.run) });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured", severity: "notice" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -211,6 +212,7 @@ async function main() {
   process.exit(res.could_not_run.length && !res.findings.some((f) => f.severity === "error") ? 1 : res.ok ? 0 : 2);
 }
 
+function readJ0(p) { try { return p ? JSON.parse(fs.readFileSync(path.resolve(p), "utf8")) : null; } catch { return null; } }
 function str(v) { return v == null || v === true ? null : String(v); }
 const r2 = (x) => Math.round(x * 100) / 100;
 
@@ -500,7 +502,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null, medium = null } = {}) {
+export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null, medium = null, kind = null, run = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
   const add = (f) => {
@@ -542,6 +544,18 @@ export async function gate({ events = null, vo = null, video = null, project = n
   const endStart = beats.length >= 2 ? beats[beats.length - 1].start : null;
   measured.thresholds = { ...GATE, end_hold_s: holdMax, end_hold_min_s: holdMin, freeze_s: freezeS, carry_share: carryShare, ending_share_max: endingMax };
   if (!video && !project) could.push("nothing to measure: give --video <draft.mp4> (the frame checks) and/or --project <dir> (the code checks)");
+
+  // ---- launch / promo visual grammar: layout variety, shot-scale mix, a UI hero beat, no deck chrome, the doctrine (scripts/lib/launch-grammar.mjs)
+  try {
+    const lg = launchGrammarFindings({ plan: P.plan || null, scenes: P.plan ? [] : (readJ0(scenes) || {}).scenes || [], project, run, planPath: plan, kind });
+    measured.launch_grammar = { applies: lg.applies, kind: lg.kind || null, scenes: lg.scenes ?? null };
+    for (const f of lg.findings) add(f);
+    if (lg.applies && project) {
+      let mf = null; try { mf = readFrontmatterDoc(readText(path.join(path.resolve(project), "motion.md"))).fields; } catch {}
+      for (const f of doctrineFindings({ motionFields: mf, plan: P.plan || null, project, run, planPath: plan, kind })) add({ check: f.rule, region: "motion.md", basis: "code", ...f });
+      for (const f of motionMdOrderFindings({ project })) add(f);
+    }
+  } catch (e) { could.push(`launch grammar checks: ${String(e.message || e).slice(0, 160)}`); }
 
   // ---- frames
   if (video) {

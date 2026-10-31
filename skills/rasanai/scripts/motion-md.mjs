@@ -141,6 +141,8 @@ if (cmd === "write") {
   if (!args.out) die("--out required");
   const adj = String(args.adjust || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   const p = applyAdjustments(getPersonality(args.personality), adj);
+  // the doctrine: when the actor is the product UI the film uses the brand's easing; `auto` + `character` is blocked unless the actor is an object (--actor object|mascot|carrier)
+  if ((p.language === "character" || /character/.test(String(p.id))) && String(args.mode || "confirmed") === "auto" && !/\b(object|mascot|carrier|character)\b/i.test(String(args.actor === true ? "" : args.actor || ""))) die("motion language \"character\" (back.out, elastic, squash) with --mode auto is blocked: it is for object actors (a carrier letter, a mascot; pass --actor object). A UI-led launch film uses the brand's own easing: use --design-system <run>/design/<label> or a brand-matched --language, and --mode confirmed.");
   writeFile(args.out, motionMd(p, { mode: args.mode || "confirmed", reason: args.reason }));
   if (args["emit-personality"]) writeFile(args["emit-personality"], JSON.stringify(p, null, 2) + "\n");
   console.log(JSON.stringify({ wrote: args.out, personality: p.id, easing: p.easing, scale_ms: p.tempo.scale_ms, emitted: args["emit-personality"] || null }, null, 2));

@@ -265,3 +265,10 @@ Feedback arrives as a console `note`. Answer it with `console.mjs reply`, change
 - **"Make it simpler / shorter"**: cut beats whose buys the proposition can lose; keep the turn, the peak and the payoff.
 - **"None of these"**: ask what they're picturing (one console question), then `pick` again with `--exclude` all three.
 - **Record** what they chose: `memory.mjs record --step concept --value "<title> (<device id or none>)"`, so the next `pick --recent` filters it out.
+
+### Story checks that always apply to launch and promo films
+
+- **Recommendation**: `story.mjs check` returns `recommendation` (`recommended`, `why`, `ranking`). Originality and memorability carry the most weight; a pitch with originality 3 or less is never recommended while another passing pitch scores 4+ on originality.
+- **Callback (G12)**: the human situation that opens the film returns at the payoff with the same person, resolved. Declare it as `pitch.callback { opening, payoff, resolved }`. A waveform, card or logo is not the person.
+- **Headlines (G12)**: each on-screen line is the viewer's voice, a felt moment or a payoff. Feature labels ("Get the why", "Write the better word") fail.
+- **Ladder**: product cards must not be the whole film; the person and the situation carry it (`ladder-cards-only` warning, memorability -1).

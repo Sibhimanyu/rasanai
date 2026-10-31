@@ -219,6 +219,7 @@ Concept
 - Voice-over where the brand uses none; a lyric-style or story film where a feature film was asked.
 
 Frame
+- One layout for every scene; a layout in more than 2 beats in a row; the product UI only ever a small card; a step counter, page number or persistent pill; fewer than 3 whole-frame changes per 10 s (section 6).
 - Background colour the brand never uses (measure: canvas hex off every colour of the brand palette by more than a small distance; a different canvas SHARE is a warning, not a flag).
 - A serif display face when the brand is sans (and the reverse); a second display family; faux-bold or outline text.
 - A budgeted effect (glow, bloom, blur-in, particles, chromatic split...) used uniformly: on every element, every line or every scene, or past its 2 to 3 per film; or used off the hero, or without a `budget` reason. A white void: a 0-chroma flat ground with no finish layer when the brand film measured one, or, on a graphic-route brand, no giant type, photography or colour content to carry it. (Finish, soft shadows, glass rims, depth and 3D in the palette are not off-brand.)
@@ -238,7 +239,29 @@ End card
 - CTA smaller than body copy; two or more CTAs; competing tagline plus mark plus URL plus badge at equal weight.
 - Mark smaller than the line; held under 2 s; not on the brand canvas; no mark at all.
 
-## 6. Sources
+## 6. Visual grammar benchmarks (measured on seven reference reels; gated)
+
+The 26Keys failure: one fixed layout, a small card top-left, a "01 / 04" counter, 2 hard cuts in 45 s, a 4.7 s still end. The references do the opposite. These are limits, and the gates read them: `frame-gate.mjs --kind launch` (frame-change-rate), `motion-gate.mjs` and `scenes.mjs` (layout, scale, UI hero, deck chrome; scripts/lib/launch-grammar.mjs).
+
+| | references | ours (failed) | limit |
+|---|---|---|---|
+| Whole-frame changes per 10 s | 1.25 to 8, median about 4 (the low-cut reels still remake the frame every 1.5 to 3 s with morphs and camera moves) | 0.44 | at least 3 (a hard cut, a full-frame morph, or a camera move to a new composition) |
+| Layout | a new composition nearly every beat | one, identical in every scene | no layout in more than 2 beats in a row; at least 3 distinct layouts |
+| Product UI | one ingredient, big, tilted, cropped, in perspective | a 1240 px card | fills 50% of the frame or more in its hero beat; never small cards only |
+| Chrome | none | step counter "01 / 04" | no step counters, page numbers or persistent label pills |
+| End | logo resolves in 2 to 3 s | 4.7 s or more still | still tail 1.4 s at most |
+
+Score fields the gates read, per scene: `layout` (a name), `scale` (`type` | `ui` | `world` | `person`), `ui_fill` (0 to 1), `frame_change` (`cut` | `morph` | `camera`); at the score: `has_users`, `actor`. The contract may not say "identical in every scene" or "the fixed layout".
+
+1. **Full-frame type as image.** Giant words that bleed off the frame ("Sometime", "then...", CALMING / NOTION, dot-matrix "Daily tasks"). One thought per shot, with a sentence split across shots. Scale `type`.
+2. **Mixed media in the same film.** A real person or photo (4679, 67152, 34143), a generated image world (8191), a 3D object (44721, 4934), and the UI. The UI is one ingredient: shown big, tilted, cropped, in perspective (67152), never a small flat card. Every film mixes full-frame type, close or cropped UI in perspective, a wide or world shot, and a person or photo when the product has users.
+3. **Use the whole canvas, and flip the colour world between beats.** Dark to light and back (4679, 4934, 67152). A beat that looks like the beat before it is a repeat; change ground, scale and layout together.
+4. **Match transitions through a shared object.** One thing crosses the cut and becomes the next scene: a dot to a dot field to a photo (34143), the cube (44721), the pixel horse (8191). Name the shared object in the seam (`carrier`); a plain fade is a last resort.
+5. **The human problem first, in plain voice** ("Nobody's watching it", "Event is over... where are my photographs?", "Lost in the everyday work"). The product is the answer. The logo resolves in 2 to 3 s and the film ends 1.4 s after the last move.
+6. **Motion follows the actor.** When the actor is the product UI, motion uses the brand's own easing; `character` (back.out, elastic, squash) and `motion-md.mjs --mode auto` are for object actors only (a carrier letter, a mascot). Write motion.md before the build. `grammar.mjs pick` scores character grammars (glyph-chain, pixel-collage) down on a UI-led film.
+7. **No deck chrome.** No "01 / 04", no page numbers, no pill that sits on every scene. The story is the structure.
+
+## 7. Sources
 
 Primary and near-primary
 - OpenAI brand film by Studio Dumbar (motion, sound, type, palette principles): https://studiodumbar.com/work/openai-brand-film

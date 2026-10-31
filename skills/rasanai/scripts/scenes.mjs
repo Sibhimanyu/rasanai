@@ -18,6 +18,7 @@ import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { loadIntent, planDurations } from "./lib/intent.mjs";
 import { stateTimes } from "./lib/scene-contract.mjs";
+import { launchGrammarFindings } from "./lib/launch-grammar.mjs";
 
 //   node scenes.mjs states --score <motion/score.json> [--file <draft.mp4>]   prints the strip command that renders each scene's `states` instants (times only without --file)
 const args = parseArgs();
@@ -61,6 +62,9 @@ if (scenes.length && (args.retime || scenes.some((sc) => !(Number(sc.duration) >
 if (!S.message) problems.push("message is required (the one thing the video says)");
 if (scenes.length < 2) problems.push("an entire video needs at least 2 scenes");
 if (scenes.length > 24) problems.push("more than 24 scenes: split the piece or merge beats");
+
+// launch / promo grammar (layout variety, shot-scale mix, a UI hero beat, no deck chrome): errors here stop the plan before the build
+if (route === "product-launch-video") for (const f of launchGrammarFindings({ plan: S, scenes, kind: S.kind || "launch" }).findings) if (f.severity === "error") problems.push(`${f.check}: ${f.message} (fix: ${f.fix})`);
 
 // transition_in values the workflow's registry understands
 const regDir = ["product-launch-video", "faceless-explainer", "pr-to-video"].map(findSkill).find(Boolean);
