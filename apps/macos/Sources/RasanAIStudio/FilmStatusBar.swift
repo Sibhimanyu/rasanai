@@ -71,10 +71,7 @@ struct FilmStatusBar<Usage: View>: View {
                 HStack(spacing: 6) {
                     if let kind {
                         ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 6) {
-                                MediaKindBadge(kind: kind)
-                                if kind == .proxy { Text("The full-quality film comes next.").font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1) }
-                            }
+                            MediaKindBadge(kind: kind)
                             MediaKindBadge(kind: kind)
                             MediaKindBadge(kind: kind, iconOnly: true)
                         }

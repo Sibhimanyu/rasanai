@@ -22,23 +22,36 @@ enum StudioFeedback {
 struct HeresayCoordinator: ViewModifier {
     @Bindable var store: StudioStore
     @ObservedObject private var heresay = Heresay.shared
+    /// The retry runs at most once per user request; reset when the report is dismissed.
+    @State private var retried = false
+    /// True while our own retry flips the flag off, so that does not count as the person dismissing the report.
+    @State private var retrying = false
 
     func body(content: Content) -> some View {
         content.onChange(of: heresay.isPresented) { _, shown in
-            guard shown, !heresay.isDisabled else { return }
+            guard shown else { if !retrying { retried = false }; return }
+            guard !heresay.isDisabled else { return }
             closeOwnSheets()
+            guard !retried else { return }
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(450))
                 guard heresay.isPresented, !heresay.isDisabled else { return }
-                if (NSApp.keyWindow ?? NSApp.mainWindow)?.attachedSheet == nil {
+                if !reportSheetIsShowing() {
                     // Still nothing on screen: close whatever is in the way and try once more.
+                    retried = true; retrying = true
                     closeOwnSheets()
                     heresay.isPresented = false
                     try? await Task.sleep(for: .milliseconds(250))
+                    retrying = false
                     Heresay.present()
                 }
             }
         }
+    }
+
+    /// The report sheet may be the key window itself (no attached sheet of its own), so look at every window.
+    @MainActor private func reportSheetIsShowing() -> Bool {
+        NSApp.windows.contains { $0.isVisible && ($0.isSheet || $0.attachedSheet != nil) }
     }
 
     @MainActor private func closeOwnSheets() {
