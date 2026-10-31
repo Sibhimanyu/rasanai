@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.27.1 beta 1</title>
+      <pubDate>Sat, 31 Oct 2026 14:49:55 GMT</pubDate>
+      <description><![CDATA[<ul><li>Home now uses one window-wide ambient background that continues behind the translucent sidebar and through the bottom safe area.</li><li>Sidebar navigation scrolls independently while Settings stays anchored; the sidebar and Home detail share the same background wash.</li><li>Home transitions and loading states keep that background consistent instead of painting separate solid backgrounds.</li></ul>]]></description>
+      <sparkle:version>73</sparkle:version>
+      <sparkle:shortVersionString>0.27.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.27.1-beta.1/RasanAI-Studio-0.27.1.dmg" sparkle:edSignature="QtzSOmFS8lrLWXzYXx6vjAX7kvgYcJXKxL6WvzpNy6qzFxk3I9eWREbJwgqq8SHDAJM2D+Dj7aS0pavqyrsADQ==" length="98097952" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.27.0 beta 1</title>
       <pubDate>Sat, 31 Oct 2026 09:34:15 GMT</pubDate>
       <description><![CDATA[<ul><li><b>Story boards.</b> Every story option shows its full board: each shot with its words, move, carrier and transition, plus chips for style world, carrier, signature moment and sound. You can leave a note on a single shot.</li><li><b>Style frames review.</b> See each concept's three hero frames with the juror's verdict, then approve them or ask for a rework.</li><li><b>Reference films in setup.</b> Drop in files, pick them, or paste links to films you love.</li><li><b>Taste.</b> A quick "How did it turn out?" rating after the final, and a new <b>Your taste</b> section in Settings that shows what RasanAI has learned, where you can forget any item.</li><li>Primary buttons stay on one line.</li></ul>]]></description>
