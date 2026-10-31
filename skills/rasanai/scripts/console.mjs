@@ -56,6 +56,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mjs";
 import { recordTaste } from "./memory.mjs";
+import { recordRating, recordSignal } from "./taste.mjs"; // taste memory: ratings after the final, and what the user does (picks, passes, more, notes, redos)
 import { addLesson } from "./lessons.mjs"; // Plan 10: a "don't use this font" note is kept as a scoped user preference (never a universal rule)
 import { acquire, release, withLock } from "./lib/runlock.mjs";
 import { briefFormat, loadFormats, SCOPES as FORMAT_SCOPES } from "./lib/formats.mjs";
@@ -156,6 +157,7 @@ function session() {
 function saveSession(s) {
   s.schema = SESSION_SCHEMA;
   s.updated = now();
+  { const ta = readJSON(path.join(RUN, "taste-applied.json"), null); if (ta && typeof ta === "object") s.taste_applied = ta; } // what taste memory shaped, for the decisions drawer
   writeJSON(F.session, s);
 }
 // the live feed on the page: what Claude did, what it's doing, what the user answered
@@ -367,6 +369,45 @@ function tasteFrom(action) {
   recordTaste({ kind, film: path.basename(RUN), stage, note: text, scene: v.scene, t: typeof v.t === "number" ? v.t : undefined, ts: action.ts, action: action.id });
 }
 
+// Taste memory (taste.mjs). The rating card on the Final (step final, type rate, value {story, picture, sound, note?}) and the user's own acts become
+// weighted evidence: a pick (and what was passed over), "three more stories", a shot note, a style-frame redo, a look pick, a final note. Best effort; a failure never
+// blocks the answer. A rating is not a step answer, so it returns true and skips the generic "sent" handling.
+function shownPool(s, step) {
+  const d = (s.steps && s.steps[step]) || {}, out = [];
+  for (const pool of [d.options, d.stories, d.looks, d.styles, d.films, d.concepts, d.boards]) for (const o of pool || []) if (isObj(o)) out.push({ ...o, id: o.id ?? o.concept });
+  const by = new Map();
+  for (const o of out) by.set(String(o.id), { ...(by.get(String(o.id)) || {}), ...o });
+  return [...by.values()].filter((o) => o.id != null);
+}
+function tasteHook(s, action) {
+  try {
+    const v = isObj(action.value) ? action.value : {};
+    const base = { run: RUN, action: action.id, ts: action.ts };
+    if (action.type === "rate" && action.step === "final") {
+      const r = recordRating({ ...base, ratings: v, note: v.note || action.note });
+      activity(s, r ? `${youOf(action)} rated the film${v.note ? " and said what felt wrong" : ""}` : "Rating skipped", "you", null);
+      return true;
+    }
+    const step = action.step, pickSteps = ["story", "concept", "films"];
+    if (action.type === "choose" && (pickSteps.includes(step) || step === "look") && typeof action.value === "string") {
+      recordSignal({ ...base, kind: step === "look" ? "look" : "pick", value: action.value, shown: shownPool(s, step) });
+    } else if (action.type === "more" && pickSteps.includes(step)) {
+      recordSignal({ ...base, kind: "more", shown: shownPool(s, step) });
+    } else if (action.type === "comment" && (pickSteps.includes(step) || step === "styleframes")) {
+      const cid = typeof v.concept === "string" ? v.concept : typeof v.scene === "string" ? v.scene : null;
+      const pool = shownPool(s, step);
+      recordSignal({ ...base, kind: "shot-note", value: cid, shown: pool.filter((o) => String(o.id) === String(cid)), note: action.note || v.quick || "" });
+    } else if (action.type === "redo" && step === "styleframes") {
+      const ids = new Set((v.ids || []).map(String)), pool = shownPool(s, step);
+      const hit = pool.filter((c) => ids.has(String(c.id)) || (Array.isArray(c.frames) && c.frames.some((f) => f && ids.has(String(f.id)))));
+      recordSignal({ ...base, kind: "redo", shown: hit, value: hit[0] && hit[0].id, note: action.note || v.note || "" });
+    } else if (["final", "render"].includes(step) && (action.type === "comment" || (action.type === "approve" && (action.note || v.quick)))) {
+      recordSignal({ ...base, kind: "final-note", note: action.note || v.quick || "" });
+    }
+  } catch {}
+  return false;
+}
+
 // Plan 05 E7 / E1: the legacy `animatic` step IS the Storyboard stage (one review, no sixth approval). Approving it pins a snapshot (panels, copy, look
 // revision, audio or declared scratch, timing revision) when the run has storyboard records; "Just make it" (decide on this step, or decide-rest) records
 // the auto-decision with the Final retained. Best effort: a run without storyboard/ records behaves exactly as before.
@@ -549,6 +590,7 @@ function jobControlHook(s, action) {
 function applyAction(s, action) {
   const step = action.step;
   tasteFrom(action);
+  if (tasteHook(s, action)) return;
   storyboardHooks(s, action);
   if (motionEditHook(s, action)) return;
   if (soundHook(s, action)) return;

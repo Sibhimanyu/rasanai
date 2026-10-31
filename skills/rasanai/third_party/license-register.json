@@ -389,6 +389,18 @@
       "status": "not_bundled",
       "scope": "not vendored or shipped: installed by the user with sound.mjs earshot-setup and run as a subprocess; critique verdict never used as a gate",
       "checked_at": "2026-10-31"
+    },
+    {
+      "id": "ace-step-1.5",
+      "kind": "model_weights",
+      "name": "ACE-Step 1.5 (acestep-v15-turbo DiT, VAE, acestep-5Hz-lm-0.6B planner), local music generator in its own venv",
+      "version": "main ca1e85f (2026-08-29); weights ACE-Step/Ace-Step1.5 19671f4, ACE-Step/acestep-5Hz-lm-0.6B 148d8ea",
+      "licence_spdx": "MIT",
+      "licence_file": "https://github.com/ace-step/ACE-Step-1.5/blob/main/LICENSE",
+      "holder": "ACEStep",
+      "status": "not_bundled",
+      "scope": "not vendored or shipped: installed by the user with `node scripts/music.mjs local-setup` into ~/.cache/rasanai/acestep-venv (Python 3.12 via uv) and run as a subprocess, only with --allow-generation. Model card (HF ACE-Step/Ace-Step1.5, license: mit) says generated music may be used commercially and names licensed + royalty-free training data (not independently verified). Text encoder Qwen3-Embedding-0.6B is Apache-2.0.",
+      "checked_at": "2026-10-31"
     }
   ]
 }

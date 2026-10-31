@@ -28,6 +28,7 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [Jakubantalik/thinking-orbs](#thinking-orbs) | MIT | adapted code + data | RasanOrbs runtime, 15 golden cases | taken |
 | [feitangyuan/onetake](#onetake) | PolyForm Noncommercial 1.0.0 | idea only | cut-aware shutter, sfx-buried, carry, scale-dive, regression diff | taken as ideas; translated versions open (P3.1) |
 | [pyang5166/gbro-collage-broll](#gbro) + gbro-collage-info | MIT | rewritten | halftone paper collage look | taken |
+| [ace-step/ACE-Step-1.5](#ace-step-15) | MIT (code and weights) | optional subprocess, nothing vendored | local music and sung-lyrics generation without API keys (`music.mjs local-setup`, `local-gen` lane) | taken (optional dependency) |
 | [Leonxlnx/earshot](#earshot) | MIT | optional subprocess, nothing vendored | 252-sound bank, launch kit, sound sheet, technical warnings | taken (optional dependency) |
 | [JohnHeibel/ClaudeAnimationBase](#claudeanimationbase) | MIT | idea only | twinning, three zooms, reads, echo | taken as ideas; the cartoon route is built as original code (P3.2, B2 partly done) |
 | [lemomo-ai/lemo-opuscar](#lemo-opuscar) | MIT | rewritten + data | 11 styles, 98 prompts, catalogue grammar, devices, slot limiter, CJK reading | taken |
@@ -523,3 +524,13 @@ Revalidated 2026-10-22 for the video-upgrade brief (heresay r_VejkvP8IXAd9jCgJ).
 - DECLINED: its `critique` verdict and score as a gate (rated a weak film 1.0 and an excellent one 0.897); importing it as a Python library (librosa/numba crashes on Python 3.14 here); bundling the venv or its ~1.1 GB models.
 - PLANNED: none.
 - Unverified: whether bank renders may be redistributed in a paid film without the MIT notice (they are generated output; keep the earshot credit in the film's LICENSES.json to be safe).
+
+## ACE-Step 1.5
+
+- What: ace-step/ACE-Step-1.5, an open music foundation model (a 2B diffusion transformer, "turbo" 8-step, plus a Qwen3-based 5 Hz planner LM) that makes instrumentals and sung songs from a caption, tagged lyrics, BPM and duration. Used by `scripts/lib/sound-sources.mjs` (`localGen`, `buildLocalPrompt`), `scripts/lib/acestep_run.py` and the `fromLocalGen` lane in `scripts/music.mjs`.
+- URL: https://github.com/ace-step/ACE-Step-1.5 (read at commit ca1e85f, 2026-08-29); weights https://huggingface.co/ACE-Step/Ace-Step1.5 and https://huggingface.co/ACE-Step/acestep-5Hz-lm-0.6B
+- Licence: MIT (root LICENSE, "Copyright (c) 2026 ACEStep"); both model cards read `license: mit`. The Ace-Step1.5 card says the generated music may be used for commercial purposes and that training used licensed and royalty-free data (the card's claim; not independently verified). Text encoder Qwen3-Embedding-0.6B: Apache-2.0 (card checked 2026-10-31).
+- TOOK: nothing copied or vendored. An optional dependency the user installs (`node scripts/music.mjs local-setup`: uv venv on Python 3.12 in `~/.cache/rasanai/acestep-venv`, source in `acestep-src`, about 7.6 GB of weights in `acestep-models`) and calls only as a subprocess. Tag vocabulary ([Intro], [Build], [Drop], [Breakdown], [Chorus], [Instrumental]) read from its docs/en/Tutorial.md: ideas only, our own prompt builder.
+- DECLINED: the 1.7B planner and the XL 4B DiT (3.8 GB and 9 GB more; the 0.6B planner and 2B turbo were enough for the pilot); MusicGen (CC-BY-NC weights); Stable Audio Open (Stability community licence: free commercial use only under a revenue threshold, instrumental, 47 s clips, gated download); YuE and LeVo (CUDA-first, very slow on a Mac; LeVo is non-commercial); bundling any weights or the venv.
+- PLANNED: try the XL turbo (4B DiT, better vocals) when a film needs it; `repaint` to fix one section without redoing the song.
+- Unverified: the training-data claims; whether a sung result can echo a real song (keep seed, caption and lyrics in LICENSES.json and listen before shipping a song).

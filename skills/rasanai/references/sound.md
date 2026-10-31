@@ -61,10 +61,20 @@ The person's own `--track` always wins. Every adapter below runs only when its k
 | ElevenLabs Music, SFX, TTS | `ELEVENLABS_API_KEY` | beds, effects, voice | **Film and ad use is UNVERIFIED** (a 2026 guide says self-serve plans exclude film, TV and studio games). A warning prints on every use; confirm on the vendor's terms before a launch film runs as an ad; record the plan and date. |
 | Stable Audio 2 | `STABILITY_API_KEY` | instrumental beds, short SFX | Stability terms or Community Licence (revenue thresholds) (verify). |
 | Freesound | `FREESOUND_API_KEY` | foley, SFX | CC0 only (filter applied and re-checked per result); CC BY and NC are never pulled. |
-| ACE-Step, local | `ACESTEP_CMD` (an executable taking `--prompt --duration --out [--lyrics]`) | free beds, optional vocals | Check the model card of the installed version (verify). Runs in its own process; RasanAI never installs it, and no librosa or numba is ever imported. |
+| local-gen: ACE-Step 1.5, local | none (install: `node scripts/music.mjs local-setup`; `ACESTEP_CMD` still works as a fallback wrapper) | free instrumental beds and sung songs | MIT code and weights; the model card says generated music may be used commercially (register: `third_party/license-register.json` `ace-step-1.5`). Runs as a subprocess of its own uv venv on Python 3.12; the system Python is never used. Needs `--allow-generation`. |
 | OpenAI TTS | `OPENAI_API_KEY` | voice | Disclose an AI voice. |
 
 Never: Suno or Udio downloads (terms unsettled; user-driven for song mode only), MusicGen weights (CC-BY-NC), scraping any library. Paid libraries (Artlist, Musicbed, Epidemic) stay `--track --library <name>` with the person's declared licence.
+
+## Local music without keys: local-gen (ACE-Step 1.5)
+
+Chosen over Stable Audio Open (Stability community licence, revenue-capped; instrumental only; 47 s clips), YuE and LeVo (CUDA-first, minutes per clip on a Mac; LeVo is non-commercial) and MusicGen (non-commercial weights). ACE-Step 1.5 is MIT, makes instrumentals and sung lyrics in one model, accepts structure tags, BPM and duration (10 s to 10 min), and runs on Apple Silicon (MLX planner, MPS/CPU diffusion).
+
+- Install once: `node scripts/music.mjs local-setup` (uv, Python 3.12, `~/.cache/rasanai/acestep-venv`, source in `acestep-src`, turbo DiT + VAE + text encoder + 0.6B planner in `acestep-models`: about 7.6 GB of weights plus 1.3 GB of packages). `local-setup --status` says what is missing. The runner is `scripts/lib/acestep_run.py`, called only by `localGen.generate` through the venv's python.
+- Use: `node scripts/music.mjs --run <run> --film 30 --arc <score.json> --allow-generation [--lyrics lyrics.txt] [--mode song-lyric]`. One model load makes up to 3 candidates (seeds spaced); each is analysed like any track and ranked by `arcFit` against the catalog, procedural and paid sources. The prompt is saved as `<run>/music/localgen-prompt.json`.
+- The prompt builder (`buildLocalPrompt`) turns the arc into tagged sections in order: `[Intro - sparse]` to `intro_until`, `[Build]`, `[Drop]` at `drop_at`, `[Breakdown]` over `break`, `[Final Chorus]` to `button_at`, `[Outro]`. The caption carries the style world, mood, BPM and the marks in seconds. ACE-Step has no timestamps, so the sections only land near the arc: arcFit and the music map measure where they landed, and a candidate that misses scores low and loses.
+- song-lyric: the supplied lyrics (or the film's written five-act lyric in `<run>/audio/lyrics.txt`) are spread over the Drop and Final Chorus sections; the intro and break stay instrumental. Afterwards `vo.mjs lyrics --track <take> --lyrics <file>` force-aligns the supplied text (never trust a raw transcript) into `<run>/music/localgen-N-lyrics/lyrics.json`.
+- Gate: only with `--allow-generation` (the film's consent). Disable with `LOCALGEN_DISABLE=1`. Keep seed, caption and lyrics (in LICENSES.json) and listen to a sung take before shipping: a model can echo a known song.
 
 ## Commands
 

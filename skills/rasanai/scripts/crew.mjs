@@ -90,6 +90,7 @@ import crypto from "node:crypto";
 import { spawnSync, execFileSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, chromeScreenshot, esc, GSAP_PATH, SKILL_DIR } from "./lib/common.mjs";
 import { lessonsBlock } from "./lessons.mjs";
+import { tasteBlock, tasteBrief, recordApplied, TASTE_ROLES, conceptPrior, profile as tasteProfile } from "./taste.mjs"; // taste memory: a compact brief for the roles that choose, a soft prior, never a ban
 import { readLessons, AREAS as LESSON_AREAS, KINDS as LESSON_KINDS } from "./lessons.mjs";
 import { loadPrefs, prefsBlock } from "./lib/prefs.mjs";
 import { showSeries, seriesRulesBlock } from "./lib/series.mjs";
@@ -1801,6 +1802,7 @@ function promptFor(run, role, key, plan) {
     if (pb) extra += `\n\n## The owner's answers (obey them; they are not up for reinterpretation)\n\n${pb}`;
   }
     { const lb = lessonsBlock(role).trim(); if (lb) extra += `\n\n${lb}`; } // the ONE past-films block: standing notes from lessons.mjs plus its short "Recent verdicts" line (from the raw taste ledger); only the roles it lists get any
+  if (TASTE_ROLES.has(role)) { const tb = tasteBlock(role).trim(); if (tb) { extra += `\n\n${tb}`; try { recordApplied(run, role === "script-editor" && key === "jury" ? "concept jury" : role.replace(/-/g, " "), role); } catch {} } } // taste memory (taste.mjs): under 150 words, a soft lean; what was applied is shown in the decisions drawer
   if (PREF_ROLES.has(role) && plan && plan.series && plan.series.path) { const sb = seriesRulesBlock(plan.series.path).trim(); if (sb) extra += `\n\n${sb}`; } // the series' own rules (series.mjs brief)
   let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
   if (role === "visual-writer" && plan && plan.prefs && plan.prefs.pictures) dare = `Do the owner's chosen style (${plan.prefs.pictures}) better than the other two writers, inside it. Showing off here is the choice of what to show, the framing and the timing, never a different style: ${plan.prefs.pictures === "literal" ? "no world, no metaphor, no second meaning; the thing itself, the real thing wherever one exists (a real book, a real product, a real place), well chosen and well framed" : plan.prefs.pictures === "world" ? "one running world, kept, and changed as the argument changes" : "pictures that add a second meaning"}.`;
@@ -2863,6 +2865,8 @@ async function checkRole(run, role, key) {
           if (!String(x && (x.why || x.reason) || "").trim()) P.push(`jury pick "${id}": needs why`);
         }
         const worlds = new Set(picks.map((x) => { const i0 = pool.get(String(x && (x.id || x.idea) || "")); return String((i0 && i0.style_world) || (x && x.style_world) || "").toLowerCase(); }).filter(Boolean));
+        { const tp = (() => { try { return tasteProfile(); } catch { return null; } })(); // taste memory: one of the three is always an exploration outside the comfort zone
+          if (tp && !tp.empty && picks.length === 3 && picks.every((x) => { const i0 = pool.get(String(x && (x.id || x.idea) || "")); return i0 && conceptPrior(i0, tp) > 0.15; })) P.push("all three picks sit inside this user's taste (taste.mjs brief): keep 1 of the 3 as an exploration outside their likes, and say which in its why"); }
         if (picks.length === 3 && worlds.size && worlds.size < 3) P.push(`the three picks use ${worlds.size} style world(s): they must differ in style world as well as in idea`);
         break;
       }
@@ -4108,7 +4112,9 @@ if (cmd === "plan") {
   const sr = spawnSync(process.execPath, argv, { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
   let dec; try { dec = JSON.parse(sr.stdout); } catch { die(`sound.mjs mode failed: ${(sr.stderr || sr.stdout || "").slice(0, 300)}`); }
   const writer = soundModeOf(ch) || (ch.pitch && ch.pitch.sound_mode) || null;
-  const out0 = { ...dec, concept_sound_mode: writer, concept_agrees: writer ? writer === dec.mode : null, decided_with: "story", answer: answer || null };
+  const tb = tasteBrief("music-supervisor"); // the taste brief rides with the mode decision and the music prompt (read it when you write the music brief); a soft lean
+  if (tb.text) { try { recordApplied(run, "sound mode", "music-supervisor"); } catch {} }
+  const out0 = { ...dec, taste_brief: tb.text || null, concept_sound_mode: writer, concept_agrees: writer ? writer === dec.mode : null, decided_with: "story", answer: answer || null };
   writeFile(R(run, "crew", "sound-mode.json"), JSON.stringify(out0, null, 2));
   writeFile(R(run, "audio", "mode.json"), JSON.stringify(out0, null, 2));
   { const df = R(run, "decisions.json"), dd = jsonMaybe(df); if (dd && typeof dd === "object") { dd.sound_mode = { mode: dec.mode, reason: dec.reason, recommend_vo: dec.recommend_vo || null, flip: "a note changes it: crew.mjs soundmode --run <run> --answer \"<their words>\"" }; writeFile(df, JSON.stringify(dd, null, 2)); } }
@@ -4116,7 +4122,7 @@ if (cmd === "plan") {
   if (dec.recommend_vo && dec.recommend_vo.yes) nextSteps.push("node scripts/vo.mjs make --script <lines> --out <run>/audio/vo   (feed audio/vo/words.json to the kinetic type; pass no paid provider unless its key is set and the person agreed)");
   if (dec.mode === "song-lyric") nextSteps.push("node scripts/vo.mjs lyrics --track <song> --out <run>/audio/vo   (the type follows lyrics.json)");
   nextSteps.push("after the carrier is chosen: node scripts/sound.mjs palette --carrier \"<carrier>\" --key-hz <hz> --seed <film id> --dir <run>/audio/palette", "mix: node scripts/sound.mjs mix --spec <run>/audio/mix.json --out <run>/audio/mix.wav --platform " + (dec.loudness || "web") + "   (--allow-generation only on the person's consent)");
-  out({ ok: true, file: rel(R(run, "crew", "sound-mode.json")), audio_file: rel(R(run, "audio", "mode.json")), mode: dec.mode, reason: dec.reason, concept_sound_mode: writer, ask: dec.ask, next: nextSteps });
+  out({ ok: true, file: rel(R(run, "crew", "sound-mode.json")), audio_file: rel(R(run, "audio", "mode.json")), mode: dec.mode, reason: dec.reason, concept_sound_mode: writer, taste_brief: tb.text || undefined, ask: dec.ask, next: nextSteps });
 } else if (cmd === "impact") {
   // Addenda 1+2, the revision / resume question: what does the edit I just made invalidate, and may the cached mix be reused? Compares the CURRENT sequence records and sound inputs with the snapshot taken
   // when the last revision was acted on (crew/identity-snapshot.json); `--commit` takes a new snapshot (do it after the invalidated work is re-done). Read-only without --commit; it cancels and schedules nothing.

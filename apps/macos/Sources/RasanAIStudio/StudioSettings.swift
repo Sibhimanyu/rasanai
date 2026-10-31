@@ -348,24 +348,24 @@ final class StudioSettings {
 }
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, notifications, updates, rasan, library, about
+    case general, notifications, updates, rasan, taste, library, about
     var id: String { rawValue }
     var title: String {
         switch self {
         case .general: "General"; case .notifications: "Notifications"; case .updates: "Updates"
-        case .rasan: "Rasan"; case .library: "Library & files"; case .about: "About"
+        case .rasan: "Rasan"; case .taste: "Your taste"; case .library: "Library & files"; case .about: "About"
         }
     }
     var symbol: String {
         switch self {
         case .general: "slider.horizontal.3"; case .notifications: "bell.badge"; case .updates: "arrow.triangle.2.circlepath"
-        case .rasan: "sparkles"; case .library: "folder"; case .about: "info.circle"
+        case .rasan: "sparkles"; case .taste: "heart.text.square"; case .library: "folder"; case .about: "info.circle"
         }
     }
     var tint: Color {
         switch self {
         case .general: .rasan; case .notifications: .turmeric; case .updates: .green
-        case .rasan: .pink; case .library: .blue; case .about: .gray
+        case .rasan: .pink; case .taste: .purple; case .library: .blue; case .about: .gray
         }
     }
 }
@@ -459,6 +459,7 @@ struct StudioSettingsView: View {
         case .notifications: notificationCards
         case .updates: updateCards
         case .rasan: rasanCards
+        case .taste: tasteCards
         case .library: libraryCards
         case .about: aboutCards
         }
@@ -487,6 +488,12 @@ struct StudioSettingsView: View {
                     SettingsActionRow(symbol: "exclamationmark.bubble", title: "Send feedback or report a problem", detail: "Tell the team what is broken or could be better") { StudioFeedback.present() }
                 }
             }
+        }
+    }
+
+    private var tasteCards: some View {
+        SettingsCard(symbol: "heart.text.square", tint: .purple, title: "Your taste", detail: "What RasanAI has learned from your ratings and choices. It leans on this softly, never as a rule, and always keeps one idea in three outside it.") {
+            YourTasteView()
         }
     }
 

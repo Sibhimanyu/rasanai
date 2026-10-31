@@ -521,6 +521,7 @@ struct FinishedView: View {
                         deliveryPanel
                     }
                 }
+                TasteRatingCard(store: store)
                 VStack(alignment: .leading, spacing: 22) {
                     changesSection
                     FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 }).id("film-history")

@@ -69,7 +69,7 @@ struct HomePeekOpener: View {
     }
 }
 
-/// A faint moving mesh behind Home, with the existing soft blue light at the foot of the workspace.
+/// Home's complete ambient wash. StudioView hosts it once behind both split-view columns.
 struct HomeAmbientGlow: View {
     let viewportHeight: CGFloat
     var body: some View {

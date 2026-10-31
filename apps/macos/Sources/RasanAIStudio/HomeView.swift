@@ -78,7 +78,10 @@ struct HomeView: View {
         Group {
             if mode == nil { homePage } else { libraryPage }
         }
-        .background(Color.appBackground)
+        .background {
+            // Home's animated field is shared behind the split view; library pages keep their opaque canvas.
+            if mode != nil { Color.appBackground }
+        }
         .navigationTitle(mode?.title ?? "Home")
         .pageHeader(mode?.title ?? "Home") {
             ToolbarSearchField(text: $store.projectSearch, prompt: "Search films").frame(width: 220)
@@ -110,7 +113,6 @@ struct HomeView: View {
         return GeometryReader { viewport in
             let metrics = HomeTransitionMetrics(browsing: showFilms, reduceMotion: reduceMotion, viewportHeight: viewport.size.height, viewportWidth: viewport.size.width)
             ZStack {
-                HomeAmbientGlow(viewportHeight: viewport.size.height)
                 promptLayer(metrics, height: viewport.size.height)
                 if hasFilms {
                     filmsLayer(metrics, height: viewport.size.height)

@@ -48,7 +48,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseArgs, die } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
@@ -58,17 +58,24 @@ import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromH
 import { resolveIdentity, renderScore, identityPlan, sidecarPath, readSidecar } from "./lib/procedural-score.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText, styleExclusions } from "./lib/music-lib.mjs";
 import { readSoundChoices, resolveSound } from "./lib/sound-choices.mjs";
-import { KEY as SRC_KEY, CAVEATS, warn as warnLicence, aceStep } from "./lib/sound-sources.mjs";
+import { KEY as SRC_KEY, CAVEATS, warn as warnLicence, aceStep, localGen, buildLocalPrompt } from "./lib/sound-sources.mjs";
 import { normalizeConstraints, rankCandidates, pickThree, reviseShortlist, candidateFromOption, buildShortlistRecord, previewPlan } from "./lib/music-shortlist.mjs";
 
 // the plain env names the vendors document work too (ELEVENLABS_API_KEY, STABILITY_API_KEY); the RASANAI_ names stay first
 if (!process.env[KEYS.elevenlabs] && process.env.ELEVENLABS_API_KEY) process.env[KEYS.elevenlabs] = process.env.ELEVENLABS_API_KEY;
 if (!process.env[KEYS.stable] && process.env.STABILITY_API_KEY) process.env[KEYS.stable] = process.env.STABILITY_API_KEY;
 const args = parseArgs();
-const mode = ["gate", "chain", "credits", "verify", "revise"].includes(args._[0]) ? args._[0] : "run";
+const mode = ["gate", "chain", "credits", "verify", "revise", "local-setup"].includes(args._[0]) ? args._[0] : "run";
 const ws = process.cwd();
 const rel = (p) => path.relative(ws, p) || p;
 
+if (mode === "local-setup") {
+  // installs the local music generator (ACE-Step 1.5, MIT) into ~/.cache/rasanai/acestep-venv with uv on Python 3.12; never the system Python. About 9 GB on disk.
+  if (args.status) { console.log(JSON.stringify(localGen.status(), null, 2)); process.exit(0); }
+  const r = localGen.setup();
+  console.log(JSON.stringify(r, null, 2));
+  process.exit(r.ok ? 0 : 1);
+}
 if (mode === "chain") {
   console.log(JSON.stringify(sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], generationConsent: !!args["allow-generation"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null }), null, 2));
   process.exit(0);
@@ -172,9 +179,9 @@ const chain = sourceChain(process.env, { user: !!trackArg, noAi: !!args["no-ai"]
 {
   const aiLane = chain.find((c) => c.id === "ai");
   const cmd0 = SRC_KEY.acestep() ? String(SRC_KEY.acestep()).split(/\s+/)[0] : null;
-  const ok = !!(cmd0 && fs.existsSync(cmd0));
+  const ok = !!(localGen.available() || (cmd0 && fs.existsSync(cmd0)));
   const consent = !!args["allow-generation"] || !!(args.sources && String(args.sources).split(",").includes("acestep"));
-  chain.splice(chain.indexOf(aiLane) + 1, 0, { id: "acestep", on: ok && consent && !args["no-ai"], consent, threshold: 65, why: ok ? (consent ? "local ACE-Step via ACESTEP_CMD, in its own process (never installed by RasanAI)" : "ACESTEP_CMD found, but generation is off for this film: pass --allow-generation") : "no ACESTEP_CMD (a local ACE-Step wrapper) in the environment" });
+  chain.splice(chain.indexOf(aiLane) + 1, 0, { id: "acestep", on: ok && consent && !args["no-ai"], consent, threshold: 65, why: ok ? (consent ? (localGen.available() ? "local-gen: ACE-Step 1.5 in its own uv venv, 2-3 candidates ranked by arc fit" : "local ACE-Step via ACESTEP_CMD, in its own process") : "a local generator is installed, but generation is off for this film: pass --allow-generation") : "no local generator: node scripts/music.mjs local-setup (about 9 GB), or ACESTEP_CMD" });
 }
 const on = (id) => (chain.find((c) => c.id === id) || {}).on;
 const scoreFile = path.resolve(String(args.run), "motion", "score.json");
@@ -487,7 +494,40 @@ async function fromAI() {
 }
 
 // a local ACE-Step install (ACESTEP_CMD), run as an isolated child process; generation consent applies exactly as for the paid vendors
+// local-gen (ACE-Step 1.5): ONE model load, 2-3 candidates built from the film's arc, BPM, mood, style world and (song-lyric) lyrics; arcFit then ranks them with every other source
+async function fromLocalGen() {
+  const bpm = Math.round(tempoOf(intents[0]));
+  let modeId = args.mode && args.mode !== true ? String(args.mode) : null, lyricsText = "";
+  try { const mj = path.join(path.resolve(String(args.run)), "audio", "mode.json"); if (!modeId && fs.existsSync(mj)) modeId = JSON.parse(fs.readFileSync(mj, "utf8")).mode; } catch {}
+  const lf = args.lyrics && args.lyrics !== true ? path.resolve(String(args.lyrics)) : path.join(path.resolve(String(args.run)), "audio", "lyrics.txt");
+  if (fs.existsSync(lf)) lyricsText = fs.readFileSync(lf, "utf8");
+  if (modeId === "song-lyric" && !lyricsText.trim()) { notes.push("song-lyric mode with no lyrics (--lyrics <file> or <run>/audio/lyrics.txt): an instrumental was made instead; write the lyric first (five acts, ending on the tagline)"); modeId = "instrumental-arc"; }
+  const mood = SR ? [SR.feeling && SR.feeling.value !== "unset" && SR.feeling.value !== "custom" ? SR.feeling.value : null, `${SR.energy.perceived} energy`].filter(Boolean).join(", ") : "";
+  const P = buildLocalPrompt({ arc, film: film || 30, bpm, mood, style: `${args.style || ""} ${intents[0].family.id.replace("-", " ")}`.trim(), lyrics: lyricsText, mode: modeId || "instrumental-arc", narrated, exclusions: EXCL && Array.isArray(EXCL.avoid) ? EXCL.avoid : [] });
+  warnLicence("localgen");
+  const name = "localgen";
+  const r = localGen.generate({ caption: P.caption, lyrics: P.lyrics, instrumental: P.instrumental, bpm: P.bpm, duration: P.duration, count: Math.min(3, count), seed: Number(args.seed) || 1000, out_dir: dir, name, fade_out: 0 });
+  fs.writeFileSync(path.join(dir, "localgen-prompt.json"), JSON.stringify({ ...P, runner: { load_s: r.load_s, gen_s: r.gen_s, thinking: r.thinking } }, null, 2) + "\n");
+  notes.push(`local-gen (ACE-Step 1.5): ${r.files.length} candidates in ${r.gen_s} s (+${r.load_s} s model load), ${P.instrumental ? "instrumental" : "sung"}, ${P.bpm} BPM`);
+  let n = 0;
+  for (const f of r.files) {
+    n++;
+    const id = `localgen-${n}`;
+    let lyricsJson = null;
+    if (!P.instrumental) {
+      // force-align the supplied lyrics to the sung audio (never trust a raw transcript): vo.mjs lyrics
+      try {
+        const od = path.join(dir, `${id}-lyrics`);
+        const lfile = path.join(dir, `${id}.lyrics.txt`); fs.writeFileSync(lfile, lyricsText);
+        const a = spawnSync(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), "vo.mjs"), "lyrics", "--track", f.file, "--lyrics", lfile, "--out", od], { encoding: "utf8", timeout: 10 * 60 * 1000 });
+        if (a.status === 0 && fs.existsSync(path.join(od, "lyrics.json"))) lyricsJson = path.relative(ws, path.join(od, "lyrics.json")); else notes.push(`lyrics alignment failed for ${id}: ${String(a.stderr || a.stdout).trim().split("\n").slice(-1)[0].slice(0, 160)}`);
+      } catch (e) { notes.push(`lyrics alignment failed for ${id}: ${String(e.message).slice(0, 120)}`); }
+    }
+    found.push({ id, title: `Made locally to the arc: ${P.instrumental ? "instrumental" : "sung"} take ${n}, ${P.bpm} BPM`, file: f.file, source: "Local generation (ACE-Step 1.5)", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: P.bpm, lyrics_json: lyricsJson, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, date: new Date().toISOString() } });
+  }
+}
 async function fromAceStep() {
+  if (localGen.available()) { try { return await fromLocalGen(); } catch (e) { notes.push(`local-gen failed: ${String(e.message).slice(0, 240)}${SRC_KEY.acestep() ? "; trying ACESTEP_CMD" : ""}`); if (!SRC_KEY.acestep()) return; } }
   let n = 0;
   for (const it of intents.slice(0, count)) {
     const bpm = Math.round(tempoOf(it));
