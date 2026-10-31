@@ -355,6 +355,28 @@
       "status": "conditional",
       "scope": "an icon-set licence covers the artwork, not the trademark; use is limited to the film the person asked for about that brand, with the brand's own guidelines applying",
       "checked_at": "2026-10-25"
+    },
+    {
+      "id": "depth-anything-v2-small",
+      "kind": "model_weights",
+      "name": "Depth Anything V2 Small (ONNX export, onnx-community/depth-anything-v2-small)",
+      "version": "Small only",
+      "licence_spdx": "Apache-2.0",
+      "holder": "Depth Anything team (TikTok / HKU); ONNX export by onnx-community",
+      "status": "cleared",
+      "scope": "downloaded on demand by art.mjs depth into a local cache, never vendored in the repo or the app bundle; the Base, Large and Giant checkpoints are CC BY-NC and must not be used",
+      "checked_at": "2026-10-31"
+    },
+    {
+      "id": "birefnet-lite",
+      "kind": "model_weights",
+      "name": "BiRefNet lite (ONNX weights)",
+      "version": "lite",
+      "licence_spdx": "MIT",
+      "holder": "ZhengPeng7 and the BiRefNet authors",
+      "status": "cleared",
+      "scope": "downloaded on demand by art.mjs cutout --object into a local cache, never vendored; RMBG-1.4 and RMBG-2.0 are non-commercial and are not used",
+      "checked_at": "2026-10-31"
     }
   ]
 }

@@ -1,0 +1,65 @@
+{
+  "id": "colour-world-flip",
+  "n": 34,
+  "name": "Colour-world flip",
+  "family": "world",
+  "source": [
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 5,
+      "end_s": 5,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    },
+    {
+      "video": "Video-44721",
+      "brand": "Notion/Motion kinetic piece",
+      "start_s": 12,
+      "end_s": 12,
+      "frames": ".context/review-refs/Video-44721/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 38,
+      "end_s": 39,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-4934",
+      "brand": "PickUs",
+      "start_s": 6,
+      "end_s": 6,
+      "frames": ".context/review-refs/Video-4934/f2/"
+    }
+  ],
+  "description": "A hard cut on a semantic beat from one palette to its inverse.",
+  "recipe": {
+    "tech": [
+      "html",
+      "css",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-fx.js",
+      "rasan-layout.js"
+    ],
+    "build": "Each world has its own background, text colour and accent; flip on the word that carries the turn; keep the carrier across."
+  },
+  "use_when": "The pivot at 25-35 % of the film.",
+  "avoid": "Do not flip without meaning (pain to relief, calm to chaos, show to do); at most 2 flips.",
+  "duration_s": {
+    "min": 0.1,
+    "max": 0.6
+  },
+  "easing": "none",
+  "carriers": [
+    "all"
+  ],
+  "beat_roles": [
+    "turn"
+  ],
+  "needs": [
+    "rasan-fx.js"
+  ]
+}

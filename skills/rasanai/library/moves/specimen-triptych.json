@@ -1,0 +1,44 @@
+{
+  "id": "specimen-triptych",
+  "n": 38,
+  "name": "Specimen triptych",
+  "family": "ui",
+  "source": [
+    {
+      "video": "Video-4934",
+      "brand": "PickUs",
+      "start_s": 8,
+      "end_s": 11,
+      "frames": ".context/review-refs/Video-4934/f2/"
+    }
+  ],
+  "description": "A dark card with a starburst, icon, typed noun and micro-meter (waveform, dots, hearts) repeated for three nouns.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap",
+      "svg"
+    ],
+    "runtime": [
+      "rasan-ui.js",
+      "rasan-type.js"
+    ],
+    "build": "Fixed layout; per noun change the burst colour, icon and label (typed with a caret); the meter animates; 1.5 s each."
+  },
+  "use_when": "Name a product's three pillars.",
+  "avoid": "Do not use for more than 3 nouns.",
+  "duration_s": {
+    "min": 4,
+    "max": 5
+  },
+  "easing": "power2.out",
+  "carriers": [
+    "icon-set",
+    "word-line"
+  ],
+  "beat_roles": [
+    "middle",
+    "proof"
+  ],
+  "needs": []
+}

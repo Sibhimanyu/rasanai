@@ -4,7 +4,7 @@
 // each with a frame.md ready for HyperFrames. With a brand reference, looks are brand-locked
 // (its colors and fonts) and vary the art direction around them. On a branded launch / promo / brand film the
 // looks are the brand film's own grammar (<run>/brand-film/FILM-STYLE.json from brandfilm.mjs card): check-system
-// requires blend.json to cite FILM-STYLE.md (film_style, film_style_takes), no outside library references, canvas /
+// requires blend.json to cite FILM-STYLE.md (film_style, film_style_takes), library references allowed (brand lock is palette, type, logo), canvas /
 // ink / accent on the card's palette, the display face in the card's typefaces; finish, depth and camera are never refused (brand lock is palette, type, logo, UI and tone).
 //   node design.mjs looks --out <dir> [--decisions <decisions.json>] [--count 6] [--aspect 16:9]
 //        [--headline "..."] [--sub "..."] [--brand DESIGN.md [--mode light|dark]] [--ground light|dark] [--seed s] [--recent style,ids] [--stills]
@@ -30,6 +30,11 @@
 //   (Part 2) check-system also gates design/<label>/medium.json for a medium Look: missing or invalid is "needs-you", never a pass
 //   (Plan 04) node design.mjs look-revise --run <run> --instruction "same typography, less glossy" [--ids a,b]   -> a bounded look revision: what changes, what stays fixed, the impact (Story kept)
 //   (Plan 04) node design.mjs continuity-check --file <continuity.json>   -> shared components (one owner each) and seam types (same object, analogy, causal handoff, temporal, discontinuity)
+//   (Style worlds) node design.mjs style-worlds [--product "..."] [--tone "..."] [--brand DESIGN.md|--run <run>] [--count 3] [--seed s] [--exclude id,id]
+//        -> the atlas (library/styles/atlas/, 34 style worlds) scored for this product and tone: ranked picks that differ in material, finish and sound.
+//        With a brand lock the picks are 3 DIFFERENT style worlds under it (brand colour, type and logo stay; the world changes).
+//   (Style worlds) node design.mjs style-world --id <atlas id> | --list     -> one atlas entry (look, brand-lock rules, effects, Codex recipe, sound pairing, build recipe) or the menu
+//        Each look names its world: looks.json and the look payload carry `style_world` ({id, name, ...}); a bespoke system writes `style_world: "<atlas id>"` in design/<label>/blend.json.
 //   node design.mjs pick --looks <dir>/looks.json --id B --decisions <decisions.json>
 //        -> merges the look's terms (visual style, typography) into decisions.json and prints its frame.md
 import fs from "node:fs";
@@ -75,6 +80,79 @@ function runBrand(run) {
     const f = path.resolve(String(d.brand));
     return fs.existsSync(f) ? f : null;
   } catch { return null; }
+}
+
+// ---- Style worlds: the atlas (library/styles/atlas/*.json) is the menu the look stage picks from ----
+const ATLAS_DIR = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "library", "styles", "atlas");
+let _atlas = null;
+function loadAtlas() {
+  if (_atlas) return _atlas;
+  try { _atlas = JSON.parse(fs.readFileSync(path.join(ATLAS_DIR, "index.json"), "utf8")).styles || []; } catch { _atlas = []; }
+  return _atlas;
+}
+function atlasEntry(id) {
+  const f = path.join(ATLAS_DIR, String(id).replace(/[^a-z0-9-]/gi, "") + ".json");
+  try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; }
+}
+// what a look carries: the short, stable summary of a world
+function worldSummary(id) {
+  const e = atlasEntry(id);
+  if (!e) return null;
+  return { id: e.id, name: e.name, look: e.look, engine: e.build.engine, effects: e.effects.map((x) => x.pass), sound_mode: e.sound.mode, medium_runtime: e.build.medium_runtime, codex_images: e.codex_assets.use ? e.codex_assets.images : null, brand_lock: { colour_role: e.brand_lock.colour_role, type_role: e.brand_lock.type_role, world_changes: e.brand_lock.world_changes }, when_not: e.when_not[0] || null, file: path.relative(process.cwd(), path.join(ATLAS_DIR, e.id + ".json")) };
+}
+const seedHash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };
+const words = (s) => String(s || "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+// match a free text against a list of phrases: a phrase hits when most of its words are in the text (or the text contains the phrase)
+function phraseHits(textWords, textRaw, phrases) {
+  let n = 0; const hits = [];
+  for (const p of phrases || []) {
+    const pw = words(p); if (!pw.length) continue;
+    const got = pw.filter((w) => textWords.has(w) || [...textWords].some((t) => t.length > 4 && w.length > 4 && (t.startsWith(w.slice(0, 5)) || w.startsWith(t.slice(0, 5))))).length;
+    if (textRaw.includes(String(p).toLowerCase()) || got / pw.length >= 0.5) { n++; hits.push(p); }
+  }
+  return { n, hits };
+}
+// Rank atlas styles for a product and tone. Pure, seeded: the same input gives the same list.
+// With count > 1 the picks are chosen greedily so they differ: a style that shares its sound mode, its effect finish or its engine class
+// with one already picked is penalised, so three looks are three worlds and not three tints of one.
+function pickStyleWorlds({ product = "", tone = "", count = 3, seed = "rasa", exclude = [], brandLocked = false } = {}) {
+  const atlas = loadAtlas().filter((s) => !exclude.includes(s.id));
+  const pw = new Set(words(product)), tw = new Set(words(tone)), praw = String(product).toLowerCase(), traw = String(tone).toLowerCase();
+  const scored = atlas.map((s) => {
+    const fp = phraseHits(pw, praw, s.fits), ap = phraseHits(pw, praw, s.avoid), ft = phraseHits(tw, traw, s.tones), at = phraseHits(tw, traw, s.avoid_tones);
+    const score = fp.n * 3 + ft.n * 2 - ap.n * 4 - at.n * 3 + (s.id === "dark-keynote" ? -1.5 : 0) + seedHash(seed + s.id) * 0.6;
+    const why = [fp.hits.length ? "fits " + fp.hits.join(", ") : "", ft.hits.length ? "tone " + ft.hits.join(", ") : "", ap.hits.length ? "AVOID for " + ap.hits.join(", ") : "", at.hits.length ? "AVOID tone " + at.hits.join(", ") : ""].filter(Boolean).join("; ");
+    return { ...s, score: Math.round(score * 100) / 100, why, risky: ap.n + at.n > 0 };
+  }).sort((a, b) => b.score - a.score || a.number - b.number);
+  const picks = [];
+  const pool = scored.filter((s) => !s.risky || scored.filter((x) => !x.risky).length < count);
+  while (picks.length < Math.min(count, pool.length)) {
+    let best = null, bestV = -1e9;
+    for (const s of pool) {
+      if (picks.includes(s)) continue;
+      let v = s.score;
+      for (const p of picks) {
+        if (p.sound_mode === s.sound_mode) v -= 2.0;
+        if (p.effects.length && s.effects.length && p.effects[0] === s.effects[0]) v -= 1.5;
+        if (p.engine === s.engine) v -= 0.4;
+        if (p.medium_runtime && p.medium_runtime === s.medium_runtime) v -= 2;
+      }
+      if (v > bestV) { bestV = v; best = s; }
+    }
+    if (!best) break; picks.push(best);
+  }
+  return { picks: picks.map((p) => ({ id: p.id, name: p.name, score: p.score, why: p.why || "no direct match; chosen for contrast", sound_mode: p.sound_mode, effects: p.effects, when_not: p.when_not })), ranked: scored.slice(0, 12).map((p) => ({ id: p.id, score: p.score, why: p.why })), brand_locked: !!brandLocked };
+}
+// a look's style world: blend.json.style_world (an atlas id, or {id}) -> the summary; unknown ids are reported, never invented
+function styleWorldOfLabel(run, label) {
+  try {
+    const b = JSON.parse(fs.readFileSync(path.join(run, "design", label, "blend.json"), "utf8"));
+    const raw = b && b.style_world;
+    const id = raw && typeof raw === "object" ? raw.id : raw;
+    if (!id) return { id: null };
+    const sum = worldSummary(id);
+    return sum ? sum : { id: String(id), unknown: true };
+  } catch { return { id: null }; }
 }
 
 // A presenter film (route "presenter") has generated images, so its design systems must carry the art direction
@@ -184,12 +262,25 @@ const CSS = `*{box-sizing:border-box;margin:0}body{background:#0c0c0e;overflow:h
 .sl{background:linear-gradient(rgba(0,0,0,.14) 50%,transparent 50%);background-size:100% 4px}
 figure{margin:0}figcaption{font:500 15px/1.35 ui-monospace,Menlo,monospace;color:#e8e6e1;margin-top:10px}figcaption b{display:inline-block;padding:1px 7px;margin-right:8px;background:#e8e6e1;color:#0c0c0e;border-radius:3px}figcaption span{color:#8d8a84;display:block;font-size:13px;margin-top:3px}`;
 
-if (cmd === "looks") {
+if (cmd === "style-worlds") {
+  const runAbs = args.run && args.run !== true ? path.resolve(String(args.run)) : null;
+  let product = args.product && args.product !== true ? String(args.product) : "", tone = args.tone && args.tone !== true ? String(args.tone) : "";
+  if (runAbs && !product) { try { const d = JSON.parse(fs.readFileSync(path.join(runAbs, "decisions.json"), "utf8")); product = [d.subject, d.product, d.brief].filter(Boolean).join(" "); tone = tone || [d.tone, d.mood].filter(Boolean).join(" "); } catch {} }
+  const locked = !!(args.brand && args.brand !== true) || !!(runAbs && runBrand(runAbs));
+  const r = pickStyleWorlds({ product, tone, count: Math.max(1, Math.min(9, Number(args.count || 3))), seed: String(args.seed || product || "rasa"), exclude: String(args.exclude || "").split(",").filter(Boolean), brandLocked: locked });
+  console.log(JSON.stringify({ ...r, rule: locked ? "brand lock: brand colour, type and logo stay in all three; the three style worlds are what differ" : "three looks = three different style worlds (material, finish, sound), not three tints of one", atlas: path.relative(process.cwd(), ATLAS_DIR), note: "ranked by fit to product and tone; a human or the design desk still judges: references/styles.md says when NOT to use each" }, null, 2));
+} else if (cmd === "style-world") {
+  if (args.list || !args.id) { console.log(JSON.stringify(loadAtlas().map((x) => ({ id: x.id, number: x.number, name: x.name, engine: x.engine, sound_mode: x.sound_mode, effects: x.effects, fits: x.fits.slice(0, 3), when_not: x.when_not })), null, 2)); }
+  else { const e = atlasEntry(args.id); if (!e) die(`no style world "${args.id}"; run: design.mjs style-world --list`); console.log(JSON.stringify(e, null, 2)); }
+} else if (cmd === "looks") {
   if (!args.out) die("--out <dir> required");
   const D = args.decisions ? readJSON(path.resolve(String(args.decisions))) : { picks: {} };
   const brand = args.brand ? readDesignMd(path.resolve(String(args.brand)), { mode: args.mode }) : null;
   const count = Math.max(2, Math.min(9, Number(args.count || 6)));
   const looks = generateLooks({ picks: D.picks || {}, count, seed: String(args.seed || D.subject || "rasa"), brand, ground: String(args.ground || "auto"), recent: String(args.recent || "").split(",").filter(Boolean) });
+  // each look names its style world (atlas): different worlds per look; a brand lock keeps palette and type, so the worlds are what vary
+  { const picks = pickStyleWorlds({ product: [D.subject, args.headline && args.headline !== true ? args.headline : ""].filter(Boolean).join(" "), tone: String(D.tone || D.mood || (D.picks && (D.picks.tone || D.picks.mood)) || ""), count: looks.length, seed: String(args.seed || D.subject || "rasa"), exclude: [], brandLocked: !!brand }).picks;
+    looks.forEach((L, i) => { const w = picks[i] && worldSummary(picks[i].id); if (w) L.style_world = { ...w, pick_reason: picks[i].why }; }); }
   const [AW, AH] = normalizeAspect(args.aspect || "16:9").split("x").map(Number);
   const out = path.resolve(String(args.out));
   const content = { headline: String(args.headline || D.subject || "Your film starts here"), sub: String(args.sub || "A look you can point at, built by Claude in every frame.") };
@@ -224,7 +315,7 @@ if (cmd === "looks") {
   }
   const manifest = { aspect: `${AW}x${AH}`, brand: brand ? path.relative(process.cwd(), brand.source) : null, page: path.relative(process.cwd(), path.join(out, "index.html")), looks };
   writeFile(path.join(out, "looks.json"), JSON.stringify(manifest, null, 2) + "\n");
-  console.log(JSON.stringify({ page: manifest.page, still: args.stills ? path.relative(process.cwd(), path.join(out, "looks.png")) : null, looks: looks.map((L) => ({ id: L.id, name: L.name, type: `${L.type.display.family} + ${L.type.body.family}`, palette: L.palette, radius: L.radius, border: L.border, shadow: L.shadow, texture: L.texture, frame: L.frame })) }, null, 2));
+  console.log(JSON.stringify({ page: manifest.page, still: args.stills ? path.relative(process.cwd(), path.join(out, "looks.png")) : null, looks: looks.map((L) => ({ id: L.id, name: L.name, style_world: L.style_world ? L.style_world.id : null, type: `${L.type.display.family} + ${L.type.body.family}`, palette: L.palette, radius: L.radius, border: L.border, shadow: L.shadow, texture: L.texture, frame: L.frame })) }, null, 2));
 } else if (cmd === "pick") {
   if (!args.looks || !args.id) die("--looks <looks.json> and --id <letter> required");
   const M = readJSON(path.resolve(String(args.looks)));
@@ -272,6 +363,7 @@ if (cmd === "looks") {
   let md = "";
   try { md = fs.readFileSync(path.join(dirAbs, "DESIGN.md"), "utf8"); } catch {}
   r.P.push(...imageryProblems(dirAbs, md));
+  { const sw = styleWorldOfLabel(path.resolve(dirAbs, "..", ".."), path.basename(dirAbs)); if (sw.unknown) r.P.push(`blend.json style_world "${sw.id}" is not in the style atlas (library/styles/atlas); design.mjs style-world --list`); else if (!sw.id) r.W.push("blend.json names no style_world: pick one from the atlas (design.mjs style-worlds --run <run>) so the Look is a world, not a recolour"); }
   // Part 2: a medium Look (an assigned candidate, a medium.json, or blend.medium_policy_revision) needs its contract; a legacy look is untouched
   const runAbs = path.resolve(dirAbs, "..", ".."), mlabel = path.basename(dirAbs);
   let medium = null;
@@ -287,12 +379,24 @@ if (cmd === "looks") {
   const dirs = LABELS.map((l) => path.join(run, "design", l)).filter((d) => fs.existsSync(d));
   if (dirs.length !== 3) die(`the design desk makes exactly three systems (Sure, Bold, Wild); found ${dirs.length} in ${args.run}/design`);
   const r = await checkSystems(dirs, { hook: args.hook && args.hook !== true ? String(args.hook) : firstLine(run), libraryIds: libraryIds(), brand: args.brand && args.brand !== true ? String(args.brand) : runBrand(run), offline: !!args.offline });
+  { const ws = LABELS.map((l) => [l, styleWorldOfLabel(run, l).id]).filter(([, id]) => id), ids = ws.map(([, id]) => id);
+    if (ids.length > 1 && new Set(ids).size < ids.length) { const m = `style-world-repeat: two Looks use the same style world (${ws.map(([l, id]) => l + "=" + id).join(", ")}); three Looks are three different worlds`; r.P.push(m); } }
   console.log(JSON.stringify({ ok: !r.P.length, problems: r.P, warnings: r.W, pairs: r.pairs, systems: r.systems }, null, 2));
   process.exit(r.P.length ? 2 : 0);
 } else if (cmd === "look-payload") {
   if (!args.run) die("--run <run dir> required");
   const pl = lookPayload(path.resolve(String(args.run)), { recommended: args.recommended, hook: args.hook && args.hook !== true ? String(args.hook) : "", sub: args.sub && args.sub !== true ? String(args.sub) : "" });
   if (pl.styles.length !== 3) die(`the Look step shows exactly the three bespoke systems; ${pl.styles.length} are ready in ${args.run}/design`);
+  // Style worlds: each Look names one atlas world (design/<label>/blend.json style_world). Under a brand lock the three must be three DIFFERENT worlds (palette, type and logo are the lock; the world is what varies).
+  { const runAbs = path.resolve(String(args.run)), locked = !!runBrand(runAbs);
+    for (const st of pl.styles) st.style_world = styleWorldOfLabel(runAbs, st.label);
+    const ids = pl.styles.map((st) => st.style_world.id).filter(Boolean);
+    const unknown = pl.styles.filter((st) => st.style_world.unknown).map((st) => `${st.label}: "${st.style_world.id}"`);
+    if (unknown.length) die(`style_world is not in the atlas (library/styles/atlas): ${unknown.join(", ")}; run design.mjs style-world --list`);
+    if (new Set(ids).size < ids.length && locked) die(`brand lock: the three Looks must be three different style worlds (brand colour, type and logo stay; the world varies), got ${pl.styles.map((st) => st.label + "=" + (st.style_world.id || "none")).join(", ")}. Pick from design.mjs style-worlds --run <run>`);
+    if (ids.length < pl.styles.length) { const sug = pickStyleWorlds({ product: firstLine(runAbs) || "", tone: "", count: 3, seed: runAbs, brandLocked: locked }).picks.map((p) => p.id).join(", "); console.error(`style worlds: ${pl.styles.length - ids.length} Look(s) name no style_world in blend.json; suggestions for this film: ${sug} (design.mjs style-worlds --run <run>)`); }
+    else if (new Set(ids).size < ids.length) console.error(`style worlds: two Looks share a style world (${ids.join(", ")}); three Looks should be three different worlds`);
+  }
   // new creative policy: the Look is a craft class the Story supports. A look that names none is read as "not the dimensional craft" by the frame checks; say it before the user is asked (stderr: the payload is unchanged)
   if (runCreativeOn(path.resolve(String(args.run)))) {
     const ls = LABELS.map((l) => { try { return [l, (JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "design", l, "blend.json"), "utf8")) || {}).look_style || null]; } catch { return [l, null]; } });

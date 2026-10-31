@@ -41,7 +41,7 @@ const findings = [];
 const add = (rule, severity, where, why, fix) => findings.push({ rule, severity, where, why, fix });
 
 // ---- gather sources ----
-const walk = (d, out = []) => { for (const f of fs.existsSync(d) ? fs.readdirSync(d) : []) { const p = path.join(d, f); const st = fs.statSync(p); if (st.isDirectory() && !/node_modules|renders|\.superseded|assets/.test(f)) walk(p, out); else if (/\.(html|css|js|mjs)$/.test(f)) out.push(p); } return out; };
+const walk = (d, out = []) => { for (const f of fs.existsSync(d) ? fs.readdirSync(d) : []) { const p = path.join(d, f); const st = fs.statSync(p); if (st.isDirectory() && !/^(node_modules|renders|capture|assets)$|\.superseded/.test(f)) walk(p, out); else if (/\.(html|css|js|mjs)$/.test(f)) out.push(p); } return out; };
 const files = walk(dir).filter((f) => !/\/snapshots?\//.test(f));
 const src = Object.fromEntries(files.map((f) => [path.relative(dir, f), fs.readFileSync(f, "utf8")]));
 const allCode = Object.values(src).join("\n");
@@ -213,6 +213,16 @@ const narratedFilm = audioRefs.some((r) => /voice|(^|[-_/])vo[-_.]|narrat/i.test
 const whoosh = (allCode.match(/whoosh|swoosh|swish/gi) || []).length;
 const sfxMd = sfxMode({ format: args.format, narrated: narratedFilm });
 if (filmLen && sfxOver(sfxCount, sfxMd, filmLen)) add("sfx-overload", "error", `${sfxCount} SFX in ${filmLen.toFixed(0)} s`, `Too many sound effects: every beat has a sound, so none matter (the budget, shared with sound.mjs: ${sfxLimit(sfxMd, filmLen)} in ${filmLen.toFixed(0)} s for a ${sfxMd} film).`, "Only visible, causal events get a sound (sound.md); skip where the music already hits.");
+// SFX come only from the run's sfx-plan.json (sound.mjs sfx-plan): more clips than planned cues means hand-mounted sounds (a clip per keystroke is the usual one)
+{
+  const runP = args.run && args.run !== true ? path.resolve(String(args.run)) : null, pf = runP ? path.join(runP, "crew", "sfx-plan.json") : null;
+  if (pf && fs.existsSync(pf)) {
+    try {
+      const sp = JSON.parse(fs.readFileSync(pf, "utf8")), n = (sp.cues || []).length;
+      if (sfxCount > n) add("sfx-unplanned", "error", `${sfxCount} SFX mounted, ${n} planned in crew/sfx-plan.json`, "Every SFX must be a cue of sfx-plan.json. Extra clips were mounted by hand: no sound belongs to a keystroke or a beat unless the plan put it there.", "Remove every clip that is not a planned cue (sound.mjs check --sfx <index.html> --run <run> maps each one); typing is one texture per burst.");
+    } catch {}
+  }
+}
 const cuts = scenes ? scenes.length - 1 : 0;
 const whooshCap = cuts ? Math.max(1, Math.ceil(cuts / 3)) : 3;
 if (whoosh > whooshCap) add("whoosh-per-cut", "error", `${whoosh} whooshes${cuts ? ` for ${cuts} transitions` : ""}`, "A whoosh on every cut is the most common SFX tell.", "At most one whoosh in three transitions (and one per ~20 s): keep it for the signature transition.");

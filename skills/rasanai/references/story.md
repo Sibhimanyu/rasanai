@@ -91,9 +91,9 @@ The ladder's break: rungs share one structure (the same title pattern, the same 
 
 Before-after's trap: a before and an after with no cause between them is a wipe, not a story ("before/after" is an LLM-overused device for that reason). The cause is on screen at the turn.
 
-## 3. Product-first routes: no conceits
+## 3. Product-truth routes: the form is open
 
-For launch, promo and product films (`--format launch`, or `--product-first`; `references/product-first.md`): the villain is the viewer's real pain at the claim's scope, the hero is the real product UI (on screen within 3 s), and the turn is the real product reversing that pain. `pick` never offers conceit devices (the Metaphor family, borrowed containers other than the product's own query log, chat thread and interface, and a handful of others: cosmos zoom, object's POV, unexpected protagonist, letter from the future, mockumentary, product as a character, problem as a villain, mirror, one-shape, sound-first, data letter, story loop). `check` runs **G7** (no conceit; no museum, allegory or invented-world words unless a `visual_pun` that resolves to the product within 1 s; the product on screen within 3 s; a `hero_moment`; 2 to 4 `uses`; `last_line` with `end_line_largest: true`; on-screen lines of 6 words or fewer) and **G10**, which follows the pitch's `shape`. The devices left (the oner, split-sync, the static camera, countdown, rewind, real time, the misdirect, escalation, the list that breaks, call and response, fake UI takeover, query log and the like) are structures for pacing and energy on the real product UI, never a world to put it in. `--allow-conceit` only for a brand film or when the user asks for a concept.
+For launch, promo and product films (`--format launch`, or `--product-first`; `references/product-first.md`): the claim and the real product must be unmistakable; the form is open (metaphor, character, world, game, myth, illustration, type-only). `pick` offers all 70 devices (no family filter, no build-score filter, no per-family cap) and open shapes: the product shapes (ladder, pas, scenario, before-after...) and the idea-led shapes `world`, `journey`, `game`, `myth`, `format-hijack`, `type-poem`, `character`. `check` runs **G7 product truth** (the real product shown or named by 60% of the film, the claim said or shown, `last_line` with `end_line_largest: true`, no system-UI imitation; the 3 s rule, hero moment, 6-word lines and launch timings are defaults that warn), **GV visual plan** (`style_world`, `carrier`, `signature_moment`, `sound_mode`, `shots[]` with `t`, `see`, `style`, `carrier_state`, `move`, `transition`, `words`; mostly UI-card-plus-headline shots are flagged), G10 per shape, G12 (the callback returns the opening SITUATION, not necessarily the same person), G13 (advice for idea-led shapes). Pass `--no-visual-plan` only for legacy pitches.
 
 ## 4. Story shapes
 
@@ -140,7 +140,7 @@ node $SKILL_DIR/scripts/story.mjs pick --truth "$RUN/story/truth.md" --recent "$
 
 `pick` returns a ranked **menu**, not a draw: recent devices are filtered out (rotation is a filter, never a picker), what is left is ranked by fit to the product's tags, format and tone, and each card carries its beats, pitfalls, an example and `fuse_pool` (the product's own material). When a plan exists the planner has already chosen each slot's device from its menu and the writer keeps it; with no plan each writer **chooses** one device or none, with a reason (`pitch.device_reason`): a device earns its place only when it makes the proposition land harder. `check` holds the three chosen devices to the distance rules (different family and visual world, and on most of the 7 axes; product films need not differ on protagonist).
 
-- **Sure** = the clearest argument; **Bold** = the most original still on the brief; **Wild** = the reach. On a product-first film the reach is in craft (camera, joins, rhythm), never a narrower or more personal story.
+- **Sure** = the clearest telling (a human moment or the plain range); **Bold** = a visual world first; **Wild** = a different IDEA (a game, a myth, a format hijack, a character, a place), not the same ladder faster. The three differ in idea and style (`style_world`), never only in pace. "The sure one" (a feasibility 4+) is a preference, not a requirement.
 - Browse when you need to: `story.mjs devices [--family metaphor] [--fits devtool] [--q "receipt"]`, `story.mjs devices --id A5`, `story.mjs cliche`.
 
 ## 6. Write the argument, then the pitch
@@ -265,3 +265,10 @@ Feedback arrives as a console `note`. Answer it with `console.mjs reply`, change
 - **"Make it simpler / shorter"**: cut beats whose buys the proposition can lose; keep the turn, the peak and the payoff.
 - **"None of these"**: ask what they're picturing (one console question), then `pick` again with `--exclude` all three.
 - **Record** what they chose: `memory.mjs record --step concept --value "<title> (<device id or none>)"`, so the next `pick --recent` filters it out.
+
+### Story checks that always apply to launch and promo films
+
+- **Recommendation**: `story.mjs check` returns `recommendation` (`recommended`, `why`, `ranking`). Originality and memorability carry the most weight; a pitch with originality 3 or less is never recommended while another passing pitch scores 4+ on originality.
+- **Callback (G12)**: the human situation that opens the film returns at the payoff with the same person, resolved. Declare it as `pitch.callback { opening, payoff, resolved }`. A waveform, card or logo is not the person.
+- **Headlines (G12)**: each on-screen line is the viewer's voice, a felt moment or a payoff. Feature labels ("Get the why", "Write the better word") fail.
+- **Ladder**: product cards must not be the whole film; the person and the situation carry it (`ladder-cards-only` warning, memorability -1).

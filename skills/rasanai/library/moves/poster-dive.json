@@ -1,0 +1,45 @@
+{
+  "id": "poster-dive",
+  "n": 24,
+  "name": "Poster dive",
+  "family": "world",
+  "source": [
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 34,
+      "end_s": 35,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    }
+  ],
+  "description": "Zoom into the face on a kiosk poster until the artwork fills the frame and becomes the film.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-image-fx.js",
+      "rasan-camera.js"
+    ],
+    "build": "Scale the mockup plate toward a point of interest (origin set on it) while a masked rectangle grows to full frame; same artwork underneath."
+  },
+  "use_when": "Bridge from a real-world mockup to the film image (match cut through an object).",
+  "avoid": "Do not use without a mockup plate with a clear focal point.",
+  "duration_s": {
+    "min": 1,
+    "max": 2
+  },
+  "easing": "power3.inOut",
+  "carriers": [
+    "object",
+    "palette-dither"
+  ],
+  "beat_roles": [
+    "turn",
+    "middle"
+  ],
+  "needs": [
+    "rasan-image-fx.js"
+  ]
+}

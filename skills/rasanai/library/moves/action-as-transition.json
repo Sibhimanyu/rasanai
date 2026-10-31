@@ -1,0 +1,46 @@
+{
+  "id": "action-as-transition",
+  "n": 36,
+  "name": "Action-as-transition",
+  "family": "world",
+  "source": [
+    {
+      "video": "Video-4934",
+      "brand": "PickUs",
+      "start_s": 13,
+      "end_s": 14,
+      "frames": ".context/review-refs/Video-4934/f2/"
+    }
+  ],
+  "description": "An object performs the verb and the verb moves the film (scissors cut the timeline and that is the cut).",
+  "recipe": {
+    "tech": [
+      "three",
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "stage3d/recipes/clay-toy.js",
+      "rasan-motion.js"
+    ],
+    "build": "Model or sprite animation for 0.6 s; at the contact frame cut or reveal the next scene behind the split halves."
+  },
+  "use_when": "Where the product verb can be literal (cut, drop, send, share, tap).",
+  "avoid": "Do not use if the verb is abstract.",
+  "duration_s": {
+    "min": 0.6,
+    "max": 1.2
+  },
+  "easing": "power4.in",
+  "carriers": [
+    "object",
+    "icon-set"
+  ],
+  "beat_roles": [
+    "turn",
+    "middle"
+  ],
+  "needs": [
+    "stage3d/recipes/clay-toy.js"
+  ]
+}

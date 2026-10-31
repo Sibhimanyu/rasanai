@@ -73,7 +73,7 @@ export const GATE = {
   colourful_p90: 35, // R12
   chars_warn: 40, chars_error: 70, // R4
   scale_ratio: 5, giant_h: 20, giant_share: 0.10, peak_h: 35, // R5
-  asl_s: 5, asl_min_dur: 8, comp_rate: 10, // a long shot is fine when the composition keeps changing in it (v9721: ASL 5.3 s, 11 per 10 s) // R17 (4.5 s on the refs' own detector; 5 on this one, see done-W2.md)
+  shot_median_lo: 1.5, shot_median_hi: 2.5, shot_median_err: 3.5, shot_p10_min: 0.5, shot_p90_max: 5, hold_max_s: 5, hold_end_s: 6, asl_s: 5, asl_min_dur: 8, comp_rate: 10, // a long shot is fine when the composition keeps changing in it (v9721: ASL 5.3 s, 11 per 10 s) // R17 (4.5 s on the refs' own detector; 5 on this one, see done-W2.md)
   ink: 0.82, // rendered line box -> glyph ink box (what OCR measures)
   min_line_pct: 0.8, // lines under 0.8% of the frame height are not readable (OCR floor in R1)
   min_opacity: 0.35, min_object_pct: 4, // an object counts as a hero candidate from 4% of the frame height
@@ -336,6 +336,23 @@ const listStills = (spec) => {
 
 const slim = (m) => ({ groundRange: r1(m.groundRange), groundChroma: r2(m.groundChroma), emptyShare: r2(m.emptyShare), soft: r3(m.soft), colourful: r1(m.colourful), sat: r1(m.sat) });
 
+// Composition changes (not only hard cuts): the references carry cuts over (about 1 hard cut per 4 to 8 s) but remake the composition about every 1.5 to 3 s
+// with morphs, in-place word swaps, colour flips and push-ins. A perceptual diff between frames 0.5 s apart (thumbnail and edge map, the same measures
+// lib/pixels.mjs uses for compositions) marks a change; changes closer than minGap seconds are one event, and a hard cut always counts.
+function compositionChanges(feats, { lagS = 0.5, minGap = 1.0, dThr = 0.05, eThr = 0.04 } = {}) {
+  const ma = (a, b) => { let t = 0; for (let i = 0; i < a.length; i++) t += Math.abs(a[i] - b[i]); return t / a.length; };
+  const ev = [];
+  for (let i = 1; i < feats.length; i++) {
+    let j = i; while (j > 0 && feats[i].t - feats[j - 1].t <= lagS + 1e-6) j--; // the sample about lagS earlier
+    if (j === i) j = i - 1;
+    const a = feats[j], b = feats[i];
+    if (!a.thumb || !b.thumb) continue;
+    const d = ma(a.thumb, b.thumb) / 255, de = a.edge && b.edge ? ma(a.edge, b.edge) : 0;
+    if ((d > dThr || de > eThr) && (!ev.length || b.t - ev[ev.length - 1] >= minGap)) ev.push(b.t);
+  }
+  return ev;
+}
+
 // opts: { stills | video, html (dir of boards), project, brandFilm, fps, kind, density, plan, stillness, quiet }
 // -> { ok, verdict, kind, dur, frames[], film{}, limits, findings[], skipped[], could_not_run[] }
 export async function measureFrames(opts = {}) {
@@ -406,6 +423,16 @@ export async function measureFrames(opts = {}) {
     film.hardCuts = cc.cuts.length - 1;
     film.aslS = r2(res.dur / cc.cuts.length);
     film.compositionsPer10s = r1(10 * cc.compositions / res.dur);
+    film.compositionChanges = compositionChanges(feats).length; // morphs, word swaps, colour flips and push-ins as well as cuts
+    // shot-length distribution (R6): a shot runs between two changes of the frame (a hard cut, a morph, a word swap, a colour flip or a push-in to a new
+    // composition); 0.5 s minimum gap so a burst of short shots counts. The favourites: median 1.9 s, p10 0.67 s, p90 4.5 s.
+    { const ev = [...new Set([...cc.cuts, ...compositionChanges(feats, { minGap: 0.5 })].map((t) => +t.toFixed(3)))].sort((a, b) => a - b);
+      const edges = [0, ...ev.filter((t) => t > 0.05), res.dur], lens = [];
+      for (let i = 1; i < edges.length; i++) { const l = edges[i] - edges[i - 1]; if (l > 0.01) lens.push(l); }
+      film.shotLens = lens.map((l) => +l.toFixed(2));
+      film.shotMedianS = r2(median(lens)); film.shotP10S = r2(pct(lens, 10)); film.shotP90S = r2(pct(lens, 90));
+      film.shotsPer10s = r1(10 * lens.length / res.dur);
+      film.longHolds = edges.slice(1).map((e, i) => ({ t0: r1(edges[i]), t1: r1(e) })).filter((h) => h.t1 - h.t0 > GATE.hold_max_s); }
     // a shot has a blurred plane when its p90 soft share reaches the line
     const inShot = (t, s) => t >= s[0] - 1e-6 && t < s[1] - 1e-6;
     film._shots = cc.shots.map((s) => Math.max(...feats.filter((f) => inShot(f.t, s)).map((f) => f.soft))).filter(Number.isFinite);
@@ -518,6 +545,18 @@ export async function measureFrames(opts = {}) {
   // cut rhythm (R17)
   if (res.kind === "video" && dur >= GATE.asl_min_dur && film.aslS > GATE.asl_s && film.compositionsPer10s < GATE.comp_rate && !/^(brand|explainer)/i.test(opts.kind || "")) add("warning", "cut-rhythm", `average hard-cut shot ${film.aslS} s and ${film.compositionsPer10s} composition changes per 10 s (a launch film cuts at ${GATE.asl_s} s or less, or keeps changing composition inside its long shots: ${GATE.comp_rate} per 10 s; ${film.hardCuts} hard cuts in ${r1(dur)} s)`, `cut to a contrasting ground or size at least every 4 s, or make the in-frame transformations clear changes of composition; ${seeCraft}`, { value: film.aslS, limit: GATE.asl_s });
 
+  // shot-length distribution (launch / promo films; replaces the frame-change rate, R6): the three favourite films have a median shot of 1.9 s, p10 0.67 s,
+  // p90 4.5 s; hard cuts are rare and fine (morphs and carry-overs make most of the changes), long shots are UI proof or the end card
+  if (res.kind === "video" && dur >= GATE.asl_min_dur && /^(launch|promo)/i.test(opts.kind || "") && film.shotLens && film.shotLens.length) {
+    const sg = `${film.shotsPer10s} shots per 10 s; ${film.hardCuts} hard cuts in ${r1(dur)} s`, seeLaunch = "references/launch-film.md section 6";
+    if (film.shotMedianS > GATE.shot_median_err) add("error", "shot-length", `median shot ${film.shotMedianS} s (about ${GATE.shot_median_lo} to ${GATE.shot_median_hi} s; ${sg}): the frame is not being remade often enough`, `change the composition about every 2 s: a hard cut is one way (rare is fine); so is a morph of the carrier, an in-place word swap, a colour-world flip or a push-in to a new scale; ${seeLaunch}`, { value: film.shotMedianS, limit: GATE.shot_median_hi });
+    else if (film.shotMedianS > GATE.shot_median_hi || film.shotMedianS < GATE.shot_median_lo) add("warning", "shot-length", `median shot ${film.shotMedianS} s (about ${GATE.shot_median_lo} to ${GATE.shot_median_hi} s; ${sg})`, `the favourites sit at a median of 1.9 s; ${seeLaunch}`, { value: film.shotMedianS, limit: GATE.shot_median_hi });
+    if (film.shotP10S < GATE.shot_p10_min) add("warning", "shot-length-short", `p10 shot ${film.shotP10S} s (at least ${GATE.shot_p10_min} s): too many flicker shots; one burst of 5 to 6 short shots per film is the most the favourites use`, `merge the flicker pairs or hold the shot; ${seeLaunch}`, { value: film.shotP10S, limit: GATE.shot_p10_min });
+    if (film.shotP90S > GATE.shot_p90_max) add("warning", "shot-length-long", `p90 shot ${film.shotP90S} s (at most about ${GATE.shot_p90_max} s)`, `break the long shots up unless they are UI proof (a typed input, a state change) or the end card; ${seeLaunch}`, { value: film.shotP90S, limit: GATE.shot_p90_max });
+    const holds = (film.longHolds || []).filter((h) => h.t0 < dur - GATE.hold_end_s);
+    if (holds.length) add("warning", "static-hold", `${holds.length} static hold(s) over ${GATE.hold_max_s} s with nothing changing: ${holds.slice(0, 4).map((h) => `${h.t0}-${h.t1} s`).join(", ")}`, `give the hold a state change (typed text, a cursor action, a progress tween, a re-sort) or cut it; the end card (last ${GATE.hold_end_s} s) may hold still`, { value: holds.length });
+  }
+
   // boldness: enough big moments (a giant glyph, a frame-filling mass, a colour field) for a film of 15 s or more
   const bd = film.boldness;
   const fl = footageLed(opts);
@@ -594,7 +633,7 @@ function printable(res) {
   const row = (k, v, u = "") => v == null ? "" : `${k} ${v}${u}`;
   out.push("  pixels  " + [row("ground chroma", f.groundChroma), row("ground L* range", f.groundRange), row("empty", Math.round(f.emptyShare * 100), "%"), row("soft p90", f.softP90), row("soft shots", Math.round(f.softShotsShare * 100), "%"), row("colourful p90", f.colourfulP90), row("sat", f.satMedian, "%"), row("flat grounds", f.swatchGrounds)].filter(Boolean).join(" · "));
   if (f.boldness) { const b = f.boldness, pc = (v) => `${Math.round(v * 100)}%`; out.push("  bold    " + [row("big moments", pc(b.bigShare)), row("glyph", pc(b.glyphShare)), row("object", pc(b.objShare)), row("field", pc(b.fieldShare)), b.domShare != null ? row("DOM line", pc(b.domShare)) : "", row("grounds", b.grounds), row("beats", b.beats), b.placed ? row("peak/imp-3 beats big", `${b.placed.covered}/${b.placed.beats.length}`) : "", row("longest without", `${b.gap[0]}-${b.gap[1]}`, " s")].filter(Boolean).join(" · ")); }
-  if (res.kind === "video") out.push("  cuts    " + [row("hard cuts", f.hardCuts), row("ASL", f.aslS, " s"), row("compositions/10 s", f.compositionsPer10s)].filter(Boolean).join(" · "));
+  if (res.kind === "video") out.push("  cuts    " + [row("hard cuts", f.hardCuts), row("ASL", f.aslS, " s"), row("compositions/10 s", f.compositionsPer10s), row("shot median", f.shotMedianS, " s"), row("shot p10/p90", f.shotP10S != null ? f.shotP10S + "/" + f.shotP90S : null, " s")].filter(Boolean).join(" · "));
   if (f.charsMedian != null) out.push("  text    " + [row("competing heroes", f.competingShare == null ? null : Math.round(f.competingShare * 100), "% of frames"), row("chars", f.charsMedian), row("lines", f.linesMedian), row("biggest p90", f.biggestP90, "% H"), row("p90/p10", f.biggestRatio), row("max", f.biggestMax, "% H"), row("frames >= 20% H", Math.round(f.share20 * 100), "%"), row("object p90/p10", f.objectRatio)].filter(Boolean).join(" · "));
   if (res.limits.notes.length) for (const n of res.limits.notes) out.push(`  note    ${n}`);
   for (const x of res.findings) out.push(`  ${x.severity === "error" ? "FAIL" : x.severity === "review" ? "note" : "warn"} ${x.check}: ${x.message}\n       fix: ${x.fix}`);

@@ -1,0 +1,1102 @@
+{
+  "version": 1,
+  "note": "The 41 reference moves from R5 (reference-film breakdown). Each is a per-move file; a beat in the score names its id. Older reference moves live in library.json.",
+  "carrier_kinds": [
+    "dot",
+    "word-line",
+    "icon-set",
+    "palette-dither",
+    "card-field",
+    "ui-plane",
+    "ui-object",
+    "object",
+    "mark"
+  ],
+  "beat_roles": [
+    "open",
+    "turn",
+    "middle",
+    "proof",
+    "close"
+  ],
+  "moves": [
+    {
+      "id": "flank-frame-hold",
+      "n": 1,
+      "name": "Flank frame hold",
+      "family": "type",
+      "file": "flank-frame-hold.json",
+      "use_when": "The very first beat: set an event or situation with one object in the middle.",
+      "carriers": [
+        "object",
+        "word-line",
+        "card-field"
+      ],
+      "beat_roles": [
+        "open"
+      ],
+      "runtime": [
+        "rasan-layout.js",
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 1.2,
+        "max": 2.5
+      },
+      "needs": []
+    },
+    {
+      "id": "blur-bloom-word",
+      "n": 2,
+      "name": "Blur-bloom word",
+      "family": "type",
+      "file": "blur-bloom-word.json",
+      "use_when": "The question or emotional beat that follows a calm scene.",
+      "carriers": [
+        "word-line",
+        "dot",
+        "palette-dither"
+      ],
+      "beat_roles": [
+        "open",
+        "turn"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "rasan-fx.js"
+      ],
+      "duration_s": {
+        "min": 1.2,
+        "max": 2.2
+      },
+      "needs": [
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "in-place-word-swap",
+      "n": 3,
+      "name": "In-place word swap",
+      "family": "type",
+      "file": "in-place-word-swap.json",
+      "use_when": "Any refrain, ladder or changing object; the default way to change a word.",
+      "carriers": [
+        "all"
+      ],
+      "beat_roles": [
+        "open",
+        "turn",
+        "middle",
+        "proof",
+        "close"
+      ],
+      "runtime": [
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 0.3,
+        "max": 0.5
+      },
+      "needs": []
+    },
+    {
+      "id": "word-per-shot-sentence",
+      "n": 4,
+      "name": "Word-per-shot sentence",
+      "family": "type",
+      "file": "word-per-shot-sentence.json",
+      "use_when": "Emotional lines over footage or a plate.",
+      "carriers": [
+        "word-line",
+        "object",
+        "world-image"
+      ],
+      "beat_roles": [
+        "open",
+        "turn",
+        "close"
+      ],
+      "runtime": [
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 1.5,
+        "max": 3
+      },
+      "needs": []
+    },
+    {
+      "id": "inline-glyph-slot",
+      "n": 5,
+      "name": "Inline glyph slot",
+      "family": "type",
+      "file": "inline-glyph-slot.json",
+      "use_when": "Make the product or an object a verb in the line.",
+      "carriers": [
+        "icon-set",
+        "dot",
+        "object",
+        "mark"
+      ],
+      "beat_roles": [
+        "turn",
+        "middle",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "rasan-layout.js"
+      ],
+      "duration_s": {
+        "min": 0.6,
+        "max": 1.4
+      },
+      "needs": []
+    },
+    {
+      "id": "full-frame-type-crop",
+      "n": 6,
+      "name": "Full-frame type crop",
+      "family": "type",
+      "file": "full-frame-type-crop.json",
+      "use_when": "The pain or scale beat; cut away right after.",
+      "carriers": [
+        "word-line"
+      ],
+      "beat_roles": [
+        "open",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "rasan-camera.js"
+      ],
+      "duration_s": {
+        "min": 0.8,
+        "max": 1.5
+      },
+      "needs": []
+    },
+    {
+      "id": "anaphora-ladder",
+      "n": 7,
+      "name": "Anaphora ladder",
+      "family": "type",
+      "file": "anaphora-ladder.json",
+      "use_when": "The middle section; the strongest story spine.",
+      "carriers": [
+        "word-line",
+        "icon-set",
+        "palette-dither"
+      ],
+      "beat_roles": [
+        "middle"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "rasan-image-fx.js"
+      ],
+      "duration_s": {
+        "min": 3,
+        "max": 8
+      },
+      "needs": [
+        "rasan-image-fx.js"
+      ]
+    },
+    {
+      "id": "drum-list",
+      "n": 8,
+      "name": "Drum list",
+      "family": "type",
+      "file": "drum-list.json",
+      "use_when": "Steps, a flow (Preview, Select, Download, Enjoy) or capabilities.",
+      "carriers": [
+        "word-line",
+        "ui-plane"
+      ],
+      "beat_roles": [
+        "middle",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "rasan-ui.js"
+      ],
+      "duration_s": {
+        "min": 2,
+        "max": 4
+      },
+      "needs": []
+    },
+    {
+      "id": "glyph-burst",
+      "n": 9,
+      "name": "Glyph burst",
+      "family": "type",
+      "file": "glyph-burst.json",
+      "use_when": "Code, feature or capability beats that need technical density.",
+      "carriers": [
+        "word-line",
+        "icon-set"
+      ],
+      "beat_roles": [
+        "middle",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 0.8,
+        "max": 1.5
+      },
+      "needs": []
+    },
+    {
+      "id": "scramble-to-word",
+      "n": 10,
+      "name": "Scramble to word",
+      "family": "type",
+      "file": "scramble-to-word.json",
+      "use_when": "Sharp turns (\"but honestly\").",
+      "carriers": [
+        "word-line"
+      ],
+      "beat_roles": [
+        "turn"
+      ],
+      "runtime": [
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 0.4,
+        "max": 0.9
+      },
+      "needs": []
+    },
+    {
+      "id": "dot-matrix-type",
+      "n": 11,
+      "name": "Dot-matrix type",
+      "family": "type",
+      "file": "dot-matrix-type.json",
+      "use_when": "Planning, schedule or sprint ideas; any \"system\" language.",
+      "carriers": [
+        "palette-dither",
+        "dot",
+        "word-line"
+      ],
+      "beat_roles": [
+        "middle",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-fx.js",
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 2,
+        "max": 6
+      },
+      "needs": [
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "colour-sweep-word",
+      "n": 12,
+      "name": "Colour-sweep word",
+      "family": "type",
+      "file": "colour-sweep-word.json",
+      "use_when": "The brand or claim word at the pay-off.",
+      "carriers": [
+        "word-line",
+        "mark"
+      ],
+      "beat_roles": [
+        "turn",
+        "close"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "rasan-fx.js"
+      ],
+      "duration_s": {
+        "min": 1,
+        "max": 2
+      },
+      "needs": [
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "icon-as-missing-letter",
+      "n": 13,
+      "name": "Icon as missing letter",
+      "family": "type",
+      "file": "icon-as-missing-letter.json",
+      "use_when": "Naming the product category.",
+      "carriers": [
+        "icon-set",
+        "object"
+      ],
+      "beat_roles": [
+        "turn",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "stage3d/recipes/icon-portal-through.js"
+      ],
+      "duration_s": {
+        "min": 1.5,
+        "max": 2.5
+      },
+      "needs": [
+        "stage3d/recipes/icon-portal-through.js"
+      ]
+    },
+    {
+      "id": "slot-line-wipe-lockup",
+      "n": 14,
+      "name": "Slot-line wipe lockup",
+      "family": "type",
+      "file": "slot-line-wipe-lockup.json",
+      "use_when": "Wordmark landings.",
+      "carriers": [
+        "mark",
+        "word-line"
+      ],
+      "beat_roles": [
+        "close"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "rasan-layout.js"
+      ],
+      "duration_s": {
+        "min": 0.5,
+        "max": 1
+      },
+      "needs": []
+    },
+    {
+      "id": "dot-field-resolve-to-photo",
+      "n": 15,
+      "name": "Dot-field resolve to photo",
+      "family": "image",
+      "file": "dot-field-resolve-to-photo.json",
+      "use_when": "First reveal of the generated hero image or of the product's output.",
+      "carriers": [
+        "dot",
+        "palette-dither"
+      ],
+      "beat_roles": [
+        "open",
+        "turn",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-image-fx.js",
+        "rasan-fx.js"
+      ],
+      "duration_s": {
+        "min": 2,
+        "max": 3.5
+      },
+      "needs": [
+        "rasan-image-fx.js",
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "mosaic-pixel-resolve",
+      "n": 16,
+      "name": "Mosaic pixel resolve",
+      "family": "image",
+      "file": "mosaic-pixel-resolve.json",
+      "use_when": "Transitions between a collage or idea and its realised image.",
+      "carriers": [
+        "palette-dither",
+        "icon-set",
+        "card-field"
+      ],
+      "beat_roles": [
+        "turn",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-image-fx.js"
+      ],
+      "duration_s": {
+        "min": 0.6,
+        "max": 2
+      },
+      "needs": [
+        "rasan-image-fx.js"
+      ]
+    },
+    {
+      "id": "pixel-square-wipe",
+      "n": 17,
+      "name": "Pixel-square wipe",
+      "family": "world",
+      "file": "pixel-square-wipe.json",
+      "use_when": "A mode change (light to dark) without a cut.",
+      "carriers": [
+        "palette-dither",
+        "dot",
+        "all"
+      ],
+      "beat_roles": [
+        "turn",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-fx.js"
+      ],
+      "duration_s": {
+        "min": 0.5,
+        "max": 1
+      },
+      "needs": [
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "torn-edge-wipe",
+      "n": 18,
+      "name": "Torn-edge wipe",
+      "family": "world",
+      "file": "torn-edge-wipe.json",
+      "use_when": "From words to image; from a manifesto poster to full-bleed art.",
+      "carriers": [
+        "palette-dither",
+        "word-line",
+        "object"
+      ],
+      "beat_roles": [
+        "open",
+        "turn"
+      ],
+      "runtime": [
+        "rasan-fx.js",
+        "rasan-image-fx.js"
+      ],
+      "duration_s": {
+        "min": 0.5,
+        "max": 1
+      },
+      "needs": [
+        "rasan-fx.js",
+        "rasan-image-fx.js"
+      ]
+    },
+    {
+      "id": "floating-card-field",
+      "n": 19,
+      "name": "Floating card field",
+      "family": "image",
+      "file": "floating-card-field.json",
+      "use_when": "Crowds of choice, outputs, a sea of content.",
+      "carriers": [
+        "card-field",
+        "dot"
+      ],
+      "beat_roles": [
+        "open",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-camera.js",
+        "rasan-layout.js"
+      ],
+      "duration_s": {
+        "min": 2,
+        "max": 4
+      },
+      "needs": []
+    },
+    {
+      "id": "cards-burst-from-dot",
+      "n": 20,
+      "name": "Cards burst from a dot",
+      "family": "image",
+      "file": "cards-burst-from-dot.json",
+      "use_when": "Show the range of outputs.",
+      "carriers": [
+        "dot",
+        "card-field"
+      ],
+      "beat_roles": [
+        "middle",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-camera.js"
+      ],
+      "duration_s": {
+        "min": 1.2,
+        "max": 2.2
+      },
+      "needs": []
+    },
+    {
+      "id": "duotone-stock-cluster",
+      "n": 21,
+      "name": "Duotone stock cluster",
+      "family": "image",
+      "file": "duotone-stock-cluster.json",
+      "use_when": "A generic teams or people beat that must sit inside the brand colour.",
+      "carriers": [
+        "card-field",
+        "palette-dither"
+      ],
+      "beat_roles": [
+        "open",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-image-fx.js"
+      ],
+      "duration_s": {
+        "min": 1,
+        "max": 2
+      },
+      "light": true,
+      "bundle_into": 19,
+      "needs": [
+        "rasan-image-fx.js"
+      ]
+    },
+    {
+      "id": "dither-seam-on-art",
+      "n": 22,
+      "name": "Dither seam on generated art",
+      "family": "image",
+      "file": "dither-seam-on-art.json",
+      "use_when": "Brand signature for the imagery across all plates.",
+      "carriers": [
+        "palette-dither"
+      ],
+      "beat_roles": [
+        "open",
+        "middle",
+        "proof",
+        "close"
+      ],
+      "runtime": [
+        "rasan-image-fx.js",
+        "rasan-fx.js"
+      ],
+      "duration_s": {
+        "min": 0.1,
+        "max": 53
+      },
+      "needs": [
+        "rasan-image-fx.js",
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "spectral-silhouette",
+      "n": 23,
+      "name": "Spectral silhouette",
+      "family": "image",
+      "file": "spectral-silhouette.json",
+      "use_when": "A heroic action beat.",
+      "carriers": [
+        "palette-dither",
+        "object"
+      ],
+      "beat_roles": [
+        "turn",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-image-fx.js"
+      ],
+      "duration_s": {
+        "min": 1.5,
+        "max": 3
+      },
+      "needs": [
+        "rasan-image-fx.js"
+      ]
+    },
+    {
+      "id": "poster-dive",
+      "n": 24,
+      "name": "Poster dive",
+      "family": "world",
+      "file": "poster-dive.json",
+      "use_when": "Bridge from a real-world mockup to the film image (match cut through an object).",
+      "carriers": [
+        "object",
+        "palette-dither"
+      ],
+      "beat_roles": [
+        "turn",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-image-fx.js",
+        "rasan-camera.js"
+      ],
+      "duration_s": {
+        "min": 1,
+        "max": 2
+      },
+      "needs": [
+        "rasan-image-fx.js"
+      ]
+    },
+    {
+      "id": "tilted-ui-dolly",
+      "n": 25,
+      "name": "Tilted UI dolly",
+      "family": "ui",
+      "file": "tilted-ui-dolly.json",
+      "use_when": "All product-proof beats.",
+      "carriers": [
+        "ui-plane",
+        "dot",
+        "object"
+      ],
+      "beat_roles": [
+        "proof"
+      ],
+      "runtime": [
+        "rasan-ui.js",
+        "rasan-camera.js"
+      ],
+      "duration_s": {
+        "min": 3,
+        "max": 8
+      },
+      "needs": []
+    },
+    {
+      "id": "typed-prompt-send",
+      "n": 26,
+      "name": "Typed prompt plus send",
+      "family": "ui",
+      "file": "typed-prompt-send.json",
+      "use_when": "The \"how it works\" core.",
+      "carriers": [
+        "ui-plane",
+        "dot",
+        "word-line"
+      ],
+      "beat_roles": [
+        "proof"
+      ],
+      "runtime": [
+        "rasan-ui.js",
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 3,
+        "max": 6
+      },
+      "needs": []
+    },
+    {
+      "id": "cursor-identity-swap",
+      "n": 27,
+      "name": "Cursor identity swap",
+      "family": "ui",
+      "file": "cursor-identity-swap.json",
+      "use_when": "Personality and collaboration.",
+      "carriers": [
+        "ui-plane",
+        "dot",
+        "mark"
+      ],
+      "beat_roles": [
+        "open",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-ui.js"
+      ],
+      "duration_s": {
+        "min": 0.4,
+        "max": 1
+      },
+      "needs": []
+    },
+    {
+      "id": "glow-on-control",
+      "n": 28,
+      "name": "Glow on control",
+      "family": "ui",
+      "file": "glow-on-control.json",
+      "use_when": "Focus attention on the one control that matters.",
+      "carriers": [
+        "ui-plane"
+      ],
+      "beat_roles": [
+        "proof"
+      ],
+      "runtime": [
+        "rasan-ui.js",
+        "rasan-fx.js"
+      ],
+      "duration_s": {
+        "min": 0.6,
+        "max": 1.5
+      },
+      "light": true,
+      "bundle_into": 25,
+      "needs": [
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "counter-chip-ring",
+      "n": 29,
+      "name": "Counter chip with ring",
+      "family": "ui",
+      "file": "counter-chip-ring.json",
+      "use_when": "Social proof, points, votes, the one countable fact.",
+      "carriers": [
+        "ui-plane",
+        "dot",
+        "icon-set"
+      ],
+      "beat_roles": [
+        "proof"
+      ],
+      "runtime": [
+        "rasan-ui.js"
+      ],
+      "duration_s": {
+        "min": 1,
+        "max": 2.5
+      },
+      "needs": []
+    },
+    {
+      "id": "segmented-control-over-world",
+      "n": 30,
+      "name": "Segmented control over world",
+      "family": "ui",
+      "file": "segmented-control-over-world.json",
+      "use_when": "A \"magic\" moment the product delivers.",
+      "carriers": [
+        "ui-plane",
+        "palette-dither",
+        "object"
+      ],
+      "beat_roles": [
+        "proof",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-image-fx.js",
+        "rasan-ui.js",
+        "rasan-camera.js"
+      ],
+      "duration_s": {
+        "min": 2,
+        "max": 4
+      },
+      "needs": [
+        "rasan-image-fx.js"
+      ]
+    },
+    {
+      "id": "ribbon-of-frames",
+      "n": 31,
+      "name": "Ribbon of frames",
+      "family": "ui",
+      "file": "ribbon-of-frames.json",
+      "use_when": "Thousands of items, timelines, filmstrips.",
+      "carriers": [
+        "card-field",
+        "icon-set"
+      ],
+      "beat_roles": [
+        "open",
+        "middle"
+      ],
+      "runtime": [
+        "rasan-camera.js"
+      ],
+      "duration_s": {
+        "min": 1.5,
+        "max": 3
+      },
+      "needs": [
+        "rasan-camera.js"
+      ]
+    },
+    {
+      "id": "column-ladder",
+      "n": 32,
+      "name": "Column ladder",
+      "family": "ui",
+      "file": "column-ladder.json",
+      "use_when": "Pricing, feature comparison, before/after.",
+      "carriers": [
+        "ui-plane",
+        "card-field"
+      ],
+      "beat_roles": [
+        "proof"
+      ],
+      "runtime": [
+        "rasan-ui.js",
+        "rasan-layout.js"
+      ],
+      "duration_s": {
+        "min": 3,
+        "max": 5
+      },
+      "needs": []
+    },
+    {
+      "id": "lone-dot-carrier-iris",
+      "n": 33,
+      "name": "Lone dot carrier plus iris",
+      "family": "world",
+      "file": "lone-dot-carrier-iris.json",
+      "use_when": "Any film that must cross worlds without a cut.",
+      "carriers": [
+        "dot"
+      ],
+      "beat_roles": [
+        "open",
+        "turn",
+        "middle",
+        "close"
+      ],
+      "runtime": [
+        "rasan-motion.js",
+        "rasan-layout.js"
+      ],
+      "duration_s": {
+        "min": 0.8,
+        "max": 2
+      },
+      "needs": []
+    },
+    {
+      "id": "colour-world-flip",
+      "n": 34,
+      "name": "Colour-world flip",
+      "family": "world",
+      "file": "colour-world-flip.json",
+      "use_when": "The pivot at 25-35 % of the film.",
+      "carriers": [
+        "all"
+      ],
+      "beat_roles": [
+        "turn"
+      ],
+      "runtime": [
+        "rasan-fx.js",
+        "rasan-layout.js"
+      ],
+      "duration_s": {
+        "min": 0.1,
+        "max": 0.6
+      },
+      "needs": [
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "inline-orb-expand",
+      "n": 35,
+      "name": "Inline orb expand",
+      "family": "world",
+      "file": "inline-orb-expand.json",
+      "use_when": "Brand reveal.",
+      "carriers": [
+        "dot",
+        "object",
+        "mark"
+      ],
+      "beat_roles": [
+        "turn",
+        "close"
+      ],
+      "runtime": [
+        "rasan-fx.js",
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 1,
+        "max": 2
+      },
+      "needs": [
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "action-as-transition",
+      "n": 36,
+      "name": "Action-as-transition",
+      "family": "world",
+      "file": "action-as-transition.json",
+      "use_when": "Where the product verb can be literal (cut, drop, send, share, tap).",
+      "carriers": [
+        "object",
+        "icon-set"
+      ],
+      "beat_roles": [
+        "turn",
+        "middle"
+      ],
+      "runtime": [
+        "stage3d/recipes/clay-toy.js",
+        "rasan-motion.js"
+      ],
+      "duration_s": {
+        "min": 0.6,
+        "max": 1.2
+      },
+      "needs": [
+        "stage3d/recipes/clay-toy.js"
+      ]
+    },
+    {
+      "id": "voxel-disintegrate-reform",
+      "n": 37,
+      "name": "Voxel disintegrate and re-form",
+      "family": "world",
+      "file": "voxel-disintegrate-reform.json",
+      "use_when": "Swapping metaphors (telling to showing); pixel or retro brand styles.",
+      "carriers": [
+        "icon-set",
+        "object"
+      ],
+      "beat_roles": [
+        "turn",
+        "middle"
+      ],
+      "runtime": [
+        "stage3d/recipes/voxel-diorama.js",
+        "rasan-fx.js"
+      ],
+      "duration_s": {
+        "min": 1.5,
+        "max": 2.5
+      },
+      "needs": [
+        "stage3d/recipes/voxel-diorama.js",
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "specimen-triptych",
+      "n": 38,
+      "name": "Specimen triptych",
+      "family": "ui",
+      "file": "specimen-triptych.json",
+      "use_when": "Name a product's three pillars.",
+      "carriers": [
+        "icon-set",
+        "word-line"
+      ],
+      "beat_roles": [
+        "middle",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-ui.js",
+        "rasan-type.js"
+      ],
+      "duration_s": {
+        "min": 4,
+        "max": 5
+      },
+      "needs": []
+    },
+    {
+      "id": "mockup-parade",
+      "n": 39,
+      "name": "Mockup parade",
+      "family": "image",
+      "file": "mockup-parade.json",
+      "use_when": "Brand and design products; \"it works everywhere\".",
+      "carriers": [
+        "object",
+        "palette-dither"
+      ],
+      "beat_roles": [
+        "middle",
+        "proof"
+      ],
+      "runtime": [
+        "rasan-image-fx.js",
+        "rasan-camera.js"
+      ],
+      "duration_s": {
+        "min": 10,
+        "max": 17
+      },
+      "needs": [
+        "rasan-image-fx.js"
+      ]
+    },
+    {
+      "id": "hold-and-sign-off",
+      "n": 40,
+      "name": "Hold and sign-off",
+      "family": "type",
+      "file": "hold-and-sign-off.json",
+      "use_when": "Every film's end card.",
+      "carriers": [
+        "mark",
+        "word-line",
+        "all"
+      ],
+      "beat_roles": [
+        "close"
+      ],
+      "runtime": [
+        "rasan-type.js",
+        "rasan-fx.js"
+      ],
+      "duration_s": {
+        "min": 3,
+        "max": 5
+      },
+      "needs": [
+        "rasan-fx.js"
+      ]
+    },
+    {
+      "id": "ui-object-state-morph",
+      "n": 41,
+      "name": "UI object morphs through states",
+      "family": "ui",
+      "file": "ui-object-state-morph.json",
+      "use_when": "The product has one object that stands for it (an inbox card, a now-playing pill, an app-icon stack, a prompt bar): carry it through the whole film instead of cutting between screens. Declare it as the concept's carrier with kind ui-object.",
+      "carriers": [
+        "ui-object",
+        "ui-plane",
+        "icon-set"
+      ],
+      "beat_roles": [
+        "open",
+        "middle",
+        "proof",
+        "close"
+      ],
+      "runtime": [
+        "rasan-ui.js",
+        "rasan-motion.js"
+      ],
+      "duration_s": {
+        "min": 0.6,
+        "max": 1.6
+      },
+      "needs": []
+    }
+  ]
+}

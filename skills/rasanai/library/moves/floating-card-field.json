@@ -1,0 +1,58 @@
+{
+  "id": "floating-card-field",
+  "n": 19,
+  "name": "Floating card field",
+  "family": "image",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 3.5,
+      "end_s": 6,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 16,
+      "end_s": 18,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-34143",
+      "brand": "Google Gemini",
+      "start_s": 21,
+      "end_s": 22,
+      "frames": ".context/review-refs/Video-34143/f2/"
+    }
+  ],
+  "description": "Rounded cards at three blur depths drifting, with a caption in the middle; at the end they fly outward past camera.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap",
+      "css3d"
+    ],
+    "runtime": [
+      "rasan-camera.js",
+      "rasan-layout.js"
+    ],
+    "build": "8-12 absolutely positioned cards, filter:blur(0/4/10), scale by depth, slow translate loops; at the end all cards fly outward."
+  },
+  "use_when": "Crowds of choice, outputs, a sea of content.",
+  "avoid": "Do not add more than 12 cards; keep the caption fixed.",
+  "duration_s": {
+    "min": 2,
+    "max": 4
+  },
+  "easing": "sine.inOut",
+  "carriers": [
+    "card-field",
+    "dot"
+  ],
+  "beat_roles": [
+    "open",
+    "middle"
+  ],
+  "needs": []
+}

@@ -1,0 +1,47 @@
+{
+  "id": "blur-bloom-word",
+  "n": 2,
+  "name": "Blur-bloom word",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 1.5,
+      "end_s": 3.5,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    }
+  ],
+  "description": "A word resolves out of a blurred colour glow; the accent colour appears only on this word.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap",
+      "css"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "rasan-fx.js"
+    ],
+    "build": "Radial-gradient div filter:blur(60px) scale 1.4 to 1; text filter:blur(14px) to 0 with letter-spacing tightening; accent colour only on this word."
+  },
+  "use_when": "The question or emotional beat that follows a calm scene.",
+  "avoid": "Do not bloom more than one word per world; do not use on body copy.",
+  "duration_s": {
+    "min": 1.2,
+    "max": 2.2
+  },
+  "easing": "power3.out",
+  "carriers": [
+    "word-line",
+    "dot",
+    "palette-dither"
+  ],
+  "beat_roles": [
+    "open",
+    "turn"
+  ],
+  "needs": [
+    "rasan-fx.js"
+  ]
+}

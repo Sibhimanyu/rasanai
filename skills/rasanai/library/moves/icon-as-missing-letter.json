@@ -1,0 +1,45 @@
+{
+  "id": "icon-as-missing-letter",
+  "n": 13,
+  "name": "Icon as missing letter",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-4934",
+      "brand": "PickUs",
+      "start_s": 14.5,
+      "end_s": 16.5,
+      "frames": ".context/review-refs/Video-4934/f2/"
+    }
+  ],
+  "description": "Letters \"E _ D _ T\" with icons filling the gaps, then the letters orbit and settle into EDIT.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "stage3d/recipes/icon-portal-through.js"
+    ],
+    "build": "Fixed letter slots; icon swap per micro-beat with a background colour change; then rotate each letter along a circle path to its final position."
+  },
+  "use_when": "Naming the product category.",
+  "avoid": "Do not use for words over 6 letters.",
+  "duration_s": {
+    "min": 1.5,
+    "max": 2.5
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "icon-set",
+    "object"
+  ],
+  "beat_roles": [
+    "turn",
+    "proof"
+  ],
+  "needs": [
+    "stage3d/recipes/icon-portal-through.js"
+  ]
+}

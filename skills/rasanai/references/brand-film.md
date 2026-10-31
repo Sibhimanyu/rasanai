@@ -7,7 +7,7 @@ Applies to every launch, promo and brand film for a named brand (route `product-
 Runs during the Brief, in parallel with the research desk (crew phase `brand-film`), into `$RUN/brand-film/`. The Director runs `scripts/brandfilm.mjs`:
 
 ```bash
-node $SKILL_DIR/scripts/brandfilm.mjs find   --brand "<brand>" --product "<product>" --out "$RUN/brand-film/find"
+node $SKILL_DIR/scripts/brandfilm.mjs find   --brand "<brand>" --url "<site>" --product "<product>" --out "$RUN/brand-film/find"
 node $SKILL_DIR/scripts/brandfilm.mjs fetch  --url <official film url> --out "$RUN/brand-film/1"     # or --file <the user's attached video>
 node $SKILL_DIR/scripts/brandfilm.mjs frames --in "$RUN/brand-film/1/<video>" --out "$RUN/brand-film/1"
 node $SKILL_DIR/scripts/brandfilm.mjs measure --in "$RUN/brand-film/1/<video>" --out "$RUN/brand-film/grammar.json"

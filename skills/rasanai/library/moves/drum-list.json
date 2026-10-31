@@ -1,0 +1,50 @@
+{
+  "id": "drum-list",
+  "n": 8,
+  "name": "Drum list",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 13,
+      "end_s": 15,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-4679",
+      "brand": "Minase",
+      "start_s": 30,
+      "end_s": 33,
+      "frames": ".context/review-refs/Video-4679/f2/"
+    }
+  ],
+  "description": "A vertical list with an arrow at the centre; the active line is bold and coloured, the others fade by distance.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js",
+      "rasan-ui.js"
+    ],
+    "build": "List in a mask, translateY one row per beat, per-row opacity and blur from distance to centre, arrow fixed at left."
+  },
+  "use_when": "Steps, a flow (Preview, Select, Download, Enjoy) or capabilities.",
+  "avoid": "More than 6 rows; do not use for a single idea.",
+  "duration_s": {
+    "min": 2,
+    "max": 4
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "word-line",
+    "ui-plane"
+  ],
+  "beat_roles": [
+    "middle",
+    "proof"
+  ],
+  "needs": []
+}

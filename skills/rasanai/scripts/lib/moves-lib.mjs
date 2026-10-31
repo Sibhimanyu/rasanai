@@ -92,7 +92,7 @@ export function contentWords(text) {
 }
 export const isLabelOnly = (text) => contentWords(text).length < 3;
 
-// conceit words that cannot carry a product film (a local copy of story.mjs CONCEIT_RE: story.mjs is a CLI and is not importable)
+// conceit words (kept for callers; moves.mjs no longer refuses them: metaphor and invented worlds are allowed, the product truth must still be on screen)
 export const CONCEIT_RE = /\b(museums?|galler(?:y|ies)|exhibit(?:s|ion|ions)?|plinths?|under glass|dioramas?|parables?|fables?|allegor\w*|cover version|invented world|a world where|time capsule|archaeolog\w*|courtroom|trial of|funeral|obituary|eulogy|haunted|safari|odyssey|kingdom|ancient ruins?|natural history)\b/i;
 
 const arr = (v) => (Array.isArray(v) ? v : []);
@@ -240,11 +240,6 @@ export function validateMoves(obj, opts = {}) {
     if (!str(c.scale)) E(`${at}: missing scale (one of ${SCALES.join(", ")})`);
     else if (!SCALES.includes(str(c.scale))) E(`${at}: scale "${str(c.scale)}" is not one of ${SCALES.join(", ")}`);
     if (c.beat != null && N && !(Number(c.beat) >= 1 && Number(c.beat) <= N)) E(`${at}: beat ${c.beat} is not a beat of this script (1-${N})`);
-    if (pf) {
-      const t = [c.title, c.origin, c.move, c.frame_a, c.frame_b, c.bridge, c.says].map(str).join(" . ");
-      const m = t.match(CONCEIT_RE);
-      if (m) E(`${at}: conceit word "${m[0]}" (a product film is led by the real product: no museums, allegories, invented worlds)`);
-    }
   });
   // the shows: every beat whose lines carry a show row needs at least one card (a card's beat, or a seam that touches the beat)
   if (N) {

@@ -1,0 +1,117 @@
+{
+  "format": "style-world@1",
+  "id": "dark-keynote",
+  "number": 30,
+  "name": "Dark keynote / product-glow UI (today's default)",
+  "look": "near-black stage, hairline grid, one accent, glass panels.",
+  "fits": {
+    "products": [
+      "SaaS",
+      "dev tools with UI proof"
+    ],
+    "tones": [
+      "crisp",
+      "confident",
+      "modern"
+    ],
+    "notes": "SaaS, dev tools. It is the current default and why films look the same, so use only when the brief calls for proof of UI, and combine with one other style"
+  },
+  "avoid": {
+    "products": [
+      "being the only look of the film (it is the default that makes films alike)"
+    ],
+    "tones": [
+      "quirky"
+    ]
+  },
+  "when_not": [
+    "Avoid for being the only look of the film (it is the default that makes films alike)."
+  ],
+  "type": {
+    "guidance": "Inter / Geist",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "Inter / Geist; dark + one accent.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand accent is the one glow; near-black stage",
+    "type_role": "Inter / Geist class or the brand face",
+    "world_changes": "snap-grid, UI zoom with cursor, glass panels. Pair with one other style world",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "snap-grid",
+      "UI zoom with cursor (Screen Studio style)",
+      "staggered card entrances",
+      "gradient glows"
+    ],
+    "grammars": [
+      "glow-panels"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.04
+      },
+      "role": "remove gradient banding"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 0,
+      "max": 1
+    },
+    "prompt_template": "abstract dark background plate with one {accent} glow, no text",
+    "animate_with": [],
+    "r1_note": "avoid or backgrounds only.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "vo-kinetic",
+    "alt_modes": [
+      "sfx-led"
+    ],
+    "palette": [
+      "minimal electronic",
+      "soft clicks"
+    ]
+  },
+  "build": {
+    "engine": "B",
+    "engine_meaning": "buildable today",
+    "recipe": "`styles/dark-keynote.md`, `aurora-glass.md`, `glass-product.md`, `grammars/glow-panels`, `motion/ui-motion/*`.",
+    "refs": [
+      "styles/dark-keynote.md",
+      "aurora-glass.md",
+      "glass-product.md",
+      "grammars/glow-panels",
+      "motion/ui-motion/*"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Linear / Vercel / Stripe brand systems (`systems/studios/linear-vercel-stripe-brand-systems.md`); ,",
+      "url": "https://linear.app/",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

@@ -1,0 +1,145 @@
+{
+  "id": "collage",
+  "name": "Collage",
+  "style_world": [
+    "sticker",
+    "collage",
+    "maximalist",
+    "scrapbook",
+    "zine",
+    "cut-out",
+    "punk",
+    "riso",
+    "mixed media"
+  ],
+  "concept_tags": [
+    "sticker",
+    "collage",
+    "scrapbook",
+    "zine",
+    "youth",
+    "loud",
+    "culture",
+    "community",
+    "creative",
+    "remix",
+    "maximalist"
+  ],
+  "source": "A maximalist pile: die-cut stickers with a white border and a shadow slapped on at angles, torn paper, tape, halftone and hand lettering, overlapping on a scrapbook layout and wobbling on twos. Described from the atlas sticker and collage entries; no art is carried.",
+  "motion_language": "character",
+  "kit": [
+    "runtime/medium-sticker.js",
+    "runtime/rasan-type-only.js",
+    "runtime/rasan-shape.js"
+  ],
+  "frame_device": {
+    "what": "A paper, cardboard or grid-paper ground that fills up with overlapping stickers, scraps and tape; the pile grows through the film and the sticker slap is the film's heartbeat.",
+    "moves": "One new sticker slaps on every beat from an edge with a rotation, a shadow that tightens as it sticks; the pile boils on twos; the camera pans over the pile and punches into one sticker for each idea."
+  },
+  "ground_motion": "The whole pile wobbles +-1 degree on 8 fps held frames and the paper drifts in tone; the camera creeps 2 percent across the pile so it is never still.",
+  "type": {
+    "classes": "A heavy display face for sticker words, hand-cut or marker lettering for labels, a small mono for tags; text sits in stickers and on tape strips.",
+    "behaviour": "Words are stickers that slap on and stay; a changing word is a new sticker on the same spot; readable at rest, never hidden under a new sticker for more than 0.4 s."
+  },
+  "image": {
+    "treatment": "Cut-out Codex or photo subjects with a white die-cut border and a soft shadow, graded to one palette; halftone and torn-paper scraps as fillers; the product UI is a sticker-framed screen.",
+    "behaviour": "Stickers arrive with scale, spin and a landing bounce; the pile is re-ordered by lifting stickers; images are reused 3 or more times at different scales."
+  },
+  "transitions": [
+    "sticker slap covers the frame, the next scene is under it",
+    "peel: the top layer curls away to the next layer",
+    "scrapbook camera punch into one sticker",
+    "tape strip wipe",
+    "halftone dissolve between piles"
+  ],
+  "techniques": [
+    {
+      "id": "sticker-slap",
+      "name": "Sticker slap",
+      "what": "A die-cut sticker arrives oversize and spinning, lands, bounces and sticks.",
+      "route": "RasanSticker.slap(tl, s, {at, from: 'top', duration: 0.38}); the shadow tightens on the landing frame."
+    },
+    {
+      "id": "scrapbook-pile",
+      "name": "Scrapbook pile",
+      "what": "A seeded scatter of stickers, scraps and tape fills the frame with deliberate overlaps.",
+      "route": "RasanSticker.scrapbook(stage, items, {seed, area, tape: 3}) then slapAll(tl, items, {at, every: 0.22})."
+    },
+    {
+      "id": "pile-boil",
+      "name": "Pile boil",
+      "what": "The whole pile trembles by a hair on held frames.",
+      "route": "RasanSticker.boil(tl, items, {at, duration, fps: 8, amp: 1.2})."
+    },
+    {
+      "id": "sticker-word-swap",
+      "name": "Sticker word swap",
+      "what": "A new sticker slaps onto the old word's spot to change it.",
+      "route": "slap a text sticker over the previous one at the same x, y with from: 'none' (scale 1.6 to 1, spin 12)."
+    },
+    {
+      "id": "camera-punch",
+      "name": "Camera punch",
+      "what": "The camera snaps into one sticker for the beat's idea, then pulls back to the pile.",
+      "route": "Scale and translate the pile container to one item (2.2x), 0.5 s power3.inOut, hold, back out."
+    },
+    {
+      "id": "tape-and-scrap",
+      "name": "Tape and scrap",
+      "what": "Tape strips and torn paper land under and over stickers to build depth.",
+      "route": "RasanSticker.tape / scrap placed at item corners; slide in 0.2 s with a 2 degree settle."
+    },
+    {
+      "id": "halftone-grade",
+      "name": "Halftone grade",
+      "what": "Photos run through one halftone or gradient map to sit in the same pile.",
+      "route": "art.mjs treat --op halftone or gradient-map on every photo; riso offset by a 3 px misregistration on the overlay."
+    },
+    {
+      "id": "peel-away",
+      "name": "Peel away",
+      "what": "The top layer peels off to the next scene.",
+      "route": "Top layer clip-path corner curl (polygon animating) with a gradient shadow strip, 0.5 s power2.in; next layer beneath."
+    },
+    {
+      "id": "word-choreo",
+      "name": "Word choreography",
+      "what": "Each word of a line enters from its own place and settles into the line with a lift; the key word last with a little more overshoot.",
+      "route": "RasanShape.split(el, {by: 'words'}) on label text; each word slaps in as its own small sticker from its own angle (rotation +-14, scale 1.4 to 1), 0.35 s, stagger 0.08 s, key word last."
+    }
+  ],
+  "signature": "The last sticker is the product's name slapped square in the middle of the finished pile, and the pile freezes mid-wobble.",
+  "density": {
+    "change_every_s": 0.5,
+    "note": "A new sticker or camera punch every 0.4 to 0.8 s; layers at the peak: 8 to 14 (ground, scraps, tape, 4 to 8 stickers, label, product plate)."
+  },
+  "palette": {
+    "ground": "#f2ead8",
+    "ink": "#141414",
+    "accent": "#ff3b6b",
+    "note": "A brand palette picks 3 to 4 sticker colours; the white border and the shadow stay."
+  },
+  "do": [
+    "Give every sticker a white die-cut border and a shadow",
+    "Slap one new thing per beat from an edge with rotation",
+    "Wobble the pile on twos",
+    "Grade all photos to one palette",
+    "Reuse each cut-out 3 or more times"
+  ],
+  "dont": [
+    "Do not use rectangular photos without a cut-out or frame",
+    "Do not hide the claim under a later sticker",
+    "Do not use smooth easing on the wobble",
+    "Do not leave the frame empty; it is a maximalist film"
+  ],
+  "fits": [
+    "brand film",
+    "launch ladder",
+    "community",
+    "youth",
+    "creative tool",
+    "reel intro",
+    "social"
+  ],
+  "flat_ok": true
+}

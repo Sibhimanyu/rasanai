@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "about": "Per-carrier sound palettes: 3-5 signature sounds a film reuses every time its carrier moves, instead of generic UI ticks. Synthesised by scripts/lib/sfx-synth.mjs (ffmpeg only, deterministic); keyHz (the film's key) sets pitch. roles: carrier (the carrier moves or lands), accent (a word or UI element snaps in), transition (a cut or scene change), reveal (the payoff), button (the end). The roles are what scripts/lib/mix.mjs places on hit points.",
+  "carriers": {
+    "default": {
+      "character": "neutral: soft tick, air whoosh, weighty impact, tonal stinger",
+      "sounds": [
+        { "id": "tick", "role": "accent", "kind": "tick", "params": { "mult": 6 }, "gain_db": -4, "why": "a causal click for any element that lands" },
+        { "id": "whoosh", "role": "transition", "kind": "whoosh", "params": { "dur": 0.7 }, "gain_db": -3, "why": "a cut or move between shots" },
+        { "id": "riser", "role": "reveal", "kind": "riser", "params": { "dur": 3 }, "gain_db": -5, "why": "builds to the signature moment; ends on it" },
+        { "id": "impact", "role": "reveal", "kind": "impact", "params": { "f": 52 }, "gain_db": 0, "why": "the hit under the signature moment" },
+        { "id": "stinger", "role": "button", "kind": "stinger", "params": { "octave": 1, "color": "open" }, "gain_db": -3, "why": "the end card, in the film's key" }
+      ]
+    },
+    "dot": {
+      "aliases": ["circle", "orb", "point", "cursor"],
+      "character": "round and wet: pitched pops for the dot, a falling sub when it lands, an open stinger",
+      "sounds": [
+        { "id": "dot-pop", "role": "carrier", "kind": "tick", "params": { "mult": 4, "dur": 0.2 }, "gain_db": -3, "why": "each time the dot moves or lands" },
+        { "id": "dot-pop-high", "role": "accent", "kind": "tick", "params": { "mult": 8, "dur": 0.14 }, "gain_db": -6, "why": "a word or label snapping to the dot" },
+        { "id": "dot-whoosh", "role": "transition", "kind": "whoosh", "params": { "dur": 0.55, "f": 1500, "dir": "lr" }, "gain_db": -4, "why": "the dot travelling between shots" },
+        { "id": "dot-drop", "role": "reveal", "kind": "subdrop", "params": { "dur": 1.5, "f": 64 }, "gain_db": -1, "why": "the dot becoming the product" },
+        { "id": "dot-stinger", "role": "button", "kind": "stinger", "params": { "octave": 2, "color": "open", "dur": 1.2 }, "gain_db": -3, "why": "the lockup" }
+      ]
+    },
+    "word-line": {
+      "aliases": ["type", "text", "headline", "kinetic", "word"],
+      "character": "dry and papery: tight ticks per word, short air whooshes, a low impact on the claim",
+      "sounds": [
+        { "id": "word-tick", "role": "carrier", "kind": "tick", "params": { "mult": 7, "dur": 0.12 }, "gain_db": -5, "why": "a word swapping in place" },
+        { "id": "word-swipe", "role": "transition", "kind": "whoosh", "params": { "dur": 0.4, "f": 2600, "dir": "rl" }, "gain_db": -5, "why": "a line wiping to the next" },
+        { "id": "word-hit", "role": "accent", "kind": "impact", "params": { "f": 70, "dur": 1.0, "tail": 0.6 }, "gain_db": -4, "why": "the one word that is the claim" },
+        { "id": "word-riser", "role": "reveal", "kind": "riser", "params": { "dur": 2.4 }, "gain_db": -6, "why": "into the claim" },
+        { "id": "word-stinger", "role": "button", "kind": "stinger", "params": { "octave": 1, "color": "bright", "dur": 1.0 }, "gain_db": -4, "why": "the end line" }
+      ]
+    },
+    "icon-set": {
+      "aliases": ["icon", "glyph", "sticker", "badge"],
+      "character": "bright and glassy: bell-like stingers, light ticks per icon, quick whooshes",
+      "sounds": [
+        { "id": "icon-ping", "role": "carrier", "kind": "stinger", "params": { "octave": 4, "color": "bright", "dur": 0.5 }, "gain_db": -8, "why": "each icon landing; same note, so the set reads as one family" },
+        { "id": "icon-tick", "role": "accent", "kind": "tick", "params": { "mult": 9, "dur": 0.1 }, "gain_db": -6, "why": "an icon being replaced" },
+        { "id": "icon-whoosh", "role": "transition", "kind": "whoosh", "params": { "dur": 0.45, "f": 3200 }, "gain_db": -5, "why": "icons sweeping across" },
+        { "id": "icon-impact", "role": "reveal", "kind": "impact", "params": { "f": 58, "dur": 1.3 }, "gain_db": -2, "why": "all icons resolving into the product" },
+        { "id": "icon-stinger", "role": "button", "kind": "stinger", "params": { "octave": 1, "color": "open", "dur": 1.4 }, "gain_db": -3, "why": "the end card" }
+      ]
+    },
+    "palette-field": {
+      "aliases": ["color", "colour", "gradient", "field", "wash", "light"],
+      "character": "airy and wide: long soft whooshes, a rising swell, a held sub",
+      "sounds": [
+        { "id": "field-wash", "role": "carrier", "kind": "whoosh", "params": { "dur": 1.2, "f": 1100, "dir": "lr" }, "gain_db": -6, "why": "the colour field changing" },
+        { "id": "field-tick", "role": "accent", "kind": "tick", "params": { "mult": 5, "dur": 0.16 }, "gain_db": -7, "why": "a small element on the field" },
+        { "id": "field-riser", "role": "reveal", "kind": "riser", "params": { "dur": 3.4 }, "gain_db": -5, "why": "the swell into the payoff" },
+        { "id": "field-drop", "role": "reveal", "kind": "subdrop", "params": { "dur": 1.8, "f": 58 }, "gain_db": -1, "why": "the held weight under the payoff" },
+        { "id": "field-stinger", "role": "button", "kind": "stinger", "params": { "octave": 1, "color": "dark", "dur": 1.6 }, "gain_db": -3, "why": "the end card" }
+      ]
+    },
+    "dither-edge": {
+      "aliases": ["dither", "pixel", "glitch", "retro", "grain", "halftone"],
+      "character": "gritty and digital: hard ticks, short noisy whooshes, a hard low impact",
+      "sounds": [
+        { "id": "dither-tick", "role": "carrier", "kind": "tick", "params": { "mult": 11, "dur": 0.09 }, "gain_db": -4, "why": "the dither edge stepping" },
+        { "id": "dither-zip", "role": "transition", "kind": "whoosh", "params": { "dur": 0.3, "f": 4200, "dir": "rl" }, "gain_db": -5, "why": "a hard glitch cut" },
+        { "id": "dither-hit", "role": "accent", "kind": "impact", "params": { "f": 80, "dur": 0.9, "tail": 0.5 }, "gain_db": -3, "why": "a hard beat hit" },
+        { "id": "dither-riser", "role": "reveal", "kind": "riser", "params": { "dur": 2.2 }, "gain_db": -6, "why": "into the drop" },
+        { "id": "dither-stinger", "role": "button", "kind": "stinger", "params": { "octave": 1, "color": "dark", "dur": 0.9 }, "gain_db": -4, "why": "the end card" }
+      ]
+    },
+    "ui-plane": {
+      "aliases": ["interface", "screen", "ui", "app", "mockup", "product"],
+      "character": "soft interface: clean ticks for clicks and typing, one weighty glow on the key control",
+      "sounds": [
+        { "id": "ui-click", "role": "carrier", "kind": "tick", "params": { "mult": 5, "dur": 0.14 }, "gain_db": -3, "why": "a click or key press on the product" },
+        { "id": "ui-type", "role": "accent", "kind": "tick", "params": { "mult": 8, "dur": 0.08 }, "gain_db": -9, "why": "typing (cap the count: one per word, not per letter)" },
+        { "id": "ui-slide", "role": "transition", "kind": "whoosh", "params": { "dur": 0.5, "f": 2000 }, "gain_db": -5, "why": "a plane tilting or sliding in" },
+        { "id": "ui-glow", "role": "reveal", "kind": "stinger", "params": { "octave": 2, "color": "open", "dur": 1.2 }, "gain_db": -4, "why": "the glow on the one control that matters" },
+        { "id": "ui-impact", "role": "button", "kind": "impact", "params": { "f": 56, "dur": 1.2 }, "gain_db": -3, "why": "the end card" }
+      ]
+    }
+  }
+}

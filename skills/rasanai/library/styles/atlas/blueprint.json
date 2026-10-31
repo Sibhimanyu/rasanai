@@ -1,0 +1,141 @@
+{
+  "format": "style-world@1",
+  "id": "blueprint",
+  "number": 23,
+  "name": "Blueprint / technical drawing / cyanotype",
+  "look": "white line on blue, drafting construction, dimension lines, callouts.",
+  "fits": {
+    "products": [
+      "hardware",
+      "infra",
+      "engineering tools",
+      "architecture"
+    ],
+    "tones": [
+      "precise",
+      "engineered",
+      "technical"
+    ],
+    "notes": "hardware, infra, engineering tools, architecture"
+  },
+  "avoid": {
+    "products": [
+      "emotional consumer stories"
+    ],
+    "tones": [
+      "soft"
+    ]
+  },
+  "when_not": [
+    "Avoid emotional consumer stories."
+  ],
+  "type": {
+    "guidance": "engineering mono (IBM Plex Mono, Space Mono), Prussian blue + white + one orange.",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "engineering mono (IBM Plex Mono, Space Mono), Prussian blue + white + one orange.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "white lines on a blue ground; brand colour is the one orange-style callout colour",
+    "type_role": "engineering mono; brand face for the claim",
+    "world_changes": "lines draw in drafting order, dimensions extend",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "lines draw in drafting order",
+      "dimension arrows extend",
+      "exploded views",
+      "measurement tickers",
+      "grid fade"
+    ],
+    "grammars": [
+      "specimen-sheet"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "posterise",
+      "params": {
+        "mode": 1,
+        "steps": 0,
+        "palette": [
+          "#0a2a5e",
+          "#123d86",
+          "#d9ecff"
+        ]
+      },
+      "role": "cyanotype ground"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.06
+      },
+      "role": "print grain"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 3
+    },
+    "prompt_template": "exploded-view line drawing of {subject}, white line on blue, dimension lines, construction geometry (vectorised afterwards)",
+    "animate_with": [
+      {
+        "id": "A7",
+        "what": "mask reveal (clip-path / SVG mask / wipe)"
+      }
+    ],
+    "r1_note": "exploded-view line drawings of a product concept; vectorise; A7.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "pencil/ruler taps",
+      "ratchet",
+      "sine pings",
+      "ambient hum"
+    ]
+  },
+  "build": {
+    "engine": "R",
+    "engine_meaning": "reference only (builder hand-codes it)",
+    "recipe": "`styles/blueprint.md`, `systems/material/blueprint-technical-drawing.md`, `cyanotype.md`; SVG paths with DrawSVG, dimension helpers.",
+    "refs": [
+      "styles/blueprint.md",
+      "systems/material/blueprint-technical-drawing.md",
+      "cyanotype.md"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Teenage Engineering",
+      "url": "https://teenage.engineering",
+      "link_status": "unverified-from-memory"
+    },
+    {
+      "title": "Territory Studio FUI",
+      "url": "https://territorystudio.com",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

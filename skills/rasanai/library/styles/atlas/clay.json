@@ -1,0 +1,131 @@
+{
+  "format": "style-world@1",
+  "id": "clay",
+  "number": 4,
+  "name": "Claymation / soft clay look",
+  "look": "thumbprinted clay, imperfect forms, rim light, 12 fps wobble.",
+  "fits": {
+    "products": [
+      "friendly consumer",
+      "kids",
+      "food",
+      "wellness",
+      "human-made counter to AI slop"
+    ],
+    "tones": [
+      "warm",
+      "friendly",
+      "handmade"
+    ],
+    "notes": "friendly consumer, kids, food, wellness, \"human-made\" counter to AI slop"
+  },
+  "avoid": {
+    "products": [
+      "dense UI",
+      "data-heavy demos"
+    ],
+    "tones": [
+      "cold",
+      "technical"
+    ]
+  },
+  "when_not": [
+    "Avoid for dense UI; claymation can't carry readable screens, so show the UI on a clay \"device\"."
+  ],
+  "type": {
+    "guidance": "chunky rounded display (Fredoka, Baloo, Recoleta)",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "chunky rounded display (Fredoka, Baloo, Recoleta); warm pastels, felt/clay colours, soft shadows.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is the clay colour of the hero object; rest are warm pastels",
+    "type_role": "chunky rounded display; the claim in the brand face on a clay device screen",
+    "world_changes": "clay objects roll in and sculpt themselves; the UI is shown on a clay device prop",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "replacement-frame mouth/shape swaps, squash on 2s, fingerprint normal map, held-pose \"pop\" between poses",
+      "objects roll in as lumps and sculpt themselves"
+    ],
+    "grammars": [],
+    "grammars_planned": [
+      "tabletop"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.08,
+        "size": 2.2
+      },
+      "role": "soft photographic grain over the plates"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 3,
+      "max": 6
+    },
+    "prompt_template": "claymation {subject}, thumbprinted clay, imperfect forms, soft rim light, smooth-clay look, flat plain green background, 3 variants per pose for boil",
+    "animate_with": [
+      {
+        "id": "A2",
+        "what": "step-print (8-12 fps quantised time)"
+      },
+      {
+        "id": "A5",
+        "what": "boil (2-3 redraws swapped every 2 frames)"
+      }
+    ],
+    "r1_note": "clay characters/props on green screen, 3 variants per pose for boil; clay UI-device prop; texture tiles.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "sfx-led",
+    "alt_modes": [],
+    "palette": [
+      "wooden/foley sounds, squishes, tiny glockenspiel, ukulele pluck",
+      "room tone"
+    ]
+  },
+  "build": {
+    "engine": "R",
+    "engine_meaning": "reference only (builder hand-codes it)",
+    "recipe": "`library/motion/stop-motion/stop-motion-aardman-clay.md`, `systems/material/claymation-and-soft-clay.md`. Three.js: MeshPhysicalMaterial with sheen + noise bump + subsurface fake, rendered and stepped at 12 fps by quantising `t`; or 2D: Codex clay plates + A2 + A5 boil.",
+    "refs": [
+      "library/motion/stop-motion/stop-motion-aardman-clay.md",
+      "systems/material/claymation-and-soft-clay.md",
+      "t"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": "stage3d/recipes/clay-toy.js"
+  },
+  "examples": [
+    {
+      "title": "Blinkink \"Claymation Footballers\" UEFA Women's Euro 2025",
+      "url": "https://lbbonline.com/profile/blinkink-4",
+      "link_status": "surfaced-by-search-not-refetched"
+    },
+    {
+      "title": "Aardman brand work",
+      "url": "https://www.aardman.com/work",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

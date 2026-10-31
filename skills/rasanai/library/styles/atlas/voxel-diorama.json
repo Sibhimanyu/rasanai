@@ -1,0 +1,130 @@
+{
+  "format": "style-world@1",
+  "id": "voxel-diorama",
+  "number": 3,
+  "name": "Voxel / blocky 3D diorama",
+  "look": "a world of cubes (Minecraft, Monument Valley with blocks), voxel models rotating, building up cube by cube.",
+  "fits": {
+    "products": [
+      "infra",
+      "cloud",
+      "build / compose products",
+      "creative tools",
+      "family and playful"
+    ],
+    "tones": [
+      "playful",
+      "constructive",
+      "curious"
+    ],
+    "notes": "infra, building/\"compose\" products, cloud, creative tools; family/playful"
+  },
+  "avoid": {
+    "products": [
+      "precise data stories"
+    ],
+    "tones": [
+      "serious analytical"
+    ]
+  },
+  "when_not": [
+    "Avoid for precise data stories."
+  ],
+  "type": {
+    "guidance": "blocky display or mono",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "blocky display or mono; flat saturated colours, one hue per material, cheap ambient occlusion.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is one material hue and the hero block; other materials stay neutral",
+    "type_role": "blocky display or mono for labels, brand face for the claim",
+    "world_changes": "cube world built by staggered instance growth",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "instanced cubes growing via staggered scale",
+      "orthographic camera rotating 90 degrees per beat",
+      "\"bake in\" from random blocks to the object",
+      "cubes dissolving into the next object"
+    ],
+    "grammars": [],
+    "grammars_planned": [
+      "tabletop"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "posterise",
+      "params": {
+        "mode": 0,
+        "steps": 5
+      },
+      "role": "flatten lighting to cel-like blocks"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.05
+      },
+      "role": "remove banding"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 2
+    },
+    "prompt_template": "voxel isometric scene of {subject}, flat saturated colours, one hue per material, plain background (palette reference board only; geometry is modelled in code)",
+    "animate_with": [],
+    "r1_note": "concept boards only (voxel isometric scene); use as palette references, then model procedurally in code (Codex voxel images can't be loaded as geometry). Or a depth-guess heightmap to extrude into voxels.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "soft block \"thunks\"",
+      "marimba",
+      "low pad"
+    ]
+  },
+  "build": {
+    "engine": "G/R",
+    "engine_meaning": "gap (nothing yet) / reference only (builder hand-codes it)",
+    "recipe": "Three.js `InstancedMesh` (stage3d ships `VOXLoader.js`), orthographic camera, `MeshStandardMaterial` + baked-looking AO via vertex colours, GSAP stagger on instance matrices (seek-safe: compute from `t`). Add a posterise pass.",
+    "refs": [
+      "InstancedMesh",
+      "VOXLoader.js",
+      "MeshStandardMaterial",
+      "t"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": "stage3d/recipes/voxel-diorama.js"
+  },
+  "examples": [
+    {
+      "title": "Monument Valley (ustwo) trailers",
+      "url": "https://www.monumentvalleygame.com",
+      "link_status": "unverified-from-memory"
+    },
+    {
+      "title": "Minecraft \"Build\" brand spots",
+      "link_status": "in-repo-or-text-only"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

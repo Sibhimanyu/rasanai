@@ -54,6 +54,9 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [Rive](#rive) | MIT runtime; proprietary editor | idea only | state-machine vector animation | adapter off by default |
 | [GSAP](#gsap) (vendored) | GreenSock Standard License | vendored unmodified | motion engine | existing; notice added |
 | [three.js](#threejs) | MIT | library use | stage3d | existing |
+| [Depth Anything V2 Small](#imagery-models-w2-2026-10-31) (ONNX weights) | Apache-2.0 | downloaded on demand, not vendored | `art.mjs depth` (depth maps for parallax and plates) | taken |
+| [rasan-fx.js hash and Bayer](#rasan-fx-hash-and-bayer) | MIT (Hoskins hash, believed; verify) / public maths | technique used in our own shader | `runtime/rasan-fx.js` seek-safe noise and ordered dither | taken (technique) |
+| [BiRefNet lite](#imagery-models-w2-2026-10-31) (ONNX weights) | MIT | downloaded on demand, not vendored | `art.mjs cutout --object` (general object matte) | taken |
 
 ## Licence reminder (full matrix in INTAKE.md)
 
@@ -461,3 +464,51 @@ Revalidated 2026-10-22 for the video-upgrade brief (heresay r_VejkvP8IXAd9jCgJ).
 - DECLINED: vendoring new copies.
 - PLANNED: none.
 - Unverified: where it is vendored in this repo.
+
+## sound-sources (W3, 2026-10-31)
+
+- URL: ElevenLabs API docs (elevenlabs.io/docs), Stability AI API (platform.stability.ai), Freesound API v2 (freesound.org/docs/api), ACE-Step (github.com/ace-step/ACE-Step); `.context/creative-research/R3-sound.md` for the secondary-source licence notes.
+- Licence: services, not vendored code. ElevenLabs: vendor terms by plan (film/ad use unverified). Stable Audio: Stability terms / Community Licence (verify). Freesound: per-file; only CC0 is pulled. ACE-Step: per model card of the installed version (verify). None of them is copied into the repo.
+- Credit location: none (no code or media taken); licence and caveat are written to the run's LICENSES.json per file.
+- TOOK: HTTP adapters in `scripts/lib/sound-sources.mjs`, each active only when its key (or, for ACE-Step, the person's own install via ACESTEP_CMD) is set. Our own code.
+- DECLINED: installing ACE-Step or any PyTorch model for the person; MusicGen weights (CC-BY-NC); Suno/Udio automation; any librosa/numba path.
+- PLANNED: none.
+- Unverified: ElevenLabs self-serve film/ad rights; Stable Audio Community Licence thresholds; ACE-Step weights licence. Each prints a warning when used.
+
+## sound-craft (W3, 2026-10-31)
+
+- URL: none (craft rules from our own reference-film measurements, R3-sound.md; ffmpeg filters documented at ffmpeg.org/ffmpeg-filters.html).
+- Licence: our own code; ffmpeg is called as an external tool (LGPL/GPL build, not linked or vendored).
+- TOOK: ideas only: carve plus duck, SFX on hit points, role-based levels, synthesised risers/impacts/whooshes (`lib/mix.mjs`, `lib/sfx-synth.mjs`, `library/sfx/palettes.json`). All synthesised audio is generated at run time from ffmpeg sources, no samples.
+- DECLINED: none.
+- PLANNED: none.
+- Unverified: none.
+
+## imagery-models (W2, 2026-10-31)
+
+- URL: https://huggingface.co/onnx-community/depth-anything-v2-small (ONNX export of depth-anything/Depth-Anything-V2-Small, `onnx/model.onnx`, 99,060,839 bytes, sha256 afb6a5c2...1df10c); https://huggingface.co/onnx-community/BiRefNet_lite-ONNX (ONNX export of ZhengPeng7/BiRefNet_lite, `onnx/model.onnx`, 224,005,088 bytes, sha256 56002437...03333). Both read 2026-10-31 (the model cards' licence fields).
+- Licence: Depth Anything V2 **Small** is Apache-2.0 (the Base, Large and Giant checkpoints are CC BY-NC and are NOT used). BiRefNet and BiRefNet_lite are MIT. Both allow commercial use. RMBG-1.4 (BRIA, non-commercial) and RMBG-2.0 (CC BY-NC) were rejected for that reason.
+- Credit location: here. The weights are not copied into the repo or the app bundle: `scripts/lib/image-ml.mjs` downloads each on first use into `~/.cache/rasanai/models` (`RASANAI_MODELS` moves it), checks the pinned sha256, and runs it with onnxruntime-node (MIT, Microsoft) from the hyperframes cache (`~/.cache/hyperframes/optional/`). `RASANAI_MODEL_DOWNLOAD=off` forbids the download.
+- TOOK: the two models as runtime tools; pre/post-processing (ImageNet normalisation, 518 px short side for depth, 1024 x 1024 for the matte, percentile-normalised depth, sigmoid matte) written by us from the model cards.
+- DECLINED: Depth Anything V2 Base/Large (non-commercial), RMBG-1.4/2.0 (non-commercial), any Python or PyTorch path (no Python vision on this Mac).
+- PLANNED: none.
+- Unverified: whether the ONNX export in `onnx-community` carries its own extra terms beyond the upstream licences (the model cards say apache-2.0 and mit).
+
+## imagery-runtime (W2, 2026-10-31)
+
+- URL: none (our own code: `runtime/rasan-image-fx.js`, `scripts/lib/{png-io,image-ml,layers,mockup,world-bible}.mjs`, `scripts/art.mjs` depth/plates/mockup/world commands).
+- Licence: our own code. Techniques follow R2-generated-imagery.md (public craft knowledge: depth-map parallax with iterative UV offset, push-pull inpainting, halftone / dot / pixel dissolves, displacement-map morphs, homography corner-pin); no third-party source was read or copied. GSAP is only called by the caller (`tl.fromTo`), not bundled.
+- TOOK: ideas only.
+- DECLINED: vendoring Three.js or Transformers.js for this (plain WebGL1 is enough and keeps the runtime one file).
+- PLANNED: none.
+- Unverified: none.
+
+## rasan-fx-hash-and-bayer
+
+- What: the sine-free hash in `runtime/rasan-fx.js` (`h11`, `h12`: `fract(p*.1031)` ... ) follows David Hoskins' "Hash without Sine" (Shadertoy, 2014), and the ordered dither uses the standard Bayer matrix (the 2x2 recurrence for 2/4/8). The rest of the shader pack is our own code.
+- URL: https://www.shadertoy.com/view/4djSRW (Hoskins, "Hash without Sine"); Bayer matrix: Bryce Bayer, 1973, a published mathematical construction.
+- Licence: Hoskins' hashes are published under the MIT licence (believed, from the header of his code; NOT yet re-verified against the page: confirm before a public release and add his copyright line to the runtime header if it must be kept). The Bayer matrix is a mathematical construction with no licence.
+- TOOK: the constants and the fract-multiply-add structure of the hash (a few lines, rewritten for our uniform names), the Bayer recurrence.
+- DECLINED: copying any Shadertoy shader wholesale.
+- PLANNED: none.
+- Unverified: Hoskins' licence text (see above).

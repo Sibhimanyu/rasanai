@@ -29,6 +29,7 @@ import { readBudget, budgetLimit, effectOf } from "./lib/budget.mjs";
 import { track } from "./lib/report.mjs";
 import { readOpticsPlans, opticsOwns } from "./lib/optical-treatments.mjs";
 import { scoreRate } from "./lib/timing.mjs";
+import { doctrineFindings } from "./lib/launch-grammar.mjs";
 
 const args = parseArgs();
 track("Checking the motion against your motion rules", "Motion check done");
@@ -255,6 +256,13 @@ const add = (f) => {
   findings.push(f);
 };
 const easeLabel = (t) => (t.ease && t.ease.startsWith("rasan:") ? t.ease.slice(6) : t.ease === "__custom" ? "a custom ease" : t.ease);
+
+// the doctrine for a launch / promo film whose actor is the product UI: the brand's easing, never auto + character (lib/launch-grammar.mjs)
+try {
+  let sc = null; const sp = args.score && args.score !== true ? path.resolve(args.score) : null;
+  if (sp) try { sc = JSON.parse(fs.readFileSync(sp, "utf8")); } catch {}
+  for (const f of doctrineFindings({ motionFields: M, plan: sc, project, run: args.run && args.run !== true ? args.run : null, planned: null, planPath: sp, kind: args.kind && args.kind !== true ? String(args.kind) : null })) add({ file: motionPath, ...f });
+} catch { /* advisory */ }
 
 if (unknownBans.length) add({ severity: "error", rule: "unknown-ban", file: motionPath, message: `motion.md bans ${unknownBans.join(", ")} but no machine signature exists for them`, fix: "remove them or add a signature in scripts/lib/signatures.mjs + motion-md-contract.md" });
 

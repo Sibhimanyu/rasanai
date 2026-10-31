@@ -1,0 +1,47 @@
+{
+  "id": "scramble-to-word",
+  "n": 10,
+  "name": "Scramble to word",
+  "family": "type",
+  "source": [
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 2.5,
+      "end_s": 3.5,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    },
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 26.5,
+      "end_s": 27,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    }
+  ],
+  "description": "A word resolves from random characters, with a skew and a final blur-out.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-type.js"
+    ],
+    "build": "GSAP ScrambleText or a seeded random-char swap over 6-10 frames; add skew and a final blur-out."
+  },
+  "use_when": "Sharp turns (\"but honestly\").",
+  "avoid": "Do not scramble more than one word per beat.",
+  "duration_s": {
+    "min": 0.4,
+    "max": 0.9
+  },
+  "easing": "steps(8)",
+  "carriers": [
+    "word-line"
+  ],
+  "beat_roles": [
+    "turn"
+  ],
+  "needs": []
+}

@@ -1,0 +1,141 @@
+{
+  "id": "game-world",
+  "name": "Game world",
+  "style_world": [
+    "pixel",
+    "game",
+    "8-bit",
+    "16-bit",
+    "voxel",
+    "arcade",
+    "level",
+    "quest"
+  ],
+  "concept_tags": [
+    "game",
+    "level",
+    "quest",
+    "unlock",
+    "player",
+    "arcade",
+    "developer tool",
+    "play",
+    "boss"
+  ],
+  "source": "A product played as a level: a side-scrolling or top-down world in a limited palette where a small hero walks, jumps and collects the product's features as pick-ups; UI chrome is HUD (score, level bar). Described from the reference reel's pixel and game entries; no sprites or pixels are carried.",
+  "motion_language": "character",
+  "kit": [
+    "runtime/medium-pixel.js",
+    "runtime/medium-pixel-world.js",
+    "stage3d/recipes/voxel-diorama.js"
+  ],
+  "frame_device": {
+    "what": "A low-res world (320x180 scaled by an integer) with 3 to 5 parallax layers and a hero sprite; the HUD frame (level number, a progress bar, a counter) stays on screen as the film's clock.",
+    "moves": "The camera scrolls the world whole pixels at a time; the hero walks toward each feature on its own beat, the feature is picked up (flash, counter ticks) and the world palette shifts at act breaks."
+  },
+  "ground_motion": "Parallax layers drift at different whole-pixel speeds all the time, clouds and stars step on twos, water tiles shimmer; the world is never still between beats.",
+  "type": {
+    "classes": "A pixel face (Press Start 2P, Silkscreen or the 3x5 font at 2x to 4x) for HUD and the headline; a clean grotesk for the one real claim line so it stays readable.",
+    "behaviour": "Headlines type on with a cursor or drop in as 3x5 blocks at integer scale; a word may blink once; the claim line is a sharp DOM layer, never pixelated."
+  },
+  "image": {
+    "treatment": "One palette (8 to 32 colours) for everything; Codex sprite sheets sliced and snapped to the palette; product UI appears as a screen plate on a sharp layer inside a pixel frame, not pixelated.",
+    "behaviour": "Sprites animate on twos; the world moves by whole pixels; nothing is smoothed or scaled by a fraction."
+  },
+  "transitions": [
+    "iris wipe to the next level (RasanPixelWorld.transition iris)",
+    "mosaic or shatter into pixels and re-assemble as the next scene",
+    "scanline wipe",
+    "palette shift from day to dusk to night",
+    "level-clear card then a blinds wipe"
+  ],
+  "techniques": [
+    {
+      "id": "level-scroll",
+      "name": "Level scroll",
+      "what": "The world scrolls past a hero that walks in place, and features appear as set pieces along the way.",
+      "route": "RasanPixelWorld.layers + tilemap driven by RasanPixel.camera(T*speed, 0) inside RasanPixel.bind; hero.draw on RasanPixelWorld.frameAt(T, {fps: 8, count: 4})."
+    },
+    {
+      "id": "feature-pickup",
+      "name": "Feature pick-up",
+      "what": "The hero grabs an icon that stands for a feature; it flashes, the counter ticks and the feature's real UI appears.",
+      "route": "Sprite jumps on a 3-frame arc (hold twos); item sprite scales 1 to 1.4 for 2 frames then vanishes; the HUD counter steps; a sharp UI plate pops in beside it with RasanShape.squash."
+    },
+    {
+      "id": "palette-act-break",
+      "name": "Palette act break",
+      "what": "Day turns to dusk to night in steps and the mood of the story turns with it.",
+      "route": "RasanPixelWorld.shiftPalette(S, [{at, colors: DAY}, {at+4, colors: DUSK}, {at+8, colors: NIGHT}], T) over the same indices; steps 6, each held >= 0.5 s."
+    },
+    {
+      "id": "sprite-sheet-act",
+      "name": "Sprite-sheet act",
+      "what": "A Codex-drawn character plays walk, point, react and celebrate from a sliced sheet.",
+      "route": "RasanPixelWorld.sheet(img, {cols, rows, size: [24, 24], chroma: '#00ff00', palette: S.palette}) after img.decode(); frameAt per animation row; flip for direction."
+    },
+    {
+      "id": "pixel-title-card",
+      "name": "Pixel title card",
+      "what": "A chunky title drops in at integer scale with an outline and shadow.",
+      "route": "RasanPixelWorld.bigText(S, str, x, y, i, {scale: 3, outline: 0, shadow: 2, reveal: p}) with p from RasanPixelWorld.progress(T, at, 0.6, 12)."
+    },
+    {
+      "id": "boss-reveal",
+      "name": "Boss reveal",
+      "what": "The problem is a big sprite that fills half the screen and is defeated by the product's move.",
+      "route": "Large sprite built from RasanPixelWorld.sheet at size [64, 64]; hit flashes swap palette indices (draw option swap) for 2 frames; shake the camera by 2 px on twos."
+    },
+    {
+      "id": "voxel-world-cut",
+      "name": "Voxel world cut",
+      "what": "A cut to a 3D block diorama that rises, the pixel world's 3D cousin.",
+      "route": "Rasan3D stage with the voxel-diorama recipe: camera from recipe.camera(opts); build(k) rises the columns; cut to it with a mosaic transition."
+    },
+    {
+      "id": "level-clear-bar",
+      "name": "Level-clear bar",
+      "what": "A progress bar fills as each rung of the story lands and ends on LEVEL CLEAR.",
+      "route": "S.rect for the bar fill, stepped to whole pixels by RasanPixel.hold(T, 12); bigText for the label."
+    },
+    {
+      "id": "word-choreo",
+      "name": "Word choreography",
+      "what": "Each word of a line enters from its own place and settles into the line with a lift; the key word last with a little more overshoot.",
+      "route": "RasanShape.split(el, {by: 'words'}) on the sharp claim line; each word from its own offset (24 to 80 px), scale 0.88 to 1.15, 0.55 s, stagger 0.09 s, last word back.out(1.4); pixel headlines use typeOn instead."
+    }
+  ],
+  "signature": "The hero reaches the final feature, the level clears, and the world freezes on one still pixel frame with the product claim set sharp over it.",
+  "density": {
+    "change_every_s": 0.9,
+    "note": "A new pick-up, palette state or camera move every 0.9 to 1.6 s; layers at the peak: 5 to 8 (sky, far, mid, tiles, hero, item, HUD, claim)."
+  },
+  "palette": {
+    "ground": "#1b1530",
+    "ink": "#f4efe0",
+    "accent": "#ffcf3f",
+    "note": "A brand palette maps onto the limited palette through nearest(); the devices stay."
+  },
+  "do": [
+    "Keep one palette and integer scale for the whole film",
+    "Move every pixel layer by whole pixels from one rounded camera",
+    "Step sprites on twos and keep the claim line sharp",
+    "Let the HUD be the clock of the film",
+    "Make each feature a pick-up the hero physically reaches"
+  ],
+  "dont": [
+    "Do not smooth, blur or fractionally scale the pixel layer",
+    "Do not pixelate the real product UI and call it readable",
+    "Do not copy any real game's sprites, fonts or melodies",
+    "Do not repeat the same transition twice in a row"
+  ],
+  "fits": [
+    "launch ladder",
+    "explainer",
+    "developer tool",
+    "game",
+    "playful brand film",
+    "reel intro"
+  ],
+  "flat_ok": true
+}

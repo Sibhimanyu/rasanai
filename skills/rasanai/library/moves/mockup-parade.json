@@ -1,0 +1,46 @@
+{
+  "id": "mockup-parade",
+  "n": 39,
+  "name": "Mockup parade",
+  "family": "image",
+  "source": [
+    {
+      "video": "Video-8191",
+      "brand": "idea.ai",
+      "start_s": 24,
+      "end_s": 41,
+      "frames": ".context/review-refs/Video-8191/f2/"
+    }
+  ],
+  "description": "The same artwork shown flat, on a street hoarding, in a ring binder, on a kiosk, on a business card, on a stage slide.",
+  "recipe": {
+    "tech": [
+      "html",
+      "css3d",
+      "shader"
+    ],
+    "runtime": [
+      "rasan-image-fx.js",
+      "rasan-camera.js"
+    ],
+    "build": "Codex blank-mockup plates (billboard, binder, kiosk) with the film art composited by a perspective transform (matrix3d or a WebGL plane) and small live motion; 2.5-3 s each with a micro push-in."
+  },
+  "use_when": "Brand and design products; \"it works everywhere\".",
+  "avoid": "Do not use for a product whose proof is its UI.",
+  "duration_s": {
+    "min": 10,
+    "max": 17
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "object",
+    "palette-dither"
+  ],
+  "beat_roles": [
+    "middle",
+    "proof"
+  ],
+  "needs": [
+    "rasan-image-fx.js"
+  ]
+}

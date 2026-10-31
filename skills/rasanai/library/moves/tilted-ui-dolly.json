@@ -1,0 +1,51 @@
+{
+  "id": "tilted-ui-dolly",
+  "n": 25,
+  "name": "Tilted UI dolly",
+  "family": "ui",
+  "source": [
+    {
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "start_s": 19,
+      "end_s": 23,
+      "frames": ".context/review-refs/Video-12848/f2/"
+    },
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 19,
+      "end_s": 30,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "The product screen on a 3D perspective plane; the camera slides and zooms to each control.",
+  "recipe": {
+    "tech": [
+      "html",
+      "gsap",
+      "css3d"
+    ],
+    "runtime": [
+      "rasan-ui.js",
+      "rasan-camera.js"
+    ],
+    "build": "Container perspective:1400px, plane rotateY(-18deg) rotateX(8deg), GSAP scale and translate with power2.inOut; blur anything off-focus with filter."
+  },
+  "use_when": "All product-proof beats.",
+  "avoid": "Do not tilt more than 25 degrees; no UI text under 14 px; never a fake or invented screen.",
+  "duration_s": {
+    "min": 3,
+    "max": 8
+  },
+  "easing": "power2.inOut",
+  "carriers": [
+    "ui-plane",
+    "dot",
+    "object"
+  ],
+  "beat_roles": [
+    "proof"
+  ],
+  "needs": []
+}

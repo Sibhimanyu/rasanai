@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "purpose": "Reference stills for blind style-frame judging (scripts/style-frames.mjs, agents/style-frame-juror.md). These are the bar: a concept frame must sit next to them without looking like the weaker sibling.",
+  "attribution": "Stills are 640 px frames sampled at 2 fps from seven third-party launch films the project owner supplied as quality references (R5 breakdown). Each film belongs to the brand shown on the still (nmaphoto, Google Gemini, a Notion/Motion kinetic piece, Minase, PickUs, TaskShelf, idea.ai). They are kept here for internal comparison only: never publish, ship in a film, or redistribute them, and never copy a still into a build. The frame number is approximate (nearest sampled frame to t_s).",
+  "frames": [
+    {
+      "file": "nmaphoto-t025.png",
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "t_s": 2.5,
+      "source_frame": "Video-12848/f2/f006.png",
+      "nearest_move": "blur-bloom-word"
+    },
+    {
+      "file": "nmaphoto-t120.png",
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "t_s": 12,
+      "source_frame": "Video-12848/f2/f025.png",
+      "nearest_move": "ribbon-of-frames"
+    },
+    {
+      "file": "nmaphoto-t200.png",
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "t_s": 20,
+      "source_frame": "Video-12848/f2/f040.png",
+      "nearest_move": "tilted-ui-dolly"
+    },
+    {
+      "file": "nmaphoto-t310.png",
+      "video": "Video-12848",
+      "brand": "nmaphoto",
+      "t_s": 31,
+      "source_frame": "Video-12848/f2/f062.png",
+      "nearest_move": "counter-chip-ring"
+    },
+    {
+      "file": "google-gemini-t070.png",
+      "video": "Video-34143",
+      "brand": "google-gemini",
+      "t_s": 7,
+      "source_frame": "Video-34143/f2/f015.png",
+      "nearest_move": "dot-field-resolve-to-photo"
+    },
+    {
+      "file": "google-gemini-t150.png",
+      "video": "Video-34143",
+      "brand": "google-gemini",
+      "t_s": 15,
+      "source_frame": "Video-34143/f2/f030.png",
+      "nearest_move": "typed-prompt-send"
+    },
+    {
+      "file": "google-gemini-t240.png",
+      "video": "Video-34143",
+      "brand": "google-gemini",
+      "t_s": 24,
+      "source_frame": "Video-34143/f2/f048.png",
+      "nearest_move": "colour-sweep-word"
+    },
+    {
+      "file": "notion-motion-t040.png",
+      "video": "Video-44721",
+      "brand": "notion-motion",
+      "t_s": 4,
+      "source_frame": "Video-44721/f2/f009.png",
+      "nearest_move": "kinetic type, paper world"
+    },
+    {
+      "file": "notion-motion-t130.png",
+      "video": "Video-44721",
+      "brand": "notion-motion",
+      "t_s": 13,
+      "source_frame": "Video-44721/f2/f026.png",
+      "nearest_move": "colour-world-flip"
+    },
+    {
+      "file": "minase-t040.png",
+      "video": "Video-4679",
+      "brand": "minase",
+      "t_s": 4,
+      "source_frame": "Video-4679/f2/f009.png",
+      "nearest_move": "word-per-shot-sentence"
+    },
+    {
+      "file": "minase-t280.png",
+      "video": "Video-4679",
+      "brand": "minase",
+      "t_s": 28,
+      "source_frame": "Video-4679/f2/f056.png",
+      "nearest_move": "in-place-word-swap"
+    },
+    {
+      "file": "minase-t320.png",
+      "video": "Video-4679",
+      "brand": "minase",
+      "t_s": 32,
+      "source_frame": "Video-4679/f2/f064.png",
+      "nearest_move": "drum-list"
+    },
+    {
+      "file": "pickus-t090.png",
+      "video": "Video-4934",
+      "brand": "pickus",
+      "t_s": 9,
+      "source_frame": "Video-4934/f2/f019.png",
+      "nearest_move": "specimen-triptych"
+    },
+    {
+      "file": "pickus-t155.png",
+      "video": "Video-4934",
+      "brand": "pickus",
+      "t_s": 15.5,
+      "source_frame": "Video-4934/f2/f031.png",
+      "nearest_move": "icon-as-missing-letter"
+    },
+    {
+      "file": "taskshelf-t210.png",
+      "video": "Video-67152",
+      "brand": "taskshelf",
+      "t_s": 21,
+      "source_frame": "Video-67152/f2/f043.png",
+      "nearest_move": "glow-on-control"
+    },
+    {
+      "file": "taskshelf-t360.png",
+      "video": "Video-67152",
+      "brand": "taskshelf",
+      "t_s": 36,
+      "source_frame": "Video-67152/f2/f072.png",
+      "nearest_move": "dot-matrix-type"
+    },
+    {
+      "file": "taskshelf-t560.png",
+      "video": "Video-67152",
+      "brand": "taskshelf",
+      "t_s": 56,
+      "source_frame": "Video-67152/f2/f112.png",
+      "nearest_move": "full-frame-type-crop"
+    },
+    {
+      "file": "idea-ai-t040.png",
+      "video": "Video-8191",
+      "brand": "idea-ai",
+      "t_s": 4,
+      "source_frame": "Video-8191/f2/f009.png",
+      "nearest_move": "dither-seam-on-art"
+    },
+    {
+      "file": "idea-ai-t350.png",
+      "video": "Video-8191",
+      "brand": "idea-ai",
+      "t_s": 35,
+      "source_frame": "Video-8191/f2/f070.png",
+      "nearest_move": "poster-dive"
+    },
+    {
+      "file": "idea-ai-t500.png",
+      "video": "Video-8191",
+      "brand": "idea-ai",
+      "t_s": 50,
+      "source_frame": "Video-8191/f2/f100.png",
+      "nearest_move": "hold-and-sign-off"
+    }
+  ]
+}

@@ -1625,3 +1625,58 @@ export function renderTexture(c, out, { sr = 48000, peak = 0.5 } = {}) {
   const live = A.act.filter((v) => v >= 0.03).length / A.act.length;
   return { texture: kind, start: r3(A.t0), duration_s: r3(A.t1 - A.t0), active_share: r3(live) };
 }
+
+// How well a film-length bed fits the story's arc, from the audio itself (0.1 s momentary dB, ffmpeg-decoded; no tags, no BPM).
+// arc = { intro_until, drop_at, break: [from, to] | null, payoff_at, button_at } (music-lib readArc). Four parts, 25 points each:
+//   intro  a sparse start: the intro sits at least 6 dB under the body's median level
+//   lift   a lift or drop at the turn: the 1.5 s after drop_at is at least 5 dB over the 1.5 s before it
+//   break  a break before the end card: the quietest 0.25 s in the break window (else the last 4 s before the button) is 10 dB under the body
+//   peak   the loudest second of the film falls between the turn and the payoff's tail (never in the intro or the outro)
+// `file` is a bed already cut to the film (the fitted preview), so the numbers are what the film will get.
+export function arcFit(file, arc, film) {
+  const y = decode(file), W = 0.1, mom = momentaryDb(y, W), n = mom.length;
+  const dur = Math.min(n * W, film || n * W);
+  const mean = (a, b) => { const i0 = Math.max(0, Math.round(a / W)), i1 = Math.min(n, Math.round(b / W)); if (i1 <= i0) return -120; let z = 0; for (let i = i0; i < i1; i++) z += Math.pow(10, mom[i] / 10); return 10 * Math.log10(z / (i1 - i0) + 1e-12); };
+  const cl = (x) => Math.max(0, Math.min(1, x));
+  const drop = arc.drop_at, button = Math.min(arc.button_at, dur);
+  const bodyWin = mom.slice(Math.round(drop / W), Math.round(button / W)).filter((v) => v > -80).sort((a, b) => a - b);
+  const body = bodyWin.length ? bodyWin[Math.floor(bodyWin.length / 2)] : -120;
+  const introEnd = Math.max(1, Math.min(arc.intro_until ?? drop * 0.7, drop));
+  const introDb = mean(0.3, introEnd), introBelow = body - introDb;
+  const lift = mean(drop, drop + 1.5) - mean(Math.max(0, drop - 1.5), drop);
+  const b0 = arc.break ? arc.break[0] : Math.max(drop + 1, button - 4), b1 = arc.break ? arc.break[1] : button - 0.2;
+  let low = 1e9;
+  for (let t = Math.max(0, b0 - 0.2); t + 0.25 <= Math.min(b1 + 0.2, dur) + 1e-9; t += W) low = Math.min(low, mean(t, t + 0.25));
+  const breakBelow = low === 1e9 ? 0 : body - low;
+  let best = -1e9, bestAt = 0;
+  for (let t = 0; t + 1 <= dur + 1e-9; t += W) { const v = mean(t, t + 1); if (v > best) { best = v; bestAt = t + 0.5; } }
+  const peakOk = bestAt >= drop - 0.5 && bestAt <= (arc.payoff_at ?? button) + 2.5;
+  const parts = { intro: Math.round(cl(introBelow / 6) * 25), lift: Math.round(cl(lift / 5) * 25), break: Math.round(cl(breakBelow / 10) * 25), peak: peakOk ? 25 : 8 };
+  const score = parts.intro + parts.lift + parts.break + parts.peak;
+  const problems = [];
+  if (parts.intro < 12) problems.push(`no sparse intro: the first ${r1(introEnd)} s are ${r1(introBelow)} dB under the body (needs 6)`);
+  if (parts.lift < 12) problems.push(`no lift at the turn (${r1(drop)} s): ${r1(lift)} dB over the 1.5 s before it (needs 5)`);
+  if (parts.break < 12) problems.push(`no break before the end card (${r1(b0)}-${r1(b1)} s): only ${r1(breakBelow)} dB under the body (needs 10)`);
+  if (!peakOk) problems.push(`the loudest second is at ${r1(bestAt)} s, not between the turn and the payoff`);
+  return { score, parts, intro_below_db: r1(introBelow), lift_db: r1(lift), break_below_db: r1(breakBelow), loudest_at_s: r1(bestAt), body_db: r1(body), problems };
+}
+
+// ---------------------------------------------------------------- platform loudness and the layered mix (lib/mix.mjs)
+
+// web/social -14 LUFS, keynote -16 (room playback), broadcast -23 (EBU R128); true-peak ceilings in dBTP. "house" is the legacy -14 / -1.5.
+export const LOUDNESS_TARGETS = Object.freeze({
+  web: { lufs: -14, tp: -1.5, label: "web / social" },
+  keynote: { lufs: -16, tp: -1.5, label: "keynote / event screen" },
+  broadcast: { lufs: -23, tp: -1.0, label: "broadcast (EBU R128)" },
+});
+export const loudnessTarget = (platform) => (typeof platform === "object" && platform ? { lufs: platform.lufs ?? -14, tp: platform.tp ?? -1.5 } : LOUDNESS_TARGETS[platform] || LOUDNESS_TARGETS.web);
+// the master path for a platform name: the same measure, static gain and true-peak limiter masterFile always did, with the platform's numbers
+export function masterForPlatform(input, out, platform = "web") {
+  const t = loudnessTarget(platform);
+  return masterFile(input, out, { lufs: t.lufs, tp: t.tp });
+}
+// the stem mix: music + SFX + VO stems, carved and ducked, SFX on the beat grid and hit points, mastered through masterFile. See lib/mix.mjs mixFilm for the spec.
+export async function mixFilm(spec, out, opts) {
+  const { mixFilm: run } = await import("./mix.mjs");
+  return run(spec, out, opts);
+}

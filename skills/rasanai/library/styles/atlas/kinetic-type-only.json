@@ -1,0 +1,129 @@
+{
+  "format": "style-world@1",
+  "id": "kinetic-type-only",
+  "number": 8,
+  "name": "Kinetic typography as the whole film",
+  "look": "words are the only image: scale, slam, morph, wordplay; no UI until the end.",
+  "fits": {
+    "products": [
+      "manifestos",
+      "rebrands",
+      "strong copy",
+      "keynote-style releases"
+    ],
+    "tones": [
+      "bold",
+      "confident",
+      "punchy"
+    ],
+    "notes": "manifestos, rebrands, strong copy; Apple-keynote-style releases"
+  },
+  "avoid": {
+    "products": [
+      "demo-first products",
+      "weak copy"
+    ],
+    "tones": [
+      "quiet"
+    ]
+  },
+  "when_not": [
+    "Avoid when the product demo is the point, or weak copy."
+  ],
+  "type": {
+    "guidance": "variable fonts (Inter Display, Söhne, GT America, PP Neue Montreal, Druk for punch)",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "variable fonts (Inter Display, Söhne, GT America, PP Neue Montreal, Druk for punch); 2 colours + black.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is the colour flip on the key word; 2 colours plus black",
+    "type_role": "the brand face IS the film: variable weight, scale, slam, morph",
+    "world_changes": "words are the only image until the product proof at the end",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "key-word devices",
+      "phrase replacement",
+      "name morphs",
+      "type acting out the word",
+      "type masks over footage",
+      "text on a path",
+      "SplitText stagger",
+      "variable-font weight scrub"
+    ],
+    "grammars": [
+      "glyph-chain",
+      "specimen-sheet"
+    ],
+    "grammars_planned": [
+      "type-only"
+    ],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.04
+      },
+      "role": "optional, keeps flat colour fields from banding"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 0,
+      "max": 1
+    },
+    "prompt_template": "one texture plate for a type fill: {texture}, flat lighting",
+    "animate_with": [],
+    "r1_note": "none needed, or one texture plate for type fills.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "vo-kinetic",
+    "alt_modes": [],
+    "palette": [
+      "hits on word impacts, risers, a voice or drum-driven beat",
+      "rhythm is the edit"
+    ]
+  },
+  "build": {
+    "engine": "B/R",
+    "engine_meaning": "buildable today / reference only (builder hand-codes it)",
+    "recipe": "`library/motion/kinetic-type/*` (8 notes), `references/typography-performance.md`, `rasan-type.js`. GSAP SplitText + variable `font-variation-settings`.",
+    "refs": [
+      "library/motion/kinetic-type/*",
+      "references/typography-performance.md",
+      "rasan-type.js",
+      "font-variation-settings"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Apple \"Don't Blink\" 2016 ; Apple 2018 108-second recap (Contra write-up)",
+      "url": "https://contra.com/p/OoccPFZm-i-watched-apples-108-second-event",
+      "link_status": "unverified-from-memory"
+    },
+    {
+      "title": "DIA kinetic type",
+      "url": "https://dia.tv",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

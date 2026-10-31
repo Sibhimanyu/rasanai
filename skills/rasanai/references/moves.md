@@ -350,3 +350,43 @@ The scene animator **beats** the rough, it does not copy it: the grey-box look i
 ## 9. The verdict's pairwise rounds (checkable)
 
 The juror ranks each script's passing cards by pairwise comparison with the order swapped. The rounds are written down, so the check can read them: `pitches.<L>.rounds: [{a, b, first, winner, frame}]`, where `a` and `b` are card ids, `first` is `"a"` or `"b"` (which card was shown first), `winner` is the card id that won and `frame` is the concrete frame that decided it (8 words at least). For every consecutive pair of `ranking` (`ranking[i]`, `ranking[i+1]`) there must be two rounds with that pair, one in each presentation order. Errors: `rounds-missing` (a pair without both orders), `rounds-inconsistent` (the higher-ranked card wins neither round, or a winner is not one of the pair), `rounds-frame` (a frame under 8 words). A split pair (each card wins once) is allowed only when the second round carries `tiebreak: "riskier"` (optionally `riskier: <id>`) and the riskier card is the higher-ranked one. A juror that ranks "mentally" cannot pass: each round is a separate written comparison in its scratch notes, then recorded.
+
+## 10. The reference move library and the story spine (R5)
+
+Forty moves taken from seven launch films live in `library/moves/` as one file per move (`<id>.json`) plus `index.json`. They are craft vocabulary, not a menu: a move is adapted to this film's carrier, never pasted. The older `library.json` reference moves stay and are still valid ids.
+
+**Each move file** has: `id`, `name`, `family` (type, image, ui, world), `source[]` (video, brand, start_s, end_s, and the frames folder `.context/review-refs/<video>/f2/` at 2 fps), `description`, `recipe` (`tech[]`, `runtime[]`, `build`), `use_when`, `avoid`, `duration_s {min, max}`, `easing`, `carriers[]` (dot, word-line, icon-set, palette-dither, card-field, ui-plane, ui-object, object, mark, or `all`), `beat_roles[]` (open, turn, middle, proof, close), and `needs[]` (runtimes still to land).
+
+**Runtimes in `recipe.runtime`.** Existing files: `rasan-type.js`, `rasan-ui.js`, `rasan-camera.js`, `rasan-motion.js`, `rasan-layout.js`. Built by the engine: `rasan-image-fx.js` (imagery: dither, cutouts, mockup planes), `rasan-fx.js` (shader pack), and the recipe kits, which point at real files: `stage3d/recipes/icon-portal-through.js`, `clay-toy.js`, `voxel-diorama.js` and `runtime/rasan-camera.js`. If a recipe names something that is not there, build it in plain HTML and GSAP; the recipe line says how. Everything stays seek-safe: a paused timeline, a seeded random, no clock.
+
+**CLI** (`scripts/moves.mjs`): `list [--family f] [--role r] [--carrier c]`, `search --need "<what the beat must do>" [--role r] [--carrier c]`, `show <id>`, and `validate-score --file <motion/score.json|concept.json>` (or `--run`), which fails when any beat of the score has no move or names an id that is not a move. A beat's role or carrier that the move does not list is a warning.
+
+### Story patterns (how the references run)
+
+- **Open (first 3 s).** A question or a quiet bold statement, never a logo. "Where are my photographs?", "Intelligence evolved", "The idea is enough." Moves: 1, 2, 4, 15, 19.
+- **Turn (25 to 35 % in).** A one-word pivot with a hard change of world: dark to white, pain to relief, show to do. The flip is always meaningful and the carrier crosses it. Moves: 34, 33, 35, 36, 17, 18, 10.
+- **Middle: a refrain ladder.** A repeated syntactic frame with a changing object ("Every photo / one place", "Every frame / second / decision"); each rung has its own image or UI moment. Moves: 7, 3, 8, 38, 39.
+- **Proof.** The product is shown for 3 to 10 s, 20 to 30 % of the run: a tilted plane, a typed prompt, a cursor, one countable fact (20K+ photos, 150x). Moves: 25 to 32.
+- **Close.** The refrain once more, then the mark arrives drawn or typed, then the call to action held 3 to 5 s on a quiet world. Moves: 40, 14, 12, 35.
+
+Budgets, not bans: 3 to 6 hard cuts per 40 s; every other transition is a named move. Two or three palette worlds with one flip at the turn and a quiet last world for the end card.
+
+### Type is the lead actor
+
+Plan the film as a word sequence first and give each rung a picture or UI job after. One to four words per beat. A word that changes, changes **in place** (move 3: the old word masks up, the new one rises, nothing else moves). Under the changing word a **phrase spine** repeats ("Every ...", "IDEAS don't need ...") and each repeat brings a new image or UI moment. Emphasis is a size jump and one accent colour on one word; small text is texture (labels, counters, brackets, tags), never a second voice. Typical sizes: hero word 8 to 14 % of frame height, support 2 to 3 %. Sentences of more than nine words do not belong on screen; they go in the voiceover.
+
+### Carrier and signature moment (chosen before any build)
+
+Every concept names one **carrier**, a persistent thing that crosses every scene: a dot (Gemini), a type line (nmaphoto, TaskShelf), an icon set (PickUs), a palette with a dither edge (idea.ai), footage plus captions (Minase). Other props are interchangeable; the carrier is not. Transitions are written as what the carrier does, never "cut to scene 3". Then one **signature moment**, the film's claim to attention, given 3 to 5 s: dots resolving to a photo, a flicker, a scissors cut, a dither dunk, a word drum. Pick it first; the rest of the film is built to set it up.
+
+### Product proof: a tilted real-UI plane with a branded cursor
+
+The proof beat is the real product screen (never an invented one) on a perspective plane (`perspective: 1400px`, about `rotateY(-18deg) rotateX(8deg)`, never past 25 degrees), a typed prompt (move 26), a cursor that has an identity of its own (the product's arrow, a paper plane, avatar-labelled cursors: move 27), a ripple on click, and a camera push to the one control that matters, lit with a glow while the rest dims (moves 25 and 28). The result that pops is the real output. UI text stays 14 px or larger at frame size. Concepts that have no UI-proof beat are not held to a UI-fill floor.
+
+### Seeing the story before building it
+
+Moves are chosen on a **board**, not in prose. A concept carries `shots[]`, each `{t, see, style, carrier_state, move, transition, words}` (words are a layer on top; a shot may have none), plus `style_world`, `carrier` and `signature_moment`.
+
+1. `node scripts/board.mjs --concept <concept.json> --out <dir>` draws one tile per shot with its words and move, the style world, the carrier and the signature shot, as one PNG the user looks at to pick a story.
+2. `node scripts/moves.mjs validate-score --file <concept.json>`: every shot names a real move.
+3. `node scripts/style-frames.mjs render|pack --concept <concept.json> --out <dir>`: three hero frames, shuffled blind among reference frames (`library/benchmarks/reference-frames/`); the style-frame juror (`agents/style-frame-juror.md`) scores them and `style-frames.mjs gate` says build or rework. A generated composition of type on a tinted ground is a placeholder and will score low on purpose: give the hero shots a plate (`image`, via `imagegen.mjs`) or a hand-built `html` fragment before judging.

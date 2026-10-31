@@ -1,0 +1,132 @@
+{
+  "format": "style-world@1",
+  "id": "sketchbook",
+  "number": 18,
+  "name": "Hand-drawn / sketchbook / cel boil",
+  "look": "pencil and ink on paper, line boil, smears, hand lettering.",
+  "fits": {
+    "products": [
+      "human-centred products",
+      "creative tools",
+      "education",
+      "indie"
+    ],
+    "tones": [
+      "warm",
+      "human",
+      "honest"
+    ],
+    "notes": "human-centred products, creative tools, education, indie"
+  },
+  "avoid": {
+    "products": [
+      "anything needing exact UI proof"
+    ],
+    "tones": [
+      "slick"
+    ]
+  },
+  "when_not": [
+    "Avoid anything needing exact UI proof."
+  ],
+  "type": {
+    "guidance": "hand lettering, Caveat-like but better (Reenie, custom)",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "hand lettering, Caveat-like but better (Reenie, custom); graphite + one marker colour on cream.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "marker colour is the brand colour on graphite and cream",
+    "type_role": "hand lettering for callouts; brand face for the one typeset claim",
+    "world_changes": "line boil, smears, hand-lettered callouts, paper turns",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "redraw every 2 frames (A5)",
+      "smear frames",
+      "scribble highlight",
+      "hand-lettered callouts",
+      "paper turns"
+    ],
+    "grammars": [
+      "catalogue-cards"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.1,
+        "size": 2.2
+      },
+      "role": "paper grain"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 2,
+      "max": 4
+    },
+    "prompt_template": "pencil and ink sketch of {subject}, graphite plus one marker colour on cream paper, 3 alternate redraws",
+    "animate_with": [
+      {
+        "id": "A5",
+        "what": "boil (2-3 redraws swapped every 2 frames)"
+      },
+      {
+        "id": "A2",
+        "what": "step-print (8-12 fps quantised time)"
+      }
+    ],
+    "r1_note": "hand-drawn plates in 3 alt versions; A5.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "pencil scratches",
+      "page turns",
+      "acoustic guitar",
+      "brushed percussion"
+    ]
+  },
+  "build": {
+    "engine": "B",
+    "engine_meaning": "buildable today",
+    "recipe": "`runtime/medium-cel.js`, `styles/cel-boil.md`, `sketchbook.md`, `motion/traditional/cel-on-twos.md`, `anime-timing-kanada-smear.md`. SVG `feTurbulence + feDisplacementMap` seeded by `floor(t*12)` for boil.",
+    "refs": [
+      "runtime/medium-cel.js",
+      "styles/cel-boil.md",
+      "sketchbook.md",
+      "motion/traditional/cel-on-twos.md",
+      "anime-timing-kanada-smear.md",
+      "feTurbulence + feDisplacementMap",
+      "floor(t*12)"
+    ],
+    "medium_runtime": "runtime/medium-cel.js",
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Animade (Figma, Google, Airbnb motion; acquired by Duolingo) ; Gunner/Duolingo World",
+      "url": "https://www.animade.tv",
+      "link_status": "surfaced-by-search-not-refetched"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

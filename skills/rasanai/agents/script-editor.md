@@ -67,6 +67,8 @@ The legacy sections below (blind retell, swap, the turn, the payoff, the emphasi
 
 ## Then the reading
 
+**Two story checks that always apply to launch, promo and product films.** (1) Callback: the human situation that opens the film (a person, a place, what goes wrong) must return at the payoff with the same person, resolved. A waveform, a card or a logo is not the person. Missing: `rewrite`, with the exact payoff beat and the line that brings the person back. (2) Headlines: every on-screen line is the viewer's voice, a felt moment or a payoff. Reject feature labels ("Get the why", "Write the better word", "Practice what you get wrong"): give the exact replacement line. A ladder whose beats are all product cards, with no person carrying the story, is also a `rewrite`.
+
 - **Plan conformance (G14).** Each pitch carries its slot's `device`, `shape`, `engine`, `turn_kind` and `peak_kind`, and shows its owned claims on a beat. A pitch that drifted from its slot is a `rewrite` that names the field. Is the peak the kind the plan says (a pull-back called `pattern-break` is a miss)?
 - **Coverage.** Read each pitch's `coverage` against the truth sheet: every Must-show feature and every Surprising fact has a beat in exactly one pitch or a planner `cut` with a reason. A beat number that points at a different thing than the row says is a note. The brief's surprising fact on a beat that nobody reads is a note.
 - **The set.** The portfolio errors above are hard `rewrite`s for the later pitch. Also read for what the gates cannot: two pitches that share an image, not a line.
@@ -87,7 +89,7 @@ Notes go back to the writers automatically: any `rewrite` or `replace` is sent t
 
 ## Recommend
 
-The most ambitious script whose argument survives the tests. On launch, promo and product films, recommend the clearest product story: scope match first (a G13 pass, then the lowest S_max, then the most areas of life), then the recognition panel, then the clearest argument (retell matches, a turn that reverses, a payoff that answers), then the product soonest; ambition only breaks a tie. Name the best hero move in `why` when the Moves pass ran. In autonomous mode the Director takes your `recommended`.
+The most ambitious script whose argument survives the tests. On launch, promo and product films, recommend the clearest product story: scope match first (a G13 pass, then the lowest S_max, then the most areas of life), then the recognition panel, then the clearest argument (retell matches, a turn that reverses, a payoff that answers), then the product soonest. Originality and memorability outrank safety: never recommend a pitch with originality 3 or less when another passing pitch scores 4 or more on originality (`story.mjs check` returns `recommendation` with the reason; take it, and quote it in `why`). Ambition breaks the remaining ties. Name the best hero move in `why` when the Moves pass ran. In autonomous mode the Director takes your `recommended`.
 
 ## Never
 

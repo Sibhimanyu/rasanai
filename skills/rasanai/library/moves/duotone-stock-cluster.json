@@ -1,0 +1,46 @@
+{
+  "id": "duotone-stock-cluster",
+  "n": 21,
+  "name": "Duotone stock cluster",
+  "family": "image",
+  "source": [
+    {
+      "video": "Video-67152",
+      "brand": "TaskShelf",
+      "start_s": 1,
+      "end_s": 2,
+      "frames": ".context/review-refs/Video-67152/f2/"
+    }
+  ],
+  "description": "People photos in blue duotone with one colour photo among them.",
+  "recipe": {
+    "tech": [
+      "html",
+      "css"
+    ],
+    "runtime": [
+      "rasan-image-fx.js"
+    ],
+    "build": "mix-blend-mode:multiply over a blue gradient, or a filter stack; a cluster of tilted cards."
+  },
+  "use_when": "A generic teams or people beat that must sit inside the brand colour.",
+  "avoid": "Do not hold longer than about 2 s; never as the only image of the film.",
+  "duration_s": {
+    "min": 1,
+    "max": 2
+  },
+  "easing": "power2.out",
+  "carriers": [
+    "card-field",
+    "palette-dither"
+  ],
+  "beat_roles": [
+    "open",
+    "middle"
+  ],
+  "needs": [
+    "rasan-image-fx.js"
+  ],
+  "light": true,
+  "bundle_into": 19
+}

@@ -1,0 +1,54 @@
+{
+  "id": "ui-object-state-morph",
+  "n": 41,
+  "name": "UI object morphs through states",
+  "family": "ui",
+  "source": [
+    {
+      "video": "F1-78313",
+      "brand": "KINSO",
+      "start_s": 3.4,
+      "end_s": 41,
+      "frames": ".context/review-favs/F1-78313/"
+    },
+    {
+      "video": "F3-75914",
+      "brand": "SOVRA.FM",
+      "start_s": 16.5,
+      "end_s": 38,
+      "frames": ".context/review-favs/F3-75914/"
+    }
+  ],
+  "description": "One product UI element IS the carrier and the protagonist: a white card that becomes the dock, a label, a window, a phone, a notification and a composer (6 states); an app-icon stack whose notification badges count up; a now-playing pill that grows into a card, then a cover, then a ring. It never leaves the frame; each state is the next beat's stage.",
+  "recipe": {
+    "tech": [
+      "html",
+      "svg",
+      "gsap"
+    ],
+    "runtime": [
+      "rasan-ui.js",
+      "rasan-motion.js"
+    ],
+    "build": "One element in the DOM, one GSAP timeline: tween its box (width, height, radius, position) and swap or cross-fade the inner content per state (dock icons, label text, window rows, phone frame, notification, composer). Badges are numeric tweens (0 to 1,684) with a seeded easing; the 'o' of a word may be the badge. Every state change lands on a music event; 5 to 6 states in 50 s, each held 2 to 6 s (a typed input or a state change inside the UI proof). Rebuilt in HTML with real copy, never a recording."
+  },
+  "use_when": "The product has one object that stands for it (an inbox card, a now-playing pill, an app-icon stack, a prompt bar): carry it through the whole film instead of cutting between screens. Declare it as the concept's carrier with kind ui-object.",
+  "avoid": "Do not swap it for a different object between states (it must read as the same thing); no more than 6 states; no persistent step counter or pill chrome; never a screen recording.",
+  "duration_s": {
+    "min": 0.6,
+    "max": 1.6
+  },
+  "easing": "power3.inOut",
+  "carriers": [
+    "ui-object",
+    "ui-plane",
+    "icon-set"
+  ],
+  "beat_roles": [
+    "open",
+    "middle",
+    "proof",
+    "close"
+  ],
+  "needs": []
+}

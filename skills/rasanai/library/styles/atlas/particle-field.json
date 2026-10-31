@@ -1,0 +1,127 @@
+{
+  "format": "style-world@1",
+  "id": "particle-field",
+  "number": 25,
+  "name": "Generative / particle field",
+  "look": "thousands of points, flow fields, swarms forming shapes and text.",
+  "fits": {
+    "products": [
+      "AI",
+      "data",
+      "music",
+      "intelligence brands"
+    ],
+    "tones": [
+      "awe",
+      "intelligent",
+      "ambient"
+    ],
+    "notes": "AI, data, music, \"intelligence\" brands. Overused as \"AI wallpaper\"; ask what the particles mean"
+  },
+  "avoid": {
+    "products": [
+      "particles that mean nothing (AI wallpaper)"
+    ],
+    "tones": [
+      "homely"
+    ]
+  },
+  "when_not": [
+    "Avoid for particles that mean nothing (AI wallpaper)."
+  ],
+  "type": {
+    "guidance": "mono or light grotesk",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "mono or light grotesk; dark field, 1-2 hues, additive blend.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "particles are the brand colour on a dark field; one secondary hue",
+    "type_role": "mono or light grotesk; brand face for the claim",
+    "world_changes": "flow fields and swarms that snap to a text or logo mask",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "curl-noise flow, particles snap to a text/logo mask, attractors, boids, trails",
+      "light-painted ribbons"
+    ],
+    "grammars": [
+      "dot-system"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "aberration",
+      "params": {
+        "shift": 0.004
+      },
+      "role": "fringe on bright points"
+    },
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.06
+      },
+      "role": "anti-banding on dark field"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 1,
+      "max": 2
+    },
+    "prompt_template": "palette and mood plate for {subject}, dark field, 1-2 hues; plus a mask image for particles to form",
+    "animate_with": [],
+    "r1_note": "palette/mood plates; mask images for particle targets.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "granular textures",
+      "ambient pads",
+      "swelling sub"
+    ]
+  },
+  "build": {
+    "engine": "R/B",
+    "engine_meaning": "reference only (builder hand-codes it) / buildable today",
+    "recipe": "`motion/simulation/*`, skill `particle-system`, `rasan-sim.js`, `rasan-orbs.js`; GPU points in Three.js with deterministic noise; canvas fallback.",
+    "refs": [
+      "motion/simulation/*",
+      "particle-system",
+      "rasan-sim.js",
+      "rasan-orbs.js"
+    ],
+    "medium_runtime": null,
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Stripe homepage gradient/particles",
+      "url": "https://stripe.com",
+      "link_status": "unverified-from-memory"
+    },
+    {
+      "title": "Active Theory",
+      "url": "https://activetheory.net",
+      "link_status": "unverified-from-memory"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

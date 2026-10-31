@@ -11,6 +11,11 @@
 //          --out <dir> [--still]
 //        node board.mjs --poses keyframes.json --motion motion.md --validate   (checks only, no page; exit 3 on issues)
 // Pose file format: references/board-format.md
+//
+// Story board (before any build): node board.mjs --concept <concept.json> --out <dir> [--pick <id|index>] [--cols 4]
+//   renders the concept's shots[] ({t, see, style, carrier_state, move, transition, words}, optional image/signature/accent_word) as
+//   <dir>/story-board.png: one tile per shot with its words and move, the style world, carrier and signature moment. A tile's image
+//   is the shot's own `image` plate (e.g. from imagegen.mjs) when it exists. JSON on stdout.
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -22,6 +27,11 @@ import { classify, bannedHits } from "./lib/signatures.mjs";
 import "./lib/motion-lang.mjs"; // motion-language terms ("lang-snappy") resolve like swatch ids
 
 const args = parseArgs();
+if (args.concept) {
+  const { runStoryBoard } = await import("./lib/story-board.mjs");
+  await runStoryBoard(args);
+  process.exit(0);
+}
 if (!args.poses) die("--poses required (keyframes.json)");
 if (!args.motion) die("--motion required (motion.md)");
 if (!args.out && !args.validate) die("--out required (or --validate for checks only)");

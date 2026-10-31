@@ -1,0 +1,115 @@
+{
+  "format": "style-world@1",
+  "id": "bauhaus",
+  "number": 31,
+  "name": "Bauhaus / geometric primaries",
+  "look": "circles, triangles, squares, primaries on cream, strictly modular.",
+  "fits": {
+    "products": [
+      "design tools",
+      "education",
+      "systems products"
+    ],
+    "tones": [
+      "rational",
+      "playful-geometric",
+      "confident"
+    ],
+    "notes": "design tools, education, systems products"
+  },
+  "avoid": {
+    "products": [
+      "sensory or organic products"
+    ],
+    "tones": [
+      "organic",
+      "soft"
+    ]
+  },
+  "when_not": [
+    "Avoid anything sensory/organic."
+  ],
+  "type": {
+    "guidance": "Futura, Josefin",
+    "rule": "Style type is for the world's chrome and display; the brand face always sets the real claim line and any product UI text."
+  },
+  "colour": {
+    "guidance": "Futura, Josefin; red/blue/yellow/black on cream.",
+    "rule": "Style palette fills the world; the brand colour takes the role named in brand_lock.colour_role and never drops below the contrast of the brand's own palette."
+  },
+  "brand_lock": {
+    "keeps": [
+      "brand colour",
+      "brand type",
+      "logo",
+      "real product UI capture (composited as a screen plate, never redrawn)"
+    ],
+    "colour_role": "brand colour is one of the three primaries; the other two stay primary",
+    "type_role": "Futura-class geometric sans; brand face for the claim",
+    "world_changes": "circles, triangles and squares move in integer modules and stack into the logo",
+    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+  },
+  "motion_grammar": {
+    "hints": [
+      "shapes translate in integer module steps on the beat",
+      "rotate 90 degrees",
+      "stack into the logo"
+    ],
+    "grammars": [
+      "specimen-sheet",
+      "glyph-chain"
+    ],
+    "grammars_planned": [],
+    "note": "grammars lists existing library/grammars ids; grammars_planned lists world grammars the engine plan adds (game-world, tabletop, os-desktop, type-only, editorial, collage, cinematic-world)."
+  },
+  "effects": [
+    {
+      "pass": "grain",
+      "params": {
+        "strength": 0.05
+      },
+      "role": "print feel on cream"
+    }
+  ],
+  "effects_note": "rasan-fx passes (runtime/rasan-fx.js); order is the pass order. {brand_colour} / {second_ink} are filled from the brand or look palette.",
+  "codex_assets": {
+    "use": true,
+    "images": {
+      "min": 0,
+      "max": 1
+    },
+    "prompt_template": "paper texture plate, cream, subtle fibre, no marks",
+    "animate_with": [],
+    "r1_note": "none; textures only.",
+    "rules": "Flat, evenly lit plain background (chroma green or pure white) for clean cut-outs; one prompt family with the same seed words; generate at 2x and downscale; never ask Codex for readable UI text or logos (typeset them in HTML)."
+  },
+  "sound": {
+    "mode": "instrumental-arc",
+    "alt_modes": [],
+    "palette": [
+      "marimba",
+      "march snare",
+      "minimal piano"
+    ]
+  },
+  "build": {
+    "engine": "R",
+    "engine_meaning": "reference only (builder hand-codes it)",
+    "recipe": "`styles/bauhaus.md`, `systems/movements/bauhaus.md`, `material/bauhaus-in-3d.md`; SVG + GSAP integers.",
+    "refs": [
+      "styles/bauhaus.md",
+      "systems/movements/bauhaus.md",
+      "material/bauhaus-in-3d.md"
+    ],
+    "medium_runtime": "runtime/medium-graphic.js",
+    "medium_runtime_extra": [],
+    "stage3d_recipe": null
+  },
+  "examples": [
+    {
+      "title": "Spotify Wrapped-style bold graphics (`systems/studios/spotify-wrapped.md`)",
+      "link_status": "in-repo-or-text-only"
+    }
+  ],
+  "product_ui_rule": "If the film shows RasanAI Studio, use the current dark sidebar UI with the Describe...Final dot stepper (docs/brand/studio-ui/), as a real capture composited INTO this style; never the retired light UI."
+}

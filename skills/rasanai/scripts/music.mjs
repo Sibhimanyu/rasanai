@@ -13,6 +13,10 @@
 //        [--sources user,ai,catalog,heygen,ccmixter,openverse,procedural] [--no-ai] [--pick <catalog id>] [--no-preview]
 //        [--procedural [--identity <file>] [--seed <n>]] [--silent-by-choice "<reason>"]
 //        [--sound <sound-choices.json>] [--constraints '<json | file: {hard:{exclude_terms,...}, preferences:{...}}>'] [--recent "id,id"] [--allow-generation]
+//   THE STORY GATE: the run needs <run>/story/chosen.json and an arc (a turn: drop_at, a break before the end card, payoff_at, button_at) from --arc, motion/score.json or the manifest's music cues,
+//   else the script refuses (exit 2, JSON {refused, missing}); --unplanned "<reason>" is the one logged escape. With the gate, every candidate (as cut to the film) is measured against the arc
+//   from its own audio (lib/audio.mjs arcFit: sparse intro, lift at the turn, break before the end card, peak between turn and payoff; under 55/100 is unusable) and ranked by it, not by style tags;
+//   the original score (original-score.mjs) is tried right after --track and competes on the same measure (--no-procedural skips it). --track <file> is how the director or console passes the user's own track.
 //   --sound: the film's sound choices (default: <run>/audio/sound-choices.json when it exists; none = the legacy behaviour, unchanged). Feeling, perceived energy (pace as
 //   energy, never as BPM), narration space and music source shape the intents and the ranking; `music_source: none` makes no music and is never replaced; `user_track` is used first.
 //   --constraints: HARD exclusions (the user's own) kept apart from ranking preferences. With neither flag the global cliche/instrument lists below apply exactly as before.
@@ -50,12 +54,16 @@ import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { loadManifest, presentManifest, hitTimes as manifestHits } from "./lib/film-events.mjs";
-import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits } from "./lib/audio.mjs";
+import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits, arcFit } from "./lib/audio.mjs";
 import { resolveIdentity, renderScore, identityPlan, sidecarPath, readSidecar } from "./lib/procedural-score.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText, styleExclusions } from "./lib/music-lib.mjs";
 import { readSoundChoices, resolveSound } from "./lib/sound-choices.mjs";
+import { KEY as SRC_KEY, CAVEATS, warn as warnLicence, aceStep } from "./lib/sound-sources.mjs";
 import { normalizeConstraints, rankCandidates, pickThree, reviseShortlist, candidateFromOption, buildShortlistRecord, previewPlan } from "./lib/music-shortlist.mjs";
 
+// the plain env names the vendors document work too (ELEVENLABS_API_KEY, STABILITY_API_KEY); the RASANAI_ names stay first
+if (!process.env[KEYS.elevenlabs] && process.env.ELEVENLABS_API_KEY) process.env[KEYS.elevenlabs] = process.env.ELEVENLABS_API_KEY;
+if (!process.env[KEYS.stable] && process.env.STABILITY_API_KEY) process.env[KEYS.stable] = process.env.STABILITY_API_KEY;
 const args = parseArgs();
 const mode = ["gate", "chain", "credits", "verify", "revise"].includes(args._[0]) ? args._[0] : "run";
 const ws = process.cwd();
@@ -160,9 +168,17 @@ const EXCL = styleExclusions({ direction: DIRECTION, constraints: CONSTRAINTS })
 const trackArg = args.track || (SR && SR.user_track && SR.user_track.file && fs.existsSync(path.resolve(String(SR.user_track.file))) ? SR.user_track.file : null);
 if (SR && SR.music_source === "user_track" && !trackArg) notes.push("you chose your own track, but no file was given or found (--track <file>): the options below are alternatives, not a replacement for it");
 const chain = sourceChain(process.env, { user: !!trackArg, noAi: !!args["no-ai"], generationConsent: !!args["allow-generation"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null });
+// local ACE-Step lane (after the paid generators): on only when the person's own install is set up and the film consents to generation
+{
+  const aiLane = chain.find((c) => c.id === "ai");
+  const cmd0 = SRC_KEY.acestep() ? String(SRC_KEY.acestep()).split(/\s+/)[0] : null;
+  const ok = !!(cmd0 && fs.existsSync(cmd0));
+  const consent = !!args["allow-generation"] || !!(args.sources && String(args.sources).split(",").includes("acestep"));
+  chain.splice(chain.indexOf(aiLane) + 1, 0, { id: "acestep", on: ok && consent && !args["no-ai"], consent, threshold: 65, why: ok ? (consent ? "local ACE-Step via ACESTEP_CMD, in its own process (never installed by RasanAI)" : "ACESTEP_CMD found, but generation is off for this film: pass --allow-generation") : "no ACESTEP_CMD (a local ACE-Step wrapper) in the environment" });
+}
 const on = (id) => (chain.find((c) => c.id === id) || {}).on;
 const scoreFile = path.resolve(String(args.run), "motion", "score.json");
-const { arc, derived: arcDerived } = readArc(args.arc || (fs.existsSync(scoreFile) ? scoreFile : null), film || 30);
+let { arc, derived: arcDerived } = readArc(args.arc || (fs.existsSync(scoreFile) ? scoreFile : null), film || 30);
 if (arcDerived && film) notes.push("no music_arc given (--arc or motion/score.json): the brief uses a default arc for a " + film + " s film");
 
 // ---------------------------------------------------------------- intents
@@ -276,6 +292,43 @@ function pictureHits() {
 }
 let eventsInput = null; // the film-event manifest (or a list built from the picture's hits) the original score is scheduled from
 const HITS = pictureHits();
+
+// ---------------------------------------------------------------- the story gate
+// Music is picked AFTER the story is chosen and its event map exists, and it is cut to the story (never the story to the music).
+// Refused without: <run>/story/chosen.json, and an arc with a turn (drop_at), a payoff, a break before the end card and the end card (button_at),
+// from --arc, motion/score.json's music_arc, or the film-event manifest's cues. --unplanned "<reason>" is the one logged escape (a downgrade the person sees).
+const UNPLANNED = args.unplanned && args.unplanned !== true ? String(args.unplanned) : null;
+function arcFromManifest(m) {
+  if (!m || !Array.isArray(m.events)) return null;
+  const cue = (n) => { const e = m.events.find((x) => x.kind === "music_cue" && x.cue === n); return e ? Number(e.at_s) : null; };
+  const end = m.events.filter((e) => e.kind === "visual_hit" && /^(logo|cta|end)/i.test(String((e.attrs && e.attrs.cue_kind) || e.id || ""))).map((e) => Number(e.at_s)).sort((a, b) => b - a)[0];
+  const drop = cue("drop_at"), payoff = cue("payoff_at"), button = cue("button_at") ?? end ?? null, b0 = cue("break_start"), b1 = cue("break_end");
+  return drop > 0 && button > 0 ? { intro_until: drop * 0.7, drop_at: drop, break: b0 != null && b1 != null ? [b0, b1] : null, payoff_at: payoff ?? drop + (button - drop) * 0.6, button_at: button } : null;
+}
+const arcSpecProblems = (a) => {
+  const P = [];
+  if (!(a.drop_at > 0)) P.push("drop_at (the turn: where the lift or drop lands)");
+  if (!(a.payoff_at > a.drop_at)) P.push("payoff_at after drop_at");
+  if (!(a.button_at > (a.payoff_at || 0))) P.push("button_at (the end card) after payoff_at");
+  if (!Array.isArray(a.break) || !(a.break[1] > a.break[0]) || a.break[1] > a.button_at + 1e-6) P.push("break: [from, to] before the end card");
+  return P;
+};
+let arcGate = false;
+if (!silentArgs()) {
+  if (arcDerived) { const am = arcFromManifest(eventsInput); if (am) { arc = am; arcDerived = false; notes.push("arc taken from the film-event manifest's music cues"); } }
+  const missing = [];
+  if (!fs.existsSync(path.join(path.resolve(String(args.run)), "story", "chosen.json"))) missing.push("the chosen story (<run>/story/chosen.json): pick the music after the person chooses the script, never while they are still reading");
+  if (arcDerived) missing.push("the story's event map: no music_arc (--arc or motion/score.json) and no music cues in motion/events.json");
+  else for (const p of arcSpecProblems(arc)) missing.push(`arc needs ${p}`);
+  if (!film) missing.push("--film <seconds>");
+  if (missing.length && !UNPLANNED) {
+    console.log(JSON.stringify({ refused: true, why: "music is picked after the story, to its events", missing, arc_spec: { intro_until: "quiet or sparse until here", drop_at: "the turn: a lift or drop lands", break: "[from, to] a break (bed pulled out) before the end card", payoff_at: "the payoff, the loudest moment", button_at: "the end card: the music button" }, example: "--arc '{\"intro_until\":6,\"drop_at\":12,\"break\":[30,31.4],\"payoff_at\":33,\"button_at\":41}' --film 45", note: "or pass --unplanned \"<reason>\" to go on without the gate (logged as a downgrade)" }, null, 2));
+    process.exit(2);
+  }
+  if (missing.length) noteDowngrade({ run: args.run, severity: "needs-you", what: "the music's story gate (chosen story, event map, arc)", instead: "music picked without the full arc: " + UNPLANNED, why: missing.join("; ").slice(0, 300), impact: "the music may not follow the story's turn, payoff and break" });
+  else arcGate = true;
+}
+function silentArgs() { return !!args["silent-by-choice"] || (SR && SR.music_source === "none"); }
 const hitCache = new Map();
 const hitPick = (it) => {
   if (HITS.length < 3) return null;
@@ -393,6 +446,7 @@ async function fromHeygen() {
 const FORMAT_SUBJECT = { launch: "launch film", explainer: "explainer film", reel: "reel", kinetic: "kinetic-type film", brand: "brand film", premium: "premium brand film" };
 const promptExtras = () => (SR || CONSTRAINTS ? { subject: FORMAT_SUBJECT[String(args.format || "launch")] || "film", tone: SR ? [SR.feeling && SR.feeling.value !== "unset" && SR.feeling.value !== "custom" ? SR.feeling.value : null, `${SR.energy.perceived} energy`].filter(Boolean).join(", ") : "", exclusions: EXCL } : {});
 async function aiElevenLabs(it, bpm, key) {
+  warnLicence("elevenlabs");
   const p = buildPrompt({ film, bpm, family: it.family, arc, narrated, ...promptExtras() });
   const body = { composition_plan: elevenPlan(p, it.family, SR || CONSTRAINTS ? EXCL : null), model_id: "music_v1" };
   const res = await fetch(`${process.env.RASANAI_ELEVENLABS_API_BASE || "https://api.elevenlabs.io"}/v1/music?output_format=mp3_44100_128`, { method: "POST", headers: { "xi-api-key": key, "content-type": "application/json", "user-agent": UA }, body: JSON.stringify(body), signal: AbortSignal.timeout(600000) });
@@ -428,7 +482,26 @@ async function fromAI() {
     const id = `ai-${it.family.id}-${n}`;
     const file = path.join(dir, `${id}.${got.ext}`);
     fs.writeFileSync(file, got.bytes);
-    found.push({ id, title: `Made to the cut: ${it.family.id.replace("-", " ")}, ${bpm} BPM`, file, source: `AI generation (${got.vendor})`, kind: "ai", origin: `ai:${got.vendor}`, license: "Commercial use under the vendor plan active at generation time", attribution: null, url: null, intent: it, targetBpm: bpm, generation: { vendor: got.vendor, prompt: got.prompt, request: got.request, date: new Date().toISOString(), plan_note: "the licence depends on the vendor plan at this date: record the plan" } });
+    found.push({ id, title: `Made to the cut: ${it.family.id.replace("-", " ")}, ${bpm} BPM`, file, source: `AI generation (${got.vendor})`, kind: "ai", origin: `ai:${got.vendor}`, license: "Commercial use under the vendor plan active at generation time", ...(got.vendor.startsWith("elevenlabs") ? { caveat: CAVEATS.elevenlabs } : {}), attribution: null, url: null, intent: it, targetBpm: bpm, generation: { vendor: got.vendor, prompt: got.prompt, request: got.request, date: new Date().toISOString(), plan_note: "the licence depends on the vendor plan at this date: record the plan" } });
+  }
+}
+
+// a local ACE-Step install (ACESTEP_CMD), run as an isolated child process; generation consent applies exactly as for the paid vendors
+async function fromAceStep() {
+  let n = 0;
+  for (const it of intents.slice(0, count)) {
+    const bpm = Math.round(tempoOf(it));
+    n++;
+    const p = buildPrompt({ film, bpm, family: it.family, arc, narrated, ...promptExtras() });
+    const id = `acestep-${it.family.id}-${n}`;
+    const file = path.join(dir, `${id}.wav`);
+    try {
+      warnLicence("acestep");
+      const r = await aceStep({ prompt: p.text, seconds: Math.ceil(p.sections.reduce((a, s) => a + s.duration_ms, 0) / 1000), out: file });
+      found.push({ id, title: `Made locally to the cut: ${it.family.id.replace("-", " ")}, ${bpm} BPM`, file, source: "Local generation (ACE-Step)", kind: "ai", origin: "ai:ace-step/local", license: r.licence, caveat: r.caveat, attribution: null, url: null, intent: it, targetBpm: bpm, generation: { vendor: r.vendor, prompt: r.prompt, date: r.date } });
+    } catch (e) {
+      notes.push(`ACE-Step failed for ${it.family.id}: ${String(e.message).slice(0, 200)}`);
+    }
   }
 }
 
@@ -436,7 +509,8 @@ async function fromAI() {
 async function fromProcedural() {
   if (!film) { notes.push("an original procedural score needs --film <seconds>"); return; }
   try {
-    const input = eventsInput || { duration_s: film, events: [...HITS.map((h, i) => ({ id: `hit-${i + 1}`, t: h.t, kind: h.kind })), ...(arcDerived ? [] : [["drop_at", arc.drop_at], ["payoff_at", arc.payoff_at], ["button_at", arc.button_at]].filter(([, t]) => Number.isFinite(Number(t)) && Number(t) > 0).map(([cue, t]) => ({ id: `music-${cue.replace(/_at$/, "")}`, at_s: Number(t), kind: "music_cue", cue })))] };
+    const withBreak = (m) => { if (!m || arcDerived || !arc.break) return m; const has = (c) => m.events.some((x) => x.kind === "music_cue" && x.cue === c); const add = [["break_start", arc.break[0]], ["break_end", arc.break[1]]].filter(([c]) => !has(c)).map(([cue, t]) => ({ id: `music-${cue.replace("_", "-")}`, at_s: Number(t), kind: "music_cue", cue })); return add.length ? { ...m, events: [...m.events, ...add] } : m; };
+    const input = withBreak(eventsInput) || { duration_s: film, events: [...HITS.map((h, i) => ({ id: `hit-${i + 1}`, t: h.t, kind: h.kind })), ...(arcDerived ? [] : [["drop_at", arc.drop_at], ["payoff_at", arc.payoff_at], ["button_at", arc.button_at], ["break_start", arc.break && arc.break[0]], ["break_end", arc.break && arc.break[1]]].filter(([, t]) => Number.isFinite(Number(t)) && Number(t) > 0).map(([cue, t]) => ({ id: `music-${cue.replace(/_at$/, "")}`, at_s: Number(t), kind: "music_cue", cue })))] };
     const identity = resolveIdentity(args.identity && args.identity !== true ? path.resolve(String(args.identity)) : null, { look: args.style, story: args.story, seed: args.seed, narrated: narrated || null });
     const r = renderScore(input, identity, { duration: film });
     const id = `procedural-${identity.family}`;
@@ -670,9 +744,24 @@ const analyzeOne = (f) => {
       o.warnings.push(`quality gate not run: ${String(e.message).slice(0, 120)}`);
       o.rank = 0;
     }
+    // the arc gate: the bed as the film will get it, measured against the story's arc (a sparse intro, a lift at the turn, a break before the end card, the peak between turn and payoff)
+    if (arcGate && film) {
+      try {
+        let src = o.preview ? path.resolve(ws, o.preview) : f.kind === "procedural" ? f.file : null, tmp = null;
+        if (!src && plan && plan.segments && plan.segments.length) { tmp = path.join(dir, `arcfit-${f.id}.wav`); renderPlan(plan, tmp); src = tmp; }
+        if (src) {
+          const AF = arcFit(src, arc, film);
+          o.arc_fit = AF;
+          if (AF.score < 55) (f.kind === "user" ? o.warnings : o.problems).push(`arc fit ${AF.score}/100 (needs 55): ${AF.problems.join("; ")}`);
+          else if (AF.problems.length) o.warnings.push(...AF.problems);
+          o.rank = Math.round(0.35 * (o.rank ?? 0) + 0.65 * AF.score);
+        } else o.warnings.push("arc fit not measured: no fitted bed to measure");
+        if (tmp) fs.rmSync(tmp, { force: true });
+      } catch (e) { o.warnings.push(`arc fit not measured: ${String(e.message).slice(0, 100)}`); }
+    }
     o.usable = o.problems.length === 0;
     // one line the console card can show as-is
-    o.mood = [family.replace("-", " "), `${Math.round(A.bpm)} BPM`, A.ending.natural ? "real ending" : A.ending.type === "fade" ? "fades out" : "no ending", o.fit ? `${o.fit.shape === "backtimed" ? "plays straight to its ending" : o.fit.shape === "head+tail" ? "one bar-line edit" : o.fit.shape} for ${film} s` : null].filter(Boolean).join(" · ");
+    o.mood = [family.replace("-", " "), `${Math.round(A.bpm)} BPM`, A.ending.natural ? "real ending" : A.ending.type === "fade" ? "fades out" : "no ending", o.arc_fit ? `arc fit ${o.arc_fit.score}/100` : null, o.fit ? `${o.fit.shape === "backtimed" ? "plays straight to its ending" : o.fit.shape === "head+tail" ? "one bar-line edit" : o.fit.shape} for ${film} s` : null].filter(Boolean).join(" · ");
     o.badge = f.kind === "user" ? "Your licence" : f.kind === "ai" ? "AI, made to the cut" : f.requires_credit ? "Credit needed" : f.requires_credit === false ? "No credit" : "See licence";
   } catch (e) {
     o.usable = false;
@@ -687,7 +776,9 @@ else if (silentByChoice) notes.push("music source is None in the sound choices: 
 const usableCount = () => options.filter((o) => o.usable).length;
 const mineFirst = () => !!trackArg && !args.more && options.some((o) => o.usable && o.origin === "user");
 const runSource = async (name, fn) => {
-  if (!on(name) || usableCount() >= count || mineFirst()) return;
+  // generated lanes (paid vendors, local ACE-Step) always run when they are on, so every available source competes: ranking is by arc fit (lib/audio.mjs arcFit), not by who answered first
+  const competes = name === "ai" || name === "acestep";
+  if (!on(name) || (usableCount() >= count && !competes) || mineFirst()) return;
   if (silentByChoice) return;
   const before = found.length;
   await fn();
@@ -696,12 +787,14 @@ const runSource = async (name, fn) => {
 await runSource("user", fromUser);
 const procChain = chain.find((c) => c.id === "procedural");
 if (procChain.explicit) await runSource("procedural", fromProcedural);
+// with an arc, the original score is tried right after the user's own track: it is built to the story's events, so it is the preferred path when it fits the arc (ranking decides)
+else if (arcGate && !args["no-procedural"] && !args.sources) await runSource("procedural", fromProcedural);
 // the chain is the one source of order: user, then the licensed/local catalog, then generation (only with the film's consent, unless a --sources list pins ai first), then the rest
-const HANDLERS = { ai: fromAI, catalog: fromCatalog, heygen: fromHeygen, ccmixter: fromCcmixter, openverse: fromOpenverse };
+const HANDLERS = { ai: fromAI, acestep: fromAceStep, catalog: fromCatalog, heygen: fromHeygen, ccmixter: fromCcmixter, openverse: fromOpenverse };
 for (const c of chain) if (HANDLERS[c.id]) await runSource(c.id, HANDLERS[c.id]);
 const aiLane = chain.find((c) => c.id === "ai");
 if (aiLane && !aiLane.on && aiLane.vendors && aiLane.vendors.length && !aiLane.consent && !args["no-ai"] && !silentByChoice) notes.push("generated music is off: a key was found but this film has no generation consent (--allow-generation). The licensed and local library was used.");
-if (procChain.fallback && usableCount() === 0 && !mineFirst()) await runSource("procedural", fromProcedural);
+if (procChain.fallback && usableCount() === 0 && !mineFirst() && !found.some((x) => x.kind === "procedural")) await runSource("procedural", fromProcedural);
 
 // licence ledger: everything a credit or an audit needs
 const ledgerFile = path.join(dir, "LICENSES.json");
@@ -752,10 +845,10 @@ if ((SR || CONSTRAINTS) && !silentByChoice) {
   shortlist = { ...record, preview_plan: previewPlan(picks.options, { passage: arcDerived ? null : { start_s: arc.drop_at, end_s: arc.payoff_at } }), file: rel(path.join(dir, "shortlist.json")) };
   fs.writeFileSync(path.join(dir, "shortlist.json"), JSON.stringify({ ...record, candidates: cands.map((c) => ({ ...c, analysis: undefined })), rank_opts: shortlistOpts(), liked: [] }, null, 2) + "\n");
 }
-const result = { options: shown, ...(shortlist ? { shortlist } : {}), ...(hitsReport ? { hits: { bpm: hitsReport.bpm, max_err_ms: hitsReport.max_err_ms, file: rel(path.join(dir, "hits.json")) } } : {}), suggestions, recommended: best ? best.id : null, intents: intents.map((i) => i.intent), film_s: film, min_length_s: Math.round(minLen), arc: { ...arc, derived: arcDerived }, chain: chain.map((c) => ({ id: c.id, on: c.on, why: c.why })), ...(SR ? { sound: { digest: SOUND.digest, music_source: SR.music_source, energy: SR.energy, feeling: SR.feeling.value, narrated } } : {}), licenses: rel(ledgerFile), credits: rel(path.join(dir, "CREDITS.txt")), description: rel(path.join(dir, "description.txt")), notes };
+const result = { options: shown, ...(shortlist ? { shortlist } : {}), ...(hitsReport ? { hits: { bpm: hitsReport.bpm, max_err_ms: hitsReport.max_err_ms, file: rel(path.join(dir, "hits.json")) } } : {}), suggestions, recommended: best ? best.id : null, intents: intents.map((i) => i.intent), film_s: film, min_length_s: Math.round(minLen), arc: { ...arc, derived: arcDerived }, arc_gate: arcGate, chain: chain.map((c) => ({ id: c.id, on: c.on, why: c.why })), ...(SR ? { sound: { digest: SOUND.digest, music_source: SR.music_source, energy: SR.energy, feeling: SR.feeling.value, narrated } } : {}), licenses: rel(ledgerFile), credits: rel(path.join(dir, "CREDITS.txt")), description: rel(path.join(dir, "description.txt")), notes };
 if (libraryNote) result.library_note = libraryNote;
 if (!film) notes.push("pass --film <seconds> so each track is fitted to the film and gets a preview of the edit");
 if (!shown.length) result.unavailable = `No music could be fetched (${notes.join("; ") || "no source answered"}). Check the network, or give your own track (--track <file>) or pick "No music". Signed in to HeyGen (\`npx hyperframes auth status\`) adds its catalog.`;
-else if (!best) result.unavailable_note = `None of the tracks passes the quality gate and fits a ${film} s film cleanly: ask for more (other moods), make one to the cut (an ElevenLabs or Stable Audio key in ${KEYS.elevenlabs} / ${KEYS.stable}), or bring your own track.`;
+else if (!best) result.unavailable_note = (arcGate ? "No track fits the story's arc (arc_fit on each option says what is missing: sparse intro, lift at the turn, break before the end card). Bring your own track (--track <file>), or let the original score be built (it needs no key). " : "") + `None of the tracks passes the quality gate and fits a ${film} s film cleanly: ask for more (other moods), make one to the cut (an ElevenLabs or Stable Audio key in ${KEYS.elevenlabs} / ${KEYS.stable}), or bring your own track.`;
 if (result.unavailable || result.unavailable_note) noteDowngrade({ run: args.run, what: "a curated music track", instead: "no track until one is chosen or supplied", why: String(result.unavailable || result.unavailable_note).slice(0, 200) });
 console.log(JSON.stringify(result, null, 2));
