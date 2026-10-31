@@ -2,6 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Home now uses one window-wide ambient background that continues behind the translucent sidebar and through the bottom safe area.
+- Sidebar navigation scrolls independently while Settings stays anchored; the sidebar and Home detail share the same background wash.
+- Home transitions and loading states keep that background consistent instead of painting separate solid backgrounds.
+
+
 ## 0.27.0 (build 72) — 2026-10-31
 
 - **Story boards.** Every story option shows its full board: each shot with its words, move, carrier and transition, plus chips for style world, carrier, signature moment and sound. You can leave a note on a single shot.
