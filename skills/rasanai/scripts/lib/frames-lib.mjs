@@ -332,6 +332,8 @@ export function collectRefs(run, { skillDir = null, extract = true, perVideo = 6
     ["precedent", path.join(run, "research", "films")],
     ["moment", path.join(run, "references", "moments")],
   ];
+  // the reference films the user loves (refs.mjs ingest): each one's bar frames are the run's own bar for the juror (never its contact sheets)
+  try { for (const d of fs.readdirSync(path.join(run, "refs"), { withFileTypes: true })) if (d.isDirectory()) sources.push(["reference", path.join(run, "refs", d.name, "bar-frames")]); } catch {}
   const seen = new Set();
   for (const [origin, dir] of sources) {
     for (const f of walk(dir)) {
@@ -463,7 +465,7 @@ export function buildPayload(run, { rel = (p) => p } = {}) {
   const frames = doc.shots.map((s, i) => {
     const id = String(s.id || frameId(i)), png = path.join(dir, `${id}.png`);
     const jv = VF.find((f) => f && String(f.id) === id) || {};
-    const ref = jv.ref && (jv.ref.image || jv.ref.source) ? { image: jv.ref.image ? rel(path.isAbsolute(jv.ref.image) ? jv.ref.image : path.resolve(run, jv.ref.image)) : null, source: jv.ref.source || null, why: jv.ref.why || null } : null;
+    const ref = jv.ref && (jv.ref.image || jv.ref.source) ? { image: jv.ref.image ? rel(path.isAbsolute(jv.ref.image) ? jv.ref.image : [path.resolve(run, jv.ref.image), path.resolve(jv.ref.image)].find((x) => exists(x)) || path.resolve(run, jv.ref.image)) : null, source: jv.ref.source || null, why: jv.ref.why || null } : null;
     const ang = angleOf(s.angle);
     const angle = !ang ? null : ang.kind === "tilt" ? ["rx", "ry", "rz"].filter((k) => ang[k]).map((k) => `${k} ${ang[k]}°`).join(" ") || "frontal" : ang.text || ang.kind;
     const focus = s.focus && typeof s.focus === "object" ? [s.focus.sharp && `sharp: ${s.focus.sharp}`, s.focus.soft && `soft: ${s.focus.soft}`].filter(Boolean).join("; ") : s.focus || null;

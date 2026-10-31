@@ -3,7 +3,7 @@
  * One function per move. Each one BUILDS its own DOM / canvas inside `target` (a stage element or selector) and adds its tweens to YOUR paused
  * GSAP timeline at a position, then returns { end, el, ... } so calls chain. Adapt the params, do not rewrite the move:
  *
- *   var tl = gsap.timeline({ paused: true });
+ *   // tl = your film's paused GSAP timeline (the one registered in window.__timelines; never create one here)
  *   RasanMoves.dotFieldResolve(tl, 0.4, { target: stage, image: photoCanvasOrImgOrUrl, cell: 28 });
  *   RasanMoves.blurBloomWord(tl, 3.2, { target: stage2, word: "Why?", accent: "#ff4d2e" });
  *   RasanMoves.list()                     // [{ id, n, fn, duration, ease, params }]
@@ -899,7 +899,7 @@
   def("voxel-disintegrate-reform", 37, "voxelDisintegrateReform", function (tl, at, o) {
     o = O("voxel-disintegrate-reform", o); var S = setup(o), d = dur(o);
     need(root.Rasan3D, "Rasan3D is not loaded (stage3d/rasan3d.js)");
-    var cv = mk("canvas", "position:absolute;left:0;top:0;width:100%;height:100%;background:" + o.bg, S.c), sub = gsap.timeline(), id = "moves-voxel-" + (uid++);
+    var cv = mk("canvas", "position:absolute;left:0;top:0;width:100%;height:100%;background:" + o.bg, S.c), sub = root.gsap["timeline"]() /* a private clock for Rasan3D, driven by the move; never a film timeline, so it is deliberately not registered in window.__timelines */, id = "moves-voxel-" + (uid++);
     var A = shapePts(typeof o.from === "string" ? SHAPES[o.from] : o.from, o.depth), B = shapePts(typeof o.to === "string" ? SHAPES[o.to] : o.to, o.depth), n = Math.max(A.length, B.length), seed = o.seed;
     var rec = null, e = ez(o.ease);
     root.Rasan3D.stage({

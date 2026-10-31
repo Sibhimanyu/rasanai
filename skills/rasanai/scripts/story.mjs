@@ -996,7 +996,15 @@ if (cmd === "truth") {
   const allV2 = pitches.every((p) => p.story_format === "v2");
   const portfolio = pitches.length > 1 ? (allV2 ? checkV2Portfolio(pitches) : checkPortfolio(pitches.filter((p) => p.story_format !== "v2"), results.filter((r, i) => pitches[i].story_format !== "v2"), opts)) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
-  const recommendation = pitches.length > 1 ? recommendPitch(results, (() => { try { const tp = tasteProfile(); if (tp.empty) return null; const priors = {}; pitches.forEach((p) => { if (p && p.label) priors[p.label] = Math.round(conceptPrior(p, tp) * 100) / 100; }); const ei = explorationIndex(pitches, tp); return { priors, exploration: ei >= 0 && pitches[ei] ? pitches[ei].label : null }; } catch { return null; } })()) : null;
+  let recommendation = pitches.length > 1 ? recommendPitch(results, (() => { try { const tp = tasteProfile(); if (tp.empty) return null; const priors = {}; pitches.forEach((p) => { if (p && p.label) priors[p.label] = Math.round(conceptPrior(p, tp) * 100) / 100; }); const ei = explorationIndex(pitches, tp); return { priors, exploration: ei >= 0 && pitches[ei] ? pitches[ei].label : null }; } catch { return null; } })()) : null;
+  // v2 treatments carry no rubric scores, so recommendPitch has nothing to rank: the independent editor's review (story/edit-notes.json: recommended = a treatment id or label) is the recommendation, never a weighted score
+  if (!recommendation && pitches.length > 1 && allV2) {
+    try {
+      const n = JSON.parse(fs.readFileSync(path.join(path.dirname(pf), "edit-notes.json"), "utf8")), rid = String(n.recommended || "");
+      const hit = pitches.find((p) => p && [p.label, p.treatment_id, p.id].some((x) => x && String(x).toLowerCase() === rid.toLowerCase()));
+      if (hit) recommendation = { recommended: hit.label || hit.treatment_id, why: String(n.why || "the editor's recommendation"), ranking: [], source: "editor" };
+    } catch {}
+  }
   out(pitches.length === 1 && !portfolio ? results[0] : { ok: ship, verdict: ship ? "ship" : "rewrite", pitches: results, portfolio, recommendation });
   process.exitCode = results.some((r) => r.verdict === "invalid") ? 1 : ship ? 0 : 2; // exitCode, not exit(): a large report on a pipe must flush
 } else if (cmd === "intent") {

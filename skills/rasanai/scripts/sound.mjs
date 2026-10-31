@@ -95,7 +95,7 @@ import { isManifest, loadManifest, legacyEvents } from "./lib/film-events.mjs";
 import { readSidecar, identityPlan } from "./lib/procedural-score.mjs";
 import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
-  decode, findRepeats, onsetProfile, onsetTimes, cutOnsetShare, lowShare, windowDb, audioFingerprint, compareFingerprint, renderTexture, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
+  payoffLiftDb, decode, findRepeats, onsetProfile, onsetTimes, cutOnsetShare, lowShare, windowDb, audioFingerprint, compareFingerprint, renderTexture, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
 } from "./lib/audio.mjs";
 // Plan 07: the audio direction (intentional silence, a silent deliverable), cue offsets and destination profiles. All optional: a run without audio/direction.json behaves as before.
 import { readDirection, sfxExpectation, silenceWindows } from "./lib/audio-direction.mjs";
@@ -612,7 +612,7 @@ function sfxPlan() {
   const audio_meta_sfx = [...(rev2 ? layerMeta : cues.filter((c) => c.file).map((c) => ({ frame: c.scene, file: c.file, offset_s: r3(c.start - c._scene_start), duration_s: c.duration_s, volume: c.volume }))), ...beds.filter((b) => b.file).map((b) => ({ frame: b.scene, file: b.file, offset_s: r3(b.start - (sc.scenes.find((x) => x.n === b.scene) || sc.scenes[0]).start), duration_s: b.duration_s, volume: b.volume }))];
   cues.forEach((c) => delete c._scene_start);
   const est = cues.filter((c) => c.estimated).length;
-  out({
+  const planOut = {
     mode,
     film_duration: r3(film),
     budget: { max_sfx: maxCount, placed: cues.length, candidates: cand.length, per_window: B.perWindow, hero_every_s: B.heroEvery, whoosh_every_s: B.whooshEvery },
@@ -629,7 +629,10 @@ function sfxPlan() {
       args.pan && !cues.some((c) => c.pan != null) ? "--pan: no event carries an x (0 left .. 1 right, or px with --width): nothing was panned" : null,
       !project ? "pass --project <dir> to render pitch variants, trimmed and filtered, into assets/sfx/rasa/" : null,
     ].filter(Boolean),
-  });
+  };
+  // the plan is the ONE source of SFX (slop, sound check and final-gate read <run>/crew/sfx-plan.json): with --run it is written there, not only printed
+  if (args.run && args.run !== true) { try { const pf = path.join(path.resolve(String(args.run)), "crew", "sfx-plan.json"); fs.mkdirSync(path.dirname(pf), { recursive: true }); fs.writeFileSync(pf, JSON.stringify(planOut, null, 2) + "\n"); } catch (e) { console.error("sfx-plan.json not written: " + e.message); } }
+  out(planOut);
 }
 
 // ============================================================== check
@@ -646,7 +649,7 @@ function sfxTimes(file) {
     return t;
   }
   const J = JSON.parse(txt);
-  if (Array.isArray(J.cues)) return J.cues.map((c) => ({ t: c.t ?? c.start, kind: c.kind || c.sample, file: c.file || null, volume: c.volume ?? 1, notes: c.notes || [], base: path.dirname(p), ...(c.layers ? { layers: c.layers, perceptual_event_id: c.perceptual_event_id || null, event: c.event || null, class: c.class || null } : {}) }));
+  if (Array.isArray(J.cues)) return J.cues.map((c) => ({ t: c.t ?? c.at ?? c.start, kind: c.kind || c.sample || c.id, file: c.file || null, volume: c.volume ?? 1, notes: c.notes || [], base: path.dirname(p), ...(c.layers ? { layers: c.layers, perceptual_event_id: c.perceptual_event_id || null, event: c.event || null, class: c.class || null } : {}) }));
   return [];
 }
 
@@ -841,7 +844,7 @@ function check() {
       const live = mom.filter((v) => v > -80).sort((a, b) => a - b);
       const median = live.length ? live[Math.floor(live.length / 2)] : -120;
       const after = meanDb(T, T + 1.0), before = meanDb(T - 1.5, T);
-      const lift = after - before;
+      const lift = payoffLiftDb(mom, W, T) ?? after - before; // one definition with arcFit (lib/audio.mjs)
       const i0 = Math.max(0, Math.round((T - 2.0) / W)), i1 = Math.round(T / W);
       let deepest = 1e9;
       for (let i = i0; i < i1; i++) deepest = Math.min(deepest, mom[i]);
@@ -951,8 +954,14 @@ function check() {
     measures.sync = sync;
   }
   // SFX density
-  if (args.sfx) {
-    const cues = sfxTimes(String(args.sfx)).sort((a, b) => a.t - b.t);
+  // SFX are counted from --sfx, else from the cues baked into this mix (<file>.mix.json written by `sound.mjs mix`), else <run>/crew/sfx-plan.json: both paths are valid
+  const sfxSrc = args.sfx && args.sfx !== true ? String(args.sfx) : (() => {
+    const mj = file.replace(/\.[^.]+$/, "") + ".mix.json", rp = args.run && args.run !== true ? path.join(path.resolve(String(args.run)), "crew", "sfx-plan.json") : null;
+    for (const c of [mj, rp]) if (c && fs.existsSync(c)) { try { if (sfxTimes(c).length) { measures.sfx_source = path.basename(c); return c; } } catch {} }
+    return null;
+  })();
+  if (sfxSrc) {
+    const cues = sfxTimes(sfxSrc).sort((a, b) => a.t - b.t);
     const narrated = !!args.narrated || !!args.vo;
     const mode = sfxMode({ format: args.format, narrated }), B = BUDGET[mode];
     sfxProvenance(cues, mode, dur, P, warnings, measures);

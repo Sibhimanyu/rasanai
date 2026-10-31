@@ -190,7 +190,7 @@ function mergeDowngrades(s) {
 const SKILL_DIR_C = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 function normalizeStoryBoards(data) {
   const str = (x) => (x == null ? "" : String(x));
-  let shotOf = (sh, i) => ({ id: str(sh.id) || `s${String(i + 1).padStart(2, "0")}`, t: Number.isFinite(Number(sh.t)) ? Number(sh.t) : null, ...(sh.image ? { image: str(sh.image) } : {}), words: str(sh.words), move: str(sh.move), carrier_state: str(sh.carrier_state), transition: str(sh.transition) });
+  let shotOf = (sh, i) => ({ id: str(sh.id) || `s${String(i + 1).padStart(2, "0")}`, t: Number.isFinite(Number(sh.t)) ? Number(sh.t) : null, ...(sh.image ? { image: str(sh.image) } : {}), words: str(sh.words), move: str(sh.move), carrier_state: str(sh.carrier_state), transition: str(sh.transition), ...(sh.see ? { see: str(sh.see) } : {}) });
   const idx = (f, key) => { try { return Object.fromEntries((readJSON(path.join(SKILL_DIR_C, f), {})[key] || []).map((x) => [x.id, x.name])); } catch { return {}; } };
   const moveNames = idx("library/moves/index.json", "moves"), worldNames = idx("library/styles/atlas/index.json", "styles");
   const shotOf0 = shotOf;
@@ -1010,6 +1010,15 @@ if (cmd === "push") {
     withLock(F.sessionLock, () => {
       const s = session();
       applyAction(s, a);
+      saveSession(s);
+    });
+  }
+  // a chat answer is the person's answer as much as a click: it must reach steps[step].sent (what push --status done reads to credit the person and not flag a Story / Look as unconfirmed), as the server does for a page action
+  if (!["comment", "apply", "knob", "cut-edit", "motion-edit"].includes(a.type)) {
+    withLock(F.sessionLock, () => {
+      const s = session();
+      if (a.step === "*") s.decide_rest = { ts: a.ts };
+      else if (Object.prototype.hasOwnProperty.call(s.steps, a.step)) s.steps[a.step].sent = { type: a.type, value: a.value, note: a.note, ts: a.ts, source: cleanSource(a.source), ...(SOURCES[a.source] ? { via: SOURCES[a.source] } : {}) };
       saveSession(s);
     });
   }

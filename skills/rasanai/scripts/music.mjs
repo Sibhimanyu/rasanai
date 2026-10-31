@@ -54,7 +54,7 @@ import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { loadManifest, presentManifest, hitTimes as manifestHits } from "./lib/film-events.mjs";
-import { editToPicture } from "./lib/music-edit.mjs";
+import { editToPicture, singScore, tempoCheck } from "./lib/music-edit.mjs";
 import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits, arcFit } from "./lib/audio.mjs";
 import { resolveIdentity, renderScore, identityPlan, sidecarPath, readSidecar } from "./lib/procedural-score.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText, styleExclusions } from "./lib/music-lib.mjs";
@@ -160,7 +160,7 @@ track("Finding music long enough for the film", "Music candidates ready");
 if (!args.run) die("--run required");
 const film = Number(args.film) || null;
 const minLen = film ? film + 4 : 45;
-const count = Math.max(2, Math.min(4, Number(args.count) || 3));
+const count = Math.max(1, Math.min(4, Number(args.count) || 3));
 const dir = path.resolve(String(args.run), "music");
 fs.mkdirSync(dir, { recursive: true });
 const notes = [];
@@ -520,7 +520,22 @@ async function fromLocalGen() {
   const P = buildLocalPrompt({ arc, film: film || 30, bpm, mood, style: `${args.style || ""} ${intents[0].family.id.replace("-", " ")}`.trim(), lyrics: lyricsText, mode: modeId || "instrumental-arc", narrated, exclusions: EXCL && Array.isArray(EXCL.avoid) ? EXCL.avoid : [] });
   warnLicence("localgen");
   const name = "localgen";
-  const r = localGen.generate({ caption: P.caption, lyrics: P.lyrics, instrumental: P.instrumental, bpm: P.bpm, duration: P.duration, timesignature: P.timesignature, language: P.language, count: Math.min(3, count), seed: Number(args.seed) || 1000, out_dir: dir, name, fade_out: 0 });
+  // a song makes 4 takes (sung words are the unreliable part: more takes, then pick by what is really sung); an instrumental up to 3
+  const nTakes = P.instrumental ? Math.min(3, count) : args.count ? count : 4, seed0 = Number(args.seed) || 1000;
+  const fixedBpm = !args["free-tempo"]; // a film with no fixed BPM (--free-tempo) keeps any take's own tempo
+  const job = (o) => ({ caption: P.caption, lyrics: P.lyrics, instrumental: P.instrumental, bpm: P.bpm, duration: P.duration, timesignature: P.timesignature, language: P.language, params: P.params, out_dir: dir, fade_out: 0, ...o });
+  // takes alternate planner on / off: with the 0.6B planner on, the tempo drifted to 60, 80 or 160 BPM in most pilot takes; with it off, the BPM param held (121) but fewer words were sung, so a song gets both kinds and the ranking decides
+  const variants = P.instrumental ? null : Array.from({ length: nTakes }, (_, i) => ({ name: `${name}-${i + 1}`, seed: seed0 + i * 7919, ...(i % 2 ? { params: { thinking: false } } : {}) }));
+  const r = localGen.generate(job(variants ? { variants, name } : { count: nTakes, seed: seed0, name }));
+  const tempoOf1 = (file) => { try { return tempoCheck(analyzeTrack(file, { quick: true }).bpm, P.bpm); } catch { return null; } };
+  r.files.forEach((x) => { x.tempo = tempoOf1(x.file); });
+  // a take more than 6% off the asked tempo cannot be stretched onto the grid: when none is within it, generate again with the tempo locked harder (caption + a second seed run), once
+  if (!P.instrumental && fixedBpm && !r.files.some((x) => !x.tempo || x.tempo.ok)) {
+    notes.push("no take within 6% of " + P.bpm + " BPM (" + r.files.map((x) => x.tempo && x.tempo.take_bpm).join(", ") + "): generated 3 more with the planner off (the BPM param alone, which held at 121 in the one test)");
+    const r2 = localGen.generate(job({ params: { ...P.params, thinking: false }, count: Math.min(3, nTakes + 1), seed: seed0 + 104729, name: name + "-lock" }));
+    r2.files.forEach((x) => { x.tempo = tempoOf1(x.file); });
+    r.files.push(...r2.files); r.gen_s = +(r.gen_s + r2.gen_s).toFixed(1); r.load_s = +(r.load_s + r2.load_s).toFixed(1);
+  }
   fs.writeFileSync(path.join(dir, "localgen-prompt.json"), JSON.stringify({ ...P, runner: { load_s: r.load_s, gen_s: r.gen_s, thinking: r.thinking } }, null, 2) + "\n");
   notes.push(`local-gen (ACE-Step 1.5): ${r.files.length} candidates of ${P.duration} s (film + ${P.duration - (film || 30)} s to edit from) in ${r.gen_s} s (+${r.load_s} s model load), ${P.instrumental ? "instrumental" : "sung"}, ${P.bpm} BPM`);
   let n = 0;
@@ -537,12 +552,14 @@ async function fromLocalGen() {
         if (a.status === 0 && fs.existsSync(path.join(od, "lyrics.json"))) lyricsJson = path.relative(ws, path.join(od, "lyrics.json")); else notes.push(`lyrics alignment failed for ${id}: ${String(a.stderr || a.stdout).trim().split("\n").slice(-1)[0].slice(0, 160)}`);
       } catch (e) { notes.push(`lyrics alignment failed for ${id}: ${String(e.message).slice(0, 120)}`); }
     }
-    found.push({ id, title: `Made locally to the arc: ${P.instrumental ? "instrumental" : "sung"} take ${n}, ${P.bpm} BPM`, file: f.file, source: "Local generation (ACE-Step 1.5)", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: P.bpm, lyrics_json: lyricsJson, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, date: new Date().toISOString() } });
+    let rawSing = null;
+    if (!P.instrumental) { try { rawSing = singScore(f.file, lyricsText, { hook: P.hook, work: path.join(dir, `${id}.sing`) }); } catch {} }
+    found.push({ id, sing: rawSing, tempo: f.tempo || null, title: `Made locally to the arc: ${P.instrumental ? "instrumental" : "sung"} take ${n}, ${P.bpm} BPM`, file: f.file, source: "Local generation (ACE-Step 1.5)", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: P.bpm, lyrics_json: lyricsJson, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, date: new Date().toISOString() } });
     // generate long, then edit to picture: the same take cut on downbeats onto the arc (lib/music-edit.mjs); it competes with the raw take and every other source on arcFit
     if (film && !args["no-edit"]) {
       try {
         const eo = path.join(dir, `${id}-edited.wav`);
-        const E = editToPicture({ file: f.file, arc, film, bpm: P.bpm, out: eo, lyrics: P.instrumental ? "" : lyricsText });
+        const E = editToPicture({ file: f.file, arc, film, bpm: P.bpm, out: eo, lyrics: P.instrumental ? "" : lyricsText, hook: P.hook });
         let eLyrics = null;
         if (!P.instrumental) {
           try {
@@ -551,7 +568,7 @@ async function fromLocalGen() {
             if (a.status === 0 && fs.existsSync(path.join(od, "lyrics.json"))) eLyrics = path.relative(ws, path.join(od, "lyrics.json"));
           } catch {}
         }
-        found.push({ id: `${id}-edited`, edited: true, edit: { drop_error_ms: E.drop_error_ms, clicks: E.clicks, shaping: E.shaping, break: E.break, button: E.button, stretched: E.stretched || null, pieces: E.pieces.length }, title: `Made locally and edited to the picture: ${P.instrumental ? "instrumental" : "sung"} take ${n}`, file: eo, source: "Local generation (ACE-Step 1.5), edited to the arc", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: null, lyrics_json: eLyrics, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, edited_from: path.basename(f.file), date: new Date().toISOString() } });
+        found.push({ id: `${id}-edited`, edited: true, sing: E.sing || null, tempo: f.tempo || null, edit: { drop_error_ms: E.drop_error_ms, clicks: E.clicks, shaping: E.shaping, break: E.break, button: E.button, stretched: E.stretched || null, pieces: E.pieces.length }, title: `Made locally and edited to the picture: ${P.instrumental ? "instrumental" : "sung"} take ${n}`, file: eo, source: "Local generation (ACE-Step 1.5), edited to the arc", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: null, lyrics_json: eLyrics, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, edited_from: path.basename(f.file), date: new Date().toISOString() } });
       } catch (e) { notes.push(`edit to picture failed for ${id}: ${String(e.message).slice(0, 160)}`); }
     }
   }
@@ -827,6 +844,15 @@ const analyzeOne = (f) => {
           if (AF.score < 55) (f.kind === "user" ? o.warnings : o.problems).push(`arc fit ${AF.score}/100 (needs 55): ${AF.problems.join("; ")}`);
           else if (AF.problems.length) o.warnings.push(...AF.problems);
           o.rank = Math.round(0.35 * (o.rank ?? 0) + 0.65 * AF.score);
+          // a sung take also ranks on what it really sings (word coverage, the hook line, how far the hook is from the drop in an edited take): arcFit alone gives every edited take 100
+          if (f.sing) {
+            const late = f.sing.hook_error_ms != null ? Math.min(25, Math.abs(f.sing.hook_error_ms) / 40) : 0, sg = Math.max(0, f.sing.score - late);
+            o.sing = { words: `${f.sing.matched}/${f.sing.words}`, coverage: f.sing.coverage, hook_best: f.sing.hook_best, hook_error_ms: f.sing.hook_error_ms ?? null, score: Math.round(sg) };
+            o.rank = Math.round(0.4 * o.rank + 0.6 * sg);
+            if (f.sing.coverage < 0.6) o.warnings.push(`only ${f.sing.matched} of ${f.sing.words} lyric words are clearly sung`);
+            if (f.sing.hook_error_ms != null && Math.abs(f.sing.hook_error_ms) > 300) o.warnings.push(`the hook line starts ${f.sing.hook_error_ms} ms from the drop`);
+          }
+          if (f.tempo && !f.tempo.ok && !args["free-tempo"]) { o.problems.push(`tempo ${f.tempo.take_bpm} BPM is ${f.tempo.off_pct}% off the ${f.tempo.asked_bpm} asked (over 6%; --free-tempo if the film has no fixed BPM)`); o.rank = Math.min(o.rank, 40); }
         } else o.warnings.push("arc fit not measured: no fitted bed to measure");
         if (tmp) fs.rmSync(tmp, { force: true });
       } catch (e) { o.warnings.push(`arc fit not measured: ${String(e.message).slice(0, 100)}`); }
