@@ -75,7 +75,10 @@ struct CardSurface: ViewModifier {
             .background {
                 // The same surface as every other library card; hover raises it, selection is drawn by the outline.
                 shape.fill(hovering && !selected ? Workspace.raised : Workspace.panel)
-                .shadow(color: .black.opacity(hovering ? 0.12 : 0), radius: 12, y: 5)
+                .background {
+                    // Only the hovered card carries a blurred shadow; the rest of the grid has none to render while scrolling.
+                    if hovering { shape.fill(Workspace.raised).shadow(color: .black.opacity(0.12), radius: 12, y: 5).transition(.opacity) }
+                }
                 .animation(.snappy(duration: 0.18), value: hovering)
             }
             .overlay {
