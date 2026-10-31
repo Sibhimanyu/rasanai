@@ -1,6 +1,8 @@
 # Runs INSIDE ~/.cache/rasanai/acestep-venv (Python 3.12) only, as a subprocess of scripts/lib/sound-sources.mjs. Never run it with the system Python.
 # Reads a job JSON (argv[1]); writes one wav per candidate into job.out_dir; prints one JSON line {ok, files:[{file, seed, seconds}], load_s, gen_s} on stdout.
-# job: {caption, lyrics, instrumental, bpm, keyscale, timesignature, duration, count, seed, out_dir, name, lm, thinking, steps}
+# job: {caption, lyrics, instrumental, bpm, keyscale, timesignature, duration, count, seed, out_dir, name, lm, thinking, steps, params, variants}
+#   params: extra GenerationParams fields for every take (lm_temperature, lm_cfg_scale, lm_top_p, lm_top_k, shift, use_cot_metas, ...); unknown keys are ignored.
+#   variants: [{name, caption?, lyrics?, bpm?, params?}], one take each (the model loads once); else `count` takes of the job's own settings.
 import json, os, sys, time, io, contextlib
 
 job = json.load(open(sys.argv[1]))
@@ -18,6 +20,8 @@ sys.stdout = sys.stderr  # the library prints progress; keep stdout for the one 
 from acestep.handler import AceStepHandler
 from acestep.llm_inference import LLMHandler
 from acestep.inference import GenerationParams, GenerationConfig, generate_music
+import dataclasses
+KNOWN = {f.name for f in dataclasses.fields(GenerationParams)}
 
 t0 = time.time()
 dit, lm = AceStepHandler(), LLMHandler()
@@ -31,18 +35,23 @@ load_s = time.time() - t0
 
 os.makedirs(job["out_dir"], exist_ok=True)
 files, t1 = [], time.time()
-for i in range(int(job.get("count", 1))):
-    seed = int(job.get("seed", 1000)) + i * 7919
-    p = GenerationParams(caption=job["caption"], lyrics=job.get("lyrics") or "", instrumental=bool(job.get("instrumental")),
-                         bpm=job.get("bpm"), keyscale=job.get("keyscale") or "", timesignature=job.get("timesignature") or "",
-                         duration=float(job["duration"]), inference_steps=int(job.get("steps", 8)), seed=seed, thinking=thinking,
-                         use_cot_caption=False, use_cot_metas=False, use_cot_language=False,
-                         vocal_language=job.get("language") or "en", fade_out_duration=float(job.get("fade_out", 0.0)))
+runs = job.get("variants") or [{} for _ in range(int(job.get("count", 1)))]
+for i, v in enumerate(runs):
+    seed = int(v.get("seed", int(job.get("seed", 1000)) + i * 7919))
+    kw = dict(caption=v.get("caption", job["caption"]), lyrics=v.get("lyrics", job.get("lyrics")) or "", instrumental=bool(job.get("instrumental")),
+              bpm=v.get("bpm", job.get("bpm")), keyscale=job.get("keyscale") or "", timesignature=job.get("timesignature") or "",
+              duration=float(job["duration"]), inference_steps=int(job.get("steps", 8)), seed=seed, thinking=thinking,
+              use_cot_caption=False, use_cot_metas=False, use_cot_language=False,
+              vocal_language=job.get("language") or "en", fade_out_duration=float(job.get("fade_out", 0.0)))
+    for k, val in {**(job.get("params") or {}), **(v.get("params") or {})}.items():
+        if k in KNOWN: kw[k] = val
+    p = GenerationParams(**kw)
     c = GenerationConfig(batch_size=1, audio_format="wav", use_random_seed=False, seeds=[seed])
     r = generate_music(dit, lm, p, c, save_dir=job["out_dir"])
     if not r.success: raise SystemExit(f"generate failed: {r.error}")
     src_f = r.audios[0]["path"]
-    dst = os.path.join(job["out_dir"], f"{job.get('name', 'cand')}-{i + 1}.wav")
+    nm = v.get("name") or f"{job.get('name', 'cand')}-{i + 1}"
+    dst = os.path.join(job["out_dir"], f"{nm}.wav")
     os.replace(src_f, dst)
-    files.append({"file": dst, "seed": seed})
+    files.append({"file": dst, "seed": seed, "variant": v.get("name")})
 real_stdout.write(json.dumps({"ok": True, "files": files, "load_s": round(load_s, 1), "gen_s": round(time.time() - t1, 1), "thinking": thinking}) + "\n")

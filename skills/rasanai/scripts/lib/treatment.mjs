@@ -51,7 +51,7 @@ export const defaultTreatment = (over = {}) => ({
 // accept the writer's spellings (title, vo, id-less beats) and give every beat a stable id; never mutates the input
 // The visual plan of a concept (creative-engine redesign): a concept is a sequence of SHOTS in a style world with one carrier, one signature moment and a sound mode;
 // words are a layer on top. Carried through normalizeTreatment and toLegacyPitch so story.mjs check (gate GV) and the Studio card see it.
-export const VISUAL_FIELDS = ["style_world", "style", "carrier", "signature_moment", "sound_mode", "product_truth", "first_watch"];
+export const VISUAL_FIELDS = ["style_world", "style", "carrier", "signature_moment", "sound_mode", "product_truth", "first_watch", "reference_lesson"];
 function visualPlan(r) {
   const o = {};
   for (const k of VISUAL_FIELDS) if (r[k] != null) o[k] = typeof r[k] === "object" ? r[k] : str(r[k]);

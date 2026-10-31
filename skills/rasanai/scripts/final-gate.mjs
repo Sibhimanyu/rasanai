@@ -100,7 +100,9 @@ export function main(args) {
       const jOk = r.json ? r.json.ok !== false : true;
       const ok = r.code === 0 && jOk;
       steps.push({ step, ok, exit: r.code, ...extra });
-      if (!ok) blocked.push(`${step}: ${r.code === 1 ? "could not run (never a pass)" : "failed"} (exit ${r.code})${r.stderr ? " " + r.stderr.replace(/\s+/g, " ").slice(-200) : ""}`);
+      // say WHY: the first blocking findings of the gate itself (a bare exit code tells the person nothing)
+      const why = (() => { const j = r.json || {}, one = (f) => typeof f === "string" ? f : [f.check || f.rule || f.id || f.code || f.what, f.where || f.message || f.msg || f.why || f.measured].filter(Boolean).join(": "); const L = [...(Array.isArray(j.findings) ? j.findings.filter((f) => f && (f.severity === "error" || f.level === "error")) : []), ...(Array.isArray(j.problems) ? j.problems : []), ...(Array.isArray(j.errors) ? j.errors : [])].map((f) => one(f).replace(/\s+/g, " ").slice(0, 120)).filter(Boolean); return L.length ? ` [${L.slice(0, 3).join(" | ")}${L.length > 3 ? ` | +${L.length - 3} more` : ""}]` : ""; })();
+      if (!ok) blocked.push(`${step}: ${r.code === 1 ? "could not run (never a pass)" : "failed"} (exit ${r.code})${why}${r.stderr ? " " + r.stderr.replace(/\s+/g, " ").slice(-200) : ""}`);
       return ok;
     };
     rec("frame-gate", run1("frame-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), ...(kind ? ["--kind", kind] : []), "--json"]));

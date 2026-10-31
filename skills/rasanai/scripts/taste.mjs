@@ -55,7 +55,7 @@ export function filmFacts(run) {
   const grammar = slug((g && (g.id || g.name)) || (typeof score.grammar === "string" ? score.grammar : ""));
   const sl = readJ(r("music", "shortlist.json"), null), sch = readJ(r("audio", "sound-choices.json"), null);
   const sel = sl && sl.selected && typeof sl.selected === "object" ? sl.selected : null;
-  const music_source = slug((sel && (sel.source || sel.provider)) || (sch && sch.source) || (fs.existsSync(r("music", "CREDITS.txt")) ? "library" : ""));
+  const music_source = slug((sel && (sel.source || sel.provider)) || (sch && sch.source) || (() => { const L = readJ(r("music", "LICENSES.json"), null), o = String((Array.isArray(L) && L[0] && L[0].origin) || ""); return /ace-step|local/i.test(o) ? "local-gen" : /^ai:/i.test(o) ? "ai-generated" : ""; })() || (fs.existsSync(r("music", "CREDITS.txt")) ? "library" : ""));
   const cuts = sc.length, perMin = dur > 0 ? (cuts / dur) * 60 : 0;
   const pace = { scenes: cuts, seconds: Math.round(dur * 10) / 10, cuts_per_min: Math.round(perMin * 10) / 10, band: !cuts ? "" : perMin >= 28 ? "fast" : perMin >= 14 ? "medium" : "slow" };
   return {

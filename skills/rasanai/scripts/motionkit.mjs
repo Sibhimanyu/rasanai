@@ -192,5 +192,5 @@ if (cmd === "install") {
 } else if (cmd === "curves") {
   out(Object.fromEntries(Object.entries(BASE_CURVES).map(([role, c]) => [role, { curve: c, ...shapeOfName(c) }])));
 } else {
-  die("usage: motionkit.mjs install|demo|check|curves … (see the header)");
+  die("usage: motionkit.mjs install|install-world|demo|check|curves … (see the header)");
 }

@@ -12,7 +12,7 @@ import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { analyzeTrack, arcFit, r1, r3 } from "./audio.mjs";
 import { makeMap } from "../music-map.mjs";
-import { transcribeDTW, toWav16, listModels, findWhisper, norm } from "./lyrics.mjs";
+import { transcribeDTW, toWav16, listModels, findWhisper, norm, matchWords } from "./lyrics.mjs";
 
 const SRATE = 48000, XF = 0.04;
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
@@ -88,21 +88,75 @@ function strongAttack(cum, n, sr, t, win, floorDb = -1e9) {
 const floorOf = (x) => { const v = []; for (let st = 0; st + 1102 <= x.length; st += 1102) { let z = 0; for (let k = 0; k < 1102; k++) z += x[st + k] * x[st + k]; v.push(10 * Math.log10(z / 1102 + 1e-12)); } v.sort((p, q) => p - q); return v[Math.floor(v.length * 0.7)] - 3; };
 
 // ---------------------------------------------------------------- 2-4. the edit
-// where the lyric words are sung in a take (whisper.cpp on the take): the times of the words that are in the lyric. [] when there is no whisper or no singing.
-export function sungWords(file, lyricsText, work) {
+// where the lyric words are sung in a take (whisper.cpp + DTW on the take): every transcribed word {text, start, end}. [] when there is no whisper or no singing.
+// from > 0 transcribes only the audio after that time and shifts the words back (whisper reads a long instrumental start as "(upbeat music)" for the whole 30 s window: the edited film opens with 8-10 s of intro)
+export function transcribeTake(file, work, lang = "en", from = 0) {
   try {
-    const bin = findWhisper(), model = listModels("en")[0];
-    if (!bin || !model || !lyricsText) return [];
-    const vocab = new Set(String(lyricsText).split(/\s+/).map(norm).filter((w) => w.length >= 3));
+    const bin = findWhisper(), model = listModels(lang)[0];
+    if (!bin || !model) return [];
     fs.mkdirSync(path.dirname(work), { recursive: true });
-    const wav = work + ".16k.wav"; toWav16(file, wav);
-    const tr = transcribeDTW(wav, { model, lang: "en", workDir: path.dirname(work), tag: path.basename(work).replace(/\W/g, "_"), bin });
+    const wav = work + ".16k.wav"; toWav16(file, wav, from > 0 ? `atrim=start=${from},asetpts=PTS-STARTPTS` : undefined);
+    fs.rmSync(path.dirname(work) + "/w_" + path.basename(work).replace(/\W/g, "_") + ".json", { force: true });
+    const tr = transcribeDTW(wav, { model, lang, workDir: path.dirname(work), tag: path.basename(work).replace(/\W/g, "_"), bin });
     fs.rmSync(wav, { force: true });
-    return tr.filter((w) => String(w.text).split(/\s+/).some((x) => vocab.has(norm(x)))).map((w) => w.end);
+    return from > 0 ? tr.map((w) => ({ ...w, start: w.start + from, end: w.end + from })) : tr;
   } catch { return []; }
 }
+export function sungWords(file, lyricsText, work) {
+  if (!lyricsText) return [];
+  const vocab = new Set(String(lyricsText).split(/\s+/).map(norm).filter((w) => w.length >= 3));
+  return transcribeTake(file, work).filter((w) => String(w.text).split(/\s+/).some((x) => vocab.has(norm(x)))).map((w) => w.end);
+}
 
-export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", log = () => {}, keepWork = false }) {
+// ---- intelligibility: how much of the written lyric the take really sings, and where its hook line is
+const lev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
+const same = (a, b) => a === b || (a.length >= 4 && b.length >= 4 && lev(a, b) <= 1) || (a.length >= 3 && b.length >= 3 && (a.startsWith(b) || b.startsWith(a)) && Math.min(a.length, b.length) >= 3);
+// every place in the transcript that sings the phrase (>= half its words, in order, within a short window): [{onset, end, hit, total}]. onset = the first matched word's start (a word that follows a gap starts about 0.35 s before its end).
+export function findPhrase(tr, phrase) {
+  const pw = String(phrase).split(/\s+/).map(norm).filter(Boolean), out = [];
+  if (!pw.length || !tr.length) return out;
+  const tw = tr.map((w) => norm(w.text));
+  for (let i = 0; i < tr.length; i++) {
+    let k = 0, first = -1, last = -1, hit = 0;
+    for (let j = i; j < Math.min(tr.length, i + pw.length + 3) && k < pw.length; j++) {
+      const m = [0, 1, 2].find((q) => k + q < pw.length && same(tw[j], pw[k + q]));
+      if (m != null) { if (first < 0) first = j; last = j; hit++; k += m + 1; }
+    }
+    if (first === i && hit >= Math.max(2, Math.ceil(pw.length * 0.4)) && true) {
+      const w = tr[first], onset = r3(Math.max(w.start, w.end - 0.4)), prev = out[out.length - 1];
+      if (prev && onset - prev.onset < 1.2) { if (hit > prev.hit) out[out.length - 1] = { onset, end: r3(tr[last].end), hit, total: pw.length }; continue; }
+      out.push({ onset, end: r3(tr[last].end), hit, total: pw.length });
+    }
+  }
+  return out;
+}
+// the sung-lyrics score of a file: word coverage (a lyric word counts at confidence >= 0.5: half or more of its letters found, in order, in the transcript), the hook phrase's occurrences, one number 0-100
+export function singScore(file, lyricsText, { hook = "", work, tr = null, lang = "en", from = 0 } = {}) {
+  const lines = String(lyricsText || "").split(/\n+/).map((l) => l.trim()).filter((l) => l && !/^\[.*\]$/.test(l));
+  const words = lines.join(" ").split(/\s+/).filter(Boolean);
+  const T = tr || transcribeTake(file, work || file.replace(/\.[^.]+$/, "") + ".sing", lang, from);
+  if (!words.length) return null;
+  if (!T.length) return { words: words.length, matched: 0, coverage: 0, confidence: 0, hook: [], hook_best: 0, score: 0, transcript_words: 0 };
+  const m = matchWords(words, T);
+  const matched = m.filter((x) => x && x.frac >= 0.5).length, conf = m.reduce((a, x) => a + (x ? x.frac : 0), 0) / words.length;
+  const hookText = hook || lines.slice(Math.ceil(lines.length / 2)).join(" ");
+  const hk = findPhrase(T, hookText);
+  // how much of the whole chorus is sung (from the global alignment, so a take that sings only its last words still counts), and the first line's own occurrences (for the onset)
+  const nHook = lines.slice(Math.ceil(lines.length / 2)).join(" ").split(/\s+/).filter(Boolean).length, mh = m.slice(words.length - nHook);
+  const hookBest = nHook ? mh.filter((x) => x && x.frac >= 0.5).length / nHook : 0;
+  const coverage = matched / words.length;
+  return { words: words.length, matched, coverage: r3(coverage), confidence: r3(conf), hook: hk, hook_best: r3(hookBest), transcript_words: T.length, score: Math.round(100 * (0.55 * coverage + 0.15 * conf + 0.3 * hookBest)) };
+}
+// a take's tempo against the one asked: ok within 6% (a take that far off cannot be stretched onto the grid without sounding it)
+// strict: 60 or 240 for 120 asked is NOT accepted (bars are then 4 s or 1 s long and the splice grid is the wrong size: the hook missed its bar by 1.2 s in the pilot); the field `octave` only says which way it is off
+export const tempoCheck = (takeBpm, askedBpm) => {
+  if (!askedBpm || !takeBpm) return { take_bpm: r1(takeBpm || 0), asked_bpm: askedBpm, off_pct: 0, ok: true };
+  const off = Math.abs(askedBpm / takeBpm - 1);
+  return { take_bpm: r1(takeBpm), asked_bpm: askedBpm, off_pct: r1(off * 100), octave: [0.5, 2].some((k) => Math.abs(askedBpm / (takeBpm * k) - 1) <= 0.06), ok: off <= 0.06 };
+};
+
+// hook = the sung line the drop should open on (default: the first line of the lyric's second half, the chorus the prompt builder writes)
+export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", hook = "", log = () => {}, keepWork = false }) {
   const t0 = Date.now();
   const F = Number(film), D = arc.drop_at, B = arc.button_at;
   const I = Math.max(1, Math.min(arc.intro_until ?? D * 0.7, D));
@@ -147,27 +201,40 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", l
 
   // --- the drop: the bar with the biggest lift into a loud, long body
   const bodyS = Math.max(2, (brk ? brk[0] : B - 4) - D), needBody = Math.max(2, Math.ceil(bodyS / barS));
-  const sung = lyrics ? sungWords(src, lyrics, work + ".vox") : [];
+  const lyricLines = String(lyrics || "").split(/\n+/).map((l) => l.trim()).filter((l) => l && !/^\[.*\]$/.test(l));
+  const hookLine = hook || lyricLines.slice(Math.ceil(lyricLines.length / 2)).join(" ") || lyricLines[0] || "";
+  const vocab = new Set(lyricLines.join(" ").split(/\s+/).map(norm).filter((w) => w.length >= 3));
+  const trSrc = lyrics ? transcribeTake(src, work + ".vox") : [];
+  const sung = trSrc.filter((w) => String(w.text).split(/\s+/).some((x) => vocab.has(norm(x)))).map((w) => w.end);
   const voxIn = (a, b) => sung.filter((t) => t >= a && t < b).length;
   res.sung_words = sung.length;
+  // the sung hook line's onsets in the take: the drop is cut on the bar that starts it, so the line is sung on drop_at (a hook that lands late or in the middle of a bar is reported, not hidden)
+  const hookOn = hookLine && trSrc.length ? findPhrase(trSrc, hookLine).filter((h) => h.hit >= Math.max(2, Math.ceil(h.total * 0.4))) : [];
+  const hookBars = new Map();
+  for (const h of hookOn) { let k = 0; for (let i = 0; i < nb; i++) if (Math.abs(bars[i] - h.onset) < Math.abs(bars[k] - h.onset)) k = i; if (Math.abs(h.onset - bars[k]) <= 0.5 * barS && !hookBars.has(k)) hookBars.set(k, h.onset); } // a sung line starts on a downbeat: where the grid estimate is off by a fraction of a bar (0.7 s was seen), the hook's own onset sets the phase
+  res.hook_in_take = hookOn.map((h) => ({ onset: h.onset, hit: h.hit + "/" + h.total, bar: [...hookBars.entries()].find(([, v]) => v === h.onset)?.[0] ?? null }));
   const cands = [];
   for (let d = 1; d < nb - 1; d++) {
     if (endIdx >= 0 && d >= endIdx) continue;
+    if (hookBars.size && !hookBars.has(d)) continue;
     const lift = mean(bdb.slice(d, d + 2)) - mean(bdb.slice(Math.max(0, d - 2), d));
     const body = mean(bdb.slice(d, Math.min(nb, d + needBody)));
     const room = Math.min(needBody, nb - d) / needBody;
     const hit = loudAttack(y, p90, bars[d], 0.45 * barS).rise;
-    const score = clamp(lift, -3, 14) - Math.max(0, D / barS - d) * 1.0 * 1.0 + (body - top) * 0.9 + clamp(hit, 0, 14) * 0.3 - (room < 1 ? 6 * (1 - room) : 0) + (sung.length ? 4 * Math.min(3, voxIn(bars[d] - 0.3, bars[Math.min(nb - 1, d + 3)])) : 0) - (d < 2 ? 2 : 0);
+    const score = clamp(lift, -3, 14) - Math.max(0, D / barS - d) * 1.0 * 1.0 + (body - top) * 0.9 + clamp(hit, 0, 14) * 0.3 - (room < 1 ? 6 * (1 - room) : 0) + (sung.length ? 4 * Math.min(3, voxIn(bars[d] - 0.3, bars[Math.min(nb - 1, d + 3)])) : 0) - (d < 2 ? 2 : 0) ;
     cands.push({ d, lift: r1(lift), body: r1(body), hit: r1(hit), score: r1(score) });
   }
+  if (!cands.length) throw new Error("no drop candidate: the take has no bar with room for the body");
   cands.sort((a, b) => b.score - a.score);
   const d = cands[0].d, bodyLevel = cands[0].body;
   res.drop_candidate = cands[0];
+  if (hookBars.has(d)) { res.drop_candidate.hook_onset_in_take = hookBars.get(d); res.drop_candidate.hook_offset_ms = Math.round((hookBars.get(d) - bars[d]) * 1000); } else if (hookOn.length) res.notes.push("the hook is sung in the take but too far from a bar line to cut on"); else if (lyrics) res.notes.push("the hook line was not found in the take: the drop was chosen on energy and sung words only");
   if (sung.length) res.drop_candidate.sung_words_on_drop = voxIn(bars[d] - 0.3, bars[Math.min(nb - 1, d + 3)]);
   // the grid's downbeat can sit a beat off the real attack (a weak kick): the drop's own attack sets the offset every piece of the body uses
   const dT = loudAttack(y, p90, bars[d], 0.45 * barS);
-  const gOff = dT.rise >= 6 ? dT.t - bars[d] : anchor(d).t - bars[d];
+  const gOff = hookBars.has(d) ? hookBars.get(d) - bars[d] : dT.rise >= 6 ? dT.t - bars[d] : anchor(d).t - bars[d];
   res.drop_candidate.attack_offset_ms = Math.round(gOff * 1000);
+  if (hookBars.has(d)) res.drop_candidate.phase_from = "hook onset";
   // loud region the body may play (and loop inside) from the drop
   let re = d + 1; while (re < nb && bdb[re] >= bodyLevel - 5 && (endIdx < 0 || re < endIdx)) re++;
   const region = re - d;
@@ -234,7 +301,7 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", l
   // end of the last piece: a source shorter than the film simply ends (its own tail), faded in the last few ms
 
   // --- shaping + measurement loop (sparse intro, a lift into the drop, a break that is really quiet)
-  const P = { gi: 0, gp: 0, gd: 0, gk: 0, introFilter: false, breakFilter: false };
+  const P = { gi: 0, gp: 0, gd: 0, gk: 0, gl: 0, introFilter: false, breakFilter: false };
   const Pay = arc.payoff_at ?? B;
   const tailPts = btn.natural ? [] : [[B + 0.12, 0], [F - 0.05, -38], [F, -70]];
   const tmp = work + ".tmp.wav";
@@ -247,6 +314,11 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", l
       const L = Math.max(0.5, rD - brk[0]), r1s = Math.min(0.45, 0.25 * L), r2s = Math.min(0.35, 0.2 * L);
       gains.push([brk[0], 0], [brk[0] + r1s, P.gd], [rD - r2s, P.gd], [rD, 0]);
       hz.push([brk[0], 19500], [brk[0] + 0.55 * L, 450], [rD - 0.3, 450], [rD - 0.01, 12000], [rD, 19500]);
+    }
+    if (P.gl < -0.2 && Pay > D + 1) { // the second before the payoff sits under the payoff, so the payoff lifts (it must still lift after the master's limiter: 3.5 dB asked of a 2 dB need)
+      const a0 = Math.max(D + 0.5, Pay - 1.5);
+      if (brk && rD > a0 - 0.01) { const k = gains.findIndex((g) => g[0] === rD && g[1] === 0); if (k >= 0) gains[k][1] = P.gl; } else gains.push([a0 - 0.1, 0], [a0, P.gl]);
+      gains.push([Pay - 0.04, P.gl], [Pay, 0]);
     }
     if (P.gk < -0.2) gains.push([Pay + 2.0, 0], [Pay + 2.6, P.gk], [Math.max(Pay + 2.7, B - 0.02), P.gk], [Math.max(Pay + 2.8, B), btn.natural ? P.gk : 0]);
     for (const t of tailPts) gains.push(t);
@@ -269,12 +341,13 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", l
     if (AF.intro_below_db < need.intro && P.gi > -24) { P.gi = Math.max(-24, P.gi - (need.intro - AF.intro_below_db)); P.introFilter = true; changed = true; }
     if (AF.lift_db < need.lift && P.gp > -18) { P.gp = Math.max(-18, P.gp - (need.lift - AF.lift_db)); changed = true; }
     if (brk && AF.break_below_db < need.brk && P.gd > -34) { P.gd = Math.max(-34, P.gd - (need.brk - AF.break_below_db)); P.breakFilter = true; changed = true; }
+    if (AF.payoff_lift_db != null && AF.payoff_lift_db < 3.5 && P.gl > -12) { P.gl = Math.max(-12, P.gl - (3.5 - AF.payoff_lift_db) - 0.5); changed = true; }
     if (AF.loudest_at_s > Pay + 2.5 - 0.4 && P.gk > -9) { P.gk = Math.max(-9, P.gk - 1.5); changed = true; }
     res.iterations = it + 1;
     if (!changed) break;
     M = shape();
   }
-  res.shaping = { intro_gain_db: r1(P.gi), pre_drop_gain_db: r1(P.gp), break_dip_db: r1(P.gd), after_payoff_gain_db: r1(P.gk), intro_filter: P.introFilter, break_filter: P.breakFilter };
+  res.shaping = { intro_gain_db: r1(P.gi), pre_drop_gain_db: r1(P.gp), break_dip_db: r1(P.gd), after_payoff_gain_db: r1(P.gk), pre_payoff_gain_db: r1(P.gl), intro_filter: P.introFilter, break_filter: P.breakFilter };
   writeWav(out, M.L, M.R);
   const final = arcFit(out, arc, F);
   fs.rmSync(tmp, { force: true });
@@ -285,6 +358,13 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", l
   const mono = new Float32Array(N); for (let n = 0; n < N; n++) mono[n] = 0.5 * (M.L[n] + M.R[n]);
   res.drop_error_ms = Math.round(attackAt(mono, SRATE, D) * 1000 * 10) / 10;
   res.clicks = clickCheck(mono, SRATE, splices);
+  if (lyrics) {
+    // the edited file as the film will hear it: word coverage, and where its hook line is sung against drop_at (nearest occurrence)
+    // whisper locks onto the first seconds: try a few start points and keep the best reading
+    let sg = null;
+    for (const fr of [0, D - 1.5, D + 0.5, D + 2.5]) { const g = singScore(out, lyrics, { hook: hookLine, work: work + ".vox2", from: Math.max(0, fr) }); if (g && (!sg || g.score + (g.hook.length ? 15 : 0) > sg.score + (sg.hook.length ? 15 : 0))) sg = g; }
+    if (sg) { const near = sg.hook.length ? sg.hook.reduce((a, h) => (Math.abs(h.onset - D) < Math.abs(a.onset - D) ? h : a)) : null; res.sing = { ...sg, hook_error_ms: near ? Math.round((near.onset - D) * 1000) : null, hook_onset: near ? near.onset : null }; }
+  }
   res.splices = splices.map(r3);
   res.edit_s = r1((Date.now() - t0) / 1000);
   fs.writeFileSync(work + ".edit.json", JSON.stringify({ ...res, arc, film: F }, null, 2) + "\n");
