@@ -2,10 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.27.2 (build 74) — 2026-10-31
 
 - Inspiration clips play with their original sound where we could recover it; others say so and link to the original post.
 - Scrolling the Inspiration tab is smooth now and no longer slows the rest of your Mac: pictures stay ready as you scroll back, only the card under the pointer does any extra drawing, and the preview clip is fully shut down when you move away.
+- **Bundles RasanAI 1.32.0.**
 
 ## 0.27.1 (build 73) — 2026-10-31
 
