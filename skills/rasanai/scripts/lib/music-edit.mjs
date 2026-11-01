@@ -7,10 +7,14 @@
 //    the drop's attack (not the grid estimate) is placed on drop_at; no tempo change unless the take is within 6% of the BPM asked for (then ffmpeg rubberband / atempo)
 // 4. shape what the take did not do: a gain + low-pass envelope (sparse intro, a thinning before the drop, a filter-sweep dip in the break: never silence, a decay on a made button)
 // 5. measure: arcFit, the drop's landing error in ms, clicks at the splices.
+// Shape and meter: the arc's shape (lib/music-shapes.mjs, its `edit` row) says what lands where. drop / lyric-song = the above; slow-burn lands the payoff (a long rise before it, no dip, no break);
+// cold-open starts on the loud body at 0 s; stinger lands its hit and lets it ring out; ambient-bed / pulse-loop land nothing: a steady stretch of the take is looped on phrase boundaries (4 bars) with a long
+// crossfade and fades out on the last phrase boundary. The bar is the meter's beats (3 for 3/4, 5 for 5/4, ...): the take's bar grid is found at that many beats a bar, the splices stay on downbeats.
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { analyzeTrack, arcFit, r1, r3 } from "./audio.mjs";
+import { shapeOf, meterBeats } from "./music-shapes.mjs";
 import { makeMap } from "../music-map.mjs";
 import { transcribeDTW, toWav16, listModels, findWhisper, norm, matchWords } from "./lyrics.mjs";
 
@@ -43,8 +47,8 @@ export function stretchTo(file, ratio, out) {
 }
 
 // ---------------------------------------------------------------- 1. the map of a take
-export function mapCandidate(file) {
-  const A = analyzeTrack(file, { quick: true });
+export function mapCandidate(file, meter = null) {
+  const A = analyzeTrack(file, { quick: true, beatsPerBar: meterBeats(meter) });
   let hits = [];
   try { hits = makeMap(file).hits; } catch {}
   return { A, hits, bars: A.bars, bar_db: A.bar_db, sections: A.sections, bpm: A.bpm, bar_s: A.bar_s, downbeat_confidence: A.downbeat_confidence };
@@ -156,20 +160,25 @@ export const tempoCheck = (takeBpm, askedBpm) => {
 };
 
 // hook = the sung line the drop should open on (default: the first line of the lyric's second half, the chorus the prompt builder writes)
-export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", hook = "", log = () => {}, keepWork = false }) {
+export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", hook = "", meter = null, log = () => {}, keepWork = false }) {
   const t0 = Date.now();
-  const F = Number(film), D = arc.drop_at, B = arc.button_at;
-  const I = Math.max(1, Math.min(arc.intro_until ?? D * 0.7, D));
-  const brk = Array.isArray(arc.break) && arc.break.length === 2 ? [Number(arc.break[0]), Number(arc.break[1])] : null;
+  const SH = shapeOf(arc.shape), E = SH.edit || shapeOf("drop").edit, BPB = meterBeats(meter ?? arc.meter);
+  const bed = !E.land, cold = E.land === "start", noBuild = bed || cold, noFinal = E.end !== "hit", tailEnd = E.end === "tail";
+  const F = Number(film), B = arc.button_at;
+  const D = E.land === "start" ? 0 : bed ? 0 : Number(arc[E.land] ?? arc.drop_at); // where the loud body lands (0 = nothing lands)
+  const I = E.intro ? Math.max(1, Math.min(arc.intro_until ?? D * 0.7, D)) : 0;
+  const brk = E.brk && Array.isArray(arc.break) && arc.break.length === 2 ? [Number(arc.break[0]), Number(arc.break[1])] : null;
+  const XFS = E.loop ? 0.25 : XF; // a loop seam is a long equal-power crossfade; a splice on a downbeat stays at 40 ms
   const work = out.replace(/\.[^.]+$/, "");
-  const res = { source: file, out, notes: [] };
+  const res = { source: file, out, notes: [], shape: SH.id, beats_per_bar: BPB };
+  if (BPB !== 4) res.notes.push(`meter ${meter ?? arc.meter}: the bar grid is read at ${BPB} beats a bar`);
 
   // tempo: only a take within 6% of the BPM asked for is stretched onto it (never more: it would sound it)
-  let src = file, A = analyzeTrack(file, { quick: true });
+  let src = file, A = analyzeTrack(file, { quick: true, beatsPerBar: BPB });
   res.source_bpm = A.bpm;
   if (bpm && A.bpm) {
     const ratio = bpm / A.bpm, off = Math.abs(ratio - 1);
-    if (off > 0.004 && off <= 0.06) { const st = stretchTo(file, ratio, work + ".stretch.wav"); src = st.out; A = analyzeTrack(src, { quick: true }); res.stretched = { from_bpm: res.source_bpm, to_bpm: A.bpm, ratio: r3(ratio), filter: st.filter }; }
+    if (off > 0.004 && off <= 0.06) { const st = stretchTo(file, ratio, work + ".stretch.wav"); src = st.out; A = analyzeTrack(src, { quick: true, beatsPerBar: BPB }); res.stretched = { from_bpm: res.source_bpm, to_bpm: A.bpm, ratio: r3(ratio), filter: st.filter }; }
     else if (off > 0.06) res.notes.push(`the take is ${r1(A.bpm)} BPM against ${bpm} asked (${r1(off * 100)}% off, over the 6% limit): not stretched; the edit follows the take's own bars`);
   }
   const y = A._y, bars = A.bars, nb = bars.length, bdb = A.bar_db;
@@ -200,7 +209,7 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   };
 
   // --- the drop: the bar with the biggest lift into a loud, long body
-  const bodyS = Math.max(2, (brk ? brk[0] : B - 4) - D), needBody = Math.max(2, Math.ceil(bodyS / barS));
+  const bodyS = Math.max(2, (brk ? brk[0] : B - 4) - D), needBody = Math.max(2, Math.ceil(bodyS / barS)), scoreBody = bed ? Math.min(needBody, 8) : needBody;
   const lyricLines = String(lyrics || "").split(/\n+/).map((l) => l.trim()).filter((l) => l && !/^\[.*\]$/.test(l));
   const hookLine = hook || lyricLines.slice(Math.ceil(lyricLines.length / 2)).join(" ") || lyricLines[0] || "";
   const vocab = new Set(lyricLines.join(" ").split(/\s+/).map(norm).filter((w) => w.length >= 3));
@@ -214,14 +223,17 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   for (const h of hookOn) { let k = 0; for (let i = 0; i < nb; i++) if (Math.abs(bars[i] - h.onset) < Math.abs(bars[k] - h.onset)) k = i; if (Math.abs(h.onset - bars[k]) <= 0.5 * barS && !hookBars.has(k)) hookBars.set(k, h.onset); } // a sung line starts on a downbeat: where the grid estimate is off by a fraction of a bar (0.7 s was seen), the hook's own onset sets the phase
   res.hook_in_take = hookOn.map((h) => ({ onset: h.onset, hit: h.hit + "/" + h.total, bar: [...hookBars.entries()].find(([, v]) => v === h.onset)?.[0] ?? null }));
   const cands = [];
-  for (let d = 1; d < nb - 1; d++) {
+  for (let d = noBuild ? 0 : 1; d < nb - 1; d++) {
     if (endIdx >= 0 && d >= endIdx) continue;
     if (hookBars.size && !hookBars.has(d)) continue;
     const lift = mean(bdb.slice(d, d + 2)) - mean(bdb.slice(Math.max(0, d - 2), d));
-    const body = mean(bdb.slice(d, Math.min(nb, d + needBody)));
-    const room = Math.min(needBody, nb - d) / needBody;
-    const hit = loudAttack(y, p90, bars[d], 0.45 * barS).rise;
-    const score = clamp(lift, -3, 14) - Math.max(0, D / barS - d) * 1.0 * 1.0 + (body - top) * 0.9 + clamp(hit, 0, 14) * 0.3 - (room < 1 ? 6 * (1 - room) : 0) + (sung.length ? 4 * Math.min(3, voxIn(bars[d] - 0.3, bars[Math.min(nb - 1, d + 3)])) : 0) - (d < 2 ? 2 : 0) ;
+    const body = mean(bdb.slice(d, Math.min(nb, d + scoreBody)));
+    const room = Math.min(scoreBody, nb - d) / scoreBody;
+    const hit = bed ? 0 : loudAttack(y, p90, bars[d], 0.45 * barS).rise;
+    let score;
+    if (bed) { const w = bdb.slice(d, Math.min(nb, d + scoreBody)), m = mean(w); score = -2 * Math.sqrt(mean(w.map((v) => (v - m) ** 2))) + (body - top) * 0.3 - (room < 1 ? 6 * (1 - room) : 0); } // a steady stretch to loop: the flattest bars
+    else if (cold) score = (body - top) * 0.9 + clamp(hit, 0, 14) * 0.3 - (room < 1 ? 6 * (1 - room) : 0) + (sung.length ? 4 * Math.min(3, voxIn(bars[d] - 0.3, bars[Math.min(nb - 1, d + 3)])) : 0); // the loudest full body that starts on a hit: no lift is wanted
+    else score = clamp(lift, -3, 14) - Math.max(0, D / barS - d) * 1.0 * 1.0 + (body - top) * 0.9 + clamp(hit, 0, 14) * 0.3 - (room < 1 ? 6 * (1 - room) : 0) + (sung.length ? 4 * Math.min(3, voxIn(bars[d] - 0.3, bars[Math.min(nb - 1, d + 3)])) : 0) - (d < 2 ? 2 : 0);
     cands.push({ d, lift: r1(lift), body: r1(body), hit: r1(hit), score: r1(score) });
   }
   if (!cands.length) throw new Error("no drop candidate: the take has no bar with room for the body");
@@ -232,34 +244,38 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   if (sung.length) res.drop_candidate.sung_words_on_drop = voxIn(bars[d] - 0.3, bars[Math.min(nb - 1, d + 3)]);
   // the grid's downbeat can sit a beat off the real attack (a weak kick): the drop's own attack sets the offset every piece of the body uses
   const dT = loudAttack(y, p90, bars[d], 0.45 * barS);
-  const gOff = hookBars.has(d) ? hookBars.get(d) - bars[d] : dT.rise >= 6 ? dT.t - bars[d] : anchor(d).t - bars[d];
+  const gOff = bed ? 0 : hookBars.has(d) ? hookBars.get(d) - bars[d] : dT.rise >= 6 ? dT.t - bars[d] : anchor(d).t - bars[d];
   res.drop_candidate.attack_offset_ms = Math.round(gOff * 1000);
   if (hookBars.has(d)) res.drop_candidate.phase_from = "hook onset";
   // loud region the body may play (and loop inside) from the drop
-  let re = d + 1; while (re < nb && bdb[re] >= bodyLevel - 5 && (endIdx < 0 || re < endIdx)) re++;
+  let re = d + 1; while (re < nb && bdb[re] >= bodyLevel - 5 && (!bed || Math.abs(bdb[re] - bodyLevel) <= 4) && (endIdx < 0 || re < endIdx)) re++;
+  if (tailEnd) re = nb; // a stinger's hit rings out in the take itself: no loop, no region end
   const region = re - d;
-  const loopBack = region >= 8 ? 4 * Math.floor(region / 4) : region >= 2 ? region : 0;
+  const loopBack = tailEnd ? 0 : region >= (bed ? 4 : 8) ? 4 * Math.floor(region / 4) : region >= 2 ? region : 0; // loops are whole phrases (4 bars)
+  res.land = bed ? null : { key: E.land, at_s: r3(D) };
 
   // --- the button: the take's own ending, else its hardest loud downbeat with room for a tail
   const tailNeed = Math.max(0.3, F - B);
   let btn;
-  if (endIdx >= 0 && A.ending.hit != null) { btn = { idx: endIdx, natural: true, t: A.ending.hit }; }
+  if (bed) btn = { idx: Math.max(0, nb - 1), natural: false, t: B };
+  else if (endIdx >= 0 && A.ending.hit != null) { btn = { idx: endIdx, natural: true, t: A.ending.hit }; }
   else {
     let best = null;
     for (let i = 4; i < nb; i++) { if (bars[i] + tailNeed > A.duration - 0.05) break; const s = anchor(i).rise + (bdb[i] - top) * 0.6; if (bdb[i] >= loudRef - 3 && (!best || s > best.s)) best = { s, idx: i }; }
     if (!best) best = { s: 0, idx: Math.min(nb - 1, Math.max(4, d + 4)) };
     btn = { idx: best.idx, natural: false, t: anchor(best.idx).t };
   }
-  const nLead = Math.max(1, Math.floor(((brk ? B - brk[1] : (B - D) * 0.25) + 1e-6) / barS));
-  const sj = Math.max(0, btn.idx - nLead);
-  const lead = bars[btn.idx] - bars[sj], btnOff = btn.t - bars[btn.idx];
-  const rD = B - lead; // where the final chorus starts so the button hit lands on B
-  res.button = { natural: btn.natural, bar: btn.idx, src_t: r3(btn.t), lead_bars: btn.idx - sj };
+  let nLead = Math.max(1, Math.floor(((brk ? B - brk[1] : (B - D) * 0.25) + 1e-6) / barS));
+  if (!noFinal && !brk && B - nLead * barS < D + 0.5 * barS) nLead = Math.max(0, Math.floor((B - D - 0.5 * barS) / barS)); // a payoff close to the end card: the body goes straight into the ending
+  const sj = noFinal ? btn.idx : Math.max(0, btn.idx - nLead);
+  const lead = noFinal ? 0 : bars[btn.idx] - bars[sj], btnOff = noFinal ? 0 : btn.t - bars[btn.idx];
+  const rD = noFinal ? F : B - lead; // where the final chorus starts so the button hit lands on B
+  res.button = noFinal ? { natural: false, ends: tailEnd ? "the hit rings out" : "faded on a phrase boundary" } : { natural: btn.natural, bar: btn.idx, src_t: r3(btn.t), lead_bars: btn.idx - sj };
 
   // --- the build into the drop, and the intro before it
-  let kb = clamp(Math.round((D - I) / barS), 1, d);
-  let aOut = D - (bars[d] - bars[d - kb]); // out time of the build's first downbeat
-  if (aOut < 0) { kb = Math.max(1, Math.floor(D / barS)); kb = Math.min(kb, d); aOut = D - (bars[d] - bars[d - kb]); }
+  let kb = noBuild ? 0 : clamp(Math.round((D - I) / barS), 1, d);
+  let aOut = noBuild ? 0 : D - (bars[d] - bars[d - kb]); // out time of the build's first downbeat
+  if (!noBuild && aOut < 0) { kb = Math.max(1, Math.floor(D / barS)); kb = Math.min(kb, d); aOut = D - (bars[d] - bars[d - kb]); }
   if (aOut < 0) aOut = 0;
   if (aOut > 0.25) {
     const m = Math.min(Math.ceil(aOut / barS) + 1, d), last = Math.max(0, d - m);
@@ -278,7 +294,7 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   run("body", aOut, d - kb, natBreak != null ? brk[0] : rD, { regionEnd: re, loopBack, off: gOff });
   if (brk && natBreak != null) { run("break (natural)", brk[0], natBreak, rD, { off: gOff }); res.break = { natural: true, bar: natBreak, depth_db: r1(bodyLevel - bdb[natBreak]) }; }
   else if (brk) res.break = { natural: false, made: "low-pass sweep to 450 Hz plus a level dip, never silence" };
-  run("final", rD, sj, F, { off: btnOff });
+  if (!noFinal) run("final", rD, sj, F, { off: btnOff });
   // pieces are contiguous in `out`: each run starts where the one before ends
   res.pieces = pieces.map((p) => ({ label: p.label, out0: r3(p.out0), out1: r3(p.out1), src0: r3(p.src0), bar: p.bar }));
 
@@ -286,7 +302,7 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   const S = readStereo(src), N = Math.round(F * SRATE), oL = new Float32Array(N), oR = new Float32Array(N);
   const splices = [];
   pieces.forEach((p, i) => {
-    const xin = i === 0 ? 0 : XF, xout = i + 1 < pieces.length ? XF : 0;
+    const xin = i === 0 ? 0 : XFS, xout = i + 1 < pieces.length ? XFS : 0;
     const off = Math.round(p.src0 * SRATE) - Math.round(p.out0 * SRATE);
     const a = Math.max(0, Math.round((p.out0 - xin) * SRATE)), b = i + 1 < pieces.length ? Math.min(N, Math.round(p.out1 * SRATE)) : N;
     if (i > 0) splices.push(p.out0);
@@ -294,7 +310,7 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
       const si = n + off; if (si < 0 || si >= S.n) continue;
       const tt = n / SRATE; let g = 1;
       if (xin && tt < p.out0) g *= Math.sin(((tt - (p.out0 - xin)) / xin) * Math.PI / 2);
-      if (xout && tt >= p.out1 - XF) g *= Math.cos(((tt - (p.out1 - XF)) / XF) * Math.PI / 2);
+      if (xout && tt >= p.out1 - XFS) g *= Math.cos(((tt - (p.out1 - XFS)) / XFS) * Math.PI / 2);
       oL[n] += S.L[si] * g; oR[n] += S.R[si] * g;
     }
   });
@@ -303,26 +319,32 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   // --- shaping + measurement loop (sparse intro, a lift into the drop, a break that is really quiet)
   const P = { gi: 0, gp: 0, gd: 0, gk: 0, gl: 0, introFilter: false, breakFilter: false };
   const Pay = arc.payoff_at ?? B;
-  const tailPts = btn.natural ? [] : [[B + 0.12, 0], [F - 0.05, -38], [F, -70]];
+  // the end: a hit-final ending as before; a stinger's hit decays from just after it; a bed or loop holds to the last phrase boundary (else bar line) it can and fades there
+  const phraseS = 4 * barS, tF = bed ? [Math.floor((F - 0.5) / phraseS) * phraseS, Math.floor((F - 0.5) / barS) * barS].find((t) => t > F * 0.4 && F - t <= 6) ?? F - Math.min(2.5, F * 0.2) : tailEnd ? Math.min(F - 0.6, Math.max(D + 0.5, D + (F - D) * 0.3)) : B;
+  if (bed) res.fade_from_s = r3(tF);
+  const tailPts = noFinal ? [[tF, 0], [F - 0.05, -34], [F, -70]] : btn.natural ? [] : [[B + 0.12, 0], [F - 0.05, -38], [F, -70]];
   const tmp = work + ".tmp.wav";
   const shape = () => {
     const gains = [], hz = [];
     const tA = I, tC = Math.max(0.05, D - 0.03), tB = Math.min(tC - 0.01, Math.max(tA + 0.01, D - 1.5));
-    gains.push([0, P.gi], [Math.min(tA, tB - 0.01), P.gi], [tB, P.gp], [tC, P.gp], [D, 0]);
-    if (P.introFilter) hz.push([0, 2200], [Math.min(tA, tB - 0.01), 2200], [Math.max(tB, D - 0.05), 16000], [D, 19500]);
+    if (!E.intro) gains.push([0, 0]);
+    else if (E.rise) gains.push([0, P.gi], [Math.min(tA, tC - 0.01), P.gi], [tC, 0], [D, 0]); // a slow burn keeps adding: a long climb in level from the quiet start to the payoff, no dip
+    else gains.push([0, P.gi], [Math.min(tA, tB - 0.01), P.gi], [tB, P.gp], [tC, P.gp], [D, 0]);
+    if (E.intro && P.introFilter) hz.push([0, 2200], [Math.min(tA, tB - 0.01), 2200], [Math.max(tB, D - 0.05), 16000], [D, 19500]);
     if (brk && (P.gd < -0.2 || P.breakFilter)) {
       const L = Math.max(0.5, rD - brk[0]), r1s = Math.min(0.45, 0.25 * L), r2s = Math.min(0.35, 0.2 * L);
       gains.push([brk[0], 0], [brk[0] + r1s, P.gd], [rD - r2s, P.gd], [rD, 0]);
       hz.push([brk[0], 19500], [brk[0] + 0.55 * L, 450], [rD - 0.3, 450], [rD - 0.01, 12000], [rD, 19500]);
     }
-    if (P.gl < -0.2 && Pay > D + 1) { // the second before the payoff sits under the payoff, so the payoff lifts (it must still lift after the master's limiter: 3.5 dB asked of a 2 dB need)
+    if (SH.payoffLift && P.gl < -0.2 && Pay > D + 1) { // the second before the payoff sits under the payoff, so the payoff lifts (it must still lift after the master's limiter: 3.5 dB asked of a 2 dB need)
       const a0 = Math.max(D + 0.5, Pay - 1.5);
       if (brk && rD > a0 - 0.01) { const k = gains.findIndex((g) => g[0] === rD && g[1] === 0); if (k >= 0) gains[k][1] = P.gl; } else gains.push([a0 - 0.1, 0], [a0, P.gl]);
       gains.push([Pay - 0.04, P.gl], [Pay, 0]);
     }
-    if (P.gk < -0.2) gains.push([Pay + 2.0, 0], [Pay + 2.6, P.gk], [Math.max(Pay + 2.7, B - 0.02), P.gk], [Math.max(Pay + 2.8, B), btn.natural ? P.gk : 0]);
+    if (SH.payoffLift && P.gk < -0.2) gains.push([Pay + 2.0, 0], [Pay + 2.6, P.gk], [Math.max(Pay + 2.7, B - 0.02), P.gk], [Math.max(Pay + 2.8, B), btn.natural ? P.gk : 0]);
     for (const t of tailPts) gains.push(t);
-    if (!btn.natural) hz.push([B + 0.1, 19500], [F, 1500]);
+    if (noFinal) hz.push([tF, 19500], [F, 2500]);
+    else if (!btn.natural) hz.push([B + 0.1, 19500], [F, 1500]);
     gains.push([F - 0.015, tailPts.length ? -70 : 0], [F, -90]);
     tidy(gains); tidy(hz);
     const gl = new Float32Array(N);
@@ -338,11 +360,12 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
     AF = arcFit(tmp, arc, F);
     const need = { intro: 8.5, lift: 7, brk: 12 };
     let changed = false;
-    if (AF.intro_below_db < need.intro && P.gi > -24) { P.gi = Math.max(-24, P.gi - (need.intro - AF.intro_below_db)); P.introFilter = true; changed = true; }
-    if (AF.lift_db < need.lift && P.gp > -18) { P.gp = Math.max(-18, P.gp - (need.lift - AF.lift_db)); changed = true; }
+    if (E.intro && AF.intro_below_db < need.intro && P.gi > -24) { P.gi = Math.max(-24, P.gi - (need.intro - AF.intro_below_db)); P.introFilter = true; changed = true; }
+    if (E.rise && AF.parts.rise != null && AF.parts.rise < 22 && P.gi > -24) { P.gi = Math.max(-24, P.gi - 3); P.introFilter = true; changed = true; }
+    if (E.lift && AF.lift_db < need.lift && P.gp > -18) { P.gp = Math.max(-18, P.gp - (need.lift - AF.lift_db)); changed = true; }
     if (brk && AF.break_below_db < need.brk && P.gd > -34) { P.gd = Math.max(-34, P.gd - (need.brk - AF.break_below_db)); P.breakFilter = true; changed = true; }
-    if (AF.payoff_lift_db != null && AF.payoff_lift_db < 3.5 && P.gl > -12) { P.gl = Math.max(-12, P.gl - (3.5 - AF.payoff_lift_db) - 0.5); changed = true; }
-    if (AF.loudest_at_s > Pay + 2.5 - 0.4 && P.gk > -9) { P.gk = Math.max(-9, P.gk - 1.5); changed = true; }
+    if (SH.payoffLift && AF.payoff_lift_db != null && AF.payoff_lift_db < 3.5 && P.gl > -12) { P.gl = Math.max(-12, P.gl - (3.5 - AF.payoff_lift_db) - 0.5); changed = true; }
+    if (SH.payoffLift && AF.loudest_at_s > Pay + 2.5 - 0.4 && P.gk > -9) { P.gk = Math.max(-9, P.gk - 1.5); changed = true; }
     res.iterations = it + 1;
     if (!changed) break;
     M = shape();
@@ -356,8 +379,8 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
 
   // --- checks: where the drop's attack landed, clicks at the splices
   const mono = new Float32Array(N); for (let n = 0; n < N; n++) mono[n] = 0.5 * (M.L[n] + M.R[n]);
-  res.drop_error_ms = Math.round(attackAt(mono, SRATE, D) * 1000 * 10) / 10;
-  res.clicks = clickCheck(mono, SRATE, splices);
+  res.drop_error_ms = bed || cold ? null : Math.round(attackAt(mono, SRATE, D) * 1000 * 10) / 10; // the landing: a bed has none, a cold open lands at 0 s by construction
+  res.clicks = clickCheck(mono, SRATE, splices, XFS);
   if (lyrics) {
     // the edited file as the film will hear it: word coverage, and where its hook line is sung against drop_at (nearest occurrence)
     // whisper locks onto the first seconds: try a few start points and keep the best reading
@@ -374,9 +397,9 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
 // the drop's landing: the nearest strong attack to t, in seconds from t (a drop that lands on t reads ~0; one a beat off reads ~0.5)
 export function attackAt(mono, sr, t, win = 0.3) { return strongAttack(cumOf(mono), mono.length, sr, t, win).t - t; }
 // a splice click shows as a one-sample jump far above the context's own sample-to-sample movement
-export function clickCheck(mono, sr, times) {
+export function clickCheck(mono, sr, times, xf = XF) {
   const out = { checked: 0, clicks: 0, worst_ratio: 0 };
-  for (const T of times) for (const t of [T - XF, T - XF / 2]) {
+  for (const T of times) for (const t of [T - xf, T - xf / 2]) {
     const c = Math.round(t * sr), near = Math.round(0.0015 * sr), ctx = Math.round(0.08 * sr);
     if (c - ctx < 1 || c + ctx >= mono.length) continue;
     let nd = 0; for (let i = c - near; i <= c + near; i++) nd = Math.max(nd, Math.abs(mono[i] - mono[i - 1]));

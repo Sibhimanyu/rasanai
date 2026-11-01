@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { shapeId, meterBeats } from "./music-shapes.mjs";
 
 export const SCORE_SCHEMA = 1;
 export const DEFAULT_SR = 48000;
@@ -127,9 +128,26 @@ const cueOf = (events, name) => { const e = events.find((x) => x.kind === "music
 const isEnd = (e) => e.kind === "visual_hit" && /^(logo|cta|end)/i.test(String(e.attrs?.cue_kind || e.id || ""));
 
 // sections from the arc: intro [0, drop), peak [drop, payoff), resolve [payoff, end]; missing cues fall back to 40% / 75% of the film
-export function sectionsFromEvents(events, duration, identity) {
+// shape (lib/music-shapes.mjs; "drop" = the above, byte for byte): slow-burn climbs intro > rise > finale at the payoff; cold-open is loud from 0 s (a break between, when the arc has one);
+// stinger builds then hits and rings out; ambient-bed and pulse-loop are ONE even section
+export function sectionsFromEvents(events, duration, identity, shape = "drop") {
   if (identity && Array.isArray(identity.sections) && identity.sections.length) {
     return identity.sections.map((s, i) => ({ name: s.name || ["intro", "peak", "resolve"][i] || `s${i + 1}`, start_s: Number(s.start_s), end_s: Number(s.end_s), energy: Number(s.energy ?? 0.5), voices: voiceSet(s.instruments, i, identity.sections.length) }));
+  }
+  if (shape !== "drop" && shape !== "lyric-song") {
+    const ALL = ["bass", "perc", "pluck", "pad", "lead"], dur = duration, S = (name, a, b, energy, voices) => ({ name, start_s: r6(a), end_s: r6(b), energy, voices: new Set(voices) });
+    if (shape === "ambient-bed") return [S("bed", 0, dur, 0.3, ["pad", "pluck", "lead"])];
+    if (shape === "pulse-loop") return [S("groove", 0, dur, 0.6, ["pad", "pluck", "bass", "perc"])];
+    if (shape === "slow-burn") {
+      const p = clamp(cueOf(events, "payoff_at") ?? dur * 0.85, 2, dur - 0.5), a = clamp(cueOf(events, "drop_at") ?? p * 0.55, 0.5, p - 1);
+      return [S("intro", 0, a, 0.25, ["pluck", "pad"]), S("rise", a, p, 0.55, ["pad", "pluck", "bass", "lead"]), S("finale", p, dur, 0.9, ALL)];
+    }
+    if (shape === "stinger") { const d = clamp(cueOf(events, "drop_at") ?? dur - 2.2, 0.5, dur - 1); return [S("build", 0, d, 0.35, ["pad", "pluck"]), S("hit", d, dur, 0.9, ALL)]; }
+    if (shape === "cold-open") {
+      const bs = cueOf(events, "break_start"), be = cueOf(events, "break_end");
+      if (bs != null && be != null && be > bs + 0.5 && be < dur - 1) return [S("hit", 0, bs, 0.85, ALL), S("break", bs, be, 0.35, ["pad", "pluck"]), S("final", be, dur, 0.95, ALL)];
+      return [S("hit", 0, dur * 0.7, 0.85, ALL), S("final", dur * 0.7, dur, 0.95, ALL)];
+    }
   }
   const drop = cueOf(events, "drop_at") ?? cueOf(events, "break_end") ?? duration * 0.4;
   let payoff = cueOf(events, "payoff_at");
@@ -157,21 +175,25 @@ export function buildPlan(inEvents, identity, opts = {}) {
   const { events, duration_s: dur, fps } = normalizeEvents(inEvents, opts);
   const id = identity;
   const seed = id.seed;
-  const beat = 60 / id.bpm, step = beat / 4, bar = beat * 4;
+  // shape and meter (opts, not identity: a plain call keeps its bytes): the bar is the meter's beats of 4 sixteenth steps (4/4 = 16 steps, 3/4 = 12, 6/8 and 5/4 as written there: lib/music-shapes.mjs meterBeats)
+  const shape = shapeId(opts.shape), BPB = meterBeats(opts.meter), SPB = BPB * 4, half = Math.floor(BPB / 2) * 4;
+  const flat = shape === "ambient-bed" || shape === "pulse-loop", stinger = shape === "stinger", cold = shape === "cold-open";
+  const beat = 60 / id.bpm, step = beat / 4, bar = beat * BPB;
   const hook = normalizeArrangement(opts.arrangement);
-  const sections = applyArrangementEnergy(sectionsFromEvents(events, dur, id), hook);
+  const sections = applyArrangementEnergy(sectionsFromEvents(events, dur, id, shape), hook);
 
   // the end: the logo / cta picture event, else the arc's button, else 0.9 s before the film's end; music stops there (no music past the CTA)
   const endEv = events.filter(isEnd).sort((a, b) => b.at_s - a.at_s)[0];
-  let endT = endEv ? endEv.at_s : cueOf(events, "button_at") ?? dur - 0.9;
+  let endT = endEv ? endEv.at_s : stinger ? cueOf(events, "drop_at") ?? cueOf(events, "button_at") ?? dur - 2.2 : cueOf(events, "button_at") ?? dur - 0.9; // a stinger's one hit is its ending
   endT = clamp(endT, Math.min(3, dur * 0.5), dur - 0.1);
+  if (flat && !endEv) { const q = (u) => Math.floor(endT / u) * u; endT = clamp(q(4 * bar) > dur * 0.4 && endT - q(4 * bar) <= 6 ? q(4 * bar) : q(bar) > 0 ? q(bar) : endT, Math.min(3, dur * 0.5), dur - 0.1); } // a bed or loop ends on a phrase boundary (4 bars), else a bar line
   // arrangement hook (additive): ring-out / decay may ring longer when the film leaves room; stop / cut keep the short tail. Default: the long-standing 0.95 s.
-  const tailMax = hook && (hook.ending === "ring-out" || hook.ending === "decay") ? 2.4 : hook && (hook.ending === "stop" || hook.ending === "cut") ? 0.4 : 0.95;
+  const tailMax = stinger || (hook && (hook.ending === "ring-out" || hook.ending === "decay")) ? 2.4 : hook && (hook.ending === "stop" || hook.ending === "cut") ? 0.4 : 0.95;
   const tail = clamp(Math.min(tailMax, dur - endT - 0.03), Math.min(0.25, tailMax), tailMax);
   const tailEnd = Math.min(dur - 0.03, endT + tail);
 
   // the hits: ids the identity names, else the visual hit on the drop cue, else the drop cue itself
-  const dropT = cueOf(events, "drop_at");
+  const dropT = flat || cold ? null : cueOf(events, shape === "slow-burn" ? "payoff_at" : "drop_at") ?? (shape === "slow-burn" ? cueOf(events, "drop_at") : null); // no drop to land: a bed / loop / cold open has none; a slow burn's peak is its payoff
   const visual = events.filter((e) => e.kind === "visual_hit" && !isEnd(e));
   let hitEv = null;
   for (const hid of id.hit_event_ids) { hitEv = events.find((e) => e.id === hid); if (hitEv) break; }
@@ -181,13 +203,14 @@ export function buildPlan(inEvents, identity, opts = {}) {
   const pauseLen = clamp(breakEv[0] != null && breakEv[1] != null ? breakEv[1] - breakEv[0] : 2 * beat, 0.4, 1.1);
   const gates = [];
   if (peak) gates.push({ id: "pause", from: r6(Math.max(0.6, peak.at_s - pauseLen)), to: r6(peak.at_s), floor: 0.05 });
-  const payoffT = cueOf(events, "payoff_at");
+  const payoffT = flat || stinger ? null : cueOf(events, "payoff_at");
   // the break before the end card: the arc's break cues, else (a film with room) the second before the closing cadence; the bed is pulled out, the cadence lands into the gap
   {
     const bs = cueOf(events, "break_start"), be = cueOf(events, "break_end"), cad = endT - 2 * beat;
     let from = null, to = null;
     if (bs != null && be != null && be > bs && be <= endT - 0.2) { from = bs; to = Math.min(be, endT - 0.2); }
     else if (cad - 1.1 > Math.max(payoffT ?? 0, peak ? peak.at_s : 0) + 1.5) { from = cad - 1.1; to = cad - 0.05; }
+    if (flat || stinger) { from = null; to = null; } // a bed, a loop or a sting has no break
     if (from != null && to - from >= 0.25 && !gates.some((g) => from < g.to && to > g.from)) gates.push({ id: "break", from: r6(from), to: r6(to), floor: 0.06 });
   }
   if (payoffT != null && payoffT < endT - 1 && (!peak || Math.abs(payoffT - peak.at_s) > 1)) gates.push({ id: "breath", from: r6(payoffT - 0.32), to: r6(payoffT), floor: 0.12 });
@@ -196,6 +219,7 @@ export function buildPlan(inEvents, identity, opts = {}) {
   const add = (n) => { if (n.t >= 0 && n.t < dur) notes.push({ ...n, t: r6(n.t) }); };
   const inGate = (t) => gates.some((g) => t >= g.from - 1e-9 && t < g.to - 1e-9);
   const cadenceT = endT - 2 * beat;
+  const SNARE_AT = { 2: [4], 3: [8], 4: [4, 12], 5: [8], 6: [12], 7: [8, 20] }; // the backbeat of each meter, in sixteenth steps
   const prog = (si, b) => { const phrase = Math.floor(b / 4); const p = pick(id.progressions, rnd(seed, `prog|${sections[si].name}`, phrase)); return p[((b % 4) + 4) % 4]; };
 
   sections.forEach((s, si) => {
@@ -204,7 +228,7 @@ export function buildPlan(inEvents, identity, opts = {}) {
     const nSteps = Math.floor((tEnd - s.start_s) / step + 1e-9);
     const e = s.energy, V = s.voices;
     for (let k = 0; k < nSteps; k++) {
-      const t = s.start_s + k * step, b = Math.floor(k / 16), pos = k % 16;
+      const t = s.start_s + k * step, b = Math.floor(k / SPB), pos = k % SPB;
       const root = prog(si, b);
       const tones = chordDegs(root, e > 0.6 && rnd(seed, `7th|${s.name}`, b) < 0.4);
       const skip = inGate(t);
@@ -223,13 +247,13 @@ export function buildPlan(inEvents, identity, opts = {}) {
         }
       }
       // bass and percussion: the peak's engine
-      if (V.has("bass") && !skip && [0, 6, 8, 12, 14].includes(pos) && (pos === 0 || pos === 8 || rnd(seed, `bs|${s.name}`, k) < 0.55)) add({ voice: "bass", t, dur: step * (pos === 0 || pos === 8 ? 5 : 3), midi: degMidi(id, root, 0) + 12, vel: 0.55 + 0.35 * e, pan: 0 });
+      if (V.has("bass") && !skip && [0, 6, half, 12, 14].filter((p) => p < SPB).includes(pos) && (pos === 0 || pos === half || rnd(seed, `bs|${s.name}`, k) < 0.55)) add({ voice: "bass", t, dur: step * (pos === 0 || pos === half ? 5 : 3), midi: degMidi(id, root, 0) + 12, vel: 0.55 + 0.35 * e, pan: 0 });
       if (V.has("perc") && !skip) {
         const style = id.instruments.rhythm;
-        const kicks = style === "four" ? [0, 4, 8, 12] : style === "breaks" ? [0, 6, 10] : style === "soft" ? [0, 8] : [0, 8, 10];
+        const kicks = style === "four" ? Array.from({ length: BPB }, (_, i) => i * 4) : style === "breaks" ? [0, Math.round(SPB * 0.375), Math.round(SPB * 0.625)] : style === "soft" ? [0, half] : [0, half, half + 2];
         if (kicks.includes(pos)) add({ voice: "kick", t, dur: 0.3, midi: 36, vel: 0.75 + 0.2 * e, pan: 0 });
-        if ((pos === 4 || pos === 12) && style !== "soft") add({ voice: "snare", t, dur: 0.2, midi: 60, vel: 0.5, pan: 0.05 });
-        if (pos % 4 === 2 || (pos % 2 === 1 && rnd(seed, `gh|${s.name}`, k) < 0.3)) add({ voice: "hat", t, dur: 0.1, midi: 90, vel: pos % 4 === 2 ? 0.34 : 0.2, open: pos === 14, pan: pos % 4 === 2 ? 0.25 : -0.2 });
+        if (SNARE_AT[BPB].includes(pos) && style !== "soft") add({ voice: "snare", t, dur: 0.2, midi: 60, vel: 0.5, pan: 0.05 });
+        if (pos % 4 === 2 || (pos % 2 === 1 && rnd(seed, `gh|${s.name}`, k) < 0.3)) add({ voice: "hat", t, dur: 0.1, midi: 90, vel: pos % 4 === 2 ? 0.34 : 0.2, open: pos === SPB - 2, pan: pos % 4 === 2 ? 0.25 : -0.2 });
       }
       // the motif: the signature phrase every second bar (peak) or slow and wide (resolve), varied phrase by phrase so nothing loops
       if (V.has("lead") && (b % 2 === 0) && pos === 0 && !id.narrated && !skip) {
@@ -260,11 +284,18 @@ export function buildPlan(inEvents, identity, opts = {}) {
     const b = Math.max(0, Math.floor((peak.at_s - sections[si].start_s) / bar));
     const root = prog(si, b);
     hits.push({ id: peak.id, at_s: r6(peak.at_s), role: "peak", from: peak.from });
-    chordDegs(root, false).concat([root + 7]).forEach((dg, j) => add({ voice: "stab", t: peak.at_s, dur: 1.6, midi: degMidi(id, dg, 3), vel: 0.55, pan: [-0.3, 0.3, -0.1, 0.1][j], key: `${peak.id}|${j}` }));
-    add({ voice: "bass", t: peak.at_s, dur: 1.2, midi: degMidi(id, root, 0), vel: 0.95, pan: 0 });
-    add({ voice: "impact", t: peak.at_s, dur: 2.2, midi: 38, vel: 0.8, pan: 0, key: peak.id });
+    if (!stinger) chordDegs(root, false).concat([root + 7]).forEach((dg, j) => add({ voice: "stab", t: peak.at_s, dur: 1.6, midi: degMidi(id, dg, 3), vel: 0.55, pan: [-0.3, 0.3, -0.1, 0.1][j], key: `${peak.id}|${j}` }));
+    if (!stinger) add({ voice: "bass", t: peak.at_s, dur: 1.2, midi: degMidi(id, root, 0), vel: 0.95, pan: 0 });
+    add({ voice: "impact", t: peak.at_s, dur: 2.2, midi: 38, vel: stinger ? 0.65 : 0.8, pan: 0, key: peak.id });
     const riser = clamp(Math.min(bar * 1.5, peak.at_s - 0.6), pauseLen * 0.55, 3.2); // a riser into the drop, not a blip
     add({ voice: "swell", t: Math.max(0, peak.at_s - riser), dur: riser, midi: 70, vel: 0.6, pan: 0, key: peak.id });
+  }
+  if (cold) { // a cold open hits on the first frame: a chord, the bass and an impact at 0 s
+    const root = prog(0, 0);
+    hits.push({ id: "music-open", at_s: 0, role: "peak", from: "shape cold-open" });
+    chordDegs(root, false).forEach((dg, j) => add({ voice: "stab", t: 0, dur: 1.4, midi: degMidi(id, dg, 3), vel: 0.6, pan: [-0.3, 0.3, 0][j], key: `open|${j}` }));
+    add({ voice: "bass", t: 0, dur: 1.2, midi: degMidi(id, root, 0), vel: 0.95, pan: 0 });
+    add({ voice: "impact", t: 0, dur: 1.6, midi: 38, vel: 0.7, pan: 0, key: "open" });
   }
   if (payoffT != null && payoffT < endT - 0.5 && (!peak || Math.abs(payoffT - peak.at_s) > 1)) {
     const si = sections.findIndex((s) => payoffT >= s.start_s && payoffT < s.end_s);
@@ -290,7 +321,8 @@ export function buildPlan(inEvents, identity, opts = {}) {
   return {
     schema_version: SCORE_SCHEMA, sr: opts.sr || DEFAULT_SR, duration_s: dur, fps, bpm: id.bpm, key: id.key, seed, identity: id,
     sections: sections.map((s) => ({ name: s.name, start_s: s.start_s, end_s: s.end_s, energy: s.energy, instruments: [...s.voices] })),
-    hits, gates, pause: peak ? { ...gates[0], event: peak.id } : null,
+    hits, gates, pause: peak && gates[0] ? { ...gates[0], event: peak.id } : null,
+    ...(shape !== "drop" ? { shape } : {}), ...(BPB !== 4 ? { meter: opts.meter } : {}),
     ending: { cue_at_s: r6(endT), tail_end_s: r6(tailEnd), from: endEv ? endEv.id : cueOf(events, "button_at") != null ? "music_arc.button_at" : "duration - 0.9 s" },
     notes, foley: foleyEvents,
     ...(hook ? { arrangement: hook } : {}),

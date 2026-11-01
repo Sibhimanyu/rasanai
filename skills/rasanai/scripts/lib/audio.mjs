@@ -442,7 +442,9 @@ export function transientNear(y, t, { sr = SR, win = 0.03, minRiseDb = 3 } = {})
 
 // Full analysis; the returned object keeps private arrays (_y, _barFeat...) for fit/render.
 // publicAnalysis() strips them for printing.
-export function analyzeTrack(file, { quick = false } = {}) {
+// beatsPerBar: the meter's beats in a bar (3 for 3/4, 6 for 6/8 as lib/music-shapes.mjs meterBeats counts them); 4 = the long-standing 4/4 grid, byte for byte
+export function analyzeTrack(file, { quick = false, beatsPerBar = 4 } = {}) {
+  const BPB = Math.max(2, Math.min(7, Math.round(beatsPerBar) || 4));
   requireTools();
   if (!fs.existsSync(file)) throw new Error(`track not found: ${file}`);
   const y = decode(file);
@@ -519,16 +521,16 @@ export function analyzeTrack(file, { quick = false } = {}) {
   const onB = beats.map((t) => onsetAt(t, F.onset));
   const nz = (a) => { const m = mean(a) || 1; return a.map((v) => v / m); };
   const [lowN, onN, harmN] = [nz(lowB), nz(onB), nz(harm)];
-  const phaseScore = [0, 1, 2, 3].map((p) => {
-    const idx = beats.map((_, i) => i).filter((i) => i % 4 === p);
+  const phaseScore = Array.from({ length: BPB }, (_, p) => p).map((p) => {
+    const idx = beats.map((_, i) => i).filter((i) => i % BPB === p);
     return mean(idx.map((i) => lowN[i] + 0.5 * onN[i] + 0.6 * harmN[i]));
   });
   let phase = phaseScore.indexOf(Math.max(...phaseScore));
   const sortedPS = [...phaseScore].sort((a, b) => b - a);
   const downbeat_confidence = sortedPS[0] > 0 ? (sortedPS[0] - sortedPS[1]) / sortedPS[0] : 0;
   const barLayer = (phase) => {
-  const bars = beats.filter((_, i) => i % 4 === phase);
-  const bar_s = beats.length > phase + 4 ? median(bars.slice(1).map((t, i) => t - bars[i])) : 4 * beat_s;
+  const bars = beats.filter((_, i) => i % BPB === phase);
+  const bar_s = beats.length > phase + BPB ? median(bars.slice(1).map((t, i) => t - bars[i])) : BPB * beat_s;
 
   // per-bar features
   const nbar = bars.length;
@@ -612,8 +614,8 @@ export function analyzeTrack(file, { quick = false } = {}) {
   let downbeat_from = "kick and chord changes";
   if (ending.natural && ending.hit != null && downbeat_confidence < 0.15) {
     const bi = beats.findIndex((t) => Math.abs(t - ending.hit) < 0.1);
-    if (bi >= 0 && bi % 4 !== phase) {
-      phase = bi % 4;
+    if (bi >= 0 && bi % BPB !== phase) {
+      phase = bi % BPB;
       ({ bars, bar_s, nbar, barEnd, bar_db, barChroma, barAccent, barFeat, sections, top } = barLayer(phase));
       ending = detectEnding({ F, fdb, loud, bars, beats, bar_s, beat_s, last_audible, duration, top, bar_db });
       downbeat_from = "the final hit";
@@ -649,7 +651,7 @@ export function analyzeTrack(file, { quick = false } = {}) {
     tempo_folded: folded,
     beat_s: r3(beat_s),
     bar_s: r3(bar_s),
-    meter: "4/4 (assumed)",
+    meter: BPB === 4 ? "4/4 (assumed)" : `${BPB} beats a bar (as asked)`,
     tempo_cv: r3(tempo_cv),
     tempo_stable: tempo_cv <= 0.04 || !!rigid,
     grid: rigid ? "rigid (quantised track: exact tempo)" : "tracked (beats follow the playing)",

@@ -4,6 +4,7 @@
 //
 //   node original-score.mjs render --events <events.json> --out <score.wav> [--run <run>] [--identity <identity.json>] [--look "<look words>"] [--story "<story words>"]
 //        [--arrangement <arrangement.json>] (additive: a music-arrangement.mjs planArrangement record or its `procedural` hooks: section energy, a resolved ending)
+//        [--shape drop|slow-burn|ambient-bed|cold-open|stinger|pulse-loop|lyric-song] [--meter 4/4|3/4|6/8|5/4] [--bpm <n>] (the film's music shape and meter, as in a concept's music_arc: the sections, the peak hit and the bar grid follow them; none = drop, 4/4, byte for byte)
 //        [--seed <n>] [--sr 44100|48000] [--duration <s>] [--fps <n>] [--narrated] [--with-foley] [--no-stems] [--silent-by-choice "<reason>"]
 //        events.json is the derived manifest of `events.mjs export` (refused when stale) or a plain {events:[{id,t,kind}]} list. Writes the stereo 24-bit WAV (music + ambience;
 //        foley joins with --with-foley), <out>.score.json (the plan, the sections, the hit ids, the licence and provenance, the quality downgrade and the plan sound.mjs
@@ -56,13 +57,13 @@ if (cmd === "render") {
   if (![44100, 48000].includes(sr)) unable("--sr must be 44100 or 48000");
   let identity;
   try {
-    identity = resolveIdentity(str(args.identity) ? path.resolve(String(args.identity)) : null, { look: str(args.look), story: str(args.story), seed: str(args.seed), narrated: args.narrated ? true : null });
+    identity = resolveIdentity(str(args.identity) ? path.resolve(String(args.identity)) : null, { look: str(args.look), story: str(args.story), seed: str(args.seed), narrated: args.narrated ? true : null, bpm: str(args.bpm) });
   } catch (e) { unable(`--identity: ${e.message}`); }
   let arrangement = null;
   if (str(args.arrangement)) {
     try { arrangement = JSON.parse(fs.readFileSync(path.resolve(String(args.arrangement)), "utf8")); } catch (e) { unable(`--arrangement: ${e.message}`); }
   }
-  const opts = { ...(arrangement ? { arrangement } : {}), sr, duration: args.duration != null ? Number(args.duration) : undefined, fps: args.fps != null ? Number(args.fps) : undefined, withFoley: !!args["with-foley"] };
+  const opts = { ...(arrangement ? { arrangement } : {}), sr, duration: args.duration != null ? Number(args.duration) : undefined, fps: args.fps != null ? Number(args.fps) : undefined, withFoley: !!args["with-foley"], shape: str(args.shape) || undefined, meter: str(args.meter) || undefined };
   let r;
   try { r = renderScore(ev.input, identity, opts); } catch (e) { unable(`render failed: ${e.message}`); }
   const wav = path.resolve(out);
@@ -74,6 +75,7 @@ if (cmd === "render") {
     identity: r.plan.identity, sections: r.plan.sections, hits: r.plan.hits, pause: r.plan.pause, gates: r.plan.gates, ending: r.plan.ending, foley: r.plan.foley, with_foley: !!opts.withFoley,
     families: [...new Set(r.plan.notes.map((n) => ({ pluck: "plucked", bell: "plucked", lead: "plucked", stab: "plucked", pad: "sustained pad", bass: "bass and percussion", kick: "bass and percussion", snare: "bass and percussion", hat: "bass and percussion" })[n.voice]).filter(Boolean))],
     ...(r.plan.arrangement ? { arrangement: r.plan.arrangement } : {}),
+    ...(r.plan.shape ? { shape: r.plan.shape } : {}), ...(r.plan.meter ? { meter: r.plan.meter } : {}),
     notes: r.plan.notes.length, license: r.provenance, quality_downgrade: r.provenance.quality_downgrade, samples_used: [],
     sound_plan: identityPlan(wav, r.plan),
   };
@@ -161,7 +163,8 @@ function checkFile(file, evInput, { fps } = {}) {
   const sectionRows = secs.map((s) => ({ name: s.name, start_s: s.start_s, end_s: s.end_s, rms_db: r3(dbv(ms(s.start_s, Math.min(s.end_s, endCue != null ? endCue : s.end_s)))) }));
   const intro = sectionRows[0], peakSec = sectionRows.slice(1).reduce((a, b) => (b.rms_db > a.rms_db ? b : a), sectionRows[1] || sectionRows[0]);
   const lift = peakSec && intro ? r3(peakSec.rms_db - intro.rms_db) : null;
-  if (sectionRows.length >= 3 && lift != null && lift < 3) problems.push(`sections: the loudest section (${peakSec.name}) is only ${lift} dB above the intro: the sections do not differ in energy (needs 3 dB)`);
+  const flatShape = ["ambient-bed", "pulse-loop", "cold-open", "stinger"].includes(side?.shape); // one even section, or loud from the first frame, or a sting: no intro to lift from
+  if (!flatShape && sectionRows.length >= 3 && lift != null && lift < 3) problems.push(`sections: the loudest section (${peakSec.name}) is only ${lift} dB above the intro: the sections do not differ in energy (needs 3 dB)`);
 
   // cue / frame alignment: the onset of the strongest rise within +-0.3 s of each cue
   const env1 = (t0, t1) => { // 3 ms RMS at a 1 ms hop, in dB
@@ -178,7 +181,7 @@ function checkFile(file, evInput, { fps } = {}) {
   const byId = new Map(events.map((e) => [e.id, e]));
   const cueT = (name) => { const e = events.find((x) => x.kind === "music_cue" && x.cue === name); return e ? e.at_s : null; };
   let required = [];
-  if (side) required = side.hits.map((h) => { const e = byId.get(h.id); const t = e ? e.at_s : h.id === "music-drop" ? cueT("drop_at") : h.id === "music-payoff" ? cueT("payoff_at") : null; return { id: h.id, role: h.role, at_s: t, missing: t == null }; });
+  if (side) required = side.hits.map((h) => { const e = byId.get(h.id); const t = e ? e.at_s : h.id === "music-open" ? 0 : h.id === "music-drop" ? cueT("drop_at") : h.id === "music-payoff" ? cueT("payoff_at") : null; return { id: h.id, role: h.role, at_s: t, missing: t == null }; });
   else {
     const drop = cueT("drop_at");
     const vh = events.filter((e) => e.kind === "visual_hit");

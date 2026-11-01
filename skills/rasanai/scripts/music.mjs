@@ -80,14 +80,14 @@ if (mode === "local-setup") {
 }
 if (mode === "edit") {
   // node music.mjs edit --track <take.wav> --film <s> --arc '<json | file>' [--bpm 120] --out <edited.wav>: cut one generated take onto the arc (lib/music-edit.mjs); prints arcFit before (fitted bed) and after
-  if (!args.track || !args.film || !args.out) die("usage: music.mjs edit --track <take> --film <seconds> --arc <json|file> [--bpm <n>] [--lyrics <file>] --out <wav>");
+  if (!args.track || !args.film || !args.out) die("usage: music.mjs edit --track <take> --film <seconds> --arc <json|file|shape name> [--bpm <n>] [--meter 3/4] [--lyrics <file>] --out <wav>");
   const filmS = Number(args.film), { arc: arcE } = readArc(args.arc, filmS);
   const trk = path.resolve(String(args.track)), outF = path.resolve(String(args.out));
   const A0 = analyzeTrack(trk, { quick: true });
   let before = null;
   try { const plan0 = fitTrack(A0, { film: filmS, reveal: arcE.drop_at, logo: arcE.button_at }); const pv = outF.replace(/\.[^.]+$/, "") + ".before.wav"; renderPlan(plan0, pv); before = { arc_fit: arcFit(pv, arcE, filmS), shape: plan0.shape }; fs.rmSync(pv, { force: true }); } catch (e) { before = { error: String(e.message).slice(0, 120) }; }
   const lyricsE = args.lyrics && args.lyrics !== true ? fs.readFileSync(path.resolve(String(args.lyrics)), "utf8") : "";
-  const r = editToPicture({ file: trk, arc: arcE, film: filmS, bpm: args.bpm ? Number(args.bpm) : null, out: outF, lyrics: lyricsE });
+  const r = editToPicture({ file: trk, arc: arcE, film: filmS, bpm: args.bpm ? Number(args.bpm) : null, meter: args.meter && args.meter !== true ? String(args.meter) : arcE.meter, out: outF, lyrics: lyricsE });
   console.log(JSON.stringify({ ...r, arc: arcE, before: { arc_fit_score: before.arc_fit ? before.arc_fit.score : null, parts: before.arc_fit ? before.arc_fit.parts : null, error: before.error } , after: { arc_fit_score: r.arc_fit.score, parts: r.arc_fit.parts, problems: r.arc_fit.problems } }, null, 2));
   process.exit(0);
 }
@@ -583,10 +583,10 @@ async function fromLocalGen() {
     if (!P.instrumental) { try { rawSing = singScore(f.file, lyricsText, { hook: P.hook, work: path.join(dir, `${id}.sing`) }); } catch {} }
     found.push({ id, sing: rawSing, tempo: f.tempo || null, title: `Made locally to the arc: ${P.instrumental ? "instrumental" : "sung"} take ${n}, ${P.bpm} BPM`, file: f.file, source: "Local generation (ACE-Step 1.5)", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: P.bpm, lyrics_json: lyricsJson, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, date: new Date().toISOString() } });
     // generate long, then edit to picture: the same take cut on downbeats onto the arc (lib/music-edit.mjs); it competes with the raw take and every other source on arcFit
-    if (film && !args["no-edit"] && meterBeats(arc.meter) === 4) {
+    if (film && !args["no-edit"]) {
       try {
         const eo = path.join(dir, `${id}-edited.wav`);
-        const E = editToPicture({ file: f.file, arc, film, bpm: P.bpm, out: eo, lyrics: P.instrumental ? "" : lyricsText, hook: P.hook });
+        const E = editToPicture({ file: f.file, arc, film, bpm: P.bpm, meter: arc.meter, out: eo, lyrics: P.instrumental ? "" : lyricsText, hook: P.hook });
         let eLyrics = null;
         if (!P.instrumental) {
           try {
@@ -625,13 +625,13 @@ async function fromProcedural() {
   try {
     const withBreak = (m) => { if (!m || arcDerived || !arc.break) return m; const has = (c) => m.events.some((x) => x.kind === "music_cue" && x.cue === c); const add = [["break_start", arc.break[0]], ["break_end", arc.break[1]]].filter(([c]) => !has(c)).map(([cue, t]) => ({ id: `music-${cue.replace("_", "-")}`, at_s: Number(t), kind: "music_cue", cue })); return add.length ? { ...m, events: [...m.events, ...add] } : m; };
     const input = withBreak(eventsInput) || { duration_s: film, events: [...HITS.map((h, i) => ({ id: `hit-${i + 1}`, t: h.t, kind: h.kind })), ...(arcDerived ? [] : [["drop_at", arc.drop_at], ["payoff_at", arc.payoff_at], ["button_at", arc.button_at], ["break_start", arc.break && arc.break[0]], ["break_end", arc.break && arc.break[1]]].filter(([, t]) => Number.isFinite(Number(t)) && Number(t) > 0).map(([cue, t]) => ({ id: `music-${cue.replace(/_at$/, "")}`, at_s: Number(t), kind: "music_cue", cue })))] };
-    const identity = resolveIdentity(args.identity && args.identity !== true ? path.resolve(String(args.identity)) : null, { look: args.style, story: args.story, seed: args.seed, narrated: narrated || null });
-    const r = renderScore(input, identity, { duration: film });
+    const identity = resolveIdentity(args.identity && args.identity !== true ? path.resolve(String(args.identity)) : null, { look: args.style, story: args.story, seed: args.seed, narrated: narrated || null, bpm: arc.bpm || null });
+    const r = renderScore(input, identity, { duration: film, shape: arc.shape, meter: arc.meter }); // the arc's shape and meter: sections, peak hit and bar grid follow them
     const id = `procedural-${identity.family}`;
     const file = path.join(dir, `${id}.wav`);
     fs.writeFileSync(file, r.wav);
     const prov = r.provenance;
-    fs.writeFileSync(sidecarPath(file), JSON.stringify({ schema_version: 1, origin: "procedural", wav: path.basename(file), sha256: crypto.createHash("sha256").update(r.wav).digest("hex"), sr: r.plan.sr, duration_s: r.plan.duration_s, fps: r.plan.fps, bpm: r.plan.bpm, key: r.plan.key, seed: r.plan.seed, identity: r.plan.identity, sections: r.plan.sections, hits: r.plan.hits, pause: r.plan.pause, gates: r.plan.gates, ending: r.plan.ending, foley: r.plan.foley, samples_used: [], license: prov, quality_downgrade: prov.quality_downgrade }, null, 2) + "\n");
+    fs.writeFileSync(sidecarPath(file), JSON.stringify({ schema_version: 1, origin: "procedural", wav: path.basename(file), sha256: crypto.createHash("sha256").update(r.wav).digest("hex"), sr: r.plan.sr, duration_s: r.plan.duration_s, fps: r.plan.fps, bpm: r.plan.bpm, key: r.plan.key, seed: r.plan.seed, identity: r.plan.identity, sections: r.plan.sections, hits: r.plan.hits, pause: r.plan.pause, gates: r.plan.gates, ending: r.plan.ending, foley: r.plan.foley, ...(r.plan.shape ? { shape: r.plan.shape } : {}), ...(r.plan.meter ? { meter: r.plan.meter } : {}), samples_used: [], license: prov, quality_downgrade: prov.quality_downgrade }, null, 2) + "\n");
     noteDowngrade({ run: args.run, what: "sampled instruments in the original score", instead: "synthesised sine / triangle / noise voices", why: "no licence-verified instrument sample library ships with the skill", impact: "thinner than a produced track; pass --track <file> to use a real one" });
     notes.push(`original score: ${identity.family}, ${r.plan.bpm} BPM, ${r.plan.key}, seed ${r.plan.seed}; peak hit ${r.plan.hits[0] ? `${r.plan.hits[0].id} at ${r.plan.hits[0].at_s} s` : "none (no drop cue or hit to build on)"}; quality downgrade recorded (synthesised voices, not sampled instruments)`);
     found.push({ id, title: `Original score: ${identity.family.replace("-", " ")}, ${r.plan.bpm} BPM, ${r.plan.key}`, file, source: "Original score (RasanAI, generated offline)", kind: "procedural", prior: procChain.explicit ? "ai" : "procedural", origin: "procedural", license: "Original work generated from code; no third-party material", requires_credit: false, attribution: null, url: null, intent: { family: { id: identity.family }, intent: "original score to the film's events" }, samples_used: [] });

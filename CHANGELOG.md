@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Music edits to any shape and meter.** Cutting a generated take to the picture now follows the film's music shape: a slow burn lands its payoff after a long rise, a cold open starts full, a stinger lands its hit and rings out, and a bed or loop just fits the length with a clean phrase-aligned loop and a fade on a phrase boundary. Bars follow the meter (3/4, 6/8, 5/4 and so on), so films in other meters are no longer skipped, and the offline fallback score is built per shape and meter too.
+- **Lyrics are written before the music.** A sung film now has a real lyricist step in the plan (after the sound mode is decided, before any music is made), with a check, and the music step picks up the lyrics file by itself. Source-checked only: none of this has been run on a real film yet.
+
 ## 1.33.0 (2026-11-01): The creative engine reaches the film
 
 The creative engine's new ideas now reach the film. An audit of 1.32.0 found the old launch rules and gates still flattened every film; this connects the new front end to the back end. Source-level only: checked with syntax checks and import loads, not run, rendered or listened to.

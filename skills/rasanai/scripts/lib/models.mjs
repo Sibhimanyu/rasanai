@@ -93,7 +93,7 @@ const GATHER = new Set(["product-researcher", "brand-researcher", "brand-film-an
 const ORDER = { fast: 0, strong: 1, frontier: 2 };
 const FAST_ALIAS = { claude: "sonnet", gpt: null, other: null };
 // Who runs on what (Claude). Creative roles: Opus at high effort. Builders and fixers: Sonnet. Mechanical work: Haiku.
-export const CREATIVE = new Set(["script-writer", "treatment-writer", "visual-writer", "footage-writer", "concept-writer-story", "concept-writer-style", "concept-writer-wild", "script-editor", "concept-critic", "story-planner", "design-system-designer", "design-researcher", "styleframe-designer", "frame-designer", "move-inventor", "move-juror", "frame-juror", "style-frame-juror", "ab-juror", "structure-critic", "critic", "motion-director", "art-director", "character-designer"]);
+export const CREATIVE = new Set(["script-writer", "treatment-writer", "visual-writer", "footage-writer", "concept-writer-story", "concept-writer-style", "concept-writer-wild", "lyricist", "script-editor", "concept-critic", "story-planner", "design-system-designer", "design-researcher", "styleframe-designer", "frame-designer", "move-inventor", "move-juror", "frame-juror", "style-frame-juror", "ab-juror", "structure-critic", "critic", "motion-director", "art-director", "character-designer"]);
 export const BUILDERS = new Set(["film-builder", "scene-animator", "quick-builder", "brand-compiler"]);
 export const MECHANICAL = new Set(["footage-logger", "retrospective", "move-sketcher", "brand-kit-builder", "selects-producer"]);
 export function tierFor(role, profile) {

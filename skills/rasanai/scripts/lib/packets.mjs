@@ -32,7 +32,7 @@ export const RESULT_FIELDS = ["status", "artifacts", "input_digest", "findings",
 export const RESULT_STATUS = ["ok", "needs_work", "blocked", "needs_decision", "failed"];
 
 const GATHER = new Set(["product-researcher", "brand-researcher", "brand-film-analyst", "screens-researcher", "local-scout", "precedent-researcher", "research-lead", "design-researcher", "footage-logger", "brand-kit-builder", "selects-producer"]);
-const WRITE = new Set(["script-writer", "treatment-writer", "visual-writer", "footage-writer", "script-editor", "story-planner", "move-inventor", "move-sketcher", "retrospective"]);
+const WRITE = new Set(["script-writer", "treatment-writer", "lyricist", "visual-writer", "footage-writer", "script-editor", "story-planner", "move-inventor", "move-sketcher", "retrospective"]);
 const CRITIQUE = new Set(["critic", "ab-juror", "frame-juror", "move-juror", "concept-critic", "structure-critic"]);
 export const taskClass = (role, direct = false) => (GATHER.has(role) ? "gather" : WRITE.has(role) ? "write" : CRITIQUE.has(role) ? "critique" : direct && role === "film-builder" ? "direct" : "build");
 
