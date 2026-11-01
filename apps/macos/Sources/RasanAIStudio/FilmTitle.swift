@@ -12,8 +12,9 @@ enum FilmTitle {
         if #available(macOS 26, *), SystemLanguageModel.default.isAvailable {
             let model = Task { () -> String? in
                 let session = LanguageModelSession(instructions: """
-                    You name short films. Reply with only a title of two to five words in Title Case: no quotes, no \
-                    punctuation at the end, no words like "film", "video" or "launch".
+                    You name short films. Reply with ONLY the title: two to five words in Title Case, no quotes, no \
+                    markdown, no punctuation at the end, no words like "film", "video" or "launch". Never greet, never \
+                    explain, never offer ideas or options ("Sure!", "Here are", "Title:"). Name the one film described.
                     """)
                 return (try? await session.respond(to: "Brief: \(brief)")).map { clean($0.content) }
             }
@@ -25,7 +26,7 @@ enum FilmTitle {
                 model.cancel()
             }
             timeout.cancel()
-            if let title, !title.isEmpty, title.count <= 60 { return title }
+            if let title, isUsable(title) { return title }
         }
         #endif
         return fromBrief(brief)
@@ -47,8 +48,29 @@ enum FilmTitle {
         return first.uppercased() + title.dropFirst()
     }
 
+    /// A chat-reply opener or a label, never a title: "Sure! Here are some ideas…", "Title: Foo".
+    private static let preamble = #"^\s*(sure|certainly|of course|absolutely|okay|ok|great|here(?:'s| is| are)|title\b|film title|name\b|i(?:'d| would| can| will)|let me|how about|some ideas)"#
+
+    /// True when a title is a plausible name and not a chat reply (used on stored names too).
+    static func isUsable(_ title: String) -> Bool {
+        let words = title.split(whereSeparator: \.isWhitespace).count
+        return !title.isEmpty && title.count <= 60 && words <= 8 && title.range(of: preamble, options: [.regularExpression, .caseInsensitive]) == nil
+    }
+
+    /// A stored name that is an obvious assistant preamble (so it can be replaced by the brief's subject).
+    static func isChatPreamble(_ name: String) -> Bool {
+        name.range(of: preamble, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    /// Model output -> one clean title line: markdown, quotes, "Title:" labels and trailing punctuation removed.
     private static func clean(_ reply: String) -> String {
-        let line = reply.split(whereSeparator: \.isNewline).first.map(String.init) ?? reply
-        return line.trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”‘’*#.:").union(.whitespaces))
+        let junk = CharacterSet(charactersIn: "\"'“”‘’*#_`.:!?-–—").union(.whitespaces)
+        let lines = reply.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: junk) }.filter { !$0.isEmpty }
+        for line in lines {
+            var text = line.replacingOccurrences(of: #"^(film\s+)?(title|name)\s*[:\-–—]\s*"#, with: "", options: [.regularExpression, .caseInsensitive])
+            text = text.trimmingCharacters(in: junk)
+            if isUsable(text) { return text }
+        }
+        return ""
     }
 }

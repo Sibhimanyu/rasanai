@@ -85,6 +85,13 @@ final class FilmSessionModel {
     func requestActivity() { activityRequest += 1 }
     /// The person pressed Stop waiting on this message (its id): no thinking row for it any more.
     private(set) var stoppedWaitingFor: String?
+    /// The model call for Ask Rasan's chat replies (Claude Code, set by the store). nil: replies fall back to Studio's plain status line.
+    var chatAgentProvider: (() -> RasanChatAgent)?
+    /// Chat replies being written right now (the thinking row shows while it is above zero), the queue they go out in, and what the
+    /// film state was at the last one, so the next answer can say what changed.
+    var answering = 0
+    var chatTail: Task<Void, Never>?
+    var lastChatReply: (at: Date, facts: [String])?
     /// Texts being sent right now (normalized), so a second Return cannot send the same words twice.
     private var inFlight: Set<String> = []
     /// Where the stage's player is (set by the review player while it is on screen), so feedback can carry a moment and a scene.
@@ -290,10 +297,11 @@ final class FilmSessionModel {
         }
         let context = chatContext()
         // "What happened?", "is it stuck?", "how long?": Studio answers now from what it already knows. The director is not woken.
-        if ChatAnswerer.classify(text) == .statusQuestion {
+        // A question to Rasan is answered in the chat by the model from the film's real state (the plain status line only if it can't).
+        if ChatAnswerer.classify(text) == .statusQuestion || ChatAnswerer.isConversational(text) {
             addLocal(step, fromUser: true, text)
             let quick = ChatAnswerer.quickStatus(text, context)
-            addLocal(step, fromUser: false, quick.text, after: 0.01, actions: quick.actions)
+            converse(text, step: step, fallback: quick.text, actions: quick.actions)
             return true
         }
         if !isFixture && !isConnected {
@@ -313,9 +321,11 @@ final class FilmSessionModel {
         if ChatAnswerer.needsLocalAnswer(context) {
             // Not queued silently behind a director that can't read it: say so now, and say what is going on.
             let quick = ChatAnswerer.quickStatus(text, context)
-            addLocal(step, fromUser: false, "Your message is saved, but Rasan can't read it until it carries on. " + quick.text, after: 0.01, actions: quick.actions)
+            converse(text, step: step, routedNote: "Sent to the director as an instruction, but it cannot read it until it carries on (see the film state). Say so and what is wrong.",
+                     fallback: "Your message is saved, but Rasan can't read it until it carries on. " + quick.text, actions: quick.actions)
         } else {
-            addLocal(step, fromUser: false, transportLine(), after: 0.01)
+            let line = transportLine()
+            converse(text, step: step, routedNote: "Sent to the director as an instruction. Transport: \(line)", fallback: line)
         }
         return true
     }
@@ -439,7 +449,7 @@ final class FilmSessionModel {
         let question = "Why did Rasan stop?"
         addLocal(step, fromUser: true, question)
         let quick = ChatAnswerer.quickStatus(question, chatContext())
-        addLocal(step, fromUser: false, quick.text, after: 0.01, actions: quick.actions)
+        converse(question, step: step, fallback: quick.text, actions: quick.actions)
     }
 
     /// What is true about the request just queued: it is on the director's queue, and whether anything is running to read it.
@@ -476,7 +486,7 @@ final class FilmSessionModel {
         if !accept { beginTell(step: p.step, prefill: p.text) }
     }
 
-    private func addLocal(_ step: String, fromUser: Bool, _ text: String, after: TimeInterval = 0, actions: [ChatQuickAction]? = nil) {
+    func addLocal(_ step: String, fromUser: Bool, _ text: String, after: TimeInterval = 0, actions: [ChatQuickAction]? = nil) {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         localThreads[step, default: []].append(.local(step: step, fromUser: fromUser, text: text, time: f.string(from: Date().addingTimeInterval(after)), quickActions: actions))

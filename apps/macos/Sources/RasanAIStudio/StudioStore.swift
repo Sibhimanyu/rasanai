@@ -140,8 +140,6 @@ final class StudioStore {
                 backHistory.append(oldValue); if backHistory.count > 60 { backHistory.removeFirst() }
                 forwardHistory.removeAll()
             }
-            guard !isDemo else { return }
-            if case .film? = path.last { UserDefaults.standard.set(true, forKey: "reopenFilmOnLaunch") } else { UserDefaults.standard.set(false, forKey: "reopenFilmOnLaunch") }
         }
     }
     /// Back and forward, like a browser: every place the person went, so the header's ‹ › can step through them.
@@ -158,8 +156,6 @@ final class StudioStore {
         guard let next = forwardHistory.popLast() else { return }
         backHistory.append(path); steppingHistory = true; path = next; steppingHistory = false
     }
-    /// Whether the last session ended on a film page; read once at init, before any navigation can rewrite it.
-    private let reopenFilmAtLaunch = UserDefaults.standard.bool(forKey: "reopenFilmOnLaunch")
     /// The series the person has saved (folders next to Brands), newest data from disk; reloaded when a page changes one.
     var seriesList: [Series] = []
     /// Home's Start button: the next New film opens on Review, with the box's words and everything else decided.
@@ -309,7 +305,7 @@ final class StudioStore {
     }
     var phaseDuration: Double { loadedVideoDuration > 0 ? loadedVideoDuration : snapshot.duration(for: .final) }
     var currentFilmTitle: String {
-        if let entry = settings.filmQueue.first(where: { $0.project == selectedProjectURL }) { return entry.name }
+        if let entry = settings.filmQueue.first(where: { $0.project == selectedProjectURL }), !FilmTitle.isChatPreamble(entry.name) { return entry.name }
         // the film's own name (session.title, set by `console.mjs push --title`) before the folder's; the session's default "RasanAI" is no name
         if let name = specificFilmName { return name }
         if let url = selectedProjectURL, let project = localProjects.first(where: { $0.1 == url }) { return project.0.name }
@@ -321,7 +317,7 @@ final class StudioStore {
     }
     private var specificFilmName: String? {
         guard let title = snapshot.raw["title"].string?.trimmingCharacters(in: .whitespaces), !title.isEmpty,
-              !["rasanai", "new film", "untitled film"].contains(title.lowercased()) else { return nil }
+              !["rasanai", "new film", "untitled film"].contains(title.lowercased()), !FilmTitle.isChatPreamble(title) else { return nil }
         return title
     }
     /// Home-card status for a library project: live for the open film, from disk for the rest.
@@ -412,20 +408,19 @@ final class StudioStore {
         guard run.deletingLastPathComponent().lastPathComponent == ".rasanai",
               FileManager.default.fileExists(atPath: run.appendingPathComponent("session.json").path) else { return }
         let project = run.deletingLastPathComponent().deletingLastPathComponent()
-        let navigate = UserDefaults.standard.string(forKey: "lastOpenedRun") == run.path
         if runtime.adopt(run: run, project: project) {
             // The init loop marked the queue entry interrupted; its director is in fact still working, so the queue carries on when it ends.
             if let index = settings.filmQueue.firstIndex(where: { $0.project.standardizedFileURL == project.standardizedFileURL && interrupted.contains($0.id) }) {
                 settings.filmQueue[index].state = .running; settings.filmQueue[index].message = nil
             }
-            openRun(run, navigate: navigate)
+            openRun(run, navigate: false)
             return
         }
         Task { @MainActor [weak self] in
             guard let self else { return }
             await self.runtime.reconcileStopped(run: run, project: project)
             guard self.runtime.runURL == run else { return }
-            self.openRun(run, navigate: navigate)
+            self.openRun(run, navigate: false)
             switch self.runtime.autoResumeDecision {
             case .resume(let delay): self.scheduleAutoResume(after: delay)
             case .waitForLimit(let limit):
@@ -607,11 +602,8 @@ final class StudioStore {
         if let index = CommandLine.arguments.firstIndex(of: "--run"), CommandLine.arguments.count > index + 1 {
             settings.showWelcome = false
             openRun(URL(fileURLWithPath: CommandLine.arguments[index + 1]))
-        } else if settings.hasCompletedWelcome && settings.reopenLastProject && reopenFilmAtLaunch {
-            if UserDefaults.standard.string(forKey: "lastWorkspaceKind") == "project",
-               let path = UserDefaults.standard.string(forKey: "lastOpenedProject") { openFilm(URL(fileURLWithPath: path)) }
-            else if let path = UserDefaults.standard.string(forKey: "lastOpenedRun") { openRun(URL(fileURLWithPath: path)) }
         }
+        // Otherwise every launch opens on Films: the last film is not reopened.
     }
     func reloadSources() {
         let identity = UUID(); sourcesGeneration = identity
@@ -803,6 +795,7 @@ final class StudioStore {
         model.progressProvider = { [weak self] in self?.progress?.snapshot }
         model.contextExtras = { [weak self] context in self?.fillChatContext(&context) }
         model.quickActionHandler = { [weak self] action in self?.performQuickAction(action) }
+        model.chatAgentProvider = { [weak self] in self?.makeChatAgent() ?? RasanChatAgent(claude: URL(fileURLWithPath: "/nonexistent"), environment: [:]) }
         model.livenessProvider = { [weak self] in self?.chatLiveness() }
         model.onSnapshot = { [weak self, weak model] next in
             guard let self, let model, self.film === model else { return }
