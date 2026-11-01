@@ -10,6 +10,8 @@ struct PendingRefine: Equatable {
     var message: String
     var since: Date
     var baseline: RefineFingerprint
+    /// How many of the director's chat messages the step had when the press went out.
+    var replies = 0
 }
 
 /// What the step shows right now: its payload without the chat/bookkeeping keys, and the modification dates of the pictures and
@@ -21,7 +23,7 @@ struct RefineFingerprint: Equatable {
 
 extension FilmSessionModel {
     /// A refine that never gets an answer is dropped after this long, so the step can never stay locked for good.
-    private static let refineTimeout: TimeInterval = 45 * 60
+    private static let refineTimeout: TimeInterval = 10 * 60
     private static let volatileKeys: Set<String> = ["thread", "sent", "status", "notes", "comments", "updated"]
     private static let mediaExtensions: Set<String> = ["png", "jpg", "jpeg", "webp", "heic", "gif", "mp4", "mov", "m4v"]
 
@@ -36,7 +38,7 @@ extension FilmSessionModel {
     func refine(step: String, type: String, value: JSONValue = .null, note: String = "", message: String) async -> Bool {
         guard pendingRefine[step] == nil, !isSending else { return false }
         refineLanded.remove(step)
-        if !isFixture { pendingRefine[step] = PendingRefine(message: message, since: Date(), baseline: fingerprint(step)) }
+        if !isFixture { pendingRefine[step] = PendingRefine(message: message, since: Date(), baseline: fingerprint(step), replies: directorReplies(step)) }
         let ok = await send(step: step, type: type, value: value, note: note)
         if !ok { pendingRefine[step] = nil }
         return ok
@@ -47,13 +49,17 @@ extension FilmSessionModel {
         guard !pendingRefine.isEmpty else { return }
         let now = Date()
         for (step, pending) in pendingRefine {
-            let answered = snapshot.currentStep == step && fingerprint(step) != pending.baseline
+            // A new director message on the step also ends it, even with the payload unchanged ("this is already the punchier one").
+            let answered = snapshot.currentStep == step
+                && (directorReplies(step) > pending.replies || fingerprint(step) != pending.baseline)
             if answered || snapshot.currentStep != step || now.timeIntervalSince(pending.since) > Self.refineTimeout {
                 pendingRefine[step] = nil
                 if answered { refineLanded.insert(step) }
             }
         }
     }
+
+    private func directorReplies(_ step: String) -> Int { snapshot.thread(for: step).filter { !$0.fromUser }.count }
 
     func fingerprint(_ step: String) -> RefineFingerprint {
         var payload = snapshot.step(step).object
