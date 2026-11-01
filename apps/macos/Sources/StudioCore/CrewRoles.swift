@@ -10,7 +10,7 @@ public enum CrewRoles {
     public static let roleCharacters: [String: String] = [
         "product-researcher": "tara", "brand-researcher": "tara", "screens-researcher": "tara", "precedent-researcher": "tara",
         "local-scout": "tara", "research-lead": "tara", "design-researcher": "tara",
-        "script-writer": "kavi", "treatment-writer": "kavi", "visual-writer": "kavi", "script-editor": "kavi",
+        "script-writer": "kavi", "treatment-writer": "kavi", "visual-writer": "kavi", "script-editor": "kavi", "lyricist": "kavi",
         "concept-critic": "kavi", "structure-critic": "kavi",
         "art-director": "chitra", "styleframe-designer": "chitra", "frame-designer": "chitra", "design-system-designer": "chitra",
         "frame-juror": "chitra", "ab-juror": "chitra", "brand-kit-builder": "chitra", "brand-film-analyst": "chitra",

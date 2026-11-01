@@ -5,11 +5,15 @@
 //   plan:    the ACE-Step sections (lib/sound-sources.mjs buildLocalPrompt): [kind, tag, weight, min bars]; `big` are the sections that stretch to fill the bars
 //   contrast: the section-by-section energy sentences of the ACE-Step caption
 // music_arc in a concept / score.json: a shape name ("slow-burn") or an object { shape, intro_until, drop_at, break, payoff_at, button_at, genre, instruments, meter, bpm } in seconds.
+//   edit:    where lib/music-edit.mjs cuts a generated take (edit-to-picture): land = the arc key the loud body lands on ("drop_at", "payoff_at", "start" = at 0 s, null = nothing lands),
+//            intro / lift / rise = shape the quiet start, the dip before the landing, a long rise; brk = a break is cut when the arc has one; loop = fit length with a phrase-aligned loop and a long crossfade;
+//            end = "hit" (the button is the take's ending, a final chorus leads to it) | "tail" (the hit rings out to the end) | "fade" (hold, then fade out on a phrase boundary)
 // Not every shape needs every key: arcFit and the brief read the keys the shape has and default the rest (defaultArc).
 
 export const SHAPES = {
   drop: {
     label: "drop", when: "a launch or reveal film: a sparse intro, a lift at the reveal, a break before the end card, a loud payoff, a button on the logo (the default)",
+    edit: { land: "drop_at", intro: true, lift: true, brk: true, end: "hit" },
     needs: ["drop_at", "button_at"], gate: ["drop_at", "payoff_at", "button_at", "break"], parts: ["intro", "lift", "break", "peak"], peak: "turn", payoffLift: true,
     defaultStyle: "modern electronic launch film score",
     plan: () => [["intro", "Intro - low energy", 0.12, 2], ["build", "Build - building energy", 0.14, 2], ["drop", "Drop - explosive", 0.26, 4], ["break", "Breakdown - low energy", 0.12, 2], ["payoff", "Final Drop - explosive", 0.26, 4], ["outro", "Outro - one last hit", 0.1, 2]],
@@ -19,6 +23,7 @@ export const SHAPES = {
   },
   "slow-burn": {
     label: "slow burn", when: "a story that builds patiently: it starts near-silent, keeps adding layers and only opens up at the very end (no drop, no break)",
+    edit: { land: "payoff_at", intro: true, rise: true, end: "hit" },
     needs: ["button_at"], gate: ["payoff_at", "button_at"], parts: ["intro", "rise", "peak"], peak: "late",
     defaultStyle: "slow cinematic build",
     plan: () => [["intro", "Intro - low energy", 0.2, 4], ["build", "Build - building energy", 0.28, 4], ["rise", "Build - building energy", 0.24, 4], ["payoff", "Finale - explosive", 0.18, 4], ["outro", "Outro - one last hit", 0.1, 2]],
@@ -28,6 +33,7 @@ export const SHAPES = {
   },
   "ambient-bed": {
     label: "ambient bed", when: "a calm film where the picture or a voice carries it: one even bed, no drop, no build (needs no event map)",
+    edit: { land: null, loop: true, end: "fade" },
     needs: [], gate: [], parts: ["steady"],
     defaultStyle: "ambient bed, soft evolving pads",
     plan: () => [["intro", "Intro - low energy", 0.12, 2], ["bed", "Ambient bed - low energy", 0.76, 4], ["outro", "Outro - low energy", 0.12, 2]],
@@ -37,6 +43,7 @@ export const SHAPES = {
   },
   "cold-open": {
     label: "cold open", when: "a film that hits from the first frame: the music is already at full energy at 0 s (a break and a payoff are optional)",
+    edit: { land: "start", brk: true, end: "hit" },
     needs: ["button_at"], gate: ["button_at"], parts: ["hit", "break", "peak"], optional: ["break"], peak: "any",
     defaultStyle: "hard-hitting electronic",
     plan: () => [["drop", "Intro - explosive", 0.3, 4], ["break", "Breakdown - low energy", 0.14, 2], ["payoff", "Final - explosive", 0.4, 4], ["outro", "Outro - one last hit", 0.16, 2]],
@@ -46,6 +53,7 @@ export const SHAPES = {
   },
   stinger: {
     label: "stinger / short", when: "a short film or sting (about 10 s or less): one riser into one big hit with a natural tail",
+    edit: { land: "drop_at", intro: true, lift: true, end: "tail" },
     needs: ["drop_at", "button_at"], gate: ["drop_at", "button_at"], parts: ["lift", "peak", "tail"], peak: "turn",
     defaultStyle: "cinematic sting",
     plan: () => [["build", "Build - building energy", 0.5, 2], ["payoff", "Hit - explosive", 0.3, 2], ["outro", "Outro - low energy", 0.2, 2]],
@@ -55,6 +63,7 @@ export const SHAPES = {
   },
   "pulse-loop": {
     label: "pulse / loop", when: "a loop, a social cut or a UI tour: one steady groove at one energy from start to end (needs no event map)",
+    edit: { land: null, loop: true, end: "fade" },
     needs: [], gate: [], parts: ["steady"],
     defaultStyle: "steady loopable groove",
     plan: () => [["intro", "Intro - low energy", 0.1, 2], ["groove", "Groove - steady energy", 0.8, 4], ["outro", "Outro - steady energy", 0.1, 2]],
@@ -64,6 +73,7 @@ export const SHAPES = {
   },
   "lyric-song": {
     label: "lyric song", when: "a sung film (sound_mode song-lyric): verse and chorus, the hook sung twice, a break before the last chorus is optional",
+    edit: { land: "drop_at", intro: true, lift: true, brk: true, end: "hit" },
     needs: ["drop_at", "button_at"], gate: ["drop_at", "payoff_at", "button_at"], parts: ["intro", "lift", "break", "peak"], optional: ["break"], peak: "turn", payoffLift: true,
     defaultStyle: "modern pop song",
     plan: (song) => (song
@@ -112,5 +122,11 @@ export function worldSound(world) {
   return null;
 }
 export const isPixelWorld = (world) => { const w = worldSound(world); return !!w && w.genre === "chiptune"; };
-// "3/4" | "6/8" | "4" -> beats per bar (2, 3, 4 or 6); anything else 4
-export function meterBeats(m) { const n = Number(String(m || "4/4").split("/")[0]); return [2, 3, 4, 6].includes(n) ? n : 4; }
+// "3/4" | "6/8" | "5/4" | "4" -> beats per bar (2 to 7, as written: the bar is beats x 60 / bpm); anything else 4
+export function meterBeats(m) { const n = Number(String(m || "4/4").split("/")[0]); return [2, 3, 4, 5, 6, 7].includes(n) ? n : 4; }
+// the edit points of a shape in seconds, from the arc: where the body lands (null = nothing lands), the end the take is cut to, and what the shape asks of the splice grid
+export function editPoints(shape, arc, film) {
+  const SH = shapeOf(shape), E = SH.edit || SHAPES.drop.edit, f = Number(film) || 30;
+  const land = E.land === "start" ? 0 : E.land ? Number(arc[E.land] ?? arc.drop_at ?? defaultShapeArc(f, SH.id)[E.land]) : null;
+  return { shape: SH.id, ...E, land_at: land, button_at: Number(arc.button_at ?? f - 1), break: E.brk && Array.isArray(arc.break) && arc.break.length === 2 ? arc.break.map(Number) : null, phrase_bars: 4 };
+}
