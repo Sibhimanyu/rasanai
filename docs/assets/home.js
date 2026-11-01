@@ -1008,7 +1008,7 @@
         if (vq <= 0) { setShown(false); setRest(false); return; }
         if (vq >= .87) { setShown(false); setRest(true); return; }
         setShown(true); setRest(false);
-        var ir = homeImg.getBoundingClientRect(), rimY = ir.top + ir.height * RIM / 100;
+        var ir = homeImg.getBoundingClientRect();
         fl.forEach(function (f) {
           var t = seg(vq, f.k * STAG, f.k * STAG + .86 - 3 * STAG), e = inOut(t);
           var sr = f.fi.getBoundingClientRect(), sw = f.fi.offsetWidth, sh = f.fi.offsetHeight;
@@ -1027,10 +1027,14 @@
           f.card.style.opacity = (f.base * (1 - shed) + shed * 0).toFixed(3);
           f.cut.style.transform = "scale(" + cs.toFixed(4) + ")";
           f.cut.style.opacity = shed.toFixed(3);
-          // feet tuck behind the prompt box's rim, as in the screenshot
-          var over = Math.max(0, ty + th - rimY) * ease(seg(t, .6, 1));
-          f.cut.style.clipPath = over > .01 ? "inset(0 0 " + (over / cs).toFixed(2) + "px 0)" : "none";
-          f.card.style.clipPath = over > .01 ? "inset(0 0 " + (over / ks).toFixed(2) + "px 0)" : "none";
+          // the cut-outs are cropped flat at their box edges (feet at the rim, a hand or ear where a neighbour begins): in the air those
+          // edges are feathered away, closing to a hard edge only as they land, where the rim and the neighbours hide it
+          var fw = 12 * (1 - ease(seg(t, .72, 1)));
+          if (fw > .4) {
+            f.cut.style.webkitMaskImage = f.cut.style.maskImage = "linear-gradient(to top, transparent, #000 " + fw.toFixed(2) + "%), linear-gradient(to right, transparent, #000 " + fw.toFixed(2) + "%, #000 " + (100 - fw).toFixed(2) + "%, transparent)";
+            f.cut.style.webkitMaskComposite = "source-in"; f.cut.style.maskComposite = "intersect";
+          } else { f.cut.style.webkitMaskImage = f.cut.style.maskImage = "none"; }
+          f.card.style.clipPath = "none"; f.cut.style.clipPath = "none";
         });
       },
       reset: function () { setShown(false); setEmpty(false); setAway(false); setRest(false); homeWin.style.transform = ""; homeWin.style.transformOrigin = ""; homeWin.style.boxShadow = ""; }
