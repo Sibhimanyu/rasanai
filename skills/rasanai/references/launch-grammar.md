@@ -111,3 +111,10 @@ The Look step makes three treatments of this grammar, not three art worlds. Axes
 9. Real claims only.
 
 Related: `launch-film.md` (timings, measurement, red flags), `product-first.md`, `ui-rebuild.md`, `motion-handoffs.md`, `composition-transitions.md`.
+
+## 11. Chrome, carrier and look rules
+
+- **Chrome rule.** No fake HUD or instrument labels (timecodes, "LINE 01", "VARISPEED", tick rulers, coordinates) unless the product is that kind of tool. The references use clean type and simplified UI, not dashboard decoration.
+- **Looks: contrast and atmosphere.** The 3 looks use 3 different grounds (soft-gradient, white, near-black; near-black, dark and black are one ground), and at least one is a soft brand-gradient ground built from the brand palette (Kinso-style atmosphere).
+
+- **Launch concept carrier rule.** The carrier and the props come from the product, its UI and the brand (caret, highlight, card, chip, notification, an orb in the brand colour, or the user's own text), not from an outside metaphor world (a Tetris tank, a letterpress, a courtroom, karaoke, a nature doc). At most ONE wild-lane idea may use an outside metaphor, and the jury may not recommend it. A concept whose carrier.kind is "object" gets a schema warning.

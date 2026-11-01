@@ -98,3 +98,6 @@ Read `references/launch-grammar.md` (section 9). On a launch, promo or product-l
 - Write each look's treatment in `design/<label>/blend.json` as `"treatment": { "ground": "soft-gradient|white|near-black", "type_pairing": "...", "carrier": "...", "density": "..." }`. `design.mjs look-payload` refuses a launch film unless the three treatments differ in ground, type pairing and carrier.
 - Every look uses the brand palette as atmosphere (gradient, accent shape, glow) and keeps the logo small (at most 3 uses in the film). Never copy the brand site's page layout. UI is shown as simplified recreated mockups in the look's palette and type.
 - Look A (Sure) is the chosen concept's own `ground`, `type_pairing` and `carrier`; B and C are contrasts on those axes.
+
+- **Chrome rule.** No fake HUD or instrument labels (timecodes, "LINE 01", "VARISPEED", tick rulers, coordinates) unless the product is that kind of tool. The references use clean type and simplified UI, not dashboard decoration.
+- **Looks: contrast and atmosphere.** The 3 looks use 3 different grounds (soft-gradient, white, near-black; near-black, dark and black are one ground), and at least one is a soft brand-gradient ground built from the brand palette (Kinso-style atmosphere).

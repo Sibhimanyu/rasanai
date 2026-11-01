@@ -196,8 +196,9 @@ function isLaunchRun(run) {
   if ([dec.route, plan.route].includes("product-launch-video")) return true;
   return /launch|promo|feature[- ]reveal|product film|announce/i.test(String(br.kind || dec.kind || plan.kind || "")) && !/lyric|music|song|presenter/i.test(String(dec.route || plan.route || ""));
 }
+const normGround = (t) => /grad|atmos|aurora|mesh|blur/.test(t) ? "soft-gradient" : /black|dark|ink|charcoal|night|midnight/.test(t) ? "near-black" : /white|neutral|light|cream|paper|slate/.test(t) ? "white" : t;
 function launchTreatmentOf(run, label) {
-  try { const b = JSON.parse(fs.readFileSync(path.join(run, "design", label, "blend.json"), "utf8")); const t = (b && (b.treatment || b.launch_treatment)) || {}; const n = (v) => String(v && typeof v === "object" ? v.id || v.what || v.name || "" : v || "").trim().toLowerCase(); return { ground: n(t.ground), type_pairing: n(t.type_pairing || t.type), carrier: n(t.carrier), density: n(t.density) }; } catch { return { ground: "", type_pairing: "", carrier: "", density: "" }; }
+  try { const b = JSON.parse(fs.readFileSync(path.join(run, "design", label, "blend.json"), "utf8")); const t = (b && (b.treatment || b.launch_treatment)) || {}; const n = (v) => String(v && typeof v === "object" ? v.id || v.what || v.name || "" : v || "").trim().toLowerCase(); return { ground: normGround(n(t.ground)), type_pairing: n(t.type_pairing || t.type), carrier: n(t.carrier), density: n(t.density) }; } catch { return { ground: "", type_pairing: "", carrier: "", density: "" }; }
 }
 
 // A presenter film (route "presenter") has generated images, so its design systems must carry the art direction
@@ -441,6 +442,7 @@ if (cmd === "style-worlds") {
     if (miss.length) die(`launch film: ${miss.join(", ")} name no treatment in design/<label>/blend.json: { "treatment": { "ground": "soft-gradient|white|near-black", "type_pairing": "...", "carrier": "orb|card|cursor|shape|...", "density": "..." } } (references/launch-grammar.md section 9)`);
     const T = pl.styles.map((st) => st.treatment), tup = T.map((t) => `${t.ground}|${t.type_pairing}|${t.carrier}`);
     const axes = ["ground", "type_pairing", "carrier"].filter((k) => new Set(T.map((t) => t[k])).size < 2);
+    { const g = T.map((t) => t.ground); if (new Set(g).size < 3) die(`the Look must use 3 different grounds (soft-gradient, white, near-black; near-black, dark and black count as one): got ${g.join(", ")}`); if (!g.includes("soft-gradient")) die("at least one Look must be a soft brand-gradient ground built from the brand palette (Kinso-style atmosphere)"); }
     if (new Set(tup).size < 3 || axes.length) die(`the Look must offer three distinct launch treatments (ground, type pairing and carrier differ across the three; same on every Look: ${axes.join(", ") || "none, but two Looks are identical"}): ${pl.styles.map((st, i) => st.label + "=" + tup[i]).join(", ")}`);
   } else { const runAbs = path.resolve(String(args.run)), locked = !!runBrand(runAbs);
     for (const st of pl.styles) st.style_world = styleWorldOfLabel(runAbs, st.label);

@@ -99,6 +99,7 @@ export function lintConcept(c, opts = {}) {
   const car = carrierOf(c);
   if (!car.what) errors.push("carrier.what missing");
   if (car.kind && !CARRIER_KINDS.includes(car.kind)) warnings.push(`carrier.kind "${car.kind}" is not one of ${CARRIER_KINDS.join(", ")}`);
+  if (isLaunchConcept(c) && car.kind === "object") warnings.push("launch concept: carrier.kind \"object\" usually means an outside metaphor world; the carrier must come from the product, its UI or the brand (caret, highlight, card, chip, notification, orb, the user's own text). At most one wild-lane idea may use an outside metaphor, and the jury may not recommend it");
   if (!car.kind) warnings.push(`carrier.kind missing (one of ${CARRIER_KINDS.join(", ")})`);
   const sm = soundModeOf(c);
   if (sm && !SOUND_MODES.includes(sm)) errors.push(`sound_mode "${sm}" is not one of ${SOUND_MODES.join(", ")}`);

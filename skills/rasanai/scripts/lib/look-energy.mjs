@@ -86,7 +86,8 @@ E.init=function(){
  T.forEach(function(t){[rgb(t.cs.color),rgb(getComputedStyle(t.el).backgroundColor)].forEach(function(c){if(c&&c.a>0.5&&sat(c)>best){best=sat(c);accent=c;}});});
  var hc=heads[0]?rgb(heads[0].cs.color):null;
  var ac0=best>0.25&&accent?accent:(hc||{r:136,g:136,b:136,a:1});
- var ac=L>0?boost(ac0,1+0.35*L):ac0;E.accent=css(ac,1);
+ try{var rs=getComputedStyle(root),bv=null;["--accent","--brand","--brand-accent","--primary","--accent-color","--brand-color"].forEach(function(k){if(bv)return;var v=rs.getPropertyValue(k).trim();if(!v)return;var p=doc.createElement("span");p.style.color=v;doc.body.appendChild(p);var cc=rgb(getComputedStyle(p).color);doc.body.removeChild(p);if(cc&&sat(cc)>0.25)bv=cc;});if(bv&&(best<=0.25||!accent))ac0=bv;}catch(e){}
+ var ac=L>0?boost(ac0,1+0.35*L):ac0;if(L>0&&sat(ac)<sat(ac0))ac=ac0; /* punchier keeps or boosts the brand accent, never greys it */E.accent=css(ac,1);
  var prods=prodRects();f.protected_ui=prods.length;
  var camK=L>0?1+0.075*L+0.075*Math.min(L,2):1+0.05*L;  /* +0.15 / +0.3 / +0.375 push-in; calmer pulls back */
  camK=Math.max(0.85,Math.min(1.3,camK));f.camera=Math.round(camK*100)/100;

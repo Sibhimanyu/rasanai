@@ -23,18 +23,21 @@ const s = (v) => (v == null ? "" : String(v));
 const DEFAULT_WORLDS = ["", "kinetic-type-only", "kinetic-launch"];
 const isLaunchPlate = (c) => !!(args.launch || c.hook_lines || c.capabilities || c.signature_transition || c.ground) && DEFAULT_WORLDS.includes(styleWorldId(c).toLowerCase());
 function launchPrompt(c, sh) {
-  const ground = { neutral: "a clean off-white ground with generous empty space", "brand-gradient": "a soft blurred gradient ground built from the brand palette", dark: "a near-black ground with a soft brand-coloured glow" }[s(c.ground).toLowerCase()] || "a clean neutral or soft brand-gradient ground";
+  const g = s(c.ground).toLowerCase(), dark = /dark|black/.test(g);
+  const ground = dark ? "a flat near-black ground (the concept's ground is dark) with the brand accent as a clean flat shape, no glow" : /gradient/.test(g) ? "a soft, clean brand-gradient ground built from the brand palette" : "a clean white or very light neutral ground with generous empty space (or a soft brand-gradient ground)";
   const pal = c.style && c.style.palette && typeof c.style.palette === "object" ? Object.values(c.style.palette).filter((v) => /^#[0-9a-f]{6}$/i.test(s(v))).slice(0, 4).join(", ") : "";
   const brand = s((c.brand && (c.brand.colour || c.brand.color || c.brand.accent)) || c.brand_colour || (args.brand !== true && args.brand) || "");
   const colours = [brand && `brand accent ${brand}`, pal && `palette ${pal}`].filter(Boolean).join("; ");
   const car = carrierOf(c), ui = s(sh.ui_proof || sh.ui);
+  const line = s(sh.line || sh.words || sh.copy || (Array.isArray(c.hook_lines) ? c.hook_lines[0] : ""));
+  const tp = s(c.type_pairing && typeof c.type_pairing === "object" ? Object.values(c.type_pairing).join(" + ") : c.type_pairing);
   return [
-    `Key frame of a modern kinetic-type product launch film: ${ground}${colours ? ` (atmosphere from the ${colours}; the brand is a mood of colour, never a big logo)` : ""}.`,
+    `Flat, clean, editorial motion-design key frame of a product launch film, in the style of a modern SaaS launch reel: ${ground}${colours ? ` (atmosphere from the ${colours}; the brand is a mood of colour, never a big logo)` : ""}.`,
     s(sh.see),
+    line ? `Render exactly this copy line as large, clean kinetic type in the frame${tp ? `, set in the concept's type pairing (${tp})` : ""}: "${line}". It is the only text in the frame besides the UI words below.` : "",
     car.what ? `One carrier motif travels the film: ${car.what}${s(sh.carrier_state) ? ` (${s(sh.carrier_state)})` : ""}, simply drawn, in the brand colour.` : "",
-    ui ? `A simplified, clean recreated UI mockup as proof (${ui}): a few rows or one card, soft shadow, greyed placeholder lines, never a full-screen screenshot.` : "",
-    "Large confident empty space, one clear focal point, refined editorial look, soft light, flat clean vector or soft-gradient rendering. No pixel art, no fantasy or game worlds, no characters unless the shot names one.",
-    "No text, letters, logos or watermarks in the image."
+    ui ? `A recognisable simplified UI (${ui}): a real card shape with rounded corners, a soft shadow and a few readable words of real UI text (a title, a label, a button), never grey placeholder bars and never a full-screen screenshot.` : "",
+    "Large confident empty space, one clear focal point, flat vector or soft-gradient rendering, sharp type. NOT a glowing 3D render: no neon, no fog, no haze, no lens flare, no dark moody lighting unless the ground is dark. No pixel art, no fantasy or game worlds, no characters unless the shot names one. No logos or watermarks."
   ].filter(Boolean).join(" ");
 }
 const log = (m) => process.stderr.write(`story-plates: ${m}\n`);
