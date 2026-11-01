@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.28.0 beta 1</title>
+      <pubDate>Sun, 01 Nov 2026 09:30:02 GMT</pubDate>
+      <description><![CDATA[<ul><li>Studio opens on your Films every time, instead of jumping into a film that was still in progress.</li><li>The RasanAI logo now draws itself smoothly on the frosted launch screen, without stutters or restarts.</li><li>Ask Rasan is a real conversation now: it answers from what is actually happening in your film and remembers what you just asked, so asking "what's happening?" twice tells you what changed (or that nothing has, and what it is waiting on).</li><li>New films get proper short titles instead of the first line of a chat reply; old titles like that are hidden until the film is renamed.</li></ul>]]></description>
+      <sparkle:version>75</sparkle:version>
+      <sparkle:shortVersionString>0.28.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.28.0-beta.1/RasanAI-Studio-0.28.0.dmg" sparkle:edSignature="0FxiUivieatTNak99r0e88vQ1rsGQqacQcWE4ZxvWwtPGvNQ5jkEAkZ7wlidAFWVoo8Cy1SOkhBJKMFY2M3YAA==" length="98241266" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.27.2 beta 1</title>
       <pubDate>Sat, 31 Oct 2026 17:26:26 GMT</pubDate>
       <description><![CDATA[<ul><li>Inspiration clips play with their original sound where we could recover it; others say so and link to the original post.</li><li>Scrolling the Inspiration tab is smooth now and no longer slows the rest of your Mac: pictures stay ready as you scroll back, only the card under the pointer does any extra drawing, and the preview clip is fully shut down when you move away.</li></ul>]]></description>
