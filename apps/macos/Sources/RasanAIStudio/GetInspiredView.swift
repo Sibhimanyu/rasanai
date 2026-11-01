@@ -286,6 +286,7 @@ struct GetInspiredView: View {
                 .modifier(InspireColumn(onPage: pageTitle != nil))
             }
             .background(GalleryScrollMonitor(gallery: gallery))
+            .background(AutoScrollProbeView())
             tray
         }
         .background(Color.appBackground)

@@ -284,7 +284,7 @@ private struct LaunchFocus: ViewModifier {
             // No blur or brightness on the split view: that would rasterise the native sidebar and toolbar. The reveal is
             // left to the window-level frost cover below.
             .allowsHitTesting(focused)
-            .background(WindowSplashCover(active: !focused, waiting: held && !loaded, agent: agent, fade: focusDuration, delay: focusDelay))
+            .background(WindowSplashCover(active: !focused, waiting: held && !loaded, agent: agent, fade: focusDuration, delay: focusDelay, reduceMotion: reduceMotion))
             .onAppear { loaded = ready; hold() }
             .onChange(of: ready) { loaded = ready; revealIfDone() }
     }
@@ -303,56 +303,139 @@ private struct LaunchFocus: ViewModifier {
     }
 }
 
-/// What the splash reads while it is up: only the "still loading" spinner changes, so the mark itself is never re-rendered.
-@MainActor @Observable private final class SplashState { var waiting = false }
+/// The splash content: the mark drawing itself, then filling, then the name rising under it. Everything moves on Core
+/// Animation, so the render server drives it and a busy main thread (the library loading, Home building under the frost)
+/// cannot drop its frames; SwiftUI drew it from a main-thread timeline before, and every stall showed as a hitch. The
+/// animations carry no absolute start time: they begin when their transaction commits, which is the first frame the window
+/// shows, so the first visible frame is always the very start of the draw.
+@MainActor private final class SplashContentView: NSView {
+    private static let markSize = CGSize(width: 66, height: 81)
+    private let markView = NSView()
+    private let strokeLayer = CAShapeLayer()
+    private let fillLayer = CAShapeLayer()
+    private let nameView: NSHostingView<SplashName>
+    private let spinner = NSProgressIndicator()
+    private let reduceMotion: Bool
+    private(set) var started = false
 
-/// The mark drawing itself, then filling, then the name rising under it. Every part is a pure function of the time since
-/// `start`, read from one TimelineView, so a re-render or a state flip cannot restart the motion.
-private struct SplashMark: View {
-    let agent: String
-    let state: SplashState
-    /// When the cover went on screen; the one clock of the whole motion.
-    let start: Date
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// A CSS-style cubic bezier (the curves of SwiftUI's `.easeInOut` and `.easeOut`), solved for x by bisection.
-    private static func bezier(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double, _ x: Double) -> Double {
-        func point(_ a: Double, _ b: Double, _ s: Double) -> Double { 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s }
-        var low = 0.0, high = 1.0
-        for _ in 0..<24 { let mid = (low + high) / 2; if point(x1, x2, mid) < x { low = mid } else { high = mid } }
-        return point(y1, y2, (low + high) / 2)
-    }
-    private static func progress(_ t: Double, from delay: Double, over duration: Double) -> Double { min(1, max(0, (t - delay) / duration)) }
-    /// `.spring(response: 0.5, dampingFraction: 0.85)` after `delay`, from 0 to 1.
-    private static func spring(_ t: Double, from delay: Double) -> Double {
-        let t = t - delay
-        guard t > 0 else { return 0 }
-        let zeta = 0.85, omega = 2 * Double.pi / 0.5, damped = omega * (1 - zeta * zeta).squareRoot()
-        return 1 - exp(-zeta * omega * t) * (cos(damped * t) + zeta * omega / damped * sin(damped * t))
-    }
-
-    var body: some View {
-        TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSince(start)
-            let drawn = reduceMotion ? 1 : Self.bezier(0.42, 0, 0.58, 1, Self.progress(t, from: 0, over: 0.9))
-            let filled = Self.bezier(0, 0, 0.58, 1, reduceMotion ? Self.progress(t, from: 0, over: 0.3) : Self.progress(t, from: 0.6, over: 0.45))
-            let named = reduceMotion ? filled : Self.spring(t, from: 0.7)
-            VStack(spacing: 22) {
-                ZStack {
-                    RasanMark().trim(from: 0, to: drawn).stroke(Color.rasanInk, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
-                    RasanMark().fill(Color.rasanInk).opacity(filled)
-                }
-                .frame(width: 66, height: 81)
-                VStack(spacing: 6) {
-                    Text("RasanAI Studio").font(.system(size: 26, weight: .semibold)).tracking(-0.4)
-                    Text("Films with taste, directed by \(agent)").font(.system(size: 13)).foregroundStyle(.secondary)
-                }
-                .opacity(min(1, named)).offset(y: reduceMotion ? 0 : 8 * (1 - named))
-                ProgressView().controlSize(.small).opacity(state.waiting ? 1 : 0).animation(.easeOut(duration: 0.2), value: state.waiting)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    init(agent: String, reduceMotion: Bool) {
+        self.reduceMotion = reduceMotion
+        nameView = NSHostingView(rootView: SplashName(agent: agent))
+        super.init(frame: .zero)
+        wantsLayer = true
+        setAccessibilityElement(true); setAccessibilityLabel("RasanAI Studio")
+        markView.wantsLayer = true
+        addSubview(markView)
+        let path = RasanMark().path(in: CGRect(origin: .zero, size: Self.markSize)).cgPath
+        var ink = NSColor.labelColor.cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance { ink = NSColor(Color.rasanInk).cgColor }
+        for layer in [strokeLayer, fillLayer] {
+            layer.frame = CGRect(origin: .zero, size: Self.markSize)
+            layer.isGeometryFlipped = true   // the path is top-down, as in SwiftUI
+            layer.path = path
+            markView.layer?.addSublayer(layer)
         }
-        .accessibilityElement(children: .combine).accessibilityLabel("RasanAI Studio")
+        strokeLayer.fillColor = nil
+        strokeLayer.strokeColor = ink
+        strokeLayer.lineWidth = 1.4
+        strokeLayer.lineCap = .round
+        strokeLayer.lineJoin = .round
+        strokeLayer.strokeEnd = reduceMotion ? 1 : 0   // hidden until the animation is added
+        fillLayer.fillColor = ink
+        fillLayer.opacity = 0
+        nameView.wantsLayer = true
+        nameView.layer?.opacity = 0
+        addSubview(nameView)
+        spinner.style = .spinning; spinner.controlSize = .small; spinner.isIndeterminate = true
+        spinner.isDisplayedWhenStopped = true
+        spinner.alphaValue = 0
+        addSubview(spinner)
+    }
+    required init?(coder: NSCoder) { nil }
+
+    /// The same column as before: mark, 22 pt, name and line, 22 pt, spinner slot; centred in the window.
+    override func layout() {
+        super.layout()
+        let name = nameView.fittingSize
+        let spin = spinner.fittingSize
+        let total = Self.markSize.height + 22 + name.height + 22 + spin.height
+        let top = (bounds.height - total) / 2
+        func originY(_ offset: CGFloat, _ height: CGFloat) -> CGFloat { bounds.height - (top + offset) - height }
+        markView.frame = CGRect(x: (bounds.width - Self.markSize.width) / 2, y: originY(0, Self.markSize.height), width: Self.markSize.width, height: Self.markSize.height)
+        nameView.frame = CGRect(x: (bounds.width - name.width) / 2, y: originY(Self.markSize.height + 22, name.height), width: name.width, height: name.height)
+        spinner.frame = CGRect(x: (bounds.width - spin.width) / 2, y: originY(Self.markSize.height + 22 + name.height + 22, spin.height), width: spin.width, height: spin.height)
+    }
+
+    func setWaiting(_ waiting: Bool) {
+        spinner.alphaValue = waiting ? 1 : 0
+        if waiting { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }
+    }
+
+    /// One animation inside a group, so `delay` is relative to the moment the group starts (its commit), not to a clock
+    /// read earlier on a main thread that may then have been busy.
+    private func delayed(_ animation: CAAnimation, by delay: CFTimeInterval, total: CFTimeInterval) -> CAAnimationGroup {
+        animation.beginTime = delay
+        animation.fillMode = .backwards
+        let group = CAAnimationGroup()
+        group.animations = [animation]
+        group.duration = total
+        return group
+    }
+
+    /// Starts the motion. Called once, when the window is really on screen.
+    func start() {
+        guard !started else { return }
+        started = true
+        let easeInOut = CAMediaTimingFunction(controlPoints: 0.42, 0, 0.58, 1)
+        let easeOut = CAMediaTimingFunction(controlPoints: 0, 0, 0.58, 1)
+        // Final values first, so the layers rest in the finished state when the animations end.
+        fillLayer.opacity = 1
+        nameView.layer?.opacity = 1
+        if !reduceMotion {
+            strokeLayer.strokeEnd = 1
+            let draw = CABasicAnimation(keyPath: "strokeEnd")
+            draw.fromValue = 0; draw.toValue = 1; draw.duration = 0.9; draw.timingFunction = easeInOut
+            draw.fillMode = .backwards
+            strokeLayer.add(draw, forKey: "draw")
+        }
+        let fill = CABasicAnimation(keyPath: "opacity")
+        fill.fromValue = 0; fill.toValue = 1; fill.timingFunction = easeOut
+        let name = CABasicAnimation(keyPath: "opacity")
+        name.fromValue = 0; name.toValue = 1; name.timingFunction = easeOut
+        if reduceMotion {
+            fill.duration = 0.3; name.duration = 0.3
+            fillLayer.add(fill, forKey: "fill")
+            nameView.layer?.add(name, forKey: "name")
+            return
+        }
+        fill.duration = 0.45
+        fillLayer.add(delayed(fill, by: 0.6, total: 1.05), forKey: "fill")
+        // `.spring(response: 0.5, dampingFraction: 0.85)`: stiffness (2π / response)², damping 2 · ζ · √stiffness, unit mass.
+        let omega = 2 * Double.pi / 0.5
+        func spring(_ keyPath: String, from: Double, to: Double) -> CASpringAnimation {
+            let spring = CASpringAnimation(keyPath: keyPath)
+            spring.mass = 1; spring.stiffness = omega * omega; spring.damping = 2 * 0.85 * omega; spring.initialVelocity = 0
+            spring.fromValue = from; spring.toValue = to
+            spring.duration = spring.settlingDuration
+            return spring
+        }
+        let rise = spring("transform.translation.y", from: -8, to: 0)   // 8 pt lower, rising to its place
+        let appear = spring("opacity", from: 0, to: 1)
+        let total = 0.7 + rise.duration
+        nameView.layer?.add({ let group = CAAnimationGroup(); rise.beginTime = 0.7; appear.beginTime = 0.7
+            for animation in [rise, appear] { animation.fillMode = .backwards }
+            group.animations = [rise, appear]; group.duration = total; return group }(), forKey: "name")
+    }
+}
+
+/// The name and the line under it, drawn once; CA moves and fades the view that holds them.
+private struct SplashName: View {
+    let agent: String
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("RasanAI Studio").font(.system(size: 26, weight: .semibold)).tracking(-0.4)
+            Text("Films with taste, directed by \(agent)").font(.system(size: 13)).foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -365,6 +448,7 @@ private struct WindowSplashCover: NSViewRepresentable {
     let agent: String
     let fade: Double
     let delay: Double
+    let reduceMotion: Bool
 
     /// Installs the cover the moment the anchor joins its window, so frost and mark appear together in the first frame.
     final class Anchor: NSView {
@@ -375,53 +459,81 @@ private struct WindowSplashCover: NSViewRepresentable {
     func makeNSView(context: Context) -> Anchor {
         let anchor = Anchor()
         let cover = context.coordinator
-        cover.state.waiting = waiting
-        // Installed once: the mark's view tree is never replaced afterwards, only `state` is updated.
-        if active { anchor.onWindow = { [weak cover] window in MainActor.assumeIsolated { cover?.install(over: window, agent: agent) } } }
+        cover.waiting = waiting
+        // Installed once: the splash's views are never replaced afterwards, only the spinner is updated.
+        if active { anchor.onWindow = { [weak cover] window in MainActor.assumeIsolated { cover?.install(over: window, agent: agent, reduceMotion: reduceMotion) } } }
         return anchor
     }
 
     func updateNSView(_ anchor: Anchor, context: Context) {
         let cover = context.coordinator
-        cover.state.waiting = waiting
+        cover.waiting = waiting
         if !active { anchor.onWindow = nil; cover.remove(fade: fade, after: delay) }
     }
 
     func makeCoordinator() -> Cover { Cover() }
 
-    @MainActor final class Cover {
-        fileprivate let state = SplashState()
+    @MainActor final class Cover: NSObject, CAAnimationDelegate {
         var frost: NSVisualEffectView?
+        private var content: SplashContentView?
         private var gone = false
+        private var occlusion: NSObjectProtocol?
+        var waiting = false { didSet { content?.setWaiting(waiting) } }
 
-        func install(over window: NSWindow, agent: String) {
+        func install(over window: NSWindow, agent: String, reduceMotion: Bool) {
             guard !gone, frost == nil, let frame = window.contentView?.superview else { return }
             let frost = NSVisualEffectView(frame: frame.bounds)
             frost.material = .underWindowBackground
             frost.blendingMode = .withinWindow
             frost.state = .active
             frost.autoresizingMask = [.width, .height]
-            let host = NSHostingView(rootView: SplashMark(agent: agent, state: state, start: Date()))
-            host.frame = frost.bounds
-            host.autoresizingMask = [.width, .height]
-            frost.addSubview(host)
+            let content = SplashContentView(agent: agent, reduceMotion: reduceMotion)
+            content.frame = frost.bounds
+            content.autoresizingMask = [.width, .height]
+            frost.addSubview(content)
             frame.addSubview(frost, positioned: .above, relativeTo: nil)
             self.frost = frost
+            self.content = content
+            content.setWaiting(waiting)
+            // The motion starts when the window is really on screen, not when the cover is built: a window that opens
+            // behind the work of launching would otherwise have run part of the draw before its first visible frame.
+            if window.occlusionState.contains(.visible) && window.isVisible { content.start() }
+            else {
+                occlusion = NotificationCenter.default.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.windowChangedVisibility(window) }
+                }
+            }
+        }
+
+        private func windowChangedVisibility(_ window: NSWindow) {
+            guard window.occlusionState.contains(.visible), let content, !content.started else { return }
+            content.start()
+            if let occlusion { NotificationCenter.default.removeObserver(occlusion); self.occlusion = nil }
         }
 
         /// Fades on the same curve as SwiftUI's `.easeOut` (0, 0, 0.58, 1), after the same delay, so the frost leaves the
-        /// toolbar exactly as the page comes into focus.
+        /// toolbar exactly as the page comes into focus. A Core Animation fade, so a busy main thread cannot stall it.
         func remove(fade: Double, after delay: Double) {
             guard !gone else { return }
             gone = true
-            guard let frost else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                NSAnimationContext.runAnimationGroup({ context in
-                    context.duration = fade
-                    context.timingFunction = CAMediaTimingFunction(controlPoints: 0, 0, 0.58, 1)
-                    frost.animator().alphaValue = 0
-                }, completionHandler: { frost.removeFromSuperview() })
-            }
+            if let occlusion { NotificationCenter.default.removeObserver(occlusion); self.occlusion = nil }
+            guard let frost, let layer = frost.layer else { return }
+            content?.start()   // a window that never became visible still ends in the finished state
+            let out = CABasicAnimation(keyPath: "opacity")
+            out.fromValue = 1; out.toValue = 0; out.duration = fade
+            out.timingFunction = CAMediaTimingFunction(controlPoints: 0, 0, 0.58, 1)
+            out.beginTime = delay; out.fillMode = .backwards
+            let group = CAAnimationGroup()
+            group.animations = [out]; group.duration = delay + fade
+            group.delegate = self
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            layer.opacity = 0
+            CATransaction.commit()
+            layer.add(group, forKey: "fade")
+        }
+
+        nonisolated func animationDidStop(_ animation: CAAnimation, finished: Bool) {
+            MainActor.assumeIsolated { frost?.removeFromSuperview(); frost = nil; content = nil }
         }
     }
 }

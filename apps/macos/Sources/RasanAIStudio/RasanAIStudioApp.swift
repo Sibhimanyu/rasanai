@@ -34,6 +34,10 @@ struct RasanAIStudioApp: App {
                     delegate.store = store
                     delegate.configureNotifications()
                     store.restoreWorkspace()
+                    // Hidden check: `--autoscroll-inspiration` opens Inspiration and scrolls it (see AutoScrollProbe).
+                    for delay in [0, 0.1, 0.3, 0.6] { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { AutoScrollProbe.placeOnScreenIfAsked() } }
+                    DispatchQueue.main.async { AutoScrollProbe.probeLaunchIfAsked() }
+                    if AutoScrollProbe.enabled { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { store.path = [.inspire] } }
                     #if DEBUG
                     // QA hook: `--attach-run <dir>` opens the film page on an existing run, with no director.
                     if let index = CommandLine.arguments.firstIndex(of: "--attach-run"), CommandLine.arguments.count > index + 1 {
