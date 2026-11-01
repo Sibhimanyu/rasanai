@@ -266,3 +266,8 @@ html:not(.js) .stepper, html:not(.js) .life-nav { display: none; }
   .hw-facts { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .js .life.on { animation: none; } html { scroll-behavior: auto; } }
+.foot-by.heresay-line { margin-top: 8px; font-size: .85rem; }
+.heresay-credit { display: inline-flex; align-items: center; gap: 7px; color: inherit; text-decoration: none; }
+.heresay-credit img { width: 18px; height: 18px; flex: none; padding: 2px; border-radius: 5px; background: #f2f0ea; box-sizing: border-box; }
+.heresay-credit b { font-weight: 600; color: #fff; }
+.heresay-credit:hover b { text-decoration: underline; text-underline-offset: 3px; }
