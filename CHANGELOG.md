@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.35.0 (2026-11-01): Launch films that tell a story: the house launch grammar
 
 - **Launch fixes from a real Story-to-Look run.** `crew.mjs check` no longer crashes on the launch-treatment check (undefined `P0`). The three launch looks must use three different grounds (near-black, dark and black are one) and at least one must be a soft brand-gradient ground (design.mjs look-payload and the crew check). New chrome rule (no fake HUD or instrument labels), and a launch-concept carrier rule (carrier and props come from the product, UI and brand; at most one wild idea uses an outside metaphor, never the jury's recommendation; schema warns on carrier.kind object) in launch-grammar.md, the writers, jury and design-system-designer. Launch story plates now render the beat's copy line as clean kinetic type on a white or soft-gradient ground with a real simplified UI card, flat editorial, no glowing 3D. The energy redraw keeps or boosts the brand accent (read from brand CSS variables) and never greys it.
 
