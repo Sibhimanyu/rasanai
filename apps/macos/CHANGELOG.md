@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.29.1 (build 78) — 2026-11-01
 
 - Launch films now follow the house launch grammar: a short copy-led story (hook, turn, meet, two or three capabilities, payoff), one carrier motif that travels the whole film, transitions that flow as one take, and a light touch of brand.
+- **Bundles RasanAI 1.35.0.**
 
 ## 0.29.0 (build 77) — 2026-11-01
 
