@@ -1421,4 +1421,20 @@
   // site.js publishes the .pin capability during startup. Re-run after load so the
   // crew scene also initializes when that class arrives after this first pass.
   window.addEventListener("load", apply, { once: true });
+  /* ---------- warm the scene images: they sit transformed or at opacity 0 inside pinned stages, where the lazy loader fetches them late.
+     After load, fetch them eagerly and decode them, crew first, so nothing pops in when its scene arrives. ---------- */
+  function warmImages() {
+    function warm(im, low) {
+      try { if (low && "fetchPriority" in im) im.fetchPriority = "low"; im.loading = "eager"; if (im.decode) im.decode().catch(function () {}); } catch (e) {}
+    }
+    function prime(src) { var im = new Image(); try { im.fetchPriority = "low"; } catch (e) {} im.decoding = "async"; im.src = src; if (im.decode) im.decode().catch(function () {}); return im; }
+    if (crewScene) $("img", crewScene).forEach(function (im) { warm(im, false); });
+    var later = function () {
+      $(".sq-wall, .sq-shot").forEach(function (im) { warm(im, true); });
+      ["ra", "rasika", "mala", "laya", "tara", "chitra", "kavi"].forEach(function (n) { prime("assets/crew/land/" + n + ".webp?v=4"); });
+      ["assets/tl/stones.jpg", "assets/tl/engraved.jpg"].forEach(prime);
+    };
+    if (window.requestIdleCallback) requestIdleCallback(later, { timeout: 2500 }); else setTimeout(later, 800);
+  }
+  if (document.readyState === "complete") warmImages(); else window.addEventListener("load", warmImages, { once: true });
 })();
