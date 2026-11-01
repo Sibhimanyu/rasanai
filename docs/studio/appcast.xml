@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.29.1 beta 1</title>
+      <pubDate>Sun, 01 Nov 2026 18:21:19 GMT</pubDate>
+      <description><![CDATA[<ul><li>Launch films now follow the house launch grammar: a short copy-led story (hook, turn, meet, two or three capabilities, payoff), one carrier motif that travels the whole film, transitions that flow as one take, and a light touch of brand.</li></ul>]]></description>
+      <sparkle:version>78</sparkle:version>
+      <sparkle:shortVersionString>0.29.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.29.1-beta.1/RasanAI-Studio-0.29.1.dmg" sparkle:edSignature="inuDuWv//HgUsjB0SIN3RNH9SJ7uEdT96t/BrXtxZLxZW/W2gqM1kxi1kJXdGgVlEnCe4yGyxM8V8tVC/+wJAA==" length="98570963" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.29.0 beta 1</title>
       <pubDate>Sun, 01 Nov 2026 16:41:02 GMT</pubDate>
       <description><![CDATA[<ul><li>Refining a look now shows Rasan working: the status bar reads "Rasan is redrawing ... with more energy...", the large preview dims under a shimmer, and the refine buttons stay disabled until the director sends the updated look (or an error). The same goes for More like this, Mix two and Three more stories.</li><li>A refine can no longer be sent twice: a second press while one is pending is ignored. After the update lands the button reads "Push further".</li><li>Posters, frames and previews reload when their file is rewritten (even to the same path), so a redrawn look shows its new picture. Versioned file names work too.</li><li>The look's motion preview (<code>preview</code> video) plays muted and looping over the still when present; it restarts when the file is re-rendered.</li></ul>]]></description>
