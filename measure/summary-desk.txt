@@ -1,0 +1,7 @@
+desk total px 66097 -> 66322  ( 73.4 -> 73.7 vh)
+hero      len 1.6 -> 1.6 vh | peak image change 0.008 -> 0.007 | peak element speed 0 -> 0 | longest dead 0.96 -> 1.01 vh
+flight    len 1.5 -> 1.9 vh | peak image change 0.131 -> 0.045 | peak element speed 1 -> 1 | longest dead 0.01 -> 0.01 vh
+crew      len 30.6 -> 34.2 vh | peak image change 0.146 -> 0.058 | peak element speed 2.96 -> 1.01 | longest dead 3.03 -> 1.33 vh
+squeak    len 24.4 -> 19.1 vh | peak image change 0.104 -> 0.053 | peak element speed 2.91 -> 1.21 | longest dead 3.05 -> 1.21 vh
+projects  len 4.2 -> 4.2 vh | peak image change 0.06 -> 0.04 | peak element speed 1 -> 0.97 | longest dead 1.53 -> 1.38 vh
+end       len 4.2 -> 5.7 vh | peak image change 0.113 -> 0.042 | peak element speed 2.34 -> 0.94 | longest dead 1.33 -> 1.28 vh

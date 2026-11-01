@@ -1,0 +1,7 @@
+phone total px 25592 -> 34623  ( 38.5 -> 52.1 vh)
+hero      len 1 -> 1.1 vh | peak image change 0.099 -> 0.085 | peak element speed 0 -> 0 | longest dead 0.01 -> 0.11 vh
+flight    len 0.9 -> 1.1 vh | peak image change 0.319 -> 0.146 | peak element speed 1 -> 1 | longest dead 0 -> 0 vh
+crew      len 16 -> 21.5 vh | peak image change 0.477 -> 0.182 | peak element speed 3.79 -> 1.08 | longest dead 0.9 -> 0.83 vh
+squeak    len 8.6 -> 13.9 vh | peak image change 1.869 -> 0.245 | peak element speed 5.9 -> 1.12 | longest dead 0.95 -> 1.22 vh
+projects  len 1 -> 1.7 vh | peak image change 0.143 -> 0.13 | peak element speed 0.96 -> 0.9 | longest dead 0.78 -> 0.71 vh
+end       len 1.6 -> 3.3 vh | peak image change 0.413 -> 0.16 | peak element speed 5.93 -> 1.13 | longest dead 0.45 -> 0.45 vh
