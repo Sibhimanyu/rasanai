@@ -361,6 +361,7 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
                                onPin: { model.openChat(at: $0) },
                                onBegin: { wasPlaying = playback.isPlaying; playback.pause() },
                                onEnd: { if wasPlaying { playback.play() } })
+                    .zIndex(1)   // its hover card opens downward over the transport row
                 ReviewTransport(playback: playback, scenes: scenes, canNote: canNote, onNote: { markFrame() },
                                 onFullScreen: toggleFullScreen)
                 if showStrip && !scenes.isEmpty {
@@ -778,18 +779,19 @@ struct ReviewTimeline<P: FilmPlayback>: View {
                     }
                 }
                 .frame(width: width, height: pinZone + trackHeight, alignment: .topLeading)
-                // The hover bubble and the note card float above the timeline in an overlay, so showing them never changes
-                // the timeline's own layout (inside the ZStack they grew it upward and the track jumped under the pointer).
-                .overlay(alignment: .topLeading) {
+                // The hover bubble and the note card float in an overlay, so showing them never changes the timeline's own
+                // layout (inside the ZStack they grew it and the track jumped under the pointer). They open BELOW the track:
+                // above it they sat over the video, an AppKit view that always draws on top and hid them.
+                .overlay(alignment: .bottomLeading) {
                     if let id = hoverPin, let pin = placed.first(where: { $0.id == id }) {
                         PinCard(notes: pin.notes, numbers: numbering(for: pin.notes))
-                            .alignmentGuide(.top) { $0[.bottom] + 4 }
+                            .alignmentGuide(.bottom) { $0[.top] - 6 }
                             .offset(x: min(max(pin.x - 115, 0), max(width - 230, 0)))
                             .allowsHitTesting(false)
                     } else if let hoverX, !dragging {
                         let t = Double(min(1, max(0, hoverX / width))) * duration
                         HoverBubble(text: reviewTime(t, tenths: true) + (FilmTiming.sceneIndex(at: t, in: scenes).map { " · \($0 + 1) " + scenes[$0].title } ?? ""))
-                            .alignmentGuide(.top) { $0[.bottom] + 6 }
+                            .alignmentGuide(.bottom) { $0[.top] - 6 }
                             .offset(x: min(max(hoverX - 70, 0), max(width - 140, 0)))
                             .allowsHitTesting(false)
                     }
