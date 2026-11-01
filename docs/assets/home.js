@@ -270,12 +270,12 @@
       el.insertBefore(box, el.firstChild);
     }
     if (fx === "scatter" || fx === "blinds" || fx === "slam" || fx === "playhead") chars = splitChars(line);
-    var grip = null, head = null, code = null, edge = null, cur = null, curA = null, curH = null, tl = null, tlGlow = null, tlRows = null, tlWave = null, tlItems = [], tlTop = -1, tcw = 0;
+    var grip = null, head = null, code = null, cur = null, curA = null, curH = null, tl = null, tlGlow = null, tlRows = null, tlWave = null, tlBgs = null, wipe = null, tlItems = [], tlKey = "", tlTop = 0, tlBase = 0, tlH = 180, tcw = 0, FEATHER = 90;
     if (fx === "playhead") {
-      // a timeline panel under the line (glow, ruler, footage / music / title tracks) and a hairline rail across the screen; the handle rides
-      // the ruler; the pointer is two inline drawings (arrow, closed hand) in one box
+      // a timeline panel under the line (glow, ruler, footage / music / title tracks); the paper's wipe (a soft-edged strip) follows the handle;
+      // the handle rides the ruler; the pointer is two inline drawings (arrow, closed hand) in one box
       tlGlow = document.createElement("div"); tlGlow.className = "beat-glow"; tlGlow.setAttribute("aria-hidden", "true");
-      edge = document.createElement("div"); edge.className = "beat-edge"; edge.setAttribute("aria-hidden", "true");
+      wipe = document.createElement("i"); wipe.className = "beat-wipe"; layer.appendChild(wipe);
       tl = document.createElement("div"); tl.className = "beat-tl"; tl.setAttribute("aria-hidden", "true");
       // the footage track: seven different scenes, each shown as 2-3 crops of one still (a push-in or a pan), [start, length, image, label, crops [zoom %, x %, y %]]
       var CL = [[0, .15, "assets/crew/v2/endcard-ra.webp", "Hook", [[100, 8, 55], [125, 45, 60], [175, 88, 40]]],
@@ -292,21 +292,24 @@
         h += '<div class="tl-clip" style="left:' + (c[0] * 100).toFixed(2) + "%;width:" + (c[1] * 100).toFixed(2) + '%"><s>' + c[4].map(function (f) { return '<u style="background-image:url(' + c[2] + ");background-size:auto " + f[0] + "%;background-position:" + f[1] + "% " + f[2] + '%"></u>'; }).join("") + "</s><span>" + c[3] + "</span></div>";
       });
       h += '</div><div class="tl-row tl-a"><i class="tl-bg"></i><em class="tl-tag">A1</em><div class="tl-wave">';
+      // one drawing for the whole waveform (a single path of 160 bars), so it moves and clips as one layer
+      var wd = "";
       for (q = 0; q < 160; q++) {
-        var amp = clamp(.16 + .84 * (.55 * hash(q * 1.7) + .45 * Math.abs(Math.sin(q * .085 + 1)) * (.4 + .6 * hash(q + 4))), .12, 1);
-        h += '<i style="height:' + (amp * 100).toFixed(0) + '%"></i>';
+        var amp = clamp(.16 + .84 * (.55 * hash(q * 1.7) + .45 * Math.abs(Math.sin(q * .085 + 1)) * (.4 + .6 * hash(q + 4))), .12, 1) * 100;
+        wd += "M" + (q + .22) + " " + ((100 - amp) / 2).toFixed(1) + "h.56v" + amp.toFixed(1) + "h-.56z";
       }
-      h += "</div></div>";
+      h += '<svg viewBox="0 0 160 100" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="tlwg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a31a8" stop-opacity=".62"/><stop offset="1" stop-color="#2a31a8" stop-opacity=".34"/></linearGradient></defs><path d="' + wd + '" fill="url(#tlwg)"/></svg></div></div>';
+      // the footage stills are decoded now, so none decodes mid-entrance
+      CL.forEach(function (c) { var im = new Image(); im.src = c[2]; if (im.decode) im.decode().catch(function () {}); });
       tl.innerHTML = h + "</div>";
-      el.appendChild(tlGlow); el.appendChild(edge); el.appendChild(tl);
-      // what the playhead consumes: [element, where it starts to dissolve, where it is gone (both as a share of the panel), pop-in start, blur?]
-      var add = function (e, f0, f1, p0, blur, on, w) { f1 = Math.min(1, f1); tlItems.push({ e: e, f0: f0, f1: f1, p0: p0, blur: blur, on: on, w: w }); };
+      el.appendChild(tlGlow); el.appendChild(tl);
+      // what the playhead consumes: [element, where it starts to dissolve, where it is gone (both as a share of the panel), pop-in start, clip data]
+      var add = function (e, f0, f1, p0, on) { f1 = Math.min(1, f1); tlItems.push({ e: e, f0: f0, f1: f1, p0: p0, on: on }); };
       tlRows = $$(".tl-row", tl);
-      $$(".tl-lbl", tl).forEach(function (e, k) { add(e, k / 6 - .01, k / 6 + .05, .03 + k * .008, 0, 0, 0); });
-      $$(".tl-tag", tl).forEach(function (e) { add(e, -.13, -.03, .05, 0, 0, 0); });
-      $$(".tl-clip", tl).forEach(function (e, k) { var c = CL[k]; add(e, c[0] + c[1] * .45, c[0] + c[1] + .06, .02 + (c[0] + c[1] / 2) * .06, 1, c, 0); });
-      $$(".tl-wave i", tl).forEach(function (e, k) { var fx2 = (k + .5) / 160; add(e, fx2 - .02, fx2 + .07, 0, 0, 0, 1); });
-      tlWave = $(".tl-wave", tl);
+      $$(".tl-lbl", tl).forEach(function (e, k) { add(e, k / 6 - .01, k / 6 + .05, .03 + k * .008, 0); });
+      $$(".tl-tag", tl).forEach(function (e) { add(e, -.13, -.03, .05, 0); });
+      $$(".tl-clip", tl).forEach(function (e, k) { var c = CL[k]; add(e, c[0] + c[1] * .45, c[0] + c[1] + .06, .02 + (c[0] + c[1] / 2) * .06, c); });
+      tlWave = $(".tl-wave", tl); tlBgs = $$(".tl-bg", tl);
       head = document.createElement("div"); head.className = "beat-head"; head.setAttribute("aria-hidden", "true");
       head.innerHTML = "<b>00:00:00:00</b><i class=\"ph-grip\"></i><span class=\"ph-cur\">" +
         "<svg class=\"ph-arrow\" viewBox=\"0 0 24 24\" focusable=\"false\"><path d=\"M5 3v16.2l4.1-3.9 2.7 5.9 2.6-1.2-2.6-5.8 5.6-.2Z\" fill=\"#000\" stroke=\"#fff\" stroke-width=\"1.6\" stroke-linejoin=\"round\" paint-order=\"stroke\"/></svg>" +
@@ -404,49 +407,55 @@
         halves[1].style.transform = "translate3d(0," + d.toFixed(1) + "px,0)";
       } else if (fx === "playhead") {
         // phases of r: the pointer glides in .00-.10 (the timeline builds with it), grabs .10-.16, drags the handle along the ruler .16-.76,
-        // lets go and drifts off .76-.92; the reveal line then runs on to the right edge of the screen (.76-.92)
+        // lets go and drifts off .76-.92. The paper stays whole until the grab; then its soft edge sweeps the screen from the left edge to
+        // the right edge in step with the handle (handle share of the ruler = share of the screen), and the panel fades as it completes
         var u = seg(r, .16, .76), sc = mpinned() ? .8 : 1;
         var d = u * u * u * (u * (u * 6 - 15) + 10) + .006 * Math.sin(Math.PI * seg(u, .86, 1));   // slow start, quick middle, a small overshoot that settles
-        var grab = seg(r, .1, .16) * (1 - seg(r, .74, .8));
-        // the panel sits a little below the line (never over it, never off the bottom); the handle rides its ruler, first tick to last
-        var pw = mpinned() ? vw * .92 : Math.min(1080, vw * .84), pl = (vw - pw) / 2, lb = line.getBoundingClientRect(), er = el.getBoundingClientRect();
-        var th = tl.offsetHeight || 180, le = ease(seg(r, .02, .1)), pe = ease(seg(r, .05, .14));
-        // the line fades, drifts up and blurs as the timeline arrives; the panel starts below it and rises to the middle of the space under the nav
-        var top0 = Math.min(lb.bottom + 16 * le - er.top + (mpinned() ? 46 : 58), vh2 - th - 24), topC = (68 + vh2) / 2 - th / 2, top = top0 + (topC - top0) * pe;
-        line.style.opacity = (1 - le).toFixed(3); line.style.transform = le ? "translate3d(0," + (-16 * le).toFixed(1) + "px,0)" : ""; line.style.filter = le > .02 && le < 1 ? "blur(" + (5 * le).toFixed(1) + "px)" : "";
-        if (Math.abs(top - tlTop) > .5 || tl.style.left !== pl.toFixed(1) + "px") {
-          tlTop = top; el.style.setProperty("--ty", top.toFixed(1) + "px");
-          tl.style.left = pl.toFixed(1) + "px"; tl.style.width = pw.toFixed(1) + "px"; tl.style.top = top.toFixed(1) + "px";
-          tlGlow.style.top = (top - 110).toFixed(1) + "px"; tlGlow.style.height = (th + 190) + "px";
+        var grab = seg(r, .1, .16) * (1 - seg(r, .66, .74));
+        // sizes are measured once per window size, never per frame (no layout reads while it moves)
+        var pw = mpinned() ? vw * .92 : Math.min(1080, vw * .84), pl = (vw - pw) / 2, key = vw + "x" + vh2;
+        if (key !== tlKey) {
+          tlKey = key; line.style.transform = "";
+          tl.style.left = pl.toFixed(1) + "px"; tl.style.width = pw.toFixed(1) + "px";
+          tlH = tl.offsetHeight || 180; tcw = code.offsetWidth || 100;
+          tlBase = line.getBoundingClientRect().bottom - el.getBoundingClientRect().top;
+          tlGlow.style.top = "-110px"; tlGlow.style.height = (tlH + 190) + "px";
+          head.style.setProperty("--tlh", (tlH - 20) + "px");
+          wipe.style.width = (vw + FEATHER) + "px"; wipe.style.setProperty("--wf", FEATHER + "px");
         }
-        var hx = pl + .5 + (pw - 1) * d, pf = d, tail = 1 - seg(r, .74, .88), live2 = r > 0 && r < 1;   // hx: the handle's centre, on the ruler's ticks
-        head.style.transform = "translate3d(" + (hx - 1).toFixed(1) + "px,0,0)";
-        head.style.opacity = live2 ? (seg(r, 0, .04) * (1 - seg(r, .84, .92))).toFixed(3) : "0";
+        var le = ease(seg(r, .02, .1)), pe = ease(seg(r, .05, .14));
+        // the line fades and drifts up as the timeline arrives; the panel starts below it and rises to the middle of the space under the nav
+        var top0 = Math.min(tlBase + (mpinned() ? 46 : 58), vh2 - tlH - 24), topC = (68 + vh2) / 2 - tlH / 2, top = top0 + (topC - top0) * pe;
+        line.style.opacity = (1 - le).toFixed(3); line.style.transform = le ? "translate3d(0," + (-16 * le).toFixed(1) + "px,0)" : "";
+        var hx = pl + .5 + (pw - 1) * d, pf = d, tail = 1 - seg(r, .64, .8), live2 = r > 0 && r < 1;   // hx: the handle's centre, on the ruler's ticks
+        tl.style.transform = "translate3d(0," + top.toFixed(1) + "px,0)";
+        tlGlow.style.transform = "translate3d(0," + top.toFixed(1) + "px,0)";
+        head.style.transform = "translate3d(" + (hx - 1).toFixed(1) + "px," + top.toFixed(1) + "px,0)";
+        head.style.opacity = live2 ? (seg(r, 0, .04) * (1 - seg(r, .66, .8))).toFixed(3) : "0";
         head.style.setProperty("--g", grab.toFixed(3));
         grip.style.opacity = (grab * .9).toFixed(3);
         // the timecode pill rides to the right of the handle, and swings over to its left as the handle nears the panel's end
-        if (!tcw) tcw = code.offsetWidth || 100;
         code.style.transform = "translateX(" + (-seg(d, .7, .9) * (tcw + 28)).toFixed(1) + "px)";
         // the timeline: the glow rises, the tracks slide up one after another, the clips pop in left to right, the waveform draws in
         tlGlow.style.opacity = live2 ? (seg(r, 0, .1) * tail).toFixed(3) : "0";
         tl.style.opacity = live2 ? tail.toFixed(3) : "0";
-        tl.style.setProperty("--p", (pf * 100).toFixed(2));
         tlRows.forEach(function (row, k) {
           var te = ease(seg(r, .006 * k, .07 + .012 * k));
           row.style.opacity = te.toFixed(3); row.style.transform = te < 1 ? "translate3d(0," + (16 * (1 - te)).toFixed(1) + "px,0)" : "";
         });
-        var we = ease(seg(r, .03, .11));
-        tlWave.style.clipPath = we < 1 ? "inset(0 " + ((1 - we) * 100).toFixed(1) + "% 0 0)" : "";
-        // as the playhead moves on, what is behind it dissolves: fades, blurs a little, drifts up (the one under it glows and lifts)
+        // the waveform and the track backs are single layers: drawn in from the left, eaten from the left by the playhead (clip-paths)
+        var we = ease(seg(r, .03, .11)), cl = (pf * 100).toFixed(1);
+        tlWave.style.clipPath = we < 1 || pf > 0 ? "inset(0 " + ((1 - we) * 100).toFixed(1) + "% 0 " + cl + "%)" : "";
+        tlBgs.forEach(function (e) { e.style.clipPath = pf > 0 ? "inset(0 0 0 " + cl + "%)" : ""; });
+        // as the playhead moves on, what is behind it dissolves: fades and drifts up (the one under it glows and lifts)
         tlItems.forEach(function (it) {
-          var pop = it.w ? we : ease(seg(r, it.p0, it.p0 + .045)), v = seg(pf, it.f0, it.f1); v = v * v * (3 - 2 * v);
+          var pop = ease(seg(r, it.p0, it.p0 + .045)), v = seg(pf, it.f0, it.f1); v = v * v * (3 - 2 * v);
           var on = it.on ? seg(pf, it.on[0], it.on[0] + .012) * (1 - seg(pf, it.on[0] + it.on[1] * .75, it.on[0] + it.on[1] * .95)) : 0;
           var k = pop.toFixed(2) + "|" + v.toFixed(3) + "|" + on.toFixed(2);
           if (it.k === k) return;
           it.k = k;
           it.e.style.opacity = (pop * (1 - v)).toFixed(3);
-          it.e.style.transform = "translate3d(0," + (-10 * v * (it.w ? .8 : 1) - 4 * on + (it.w ? 0 : 6 * (1 - pop))).toFixed(1) + "px,0) scale(" + ((it.w ? 1 : .96 + .04 * pop) * (1 - .02 * v)).toFixed(3) + ")";
-          if (it.blur) it.e.style.filter = v > .02 && v < .98 ? "blur(" + (6 * v).toFixed(1) + "px)" : "";
+          it.e.style.transform = "translate3d(0," + (-10 * v - 4 * on + 6 * (1 - pop)).toFixed(1) + "px,0) scale(" + ((.96 + .04 * pop) * (1 - .02 * v)).toFixed(3) + ")";
           if (it.on) it.e.style.setProperty("--on", on.toFixed(3));
         });
         // the pointer: in from below-right to the handle, a touch smaller as it presses, a couple of px of hand-shake while dragging, then off down-left
@@ -459,16 +468,8 @@
         // the timecode follows the handle on the ruler: 00:00:00:00 at the first tick, 00:00:06:00 at the last (24 fps)
         var fr = Math.round(clamp(d, 0, 1) * 144);
         code.textContent = "00:00:" + ("0" + Math.floor(fr / 24)).slice(-2) + ":" + ("0" + fr % 24).slice(-2);
-        // the reveal line is the handle's own x along the ruler, then runs on to the screen's right edge once the timeline is gone;
-        // the paper's cut edge catches up from the left edge as the pointer presses
-        var ex = hx + (vw + 4 - hx) * inOutC(seg(r, .76, .92)), cut = r > 0 ? Math.max(0, ex * ease(seg(r, .13, .2))) : -24;
-        edge.style.transform = "translate3d(" + (ex - 1).toFixed(1) + "px,0,0)";
-        edge.style.opacity = live2 ? (seg(r, .1, .13) * (1 - seg(r, .94, .98))).toFixed(3) : "0";
-        var cp = cut > -24 && r > .1 ? "inset(0 0 0 " + cut.toFixed(1) + "px)" : "";
-        layer.style.clipPath = cp; tlGlow.style.clipPath = cp;
-        layer.style.opacity = (1 - seg(r, .96, 1)).toFixed(3);
-        // a clean wipe: the line is cut by the same edge as its paper, so nothing piles up at the playhead
-        line.style.clipPath = cp ? "inset(0 0 0 " + Math.max(0, cut - lb.left).toFixed(1) + "px)" : "";
+        // the paper's soft edge: its right end at d of the way across the screen (and its feather), nothing revealed before the drag
+        wipe.style.transform = "translate3d(" + (clamp(d, 0, 1.01) * (vw + FEATHER) - FEATHER).toFixed(1) + "px,0,0)";
       } else if (fx === "blinds") {
         chars.forEach(function (ch, k) {
           var t = seg(r, k / N * .3, k / N * .3 + .34), sgn = hash(k + 2) < .5 ? -1 : 1;
