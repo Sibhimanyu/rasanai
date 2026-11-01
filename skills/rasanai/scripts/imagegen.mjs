@@ -229,7 +229,9 @@ async function generateOne(o) {
   const aspect = aspectKey(o.aspect);
   const dir = path.dirname(outAbs);
   fs.mkdirSync(dir, { recursive: true });
-  const part = outAbs + ".part.png";
+  // a unique temp path per job (this plate's own name + process id + a random nonce): parallel jobs never share a filename Codex is asked to write to
+  const nonce = `${process.pid}-${crypto.randomBytes(4).toString("hex")}`;
+  const part = `${outAbs}.${nonce}.part.png`;
   const logFile = outAbs.replace(/\.[a-z0-9]+$/i, "") + ".codex.log";
   for (const r of refs) if (!fs.existsSync(r)) return { ok: false, error: `reference image not found: ${r}`, out: outAbs };
   let keyedMode = false;
