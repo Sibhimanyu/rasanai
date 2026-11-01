@@ -2,6 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Scrolling Inspiration is smooth again: the page was redoing its filter counts on every update, which froze it for up to a second at a time.
+- The launch screen animation now runs outside the busy part of the app, so the logo draws without stalls while your library loads.
+
 ## 0.28.0 (build 75) — 2026-11-01
 
 - Studio opens on your Films every time, instead of jumping into a film that was still in progress.

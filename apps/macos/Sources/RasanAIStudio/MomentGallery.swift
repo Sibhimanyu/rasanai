@@ -9,12 +9,12 @@ import StudioCore
 final class MomentGallery {
     enum State: Equatable { case idle, loading, ready, failed }
 
-    var moments: [Moment] = [] { didSet { refilter() } }
+    var moments: [Moment] = [] { didSet { refilter(); rebuildSummary() } }
     var state: State = .idle
     /// True while the list on screen is the saved copy because the network was unreachable.
     var showingSavedCopy = false
     private(set) var isRefreshing = false
-    var technique: Technique? { didSet { refilter() } }
+    var technique: Technique? { didSet { refilter(); rebuildMechanics() } }
     var mechanic: String? { didSet { refilter() } }
     var onlyNew = false { didSet { refilter() } }
     var searchQuery = "" { didSet { refilter() } }
@@ -104,15 +104,27 @@ final class MomentGallery {
     }
     var hasFilters: Bool { technique != nil || mechanic != nil || onlyNew || !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     func clearFilters() { technique = nil; mechanic = nil; onlyNew = false; searchQuery = "" }
-    var newCount: Int { moments.filter(\.isNew).count }
-    func count(for technique: Technique?) -> Int { moments.filter { technique == nil || $0.techniques.contains(technique!) }.count }
+    /// The filter row's numbers, worked out once when the moments change. They used to be recomputed (a string search per tag,
+    /// per technique, per move) every time the page's body ran, which was most of the main thread while scrolling.
+    private(set) var newCount = 0
+    private var techniqueCounts: [Technique: Int] = [:]
     /// The technique groups that have at least one move, in a fixed order.
-    var techniques: [Technique] { Technique.allCases.filter { count(for: $0) > 0 } }
+    private(set) var techniques: [Technique] = []
     /// Mechanic tags in the current technique group, most used first.
-    var mechanics: [String] {
+    private(set) var mechanics: [String] = []
+    func count(for technique: Technique?) -> Int { technique.map { techniqueCounts[$0] ?? 0 } ?? moments.count }
+    private func rebuildSummary() {
+        newCount = moments.filter(\.isNew).count
+        var counts: [Technique: Int] = [:]
+        for moment in moments { for group in moment.techniques { counts[group, default: 0] += 1 } }
+        techniqueCounts = counts
+        techniques = Technique.allCases.filter { counts[$0, default: 0] > 0 }
+        rebuildMechanics()
+    }
+    private func rebuildMechanics() {
         var counts: [String: Int] = [:]
         for moment in moments where technique == nil || moment.techniques.contains(technique!) { for tag in moment.mechanic { counts[tag, default: 0] += 1 } }
-        return counts.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map(\.key)
+        mechanics = counts.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map(\.key)
     }
     /// A calm preview for Home: the newest moves, one per technique group first so the row is varied.
     var spotlight: [Moment] {

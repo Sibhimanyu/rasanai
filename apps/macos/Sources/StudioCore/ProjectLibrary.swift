@@ -13,7 +13,9 @@ public struct ProjectLibrary: Sendable {
     public let root: URL
     public init(root: URL) { self.root = root }
     public static var defaultRoot: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        // QA: a copy of the library elsewhere, so an unsigned test build is not stopped by the Documents permission prompt.
+        if let path = ProcessInfo.processInfo.environment["RASAN_LIBRARY_ROOT"], !path.isEmpty { return URL(fileURLWithPath: path, isDirectory: true) }
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("RasanAI", isDirectory: true)
     }
     public func prepare() throws {
