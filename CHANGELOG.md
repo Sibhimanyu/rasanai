@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.33.0 (2026-11-01): The creative engine reaches the film
 
 The creative engine's new ideas now reach the film. An audit of 1.32.0 found the old launch rules and gates still flattened every film; this connects the new front end to the back end. Source-level only: checked with syntax checks and import loads, not run, rendered or listened to.
 
