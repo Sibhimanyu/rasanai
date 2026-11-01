@@ -2,6 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Studio opens on your Films every time, instead of jumping into a film that was still in progress.
+- The RasanAI logo now draws itself smoothly on the frosted launch screen, without stutters or restarts.
+- Ask Rasan is a real conversation now: it answers from what is actually happening in your film and remembers what you just asked, so asking "what's happening?" twice tells you what changed (or that nothing has, and what it is waiting on).
+- New films get proper short titles instead of the first line of a chat reply; old titles like that are hidden until the film is renamed.
+
 ## 0.27.2 (build 74) — 2026-10-31
 
 - Inspiration clips play with their original sound where we could recover it; others say so and link to the original post.
