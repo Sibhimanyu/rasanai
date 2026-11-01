@@ -173,7 +173,7 @@
 .beat-char { display: inline-block; position: relative; }
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
   .pin .beat-host.host-ready { height: 280vh; padding: 0; overflow: clip; }   /* clip, not hidden: hidden would stop the stage from sticking */
-  .pin .projects.host-ready { height: 280vh; }
+  .pin .projects.host-ready { height: 356vh; }   /* 280vh before: the timeline beat gets 1.6x the scroll (126vh -> 202vh), the hold after it stays 54vh */
   .pin .endcard.host-ready { height: 350vh; }
   .pin .host-ready > .host-pin { position: sticky; top: 0; height: 100vh; height: 100svh; box-sizing: border-box; display: grid; align-content: center; overflow: hidden; }
   .pin :is(.host-ready, .crew-ready) .beat { position: absolute; inset: 0; z-index: 8; min-height: 0; padding: 0 var(--pad); background: none; pointer-events: none; }
@@ -638,20 +638,23 @@ html.mpin { overflow-x: clip; }
 
 /* ---- playhead: the timeline panel. A soft white glow, a ruler, a footage track (real stills as filmstrips), music (waveform) and
    titles. Everything is driven by progress from home.js: it builds in, the playhead dissolves what is behind it, then it is gone ---- */
-.beat-glow { position: absolute; z-index: 0; left: 0; right: 0; top: 0; height: 300px; opacity: 0; pointer-events: none; will-change: transform, opacity;
-  background: radial-gradient(ellipse 46% 50% at 50% 50%, rgba(255, 255, 255, .92), rgba(255, 255, 255, .5) 55%, rgba(255, 255, 255, 0) 100%); }
+.beat-glow { position: absolute; z-index: 0; left: 0; right: 0; top: 0; height: 300px; transform-origin: 50% 50%; opacity: 0; pointer-events: none; will-change: transform, opacity;
+  background: radial-gradient(ellipse 62% 50% at 50% 50%, rgba(255, 255, 255, .92), rgba(255, 255, 255, .5) 55%, rgba(255, 255, 255, 0) 100%); }
 /* the paper's wipe: one strip, a soft left edge then solid, slid across by transform (reveal = what it has passed) */
 [data-beat="playhead"] .beat-layer { background: none !important; overflow: hidden; }
-.beat-wipe { position: absolute; left: 0; top: 0; bottom: 0; will-change: transform; background: linear-gradient(90deg, rgba(255, 255, 255, 0), var(--beat-bg) var(--wf, 90px)); }
+.beat-wcap { position: absolute; left: 0; top: 0; bottom: 0; background: var(--beat-bg); will-change: opacity; }
+.beat-wipe { position: absolute; left: 0; top: 0; bottom: 0; will-change: transform; transform-origin: 0 0; background: linear-gradient(90deg, rgba(255, 255, 255, 0), var(--beat-bg) var(--wf, 90px)); }
 /* the playhead's line stays inside the panel: from the handle down to the panel's foot */
 .beat-head::after { content: ""; position: absolute; left: 0; top: 20px; width: 2px; height: var(--tlh, 100px); background: var(--rasanai-blue); box-shadow: 0 0 0 1px rgba(255, 255, 255, .5); }
-.beat-tl { --rh: 26px; --vh: 60px; --ah: 42px; --gap: 8px; position: absolute; z-index: 1; top: 0; left: 0; width: 84vw; pointer-events: none; display: grid; gap: var(--gap); opacity: 0; will-change: transform, opacity; }
+/* full-bleed: the rows sit 2% in from each side and the whole panel fades out over its outer 6% */
+.beat-tl { --rh: 26px; --vh: 60px; --ah: 42px; --gap: 8px; position: absolute; z-index: 1; top: 0; left: 0; width: 100vw; box-sizing: border-box; padding: 0 2%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); pointer-events: none; display: grid; gap: var(--gap); opacity: 0; will-change: transform, opacity; }
 .mpin .beat-tl { --rh: 20px; --vh: 42px; --ah: 30px; --gap: 6px; }
 .tl-row { position: relative; will-change: transform, opacity; opacity: 0; }
 .tl-rul { height: var(--rh); } .tl-v { height: var(--vh); } .tl-a { height: var(--ah); } 
-.mpin .tl-tag { display: none; }
+.tl-tag { display: none; }
 .tl-bg { position: absolute; inset: 0; border-radius: 10px; background: rgba(27, 31, 94, .05); box-shadow: inset 0 0 0 1px rgba(27, 31, 94, .09); }
-.tl-ticks { background: none; box-shadow: none; border-radius: 0; border-bottom: 1px solid rgba(27, 31, 94, .22);
+.tl-ticks { transform-origin: 0 50%; background: none; box-shadow: none; border-radius: 0; border-bottom: 1px solid rgba(27, 31, 94, .22);
   background:
     repeating-linear-gradient(90deg, rgba(27, 31, 94, .5) 0 1px, transparent 1px calc(100% / 6)) 0 100% / 100% 13px no-repeat,
     linear-gradient(90deg, transparent calc(100% - 1px), rgba(27, 31, 94, .5) 0) 0 100% / 100% 13px no-repeat,
@@ -672,14 +675,14 @@ html.mpin { overflow-x: clip; }
 .tl-clip span { position: absolute; left: 6px; bottom: 5px; padding: 3px 5px 2px; border-radius: 4px; background: rgba(12, 16, 48, .58); font: 500 8.5px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: #fff; white-space: nowrap; }
 .mpin .tl-clip { border-radius: 6px; } .mpin .tl-clip span { display: none; }
 .tl-wave { position: absolute; inset: 0; }
-.tl-wave svg { display: block; width: 100%; height: 100%; }
+.tl-wave svg { display: block; width: 100%; height: 100%; transform-origin: 50% 50%; }
 
 /* ---- your projects: the playhead line pins over its own stretch (its stage holds the chapter's heading); the points and the
-   picture then scroll on as a plain page. MBEAT_TRACK in home.js (1.5) is the 1.5 below ---- */
+   picture then scroll on as a plain page. MBEAT_TRACK in home.js (1.9) is the 1.9 below ---- */
 .mpin .projects.host-ready { --mh: auto; padding: 0; }
 .mpin .projects.host-ready > .host-pin { position: static; height: auto; display: block; overflow: visible; }
 .mpin .projects.host-ready :is(.wrap, .proj-grid, .proj-copy) { display: contents; }
-.mpin .projects.host-ready .m-stage { position: relative; height: calc(100vh * 2.2); height: calc(100svh * 2.2); }
+.mpin .projects.host-ready .m-stage { position: relative; height: calc(100vh * 2.9); height: calc(100svh * 2.9); }
 .mpin .projects.host-ready .m-stage > .beat { position: sticky; inset: auto; top: 0; height: 100vh; height: 100svh; margin-bottom: -100vh; margin-bottom: -100svh; }
 .mpin .projects.host-ready .proj-head { position: sticky; top: 0; z-index: 1; height: 100vh; height: 100svh; box-sizing: border-box; padding: max(96px, 14svh) var(--pad) 0; }
 .mpin .projects.host-ready .points { margin: -46vh var(--pad) 0; margin: -46svh var(--pad) 0; }
