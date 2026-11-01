@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "hud-fui",
   "number": 24,
+  "gate_profile": "flat",
   "name": "HUD / FUI / hologram",
   "look": "cyan wireframes, lock-on brackets, rolling numbers, radar sweeps.",
   "fits": {

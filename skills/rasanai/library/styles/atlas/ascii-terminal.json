@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "ascii-terminal",
   "number": 16,
+  "gate_profile": "flat",
   "name": "ASCII / terminal CRT",
   "look": "all characters, monospace grid, phosphor glow, typed output.",
   "fits": {

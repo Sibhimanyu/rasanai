@@ -26,6 +26,10 @@ export function boardHtml(concept, o = {}) {
   const sig = concept.signature_moment;
   const sigId = sig && typeof sig === "object" ? s(sig.shot || sig.id) : "";
   const carrier = carrierOf(concept).what;
+  const hasPlate = (sh) => !!s(sh.image) && fs.existsSync(path.resolve(s(sh.image)));
+  const plated = shots.filter(hasPlate).length;
+  // honest labelling: a shot without a plate is the type template (words on the style's colours), never passed off as a picture
+  const fallback = plated === 0 ? "template board: no image plates (image generation was unavailable or not run), so each tile is type on the style's colours, not the film's picture" : plated < shots.length ? `${plated} of ${shots.length} tiles are image plates; the tiles marked template are type on the style's colours` : "";
   const tiles = shots.map((sh, i) => {
     const isSig = sh.signature === true || (sigId && (s(sh.id) === sigId || s(sh.t) === sigId));
     const mv = moveIdOf(sh), nm = moveName(mv);
@@ -34,7 +38,7 @@ export function boardHtml(concept, o = {}) {
   <figcaption>
     ${s(sh.words) ? `<div class="w">${esc(s(sh.words))}</div>` : `<div class="w none">no words</div>`}
     <div class="see">${esc(s(sh.see))}</div>
-    <div class="row"><span class="chip mv">${esc(nm || mv || "no move")}</span>${sh.style ? `<span class="chip">${esc(s(sh.style))}</span>` : ""}</div>
+    <div class="row"><span class="chip mv">${esc(nm || mv || "no move")}</span>${sh.style ? `<span class="chip">${esc(s(sh.style))}</span>` : ""}${hasPlate(sh) ? "" : `<span class="chip tpl">template</span>`}</div>
     ${sh.carrier_state ? `<div class="meta">carrier: ${esc(s(sh.carrier_state))}</div>` : ""}
     ${sh.transition ? `<div class="meta tr">&rarr; ${esc(s(sh.transition))}</div>` : ""}
   </figcaption></figure>`;
@@ -60,6 +64,7 @@ h1{margin:0;font-size:26px;letter-spacing:-.02em}
 figcaption{padding:8px 2px 0}.w{font-size:16px;font-weight:700;letter-spacing:-.01em}.w.none{color:#6d6f78;font-weight:500}
 .see{color:#b6b8c0;margin:3px 0 6px;max-height:3.9em;overflow:hidden}
 .row{display:flex;gap:5px;flex-wrap:wrap}.chip{border:1px solid #ffffff26;border-radius:99px;padding:1px 8px;font-size:11px;color:#c9cbd2}.chip.mv{background:#ffffff14;color:#fff;font-weight:600}
+.chip.tpl{border-style:dashed;color:#ffb547;border-color:#ffb54766}.warn{color:#ffb547}
 .meta{color:#80828c;font-size:11.5px;margin-top:4px}.tr{color:#a0a2ac}
 ${COMP_CSS}
 </style></head><body><div class="wrap">
@@ -67,7 +72,7 @@ ${COMP_CSS}
 <div class="sub"><span>style world <b>${esc(st.name)}</b><span class="sw"><i style="background:${st.bg}"></i><i style="background:${st.ink}"></i><i style="background:${st.accent}"></i></span></span>
 ${carrier ? `<span>carrier <b>${esc(carrier)}</b></span>` : ""}
 ${sig ? `<span>signature moment <b>${esc(s(typeof sig === "object" ? sig.what || sig.name || sig.shot : sig))}</b></span>` : ""}
-<span>${shots.length} shots${concept.duration_s ? `, ${esc(s(concept.duration_s))} s` : ""}</span></div></header>
+<span>${shots.length} shots${concept.duration_s ? `, ${esc(s(concept.duration_s))} s` : ""}</span>${fallback ? `<span class="warn">${esc(fallback)}</span>` : ""}</div></header>
 <div class="grid2">${tiles}</div></div></body></html>`;
   return { html, width: W, height };
 }
@@ -82,7 +87,8 @@ export async function runStoryBoard(args) {
   chromeScreenshot(`file://${htmlFile}`, png, width, height, 4000);
   if (!fs.existsSync(png)) die("the story board did not render (is Chrome installed?)");
   const moves = [...new Set(concept.shots.map((x) => s(x.move)).filter(Boolean))];
-  const meta = { ok: true, png, html: htmlFile, shots: concept.shots.length, size: `${width}x${height}`, moves, moves_missing: concept.shots.filter((x) => !s(x.move)).length };
+  const nPlates = concept.shots.filter((x) => s(x.image) && fs.existsSync(path.resolve(s(x.image)))).length;
+  const meta = { ok: true, png, html: htmlFile, shots: concept.shots.length, size: `${width}x${height}`, moves, moves_missing: concept.shots.filter((x) => !s(x.move)).length, plates: nPlates, template_tiles: concept.shots.length - nPlates };
   writeFile(path.join(out, "story-board.json"), JSON.stringify(meta, null, 2) + "\n");
   console.log(JSON.stringify(meta, null, 2));
 }

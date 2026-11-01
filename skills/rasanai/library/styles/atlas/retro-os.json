@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "retro-os",
   "number": 22,
+  "gate_profile": "flat",
   "name": "Retro OS / desktop UI (Win95, Mac OS 9, terminal windows)",
   "look": "beveled windows, title bars, 1-bit icons, cursor, dialog boxes as the characters.",
   "fits": {

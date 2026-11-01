@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "cinematic-ai-worlds",
   "number": 26,
+  "gate_profile": "photographic",
   "name": "Cinematic AI worlds",
   "look": "photoreal or painterly generated environments, camera flies through, product placed in an impossible place.",
   "fits": {

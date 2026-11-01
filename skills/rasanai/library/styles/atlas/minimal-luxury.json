@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "minimal-luxury",
   "number": 29,
+  "gate_profile": "flat",
   "name": "Minimal luxury / quiet premium",
   "look": "dark or warm-neutral, huge restraint, one object, slow light.",
   "fits": {

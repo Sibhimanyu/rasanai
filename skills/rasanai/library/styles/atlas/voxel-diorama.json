@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "voxel-diorama",
   "number": 3,
+  "gate_profile": "dimensional",
   "name": "Voxel / blocky 3D diorama",
   "look": "a world of cubes (Minecraft, Monument Valley with blocks), voxel models rotating, building up cube by cube.",
   "fits": {

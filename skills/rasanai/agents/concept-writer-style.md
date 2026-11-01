@@ -42,6 +42,8 @@ You write alone. Do not read the other two writers' files: the jury needs three 
   "carrier": { "what": "the one thing that travels and changes", "kind": "dot | word-line | icon-set | palette-dither | card-field | ui-plane | ui-object | object | mark" },
   "signature_moment": { "what": "the one shot a viewer retells, as a picture (6+ words)", "shot": "s04" },
   "sound_mode": "vo-kinetic | instrumental-arc | sfx-led | song-lyric",
+  "music_arc": "drop (default) | slow-burn | ambient-bed | cold-open | stinger | pulse-loop | lyric-song  (or { shape, genre, instruments, meter }): the music's shape, chosen with the sound mode; see references/sound.md, Music arc shapes. A pixel world is chiptune, a calm film an ambient-bed, a sung film lyric-song",
+  "grammar_waivers": "optional [{ rule, why }]: launch-grammar defaults this idea breaks on purpose (full-frame-type | hook-address | hook-object | hook-logo | median-shot), each with a one-line reason; a waived rule is a note at the gates, not an error. See references/concept-schema.md",
   "product_truth": "how the claim is said or shown, and where the real product appears (name, mark, real UI or output), by 60% at the latest",
   "first_watch": "what a stranger understands by 10 s and by the end, sound off",
   "shots": [ { "id": "s01", "t": 0, "see": "what we see", "style": "...", "carrier_state": "...", "move": "<library/moves id>", "transition": "...", "words": "type or VO, may be empty" } ],

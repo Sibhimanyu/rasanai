@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "photo-collage-surreal",
   "number": 27,
+  "gate_profile": "photographic",
   "name": "Photo-collage with AI imagery (surreal cut-up)",
   "look": "generated or stock photos cut and recombined: heads on objects, scale jokes, colour-field backdrops.",
   "fits": {

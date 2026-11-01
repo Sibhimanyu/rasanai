@@ -65,6 +65,7 @@ import { zonesFor, destinationOf, phonePt, PHONE_MIN_PT } from "./lib/safezones.
 import { loadIntent, intentBeats } from "./lib/emphasis.mjs";
 import { craftProfile } from "./lib/frames-lib.mjs";
 import { shotLimits } from "./lib/ref-targets.mjs";
+import { grammarWaivers, parseWaiversArg, GATE_PROFILES } from "./lib/gate-profile.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -507,9 +508,14 @@ export async function measureFrames(opts = {}) {
   // Creative policy (opts.creativePolicy | opts.lookProfile, --look-style): the depth/ground/scale craft belongs to a dimensional
   // look. For any other look those findings are `review` (measured evidence for the creative review), never errors or warnings.
   // Legibility (text-load, phone-small-text) and structure stay as they are. No policy: every check as before.
-  const policy = craftProfile(opts.creativePolicy != null ? opts.creativePolicy : opts.lookProfile);
+  // gate profile (lib/gate-profile.mjs; final-gate passes the chosen world's atlas gate_profile): photographic judges as dimensional; flat | pixel | stepped | hand-made take the dimensional craft as `review`
+  const gProfile = opts.gateProfile && GATE_PROFILES.includes(String(opts.gateProfile)) ? String(opts.gateProfile) : null;
+  const policy = craftProfile(opts.creativePolicy != null ? opts.creativePolicy : opts.lookProfile != null ? opts.lookProfile : gProfile === "photographic" ? "dimensional" : gProfile);
+  // launch-grammar waivers: a concept's grammar_waivers [{rule, why}] (the score named by --plan, or --waive); a waived rule is a note, never an error
+  const waived = { ...(() => { try { const pl = opts.plan ? readJ(path.resolve(opts.plan)) : null; return grammarWaivers(pl).waived; } catch { return {}; } })(), ...(opts.waivers || {}) };
+  if (Object.keys(waived).length) res.waived = waived;
   const STYLE_CRAFT = new Set(["ground-chroma", "ground-range", "flat-swatch-grounds", "soft-content", "colourfulness", "cut-rhythm", "boldness", "boldness-placement", "competing-heroes", "scale-contrast", "giant-moment", "no-peak-moment"]);
-  if (policy) res.creative = { style: policy.style, dimensional: policy.dimensional };
+  if (policy) res.creative = { style: policy.style, dimensional: policy.dimensional, gate_profile: gProfile };
   const add = (severity, check, message, fix, extra = {}) => F.push({ severity: policy && !policy.dimensional && STYLE_CRAFT.has(check) ? "review" : severity, check, message, fix, ...extra });
   const dur = res.dur;
   const typeSev = L.flat ? "error" : "warning"; // a flat ground puts the whole load on type and object scale
@@ -551,7 +557,8 @@ export async function measureFrames(opts = {}) {
   if (res.kind === "video" && dur >= GATE.asl_min_dur && /^(launch|promo)/i.test(opts.kind || "") && film.shotLens && film.shotLens.length) {
     const sg = `${film.shotsPer10s} shots per 10 s; ${film.hardCuts} hard cuts in ${r1(dur)} s`, seeLaunch = "references/launch-film.md section 6";
     const RT = shotLimits(opts.run, GATE); // the run's own reference films may widen these limits inside sane bounds (refs/summary.json, scripts/lib/ref-targets.mjs); no references = the defaults
-    if (film.shotMedianS > RT.err) add("error", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg}): the frame is not being remade often enough`, `change the composition about every 2 s: a hard cut is one way (rare is fine); so is a morph of the carrier, an in-place word swap, a colour-world flip or a push-in to a new scale; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
+    if (film.shotMedianS > RT.err && waived["median-shot"]) add("note", "shot-length", `waived by the concept (${waived["median-shot"]}): median shot ${film.shotMedianS} s (the launch default is about ${RT.lo} to ${RT.hi} s, error above ${RT.err} s; ${sg})`, `none: the concept waived the launch grammar's median-shot rule`, { value: film.shotMedianS, limit: RT.err, waived: true });
+    else if (film.shotMedianS > RT.err) add("error", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg}): the frame is not being remade often enough`, `change the composition about every 2 s: a hard cut is one way (rare is fine); so is a morph of the carrier, an in-place word swap, a colour-world flip or a push-in to a new scale; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
     else if (film.shotMedianS > RT.hi || film.shotMedianS < RT.lo) add("warning", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg})`, `the favourites sit at a median of 1.9 s; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
     if (film.shotP10S < RT.p10) add("warning", "shot-length-short", `p10 shot ${film.shotP10S} s (at least ${RT.p10} s): too many flicker shots; one burst of 5 to 6 short shots per film is the most the favourites use`, `merge the flicker pairs or hold the shot; ${seeLaunch}`, { value: film.shotP10S, limit: RT.p10 });
     if (film.shotP90S > RT.p90) add("warning", "shot-length-long", `p90 shot ${film.shotP90S} s (at most about ${RT.p90} s)`, `break the long shots up unless they are UI proof (a typed input, a state change) or the end card; ${seeLaunch}`, { value: film.shotP90S, limit: RT.p90 });
@@ -561,6 +568,8 @@ export async function measureFrames(opts = {}) {
 
   // boldness: enough big moments (a giant glyph, a frame-filling mass, a colour field) for a film of 15 s or more
   const bd = film.boldness;
+  // boldness is profile-aware: a dimensional film is held to the full quota (error); any other profile gets a warning (a review above 60% of the quota), never an error
+  const addBold = (sev, check, message, fix, extra = {}) => F.push({ severity: policy && !policy.dimensional ? (bd && bd.bigShare >= GATE.bold_share * 0.6 ? "review" : "warning") : sev, check, message, fix, ...extra });
   const fl = footageLed(opts);
   if (fl) res.skipped.push(`boldness: a footage-led film (${fl}): live action is not measured for big moments`);
   else if (res.kind !== "video") res.skipped.push("boldness: measured on a film (--video), not on stills");
@@ -577,7 +586,7 @@ export async function measureFrames(opts = {}) {
       stillness = !!(plan && (plan.stillness === true || /^(stillness|editorial)$/i.test(plan.motion_style || ""))) || /^stillness:\s*true\b/m.test(md);
     }
     const pc = (v) => `${Math.round((v || 0) * 100)}%`;
-    add(stillness ? "warning" : "error", "boldness", `big moments on ${pc(bd.bigShare)} of the frames (needs >= ${pc(GATE.bold_share)}; the references 29 to 89%): giant glyph ${pc(bd.glyphShare)}, frame-filling object ${pc(bd.objShare)}, colour field ${pc(bd.fieldShare)}${bd.domShare != null ? `, DOM line >= ${GATE.giant_h}% H ${pc(bd.domShare)}` : ""}; ${bd.grounds} ground${bd.grounds === 1 ? "" : "s"}; the longest stretch without one is ${bd.gap[0]}-${bd.gap[1]} s${stillness ? " (a declared stillness style: a warning)" : ""}: the film stays at one scale`, `make about one beat in four big: the payoff word or number at 20 to 40% H (cropped is fine), a push-in until the object fills 40% of the frame, or a cut to a full-frame field of the brand colour; the big one belongs in ${bd.gap[0]}-${bd.gap[1]} s; references/craft.md Boldness`, { value: bd.bigShare, limit: GATE.bold_share, gap: bd.gap });
+    addBold(stillness ? "warning" : "error", "boldness", `big moments on ${pc(bd.bigShare)} of the frames (needs >= ${pc(GATE.bold_share)}; the references 29 to 89%): giant glyph ${pc(bd.glyphShare)}, frame-filling object ${pc(bd.objShare)}, colour field ${pc(bd.fieldShare)}${bd.domShare != null ? `, DOM line >= ${GATE.giant_h}% H ${pc(bd.domShare)}` : ""}; ${bd.grounds} ground${bd.grounds === 1 ? "" : "s"}; the longest stretch without one is ${bd.gap[0]}-${bd.gap[1]} s${stillness ? " (a declared stillness style: a warning)" : ""}: the film stays at one scale`, `make about one beat in four big: the payoff word or number at 20 to 40% H (cropped is fine), a push-in until the object fills 40% of the frame, or a cut to a full-frame field of the brand colour; the big one belongs in ${bd.gap[0]}-${bd.gap[1]} s; references/craft.md Boldness`, { value: bd.bigShare, limit: GATE.bold_share, gap: bd.gap });
   }
 
   // DOM text
@@ -638,7 +647,7 @@ function printable(res) {
   if (res.kind === "video") out.push("  cuts    " + [row("hard cuts", f.hardCuts), row("ASL", f.aslS, " s"), row("compositions/10 s", f.compositionsPer10s), row("shot median", f.shotMedianS, " s"), row("shot p10/p90", f.shotP10S != null ? f.shotP10S + "/" + f.shotP90S : null, " s")].filter(Boolean).join(" · "));
   if (f.charsMedian != null) out.push("  text    " + [row("competing heroes", f.competingShare == null ? null : Math.round(f.competingShare * 100), "% of frames"), row("chars", f.charsMedian), row("lines", f.linesMedian), row("biggest p90", f.biggestP90, "% H"), row("p90/p10", f.biggestRatio), row("max", f.biggestMax, "% H"), row("frames >= 20% H", Math.round(f.share20 * 100), "%"), row("object p90/p10", f.objectRatio)].filter(Boolean).join(" · "));
   if (res.limits.notes.length) for (const n of res.limits.notes) out.push(`  note    ${n}`);
-  for (const x of res.findings) out.push(`  ${x.severity === "error" ? "FAIL" : x.severity === "review" ? "note" : "warn"} ${x.check}: ${x.message}\n       fix: ${x.fix}`);
+  for (const x of res.findings) out.push(`  ${x.severity === "error" ? "FAIL" : x.severity === "review" || x.severity === "note" ? "note" : "warn"} ${x.check}: ${x.message}\n       fix: ${x.fix}`);
   for (const s of res.skipped) out.push(`  skip ${s}`);
   for (const c of res.could_not_run) out.push(`  could not run: ${c}`);
   return out.join("\n");
@@ -662,7 +671,7 @@ async function main() {
   const args = parseArgs();
   const str = (v) => (v == null || v === true ? null : String(v));
   if (!args.stills && !args.video) {
-    process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--look-style <style>] [--medium <medium.json>] [--json]\n");
+    process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--look-style <style>] [--medium <medium.json>] [--gate-profile <dimensional|flat|pixel|stepped|photographic|hand-made>] [--waive rule:why;rule:why] [--json]\n");
     process.exit(1);
   }
   // Part 2 (new path only): --medium <medium.json> is the same input as frames.mjs gives (--look-style medium-flat) when the contract qualifies multi-plane-depth for EVERY layer; an explicit --look-style wins; any other contract changes nothing
@@ -676,7 +685,7 @@ async function main() {
       }
     } catch { /* an unreadable contract leaves the gate as it was */ }
   }
-  const res = await measureFrames({ run: str(args.run), stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination), creativePolicy: lookStyle });
+  const res = await measureFrames({ run: str(args.run), stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination), creativePolicy: lookStyle, gateProfile: str(args["gate-profile"]), waivers: parseWaiversArg(str(args.waive)) });
   if (args["write-brand"] && res.film) {
     const p = path.resolve(String(args["write-brand"])), g = readJ(p) || {};
     g.frameMetrics = { groundChroma: res.film.groundChroma, groundRange: res.film.groundRange, softP90: res.film.softP90, colourfulP90: res.film.colourfulP90, charsMedian: res.film.charsMedian ?? null, measuredFrom: str(args.video) || str(args.stills) };

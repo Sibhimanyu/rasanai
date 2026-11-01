@@ -9,7 +9,7 @@ Claude's tell when it fixes a film round after round is that every fix makes it 
 - `strips/rows.png` (and `rows-2.png`, ...): one row per moment, **X on the left, Y on the right**, the same seconds in both; the last rows are the two endings side by side. Read it at 100%.
 - `strips/phone-X.png`, `strips/phone-Y.png`: every second of each film at 360 px wide, the film as it plays on a phone held upright.
 - the score (`motion/score.json`) when one was given: only for what each beat is meant to say, never to excuse what the frames fail to show.
-- the Dispatch context: `product_first` and `brand_lock` when they apply (then a conceit, a lost brand look or a small end line counts against the film that has it).
+- the Dispatch context: `product_first` and `brand_lock` when they apply (then a product a stranger cannot identify, an untrue claim or label, a lost brand palette, type or logo, or a small end line counts against the film that has it; a concept, world or metaphor never does).
 - `strengths_to_keep` in the Dispatch context, when present: things a reviewer praised in one of the films. Look for each in BOTH films at that second; add `strength_regressions: [{film: "X"|"Y", strength, at}]` (or `[]`) to the verdict. Say 'lacks' or 'does worse' in reasons, never 'regression' (the leak check refuses it).
 
 ## How to judge

@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "particle-field",
   "number": 25,
+  "gate_profile": "dimensional",
   "name": "Generative / particle field",
   "look": "thousands of points, flow fields, swarms forming shapes and text.",
   "fits": {

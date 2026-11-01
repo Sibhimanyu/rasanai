@@ -57,6 +57,7 @@ import { loadManifest, presentManifest, hitTimes as manifestHits } from "./lib/f
 import { editToPicture, singScore, tempoCheck } from "./lib/music-edit.mjs";
 import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits, arcFit } from "./lib/audio.mjs";
 import { resolveIdentity, renderScore, identityPlan, sidecarPath, readSidecar } from "./lib/procedural-score.mjs";
+import { shapeId, shapeOf, shapeMenu, SHAPE_IDS, isPixelWorld, worldSound, meterBeats } from "./lib/music-shapes.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText, styleExclusions } from "./lib/music-lib.mjs";
 import { readSoundChoices, resolveSound } from "./lib/sound-choices.mjs";
 import { KEY as SRC_KEY, CAVEATS, warn as warnLicence, aceStep, localGen, buildLocalPrompt } from "./lib/sound-sources.mjs";
@@ -183,8 +184,16 @@ if (args.constraints && args.constraints !== true) {
   catch (e) { notes.push(`--constraints unreadable (${String(e.message).slice(0, 80)}): ignored`); }
 }
 const narrated = args.narrated ? true : SR ? SR.voice_role === "carrier" : false;
-const DIRECTION = SR ? { feeling: SR.feeling, vocals_ok: SR.music_role === "led" && SR.voice_role !== "carrier", narrated } : null;
-const EXCL = styleExclusions({ direction: DIRECTION, constraints: CONSTRAINTS });
+// the film's own sound decisions, read once: the sound mode (audio/mode.json, which crew.mjs soundmode writes from the CONCEPT's sound_mode unless the person overrode it), the style world and the concept's music_arc (a shape name or an object)
+const readJ = (...p) => { try { return JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), ...p), "utf8")); } catch { return null; } };
+const MODE_ID = (args.mode && args.mode !== true ? String(args.mode) : (readJ("audio", "mode.json") || {}).mode) || null;
+const CHOSEN = readJ("story", "chosen.json") || {}, SCORE0 = readJ("motion", "score.json") || {};
+const WORLD = [SCORE0.style_world, CHOSEN.style_world, CHOSEN.pitch && CHOSEN.pitch.style_world, CHOSEN.visual_plan && CHOSEN.visual_plan.style_world].find((w) => w && (typeof w === "string" || typeof w === "object")) || null;
+const conceptArc = [CHOSEN.music_arc, CHOSEN.pitch && CHOSEN.pitch.music_arc].find((w) => w && (typeof w === "string" || typeof w === "object")) || null;
+const conceptShape = conceptArc ? (typeof conceptArc === "string" ? conceptArc : conceptArc.shape || null) : null;
+const WANTS_VOCALS = MODE_ID === "song-lyric";
+const DIRECTION = SR ? { feeling: SR.feeling, vocals_ok: (SR.music_role === "led" && SR.voice_role !== "carrier") || WANTS_VOCALS, narrated } : null;
+let EXCL = styleExclusions({ direction: DIRECTION, constraints: CONSTRAINTS, allow: WANTS_VOCALS ? ["vocals"] : [] });
 // music_source: none is a decision, never silently replaced; user_track is used first when no --track was given
 const trackArg = args.track || (SR && SR.user_track && SR.user_track.file && fs.existsSync(path.resolve(String(SR.user_track.file))) ? SR.user_track.file : null);
 if (SR && SR.music_source === "user_track" && !trackArg) notes.push("you chose your own track, but no file was given or found (--track <file>): the options below are alternatives, not a replacement for it");
@@ -194,13 +203,24 @@ const chain = sourceChain(process.env, { user: !!trackArg, noAi: !!args["no-ai"]
   const aiLane = chain.find((c) => c.id === "ai");
   const cmd0 = SRC_KEY.acestep() ? String(SRC_KEY.acestep()).split(/\s+/)[0] : null;
   const ok = !!(localGen.available() || (cmd0 && fs.existsSync(cmd0)));
-  const consent = !!args["allow-generation"] || !!(args.sources && String(args.sources).split(",").includes("acestep"));
-  chain.splice(chain.indexOf(aiLane) + 1, 0, { id: "acestep", on: ok && consent && !args["no-ai"], consent, threshold: 65, why: ok ? (consent ? (localGen.available() ? "local-gen: ACE-Step 1.5 in its own uv venv, 2-3 candidates ranked by arc fit" : "local ACE-Step via ACESTEP_CMD, in its own process") : "a local generator is installed, but generation is off for this film: pass --allow-generation") : "no local generator: node scripts/music.mjs local-setup (about 9 GB), or ACESTEP_CMD" });
+  // a completed local ACE-Step setup IS the consent: it is the person's own install, free and local (paid vendors still need --allow-generation); an explicit opt-out wins: --no-generation, --no-ai, --allow-generation false
+  const optOut = !!args["no-generation"] || /^(false|0|no|off)$/i.test(String(args["allow-generation"] ?? ""));
+  const explicitConsent = (!!args["allow-generation"] && !optOut) || !!(args.sources && String(args.sources).split(",").includes("acestep"));
+  const consent = explicitConsent || (ok && !optOut);
+  if (ok && !explicitConsent && consent && !args["no-ai"]) notes.push("local ACE-Step is installed, which counts as consent: music is generated to the film's arc (opt out with --no-generation)");
+  if (ok && optOut) notes.push("local ACE-Step is installed but generation was opted out (--no-generation / --allow-generation false): catalog and procedural music only");
+  chain.splice(chain.indexOf(aiLane) + 1, 0, { id: "acestep", on: ok && consent && !args["no-ai"], consent, implied: ok && consent && !explicitConsent, threshold: 65, why: ok ? (consent ? (localGen.available() ? "local-gen: ACE-Step 1.5 in its own uv venv, 2-3 candidates ranked by arc fit" : "local ACE-Step via ACESTEP_CMD, in its own process") : "a local generator is installed, but generation was opted out for this film (--no-generation)") : "no local generator: node scripts/music.mjs local-setup (about 9 GB), or ACESTEP_CMD" });
 }
 const on = (id) => (chain.find((c) => c.id === id) || {}).on;
 const scoreFile = path.resolve(String(args.run), "motion", "score.json");
-let { arc, derived: arcDerived } = readArc(args.arc || (fs.existsSync(scoreFile) ? scoreFile : null), film || 30);
-if (arcDerived && film) notes.push("no music_arc given (--arc or motion/score.json): the brief uses a default arc for a " + film + " s film");
+let { arc, derived: arcDerived, named: arcNamed } = readArc(args.arc || (fs.existsSync(scoreFile) ? scoreFile : null), film || 30);
+// the concept names the shape (its music_arc: "slow-burn" or { shape, ... }); an arc that names none takes the concept's, else the default "drop"
+if (!arcNamed && conceptShape) { const r2 = readArc({ ...(typeof conceptArc === "object" ? conceptArc : {}), ...(arcDerived ? {} : arc), shape: conceptShape }, film || 30); arc = r2.arc; arcDerived = r2.derived; arcNamed = true; }
+const SHAPE0 = shapeOf(arc.shape);
+// what the sound mode and the arc WANT lifts the legacy bans (vocals, claps, whistles) in the brief: a sung film, or an arc / concept that names them
+EXCL = styleExclusions({ direction: DIRECTION, constraints: CONSTRAINTS, allow: [...(WANTS_VOCALS || SHAPE0.id === "lyric-song" ? ["vocals"] : []), ...["claps", "whistles"].filter((w) => new RegExp(w.replace(/s$/, ""), "i").test(String(arc.instruments || "") + " " + String(arc.genre || "")))] });
+if (arcDerived && film && !arcNamed) notes.push("no music_arc given (--arc or motion/score.json): the brief uses a default arc for a " + film + " s film");
+else if (arcNamed) notes.push(`music arc shape: ${SHAPE0.id} (${SHAPE0.label})${arcDerived ? ", times defaulted for a " + (film || 30) + " s film" : ""}`);
 
 // ---------------------------------------------------------------- intents
 
@@ -326,28 +346,29 @@ function arcFromManifest(m) {
   const drop = cue("drop_at"), payoff = cue("payoff_at"), button = cue("button_at") ?? end ?? null, b0 = cue("break_start"), b1 = cue("break_end");
   return drop > 0 && button > 0 ? { intro_until: drop * 0.7, drop_at: drop, break: b0 != null && b1 != null ? [b0, b1] : null, payoff_at: payoff ?? drop + (button - drop) * 0.6, button_at: button } : null;
 }
+// per shape (lib/music-shapes.mjs gate): the drop shape insists on all four as before; a slow-burn needs its crest and the end card, an ambient bed or a loop nothing
 const arcSpecProblems = (a) => {
-  const P = [];
-  if (!(a.drop_at > 0)) P.push("drop_at (the turn: where the lift or drop lands)");
-  if (!(a.payoff_at > a.drop_at)) P.push("payoff_at after drop_at");
-  if (!(a.button_at > (a.payoff_at || 0))) P.push("button_at (the end card) after payoff_at");
-  if (!Array.isArray(a.break) || !(a.break[1] > a.break[0]) || a.break[1] > a.button_at + 1e-6) P.push("break: [from, to] before the end card");
+  const P = [], g = shapeOf(a.shape).gate;
+  if (g.includes("drop_at") && !(a.drop_at > 0)) P.push("drop_at (the turn: where the lift or drop lands)");
+  if (g.includes("payoff_at") && !(a.payoff_at > a.drop_at)) P.push("payoff_at after drop_at");
+  if (g.includes("button_at") && !(a.button_at > (a.payoff_at || 0))) P.push("button_at (the end card) after payoff_at");
+  if (g.includes("break") && (!Array.isArray(a.break) || !(a.break[1] > a.break[0]) || a.break[1] > a.button_at + 1e-6)) P.push("break: [from, to] before the end card");
   return P;
 };
 let arcGate = false;
 if (!silentArgs()) {
-  if (arcDerived) { const am = arcFromManifest(eventsInput); if (am) { arc = am; arcDerived = false; notes.push("arc taken from the film-event manifest's music cues"); } }
+  if (arcDerived) { const am = arcFromManifest(eventsInput); if (am) { arc = { ...arc, ...am }; arcDerived = false; notes.push("arc taken from the film-event manifest's music cues"); } }
   const missing = [];
   if (!fs.existsSync(path.join(path.resolve(String(args.run)), "story", "chosen.json"))) missing.push("the chosen story (<run>/story/chosen.json): pick the music after the person chooses the script, never while they are still reading");
-  if (arcDerived) missing.push("the story's event map: no music_arc (--arc or motion/score.json) and no music cues in motion/events.json");
+  if (arcDerived && SHAPE0.gate.length) missing.push("the story's event map: no music_arc (--arc or motion/score.json) and no music cues in motion/events.json");
   else for (const p of arcSpecProblems(arc)) missing.push(`arc needs ${p}`);
   if (!film) missing.push("--film <seconds>");
   if (missing.length && !UNPLANNED) {
-    console.log(JSON.stringify({ refused: true, why: "music is picked after the story, to its events", missing, arc_spec: { intro_until: "quiet or sparse until here", drop_at: "the turn: a lift or drop lands", break: "[from, to] a break (bed pulled out) before the end card", payoff_at: "the payoff, the loudest moment", button_at: "the end card: the music button" }, example: "--arc '{\"intro_until\":6,\"drop_at\":12,\"break\":[30,31.4],\"payoff_at\":33,\"button_at\":41}' --film 45", note: "or pass --unplanned \"<reason>\" to go on without the gate (logged as a downgrade)" }, null, 2));
+    console.log(JSON.stringify({ refused: true, why: "music is picked after the story, to its events", missing, shape: SHAPE0.id, shapes: shapeMenu().split("\n"), arc_spec: { intro_until: "quiet or sparse until here", drop_at: "the turn: a lift or drop lands", break: "[from, to] a break (bed pulled out) before the end card", payoff_at: "the payoff, the loudest moment", button_at: "the end card: the music button" }, example: "--arc '{\"intro_until\":6,\"drop_at\":12,\"break\":[30,31.4],\"payoff_at\":33,\"button_at\":41}' --film 45", note: "or pass --unplanned \"<reason>\" to go on without the gate (logged as a downgrade)" }, null, 2));
     process.exit(2);
   }
   if (missing.length) noteDowngrade({ run: args.run, severity: "needs-you", what: "the music's story gate (chosen story, event map, arc)", instead: "music picked without the full arc: " + UNPLANNED, why: missing.join("; ").slice(0, 300), impact: "the music may not follow the story's turn, payoff and break" });
-  else arcGate = true;
+  else arcGate = !(arcDerived && !SHAPE0.gate.length);
 }
 function silentArgs() { return !!args["silent-by-choice"] || (SR && SR.music_source === "none"); }
 const hitCache = new Map();
@@ -511,13 +532,19 @@ async function fromAI() {
 // local-gen (ACE-Step 1.5): ONE model load, 2-3 candidates built from the film's arc, BPM, mood, style world and (song-lyric) lyrics; arcFit then ranks them with every other source
 async function fromLocalGen() {
   const bpm = Math.round(tempoOf(intents[0]));
-  let modeId = args.mode && args.mode !== true ? String(args.mode) : null, lyricsText = "";
-  try { const mj = path.join(path.resolve(String(args.run)), "audio", "mode.json"); if (!modeId && fs.existsSync(mj)) modeId = JSON.parse(fs.readFileSync(mj, "utf8")).mode; } catch {}
+  let modeId = MODE_ID, lyricsText = "";
   const lf = args.lyrics && args.lyrics !== true ? path.resolve(String(args.lyrics)) : path.join(path.resolve(String(args.run)), "audio", "lyrics.txt");
   if (fs.existsSync(lf)) lyricsText = fs.readFileSync(lf, "utf8");
-  if (modeId === "song-lyric" && !lyricsText.trim()) { notes.push("song-lyric mode with no lyrics (--lyrics <file> or <run>/audio/lyrics.txt): an instrumental was made instead; write the lyric first (five acts, ending on the tagline)"); modeId = "instrumental-arc"; }
+  // a sung film with no lyric is a visible downgrade (the lyricist role writes audio/lyrics.txt: crew.mjs brief --role lyricist), never a silent switch to instrumental
+  if (modeId === "song-lyric" && !lyricsText.trim()) {
+    notes.push("song-lyric mode with no lyrics (--lyrics <file> or <run>/audio/lyrics.txt): an instrumental was made instead; run the lyricist first (crew.mjs brief --role lyricist --run <run>), then music again");
+    noteDowngrade({ run: args.run, severity: "needs-you", what: "the sung lyric music (sound mode song-lyric)", instead: "an instrumental take", why: "no lyric file: audio/lyrics.txt is missing or empty (--lyrics <file>)", impact: "the film asked for a sung hook and gets none until the lyricist writes audio/lyrics.txt" });
+    modeId = "instrumental-arc";
+  }
   const mood = SR ? [SR.feeling && SR.feeling.value !== "unset" && SR.feeling.value !== "custom" ? SR.feeling.value : null, `${SR.energy.perceived} energy`].filter(Boolean).join(", ") : "";
-  const P = buildLocalPrompt({ arc, film: film || 30, bpm, mood, style: `${args.style || ""} ${intents[0].family.id.replace("-", " ")}`.trim(), lyrics: lyricsText, mode: modeId || "instrumental-arc", narrated, exclusions: EXCL && Array.isArray(EXCL.avoid) ? EXCL.avoid : [] });
+  // style, instruments, meter and genre come from the concept's music_arc and the style world (a pixel world is chiptune); the generic family text only fills in when neither says anything
+  const sayings = !!(worldSound(WORLD) || arc.genre || arc.instruments);
+  const P = buildLocalPrompt({ arc, shape: arc.shape, world: WORLD, genre: arc.genre, instruments: arc.instruments, meter: arc.meter, film: film || 30, bpm, mood, style: `${args.style || ""} ${sayings ? "" : intents[0].family.id.replace("-", " ")}`.trim(), lyrics: lyricsText, mode: modeId || "instrumental-arc", narrated, voice: arc.voice || "", exclusions: EXCL && Array.isArray(EXCL.avoid) ? EXCL.avoid : [] });
   warnLicence("localgen");
   const name = "localgen";
   // a song makes 4 takes (sung words are the unreliable part: more takes, then pick by what is really sung); an instrumental up to 3
@@ -556,7 +583,7 @@ async function fromLocalGen() {
     if (!P.instrumental) { try { rawSing = singScore(f.file, lyricsText, { hook: P.hook, work: path.join(dir, `${id}.sing`) }); } catch {} }
     found.push({ id, sing: rawSing, tempo: f.tempo || null, title: `Made locally to the arc: ${P.instrumental ? "instrumental" : "sung"} take ${n}, ${P.bpm} BPM`, file: f.file, source: "Local generation (ACE-Step 1.5)", kind: "ai", origin: "ai:ace-step/local", license: "MIT (ACE-Step 1.5 code and weights); model card: generated music may be used commercially", caveat: CAVEATS.localgen, attribution: null, url: null, intent: intents[0], targetBpm: P.bpm, lyrics_json: lyricsJson, generation: { vendor: "ace-step-1.5/turbo+lm-0.6B", seed: f.seed, prompt: P.caption, lyrics: P.lyrics, date: new Date().toISOString() } });
     // generate long, then edit to picture: the same take cut on downbeats onto the arc (lib/music-edit.mjs); it competes with the raw take and every other source on arcFit
-    if (film && !args["no-edit"]) {
+    if (film && !args["no-edit"] && meterBeats(arc.meter) === 4) {
       try {
         const eo = path.join(dir, `${id}-edited.wav`);
         const E = editToPicture({ file: f.file, arc, film, bpm: P.bpm, out: eo, lyrics: P.instrumental ? "" : lyricsText, hook: P.hook });
@@ -574,7 +601,7 @@ async function fromLocalGen() {
   }
 }
 async function fromAceStep() {
-  if (localGen.available()) { try { return await fromLocalGen(); } catch (e) { notes.push(`local-gen failed: ${String(e.message).slice(0, 240)}${SRC_KEY.acestep() ? "; trying ACESTEP_CMD" : ""}`); if (!SRC_KEY.acestep()) return; } }
+  if (localGen.available()) { try { return await fromLocalGen(); } catch (e) { notes.push(`local-gen failed: ${String(e.message).slice(0, 240)}${SRC_KEY.acestep() ? "; trying ACESTEP_CMD" : ""}`); noteDowngrade({ run: args.run, severity: "notice", what: "music generated locally (ACE-Step)", instead: "catalog or original-score music", why: "local-gen failed: " + String(e.message).slice(0, 180), impact: "the music is not made to this film's arc and style" }); if (!SRC_KEY.acestep()) return; } }
   let n = 0;
   for (const it of intents.slice(0, count)) {
     const bpm = Math.round(tempoOf(it));
@@ -822,7 +849,7 @@ const analyzeOne = (f) => {
     }
     // the measured quality gate (a user's own track only warns)
     try {
-      const J = judge(f.file, { kind: f.kind, family, title: f.title, A, plan, narrated, vocals: f.vocals });
+      const J = judge(f.file, { kind: f.kind, family, title: f.title, A, plan, narrated, vocals: f.vocals, chip: isPixelWorld(WORLD) || /chip|8[- ]?bit/i.test(String(arc.genre || "") + " " + String(arc.instruments || "")) });
       o.quality = J.quality;
       o.score = J.score;
       o.rank = Math.round(J.score * (PRIOR[f.prior || f.kind] ?? 0.5));
@@ -917,6 +944,15 @@ for (const o of options) if (shown.length < count && o.usable && !shown.some((x)
 for (const o of options) if (shown.length < count && o.usable && !shown.includes(o)) shown.push(o);
 for (const o of options) if (shown.length < count && !shown.includes(o)) shown.push(o);
 const best = shown.find((o) => o.usable) || null;
+// a fallback from generated music to the catalog or the offline score is never silent: it is logged for the person (downgrades.jsonl, the drawer's "Working without")
+{
+  const aceLane = chain.find((c) => c.id === "acestep");
+  if (aceLane && aceLane.on && !silentByChoice && !mineFirst() && best && !String(best.origin || "").startsWith("ai:")) {
+    const made = options.filter((o) => String(o.origin || "").startsWith("ai:ace-step"));
+    noteDowngrade({ run: args.run, severity: "notice", what: "music generated to the film's arc (local ACE-Step)", instead: `${best.origin === "procedural" ? "the original procedural score" : "catalog music"}: ${String(best.title || best.id).slice(0, 80)}`, why: made.length ? `${made.length} generated take(s) ranked below it on arc fit or failed a quality gate` : "no generated take came back (see the notes: the local generator failed or made nothing usable)", impact: "the music may not match the film's style world and arc as closely as a made-to-the-cut take" });
+    notes.push("fallback: the recommended music is " + (best.origin === "procedural" ? "the original procedural score" : "catalog music") + ", not a generated take (logged in downgrades.jsonl)");
+  }
+}
 
 // credits for the recommended track (re-run `credits --pick <id>` for the one the user picks)
 const credits = creditsText(best ? { ...ledger.find((l) => l.id === best.id), license: best.license } : null);

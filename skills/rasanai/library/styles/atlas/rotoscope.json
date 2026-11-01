@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "rotoscope",
   "number": 19,
+  "gate_profile": "stepped",
   "name": "Rotoscope / traced live action",
   "look": "real footage traced into flat colour/line, wobbling edges.",
   "fits": {

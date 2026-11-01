@@ -20,7 +20,7 @@ The script is written once and travels: the Story card shows it, `scenes.json` i
 
 ## Launch, promo and product films are product-first
 
-For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` first and let it win: the real product UI on screen early (3 s is the house target for product-demonstrating kinds, not a rule for every kind); a villain, when you use one, is the viewer's real pain at the claim's scope; a turn, when you use one, is the real product reversing it; one hero product moment (`hero_moment`) shows it for real; short plain lines; the required end line is the largest type on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (the only figures: an instant visual pun that resolves to the product within a second, and a letter or shape transformation that lands on the real product within its move). Sure, Bold and Wild differ in structure, pace and energy, never in leaving the product.
+For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` first and let it win: the real product UI on screen early (3 s is the house target for product-demonstrating kinds, not a rule for every kind); a villain, when you use one, is the viewer's real pain at the claim's scope; a turn, when you use one, is the real product reversing it; one hero product moment (`hero_moment`) shows it for real; short plain lines; the required end line is the largest type on a clean CTA card; the concept, world, character, metaphor and style are free (product truth: the real product and claims stay true and legible). The three differ in idea and style world.
 
 **Branded launch, promo or brand film:** write to the template in `references/launch-film.md` §1 (the product or brand in 1 to 3 s, the reveal, the hero demo, 2 to 4 real feature demos, the payoff line, the end card), each beat inside its timing range; mark each beat's `role` and set `payoff_line`. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and its words. The three scripts differ only in emphasis and order, never in concept. On a ladder the order is the rungs' order and the emphasis is which uses and how the refrain is worded.
 
@@ -244,7 +244,7 @@ Legacy multi-writer and pas/ladder scripts: these are tools, not requirements. A
 - [ ] Coverage: every Must-show feature and every Surprising fact is a row in `coverage` with a `beat`, or a `cut` with a reason of four words or more.
 - [ ] The plan: your slot's device, `turn_kind`, `peak_kind` and owned claims are in the pitch, and no word was moved into `actor` to pass the scope count.
 - [ ] When the film has a peak, it is the longest beat; the end line is held long enough for its length; `tempo.ideas` is the intent's count of distinct beliefs.
-- [ ] Product-first: UI within 3 s, a hero moment, real uses, lines of 6 words or fewer, the end line the largest type, nothing is a museum, allegory, invented world or metaphor.
+- [ ] Product-first: UI within 3 s, a hero moment, real uses, lines of 6 words or fewer, the end line the largest type, the product and claim legible to a stranger on a silent first watch (a metaphor, world or character is fine).
 - [ ] The three scripts are three arguments or engines, not one takeaway in three costumes.
 
 ```bash

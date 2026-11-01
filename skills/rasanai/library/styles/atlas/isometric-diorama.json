@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "isometric-diorama",
   "number": 11,
+  "gate_profile": "dimensional",
   "name": "Isometric 3D diorama / infographic",
   "look": "miniature isometric world, flat 3-tone blocks, rail-style camera, labels in thin ink.",
   "fits": {

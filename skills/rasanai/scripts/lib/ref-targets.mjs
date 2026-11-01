@@ -105,8 +105,13 @@ export function sfxCapPerSec(run, modePerSec) {
   return Math.min(modePerSec, Math.max(BOUNDS.sfx_cap_per_s[0], t.sfx_cap_per_s));
 }
 
-// designed-SFX density band (per 10 s): warn outside lo-hi, error above err. 1.5-2.2 / 3 by default; the run's own reference density moves it, inside BOUNDS
-export function sfxDensityBand(run) {
+// designed-SFX density band (per 10 s): warn outside lo-hi, error above err. Keyed to the sound mode (audio/mode.json, or the `mode` argument): sfx-led carries the whole film, about 4-8 per 10 s (error above 12);
+// silent or sparse (a voice-led film, no music) is lower; music-led (instrumental-arc, song-lyric, no mode) keeps 1.5-2.2 / 3, and the run's own reference density moves THAT band, inside BOUNDS
+export const SFX_BANDS = { "sfx-led": { lo: 4, hi: 8, err: 12 }, "vo-kinetic": { lo: 1, hi: 2, err: 3 }, silent: { lo: 0.5, hi: 1.5, err: 2.5 }, sparse: { lo: 0.5, hi: 1.5, err: 2.5 } };
+export function sfxDensityBand(run, mode) {
+  let m = mode || null;
+  if (!m && run) { try { m = JSON.parse(fs.readFileSync(path.join(run, "audio", "mode.json"), "utf8")).mode || null; } catch {} }
+  if (m && SFX_BANDS[m]) return { ...SFX_BANDS[m], fromRefs: false, mode: m };
   const t = refTargets(run);
   if (!t || t.sfx_per_10s == null) return { lo: 1.5, hi: 2.2, err: 3, fromRefs: false };
   const [bl, bh] = BOUNDS.sfx_per_10s, lo = r2(clamp(t.sfx_per_10s * 0.8, bl, 1.5)), hi = r2(clamp(Math.max(t.sfx_per_10s * 1.2, lo + 0.4), lo + 0.4, bh));

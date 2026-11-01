@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "blueprint",
   "number": 23,
+  "gate_profile": "flat",
   "name": "Blueprint / technical drawing / cyanotype",
   "look": "white line on blue, drafting construction, dimension lines, callouts.",
   "fits": {

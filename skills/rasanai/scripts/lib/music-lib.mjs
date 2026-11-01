@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { decode, loudness } from "./audio.mjs";
+import { shapeId, shapeOf, shapeNamed, defaultShapeArc } from "./music-shapes.mjs";
 
 // ---------------------------------------------------------------- keys (only ever the user's own)
 
@@ -209,7 +210,8 @@ export function gateTrack(Q, opts = {}) {
 const lin = (x, lo, hi, perLow, perHigh, weight) => Math.max(0, weight - (x < lo ? (lo - x) * perLow : x > hi ? (x - hi) * perHigh : 0));
 const ENDING = { stop: 1, decay: 1, "ring-out": 0.8, cut: 0.6, fade: 0.5, none: 0.2, unknown: 0.5 };
 const SHAPE = { backtimed: 1, "head+tail": 0.85, "own-fade": 0.7, button: 0.6, fade: 0.35, repeat: 0 };
-const TITLE_BAD = /\b(remix|feat\.?|dj|demo|loop|version|8[- ]?bit|chiptune|ringtone)\b|\bmix\)/i;
+const TITLE_BAD = /\b(remix|feat\.?|dj|demo|loop|version|ringtone)\b|\bmix\)/i;
+const TITLE_CHIP = /\b(8[- ]?bit|chiptune)\b/i; // only a miss when the film's world is not a pixel / chip world (opts.chip)
 
 // Soft score 0-100 (R3 section 6.2). Premium / organic families accept a softer low end.
 export function scoreTrack(Q, opts = {}) {
@@ -231,13 +233,13 @@ export function scoreTrack(Q, opts = {}) {
   } else P.structure = 11;
   P.fit = opts.plan ? 10 * (SHAPE[opts.plan.shape] ?? 0.4) * (opts.plan.needs_longer ? 0 : 1) : 7;
   let s = ((P.sub + P.presence + P.air + P.stereo + P.crest + P.lra + P.structure + P.fit) * 100) / 95;
-  if (TITLE_BAD.test(String(opts.title || ""))) s -= 10;
+  if (TITLE_BAD.test(String(opts.title || "")) || (!opts.chip && TITLE_CHIP.test(String(opts.title || "")))) s -= 10;
   s = Math.max(0, Math.min(100, s));
   return { score: Math.round(s), parts: Object.fromEntries(Object.entries(P).map(([k, v]) => [k, r1(v)])) };
 }
 
 // Gate + score for one file. `kind` picks the threshold; a user's own track never fails, it warns.
-export function judge(file, { kind = "catalog", family, title, A, plan, narrated, vocals, window } = {}) {
+export function judge(file, { kind = "catalog", family, title, A, plan, narrated, vocals, window, chip } = {}) {
   let w = window;
   if (!w && A && A.strong_sections && A.strong_sections[0]) {
     const s = A.strong_sections[0];
@@ -245,7 +247,7 @@ export function judge(file, { kind = "catalog", family, title, A, plan, narrated
   }
   const Q = qualityFeatures(file, w || {});
   const rejects = gateTrack(Q, { narrated, vocals });
-  const sc = scoreTrack(Q, { family, title, A, plan });
+  const sc = scoreTrack(Q, { family, title, A, plan, chip });
   const threshold = THRESHOLD[kind] ?? THRESHOLD.catalog;
   const user = kind === "user";
   const problems = [], warnings = [];
@@ -272,35 +274,47 @@ const escRe = (w) => String(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export function styleExclusions(o = {}) {
   const dir = o && o.direction && typeof o.direction === "object" ? o.direction : null;
   const hardTerms = o && o.constraints && o.constraints.hard && Array.isArray(o.constraints.hard.exclude_terms) ? o.constraints.hard.exclude_terms.map(String).filter(Boolean) : [];
+  // o.allow: instruments / voices the sound mode or the arc WANTS ("vocals", "claps", "whistles"): the legacy ban on them is lifted (a sung film, a chiptune or pop world)
+  const allow = new Set((o && Array.isArray(o.allow) ? o.allow : []).map((x) => String(x).toLowerCase()));
   if (!dir && !hardTerms.length) {
-    return { source: "legacy_default", banned_words: LEGACY_BANNED_WORDS.slice(), banned_re: new RegExp(`\\b(${LEGACY_BANNED_WORDS.join("|")})\\b`, "gi"), avoid: LEGACY_AVOID.slice(), negative_global_styles: LEGACY_AVOID.slice() };
+    const av = LEGACY_AVOID.filter((x) => !allow.has(x)), bw = LEGACY_BANNED_WORDS.filter((x) => !(allow.has("whistles") && x === "whistl\\w*"));
+    return { source: allow.size ? "legacy_default+allow" : "legacy_default", banned_words: bw, banned_re: new RegExp(`\\b(${bw.join("|")})\\b`, "gi"), avoid: av, negative_global_styles: av.slice() };
   }
   const feeling = dir && dir.feeling && (dir.feeling.value || dir.feeling) || null;
   const words = [...STOCK_MARKERS];
   // an upbeat sentiment word is a cliche marker only when the selected feeling is not itself upbeat (playful, warm) or custom
   if (!["playful", "warm", "custom"].includes(String(feeling))) words.push(...SENTIMENT_MARKERS);
   for (const t of hardTerms) words.push(escRe(t));
-  const avoid = [...STRUCTURAL_AVOID, ...(dir && dir.vocals_ok ? [] : ["vocals"]), ...hardTerms];
+  const avoid = [...STRUCTURAL_AVOID, ...(dir && dir.vocals_ok || allow.has("vocals") ? [] : ["vocals"]), ...hardTerms];
   return { source: dir ? "direction" : "user_constraints", banned_words: [...new Set(words)], banned_re: new RegExp(`\\b(${[...new Set(words)].join("|")})\\b`, "gi"), avoid: [...new Set(avoid)], negative_global_styles: [...new Set(avoid)] };
 }
 
 // ---------------------------------------------------------------- the brief written from the arc
 
-export function defaultArc(film) {
+export function defaultArc(film, shape) {
+  if (shape) return { ...defaultShapeArc(film, shape), shape: shapeId(shape) };
   const f = Number(film) || 30;
   const r = (x) => Math.round(x * 10) / 10;
   return { intro_until: r(f * 0.25), drop_at: r(f * 0.35), break: null, payoff_at: r(f * 0.7), button_at: r(f - 2.5) };
 }
 
+// a shape name instead of an arc ("slow-burn"), or a JSON arc with a `shape`; the extras (genre, instruments, meter, bpm, voice) ride along for the music brief
+const ARC_EXTRAS = ["genre", "instruments", "meter", "bpm", "voice"];
+
 export function readArc(v, film) {
   let a = null;
   try {
     if (v && typeof v === "object") a = v;
-    else if (v && fs.existsSync(String(v))) { const j = JSON.parse(fs.readFileSync(String(v), "utf8")); a = j.music_arc || j; }
+    else if (v && fs.existsSync(String(v))) { const j = JSON.parse(fs.readFileSync(String(v), "utf8")); a = j.music_arc || j; if (typeof a === "string") a = { shape: a }; }
     else if (v && /^\s*\{/.test(String(v))) a = JSON.parse(String(v));
+    else if (typeof v === "string" && /^[a-z][a-z _-]*$/i.test(v.trim())) a = { shape: v.trim() };
   } catch {}
-  if (!a || !(a.drop_at > 0) || !(a.button_at > 0)) return { arc: defaultArc(film), derived: true };
-  return { arc: { intro_until: a.intro_until ?? a.drop_at * 0.7, drop_at: a.drop_at, break: a.break || null, payoff_at: a.payoff_at ?? a.drop_at + (a.button_at - a.drop_at) * 0.6, button_at: a.button_at }, derived: false };
+  const shape = shapeId(a && a.shape), SH = shapeOf(shape), extras = Object.fromEntries(ARC_EXTRAS.filter((k) => a && a[k] != null && a[k] !== "").map((k) => [k, a[k]]));
+  const need = SH.needs.filter((k) => !(a && a[k] > 0));
+  if (!a || need.length || (!SH.needs.length && !(a.button_at > 0) && !(a.drop_at > 0))) return { arc: { ...defaultArc(film, shape), ...extras, shape, ...(a && a.break ? { break: a.break } : {}) }, derived: true, shape, named: shapeNamed(a && a.shape) };
+  const D = defaultShapeArc(film, shape), n = (k) => (a[k] > 0 ? a[k] : D[k]);
+  const drop = n("drop_at"), button = n("button_at");
+  return { arc: { shape, intro_until: a.intro_until ?? (a.drop_at > 0 ? drop * 0.7 : D.intro_until), drop_at: drop, break: a.break || null, payoff_at: a.payoff_at ?? (a.drop_at > 0 && a.button_at > 0 ? drop + (button - drop) * 0.6 : D.payoff_at), button_at: button, ...extras }, derived: false, shape, named: shapeNamed(a.shape) };
 }
 
 // the sections as bars at `bpm`: boundaries rounded to a bar, none under 3 s (ElevenLabs' minimum)

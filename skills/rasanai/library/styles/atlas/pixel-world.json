@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "pixel-world",
   "number": 1,
+  "gate_profile": "pixel",
   "name": "Pixel art / 8-bit game world",
   "look": "chunky integer-scaled pixels, 16 to 32 colours, sprites on 2s, parallax by whole pixels, dither; the product lives inside a game level.",
   "fits": {

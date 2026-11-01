@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "kinetic-type-only",
   "number": 8,
+  "gate_profile": "flat",
   "name": "Kinetic typography as the whole film",
   "look": "words are the only image: scale, slam, morph, wordplay; no UI until the end.",
   "fits": {

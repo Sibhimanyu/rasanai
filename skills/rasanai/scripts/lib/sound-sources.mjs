@@ -12,6 +12,7 @@ import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { SHAPES, shapeOf, worldSound, meterBeats } from "./music-shapes.mjs";
 
 export const env = (...names) => names.map((n) => process.env[n]).find((v) => v && String(v).trim()) || null;
 export const KEY = {
@@ -157,20 +158,23 @@ export const localGen = (() => {
 //   - tempo: the BPM param is what holds (3 of 4 takes at 119.9 for 120 asked); caption phrases like "exactly 120 BPM, metronomic, four-on-the-floor" made it WORSE (60, 60, 160), so the caption only says "N BPM, 4/4, steady tempo"; drifted takes are rejected (> 6%) and re-rolled
 //   - duration: the vocal sections get at least 2 bars per line, and the whole clip stays under about 60 s (30-60 s is the stable range; longer repeats)
 //   buildLocalPrompt({arc, film, bpm, mood, style, lyrics, mode, narrated, exclusions, extra, voice, language}) -> {caption, lyrics, instrumental, bpm, duration, language, timesignature, sections, notes}
-export function buildLocalPrompt({ arc, film, bpm = 120, mood = "", style = "", lyrics = "", mode = "instrumental-arc", narrated = false, exclusions = [], keyscale = "", extra = 20, voice = "", language = "en" } = {}) {
+//   the arc's named shape (lib/music-shapes.mjs: drop, slow-burn, ambient-bed, cold-open, stinger, pulse-loop, lyric-song) sets the sections and the energy sentences; the film's style world and genre
+//   (world: an atlas id or name; genre, instruments, meter "3/4" from the concept's music_arc) set the style, instruments and meter: a pixel world is chiptune, a paper world felt piano, never one hardcoded pop sound
+//   (also takes shape, world, genre, instruments, meter)
+export function buildLocalPrompt({ arc, film, bpm = 120, mood = "", style = "", lyrics = "", mode = "instrumental-arc", narrated = false, exclusions = [], keyscale = "", extra = 20, voice = "", language = "en", shape, world, genre = "", instruments = "", meter = "" } = {}) {
   const T = Math.max(10, Math.round(Number(film) || 30));
   bpm = Math.max(60, Math.min(180, Math.round(Number(bpm) || 120)));
   const a = arc || {};
-  const bar = 240 / bpm;
+  const SH = shapeOf(shape || a.shape || (mode === "song-lyric" ? "lyric-song" : "drop")), W = worldSound(world);
+  const beats = meterBeats(meter || a.meter), bar = (beats * 60) / bpm;
   const G = T + Math.max(15, Math.min(30, Number(extra) || 20));
   const total = Math.max(12, 2 * Math.round(G / bar / 2));
   const song = mode === "song-lyric" && String(lyrics).trim();
+  const SHP = song && SH.id === "drop" ? SHAPES["lyric-song"] : SH; // a sung film on the default shape gets the song sections
   const lines = String(lyrics || "").split(/\n+/).map((l) => l.trim().replace(/^\[.*\]$/, "")).filter(Boolean);
   const hasBreak = Array.isArray(a.break) && a.break.length === 2 && Number(a.break[1]) > Number(a.break[0]);
   // sections in order: [kind, tag, weight, min bars]; the verse exists only for a song (its first lines), a build always, a breakdown always (it is the film's breath before the end card)
-  const plan = song && lines.length >= 2
-    ? [["intro", "Intro - low energy", 0.08, 2], ["verse", "Verse", 0.14, 4], ["build", "Build - building energy", 0.06, 2], ["drop", "Chorus - explosive", 0.24, 4], ["break", "Breakdown - low energy", 0.1, 2], ["payoff", "Final Chorus - explosive", 0.24, 4], ["outro", "Outro - one last hit", 0.08, 2]]
-    : [["intro", "Intro - low energy", 0.12, 2], ["build", "Build - building energy", 0.14, 2], ["drop", song ? "Chorus - explosive" : "Drop - explosive", 0.26, 4], ["break", "Breakdown - low energy", 0.12, 2], ["payoff", song ? "Final Chorus - explosive" : "Final Drop - explosive", 0.26, 4], ["outro", "Outro - one last hit", 0.1, 2]];
+  const plan = SHP.plan(!!(song && lines.length >= 2)).map(([k, t, w, m]) => [k, song && /Drop/.test(t) ? t.replace("Final Drop", "Final Chorus").replace("Drop", "Chorus") : t, w, m]);
   const split = song && lines.length >= 2 ? Math.ceil(lines.length / 2) : 0;
   // short lines are sung stretched over 2 bars (3-syllable "NOW WATCH THIS" took 3 s in the pilot, one sung vowel per second, and whisper heard "a patient"): join neighbours into lines of 7-10 syllables, the length the guide asks for
   const sylN = (l) => (l.toLowerCase().match(/[aeiouy]+/g) || []).length;
@@ -181,8 +185,8 @@ export function buildLocalPrompt({ arc, film, bpm = 120, mood = "", style = "", 
   need("verse", verseLines.length); need("drop", hookLines.length); need("payoff", hookLines.length);
   // bring the bar count back to the target by trimming/growing the two big sections (the drop and the final chorus), never under their minimums
   const sum = () => sec.reduce((x, s) => x + s.bars, 0);
-  const big = ["drop", "payoff"].map((k) => sec.find((s) => s.kind === k));
-  for (let g = 0; sum() !== total && g < 200; g++) { const s = big[g % 2], d = total > sum() ? 2 : -2; const floor = Math.max(4, 2 * (hookLines.length || 0)); if (s.bars + d >= floor) s.bars += d; else if (sum() - total > 0 && g > 20) break; }
+  const big = SHP.big.map((k) => sec.find((s) => s.kind === k)).filter(Boolean);
+  for (let g = 0; big.length && sum() !== total && g < 200; g++) { const s = big[g % big.length], d = total > sum() ? 2 : -2; const floor = Math.max(4, 2 * (hookLines.length || 0)); if (s.bars + d >= floor) s.bars += d; else if (sum() - total > 0 && g > 20) break; }
   let t0 = 0;
   for (const s of sec) { s.from = +t0.toFixed(2); t0 += s.bars * bar; s.to = +t0.toFixed(2); }
   const duration = Math.ceil(t0);
@@ -195,11 +199,13 @@ export function buildLocalPrompt({ arc, film, bpm = 120, mood = "", style = "", 
     if (song && (s.kind === "drop" || s.kind === "payoff") && hookLines.length) { const hk = hookLines.map((l) => l.toUpperCase()), rep2 = s.bars >= 4 * hk.length; /* the hook sung twice in a long section: about 2 bars a line sings clearly, 4 bars a line is stretched into vowels */ return [head, ...hk, ...(rep2 ? hk : [])].join("\n"); }
     return head + "\n[Instrumental]";
   });
-  const contrast = ["a sparse intro, one soft pad and a quiet pulse, no drums", "a rising build with a riser and filtered drums", "a massive full-band drop, heavy kick, deep bass and a bright lead, much louder than the intro", "a stripped breakdown with only pads and air, drums out, far quieter", "a huge final chorus, even bigger than the first, ending on one clean final hit"];
+  const contrast = SHP.contrast;
   const vox = voice || "clear lead female vocal, upfront and dry in the mix, crisp consonants, every word clearly pronounced, catchy hook";
   const langName = { en: "English", es: "Spanish", fr: "French", de: "German", hi: "Hindi", ja: "Japanese", ko: "Korean", zh: "Chinese", pt: "Portuguese", it: "Italian" }[language] || language;
-  const cap = [style || "modern electronic pop launch film score", mood, bpm + " BPM, 4/4, steady tempo", ...contrast, song ? vox + ", sung in " + langName + ", intelligible lyrics, sparse backing under the voice" : "instrumental, no vocals", "clean modern production, wide stereo, tight low end", ...(exclusions || []).slice(0, 4).map((x) => "no " + x)].filter(Boolean).join(", ");
+  // the style: the caller's own words first, then the concept's genre and instruments, then what the style world implies, and only then the shape's own default
+  const styleText = [style, genre || a.genre, instruments || a.instruments].map((x) => String(x || "").trim()).filter(Boolean).join(", ") || (W && W.style) || SHP.defaultStyle;
+  const cap = [styleText, ...(style && W && !/chip|8[- ]?bit|acoustic|synthwave|cinematic/i.test(styleText) ? [W.style] : []), mood, bpm + " BPM, " + beats + "/" + (beats === 6 ? 8 : 4) + ", steady tempo", ...contrast, song ? vox + ", sung in " + langName + ", intelligible lyrics, sparse backing under the voice" : "instrumental, no vocals", (W && W.genre === "chiptune" ? "crisp lo-fi chip sound, tight low end" : "clean modern production, wide stereo, tight low end"), ...(exclusions || []).slice(0, 4).map((x) => "no " + x)].filter(Boolean).join(", ");
   // settings measured on the pilot (0.6B planner): a lower planner temperature + a higher planner CFG kept the verse and hook sung (12/16 words on both seeds, against 1/16 and 11/16 at the defaults); the DiT's own guidance_scale is not used by the turbo model
   const params = song ? { lm_temperature: 0.5, lm_cfg_scale: 3.0 } : {};
-  return { caption: cap.slice(0, 900), params, hook: hookLines[0] || "" /* the sung chorus line, whole: the model rewords the first few words (\"now watch this\" came back as \"now what if\"), the rest of the line still pins the onset */, lyrics: parts.join("\n\n"), instrumental: !song, bpm, keyscale, timesignature: "4", language, duration, sections: sec.map((s) => ({ ...s, seconds: +(s.bars * bar).toFixed(1) })), notes: song ? [...notes, lines.length + " lyric lines: " + verseLines.length + " in the verse, " + hookLines.length + " in the chorus, sung again in the final chorus; force-align afterwards: node scripts/vo.mjs lyrics --track <song> --lyrics <file> --out <dir>"] : notes };
+  return { caption: cap.slice(0, 900), params, hook: hookLines[0] || "" /* the sung chorus line, whole: the model rewords the first few words (\"now watch this\" came back as \"now what if\"), the rest of the line still pins the onset */, lyrics: parts.join("\n\n"), instrumental: !song, bpm, keyscale, timesignature: String(beats), shape: SHP.id, language, duration, sections: sec.map((s) => ({ ...s, seconds: +(s.bars * bar).toFixed(1) })), notes: song ? [...notes, lines.length + " lyric lines: " + verseLines.length + " in the verse, " + hookLines.length + " in the chorus, sung again in the final chorus; force-align afterwards: node scripts/vo.mjs lyrics --track <song> --lyrics <file> --out <dir>"] : notes };
 }

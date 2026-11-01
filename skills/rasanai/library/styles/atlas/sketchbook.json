@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "sketchbook",
   "number": 18,
+  "gate_profile": "stepped",
   "name": "Hand-drawn / sketchbook / cel boil",
   "look": "pencil and ink on paper, line boil, smears, hand lettering.",
   "fits": {

@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "soft-3d",
   "number": 12,
+  "gate_profile": "dimensional",
   "name": "Soft 3D / candy C4D render",
   "look": "glossy soft-clay or glass objects, cloner arrays rippling, held hero compositions.",
   "fits": {

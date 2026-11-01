@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "sticker-maximal",
   "number": 32,
+  "gate_profile": "flat",
   "name": "Sticker / maximalist / bold-outline explainer",
   "look": "thick-outline stickers, flat icons, chart popups on one giant canvas with a camera.",
   "fits": {

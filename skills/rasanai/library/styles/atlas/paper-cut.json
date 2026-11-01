@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "paper-cut",
   "number": 5,
+  "gate_profile": "hand-made",
   "name": "Paper cut and papercraft",
   "look": "layered coloured paper with real thickness shadows, scissor edges, folds, stepped motion.",
   "fits": {
