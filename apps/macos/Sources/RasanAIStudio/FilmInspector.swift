@@ -225,7 +225,7 @@ struct ConversationList<Empty: View>: View {
         let groups = groups
         let replying = model.isReplying
         VStack(alignment: .leading, spacing: 6) {
-            if groups.isEmpty && !replying { empty }
+            if groups.isEmpty && !replying && model.answering == 0 { empty }
             ForEach(groups) { group in
                 StepDivider(label: StepCatalog.label(group.step))
                 ForEach(Array(group.messages.enumerated()), id: \.element.id) { index, message in
@@ -254,6 +254,7 @@ struct ConversationList<Empty: View>: View {
             }
             if let confirm = model.pendingConfirm, confirm.step == model.draftStep { RevisionConfirmCard(model: model, confirm: confirm) }
             if model.lastUnanswered != nil { ThinkingRow(model: model).padding(.top, 4) }
+            if model.answering > 0 { ChatReplyThinkingRow() }
             Color.clear.frame(height: 1).id("end")
         }
     }
@@ -287,7 +288,7 @@ extension FilmSessionModel {
     /// The step the draft goes with: a pending mark's, else the one the chat was opened for, else the one on screen.
     var draftStep: String { pendingMark?.step ?? tellStep ?? shownStep }
     /// Changes whenever a row is added to the conversation (or Rasan starts or stops thinking), for scrolling to the end.
-    var conversationSignature: String { "\(conversation.count)|\(snapshot.notes.count)|\(isReplying)" }
+    var conversationSignature: String { "\(conversation.count)|\(snapshot.notes.count)|\(isReplying)|\(answering)" }
 
     /// Sends the draft (`tellText`): as a timed note when a mark is waiting, else as a message on `draftStep`. Clears it once sent.
     func sendDraft() {

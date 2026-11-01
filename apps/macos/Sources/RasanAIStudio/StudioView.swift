@@ -284,9 +284,7 @@ private struct LaunchFocus: ViewModifier {
             // No blur or brightness on the split view: that would rasterise the native sidebar and toolbar. The reveal is
             // left to the window-level frost cover below.
             .allowsHitTesting(focused)
-            .background(WindowSplashCover(active: !focused, fade: focusDuration, delay: focusDelay) {
-                SplashMark(agent: agent, waiting: held && !loaded)
-            })
+            .background(WindowSplashCover(active: !focused, waiting: held && !loaded, agent: agent, fade: focusDuration, delay: focusDelay))
             .onAppear { loaded = ready; hold() }
             .onChange(of: ready) { loaded = ready; revealIfDone() }
     }
@@ -305,90 +303,110 @@ private struct LaunchFocus: ViewModifier {
     }
 }
 
-/// The mark drawing itself, then filling, then the name rising under it.
+/// What the splash reads while it is up: only the "still loading" spinner changes, so the mark itself is never re-rendered.
+@MainActor @Observable private final class SplashState { var waiting = false }
+
+/// The mark drawing itself, then filling, then the name rising under it. Every part is a pure function of the time since
+/// `start`, read from one TimelineView, so a re-render or a state flip cannot restart the motion.
 private struct SplashMark: View {
     let agent: String
-    let waiting: Bool
-    @State private var drawn: CGFloat = 0
-    @State private var filled = false
-    @State private var named = false
+    let state: SplashState
+    /// When the cover went on screen; the one clock of the whole motion.
+    let start: Date
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// A CSS-style cubic bezier (the curves of SwiftUI's `.easeInOut` and `.easeOut`), solved for x by bisection.
+    private static func bezier(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double, _ x: Double) -> Double {
+        func point(_ a: Double, _ b: Double, _ s: Double) -> Double { 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s }
+        var low = 0.0, high = 1.0
+        for _ in 0..<24 { let mid = (low + high) / 2; if point(x1, x2, mid) < x { low = mid } else { high = mid } }
+        return point(y1, y2, (low + high) / 2)
+    }
+    private static func progress(_ t: Double, from delay: Double, over duration: Double) -> Double { min(1, max(0, (t - delay) / duration)) }
+    /// `.spring(response: 0.5, dampingFraction: 0.85)` after `delay`, from 0 to 1.
+    private static func spring(_ t: Double, from delay: Double) -> Double {
+        let t = t - delay
+        guard t > 0 else { return 0 }
+        let zeta = 0.85, omega = 2 * Double.pi / 0.5, damped = omega * (1 - zeta * zeta).squareRoot()
+        return 1 - exp(-zeta * omega * t) * (cos(damped * t) + zeta * omega / damped * sin(damped * t))
+    }
+
     var body: some View {
-        VStack(spacing: 22) {
-            ZStack {
-                RasanMark().trim(from: 0, to: drawn).stroke(Color.rasanInk, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
-                RasanMark().fill(Color.rasanInk).opacity(filled ? 1 : 0)
+        TimelineView(.animation) { timeline in
+            let t = timeline.date.timeIntervalSince(start)
+            let drawn = reduceMotion ? 1 : Self.bezier(0.42, 0, 0.58, 1, Self.progress(t, from: 0, over: 0.9))
+            let filled = Self.bezier(0, 0, 0.58, 1, reduceMotion ? Self.progress(t, from: 0, over: 0.3) : Self.progress(t, from: 0.6, over: 0.45))
+            let named = reduceMotion ? filled : Self.spring(t, from: 0.7)
+            VStack(spacing: 22) {
+                ZStack {
+                    RasanMark().trim(from: 0, to: drawn).stroke(Color.rasanInk, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                    RasanMark().fill(Color.rasanInk).opacity(filled)
+                }
+                .frame(width: 66, height: 81)
+                VStack(spacing: 6) {
+                    Text("RasanAI Studio").font(.system(size: 26, weight: .semibold)).tracking(-0.4)
+                    Text("Films with taste, directed by \(agent)").font(.system(size: 13)).foregroundStyle(.secondary)
+                }
+                .opacity(min(1, named)).offset(y: reduceMotion ? 0 : 8 * (1 - named))
+                ProgressView().controlSize(.small).opacity(state.waiting ? 1 : 0).animation(.easeOut(duration: 0.2), value: state.waiting)
             }
-            .frame(width: 66, height: 81)
-            VStack(spacing: 6) {
-                Text("RasanAI Studio").font(.system(size: 26, weight: .semibold)).tracking(-0.4)
-                Text("Films with taste, directed by \(agent)").font(.system(size: 13)).foregroundStyle(.secondary)
-            }
-            .opacity(named ? 1 : 0).offset(y: named ? 0 : 8)
-            ProgressView().controlSize(.small).opacity(waiting ? 1 : 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine).accessibilityLabel("RasanAI Studio")
-        .onAppear {
-            if reduceMotion {
-                drawn = 1
-                withAnimation(.easeOut(duration: 0.3)) { filled = true; named = true }
-            } else {
-                withAnimation(.easeInOut(duration: 0.9)) { drawn = 1 }
-                withAnimation(.easeOut(duration: 0.45).delay(0.6)) { filled = true }
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.85).delay(0.7)) { named = true }
-            }
-        }
     }
 }
 
 /// Frosts the whole window, title bar and toolbar included, and shows the splash on it. A SwiftUI overlay stops at the
 /// content view, under the toolbar's glass, so the toolbar would stay sharp over a blurred page; this layer sits on the
 /// window's frame view, above everything, and fades away when the splash ends.
-private struct WindowSplashCover<Splash: View>: NSViewRepresentable {
+private struct WindowSplashCover: NSViewRepresentable {
     let active: Bool
+    let waiting: Bool
+    let agent: String
     let fade: Double
     let delay: Double
-    @ViewBuilder var splash: () -> Splash
 
-    func makeNSView(context: Context) -> NSView { NSView() }
+    /// Installs the cover the moment the anchor joins its window, so frost and mark appear together in the first frame.
+    final class Anchor: NSView {
+        var onWindow: ((NSWindow) -> Void)?
+        override func viewDidMoveToWindow() { if let window { onWindow?(window) } }
+    }
 
-    func updateNSView(_ anchor: NSView, context: Context) {
+    func makeNSView(context: Context) -> Anchor {
+        let anchor = Anchor()
         let cover = context.coordinator
-        if active {
-            if let host = cover.host { host.rootView = AnyView(splash()) }
-            else {
-                // The window is attached after the first update; install on the next turn of the main loop.
-                cover.pending = AnyView(splash())
-                Task { @MainActor in cover.install(over: anchor.window) }
-            }
-        } else {
-            cover.remove(fade: fade, after: delay)
-        }
+        cover.state.waiting = waiting
+        // Installed once: the mark's view tree is never replaced afterwards, only `state` is updated.
+        if active { anchor.onWindow = { [weak cover] window in MainActor.assumeIsolated { cover?.install(over: window, agent: agent) } } }
+        return anchor
+    }
+
+    func updateNSView(_ anchor: Anchor, context: Context) {
+        let cover = context.coordinator
+        cover.state.waiting = waiting
+        if !active { anchor.onWindow = nil; cover.remove(fade: fade, after: delay) }
     }
 
     func makeCoordinator() -> Cover { Cover() }
 
     @MainActor final class Cover {
-        var pending: AnyView?
+        fileprivate let state = SplashState()
         var frost: NSVisualEffectView?
-        var host: NSHostingView<AnyView>?
         private var gone = false
 
-        func install(over window: NSWindow?) {
-            guard !gone, frost == nil, let splash = pending, let frame = window?.contentView?.superview else { return }
+        func install(over window: NSWindow, agent: String) {
+            guard !gone, frost == nil, let frame = window.contentView?.superview else { return }
             let frost = NSVisualEffectView(frame: frame.bounds)
             frost.material = .underWindowBackground
             frost.blendingMode = .withinWindow
             frost.state = .active
             frost.autoresizingMask = [.width, .height]
-            let host = NSHostingView(rootView: splash)
+            let host = NSHostingView(rootView: SplashMark(agent: agent, state: state, start: Date()))
             host.frame = frost.bounds
             host.autoresizingMask = [.width, .height]
             frost.addSubview(host)
             frame.addSubview(frost, positioned: .above, relativeTo: nil)
-            self.frost = frost; self.host = host
+            self.frost = frost
         }
 
         /// Fades on the same curve as SwiftUI's `.easeOut` (0, 0, 0.58, 1), after the same delay, so the frost leaves the
