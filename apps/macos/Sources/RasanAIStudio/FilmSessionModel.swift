@@ -31,6 +31,9 @@ final class FilmSessionModel {
     private(set) var connection: Connection = .connecting
     /// True while an action is being written to the run's action queue.
     private(set) var isSending = false
+    /// A refine action (redraw, more like this, ...) the director has not answered yet, by step. See FilmRefine.swift.
+    var pendingRefine: [String: PendingRefine] = [:]
+    var refineLanded: Set<String> = []
     /// Set when the last action failed; cleared by the next successful one or `dismissError()`.
     private(set) var lastError: String?
     /// `step|type` of the last accepted action, for brief "sent" confirmations.
@@ -180,6 +183,7 @@ final class FilmSessionModel {
         setConnection(.live)
         for refused in reading.rejected where sentIDs.contains(refused.id) && reportedRejections.insert(refused.id).inserted {
             lastError = "The director could not use that answer: \(refused.error)."
+            pendingRefine.removeAll()
         }
         let ids = reading.queued.map(\.id)
         guard session.data != lastData || ids != lastQueued else { return }
@@ -199,6 +203,7 @@ final class FilmSessionModel {
         let previous = snapshot.currentStep
         snapshot = next
         absorbRevisionReplies(next)
+        settleRefines()
         // The director moved on: a pinned past stage is no longer the thing to look at.
         if viewingStep != nil, previous != next.currentStep { viewingStep = nil }
         onSnapshot?(next)
@@ -581,7 +586,7 @@ final class FilmSessionModel {
 
     /// The person can act on this step now: it is the director's current, awaiting step, not a pinned past one.
     func canAct(on step: String) -> Bool {
-        guard !isViewingPast && isConnected && !isSending && snapshot.currentStep == step && !hasSent(step) else { return false }
+        guard !isViewingPast && isConnected && !isSending && !isRefining(step) && snapshot.currentStep == step && !hasSent(step) else { return false }
         if step == "brief" && snapshot.isFresh { return true }
         // A delivered film (Final "done") still takes notes, Apply and versions, as the web console did.
         return status(step) == "awaiting" || (["render", "final"].contains(step) && status(step) == "done")
@@ -605,7 +610,7 @@ final class FilmSessionModel {
 
     /// The bottom action bar shows only when it is the person's move on this step, while looking back, or just after sending.
     func showsActions(for step: String) -> Bool {
-        isViewingPast || isSending || canAct(on: step) || (hasSent(step) && status(step) != "done")
+        isViewingPast || isSending || isRefining(step) || canAct(on: step) || (hasSent(step) && status(step) != "done")
     }
 
     // MARK: Stage bar

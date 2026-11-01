@@ -120,7 +120,8 @@ struct LookStage: View {
             VStack(alignment: .leading, spacing: 16) {
                 LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
                           hook: payload["hook"].string, compact: true) { selection = $0 }
-                LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook, maxHeight: .infinity)
+                LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook, maxHeight: .infinity,
+                         working: model.refineMessage(step))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -137,7 +138,7 @@ struct LookStage: View {
                 LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
                           hook: payload["hook"].string) { selection = $0 }
                     .frame(maxHeight: 142, alignment: .top)
-                LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
+                LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook, working: model.refineMessage(step))
                     .frame(maxHeight: heroHeight, alignment: .top)
                 if isFilms && !current.frames.isEmpty {
                     LookFrames(item: current, aspect: aspect)
@@ -159,7 +160,7 @@ struct LookStage: View {
         VStack(alignment: .leading, spacing: 20) {
             LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
                       hook: payload["hook"].string) { selection = $0 }
-            LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
+            LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook, working: model.refineMessage(step))
             if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
             rail(current).workspacePanel()
         }
@@ -268,17 +269,26 @@ struct LookStage: View {
 
     /// The same `knob` message the old Energy control sent; "as is" is gone because it is not a change.
     private func sendEnergy(_ value: String, for current: LookItem) {
-        Task { await model.send(step: step, type: "knob", value: .object(["name": .string("energy"), "value": .string(value), "film": .string(current.id)])) }
+        let more = value == "punchier"
+        Task {
+            await model.refine(step: step, type: "knob",
+                               value: .object(["name": .string("energy"), "value": .string(value), "film": .string(current.id)]),
+                               message: "\(agent) is redrawing \(current.name) with \(more ? "more" : "less") energy…")
+        }
     }
 
     private func controls(_ current: LookItem) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             // Actions, not a segmented control: each choice starts a redraw, so none of them shows as a state that is "on".
+            if model.isRefining(step) {
+                Label(model.refineMessage(step) ?? "Redrawing…", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
             Menu {
-                Button("Redraw with More Energy") { sendEnergy("punchier", for: current) }
-                Button("Redraw with Less Energy") { sendEnergy("calmer", for: current) }
+                Button(model.hasRefined(step) ? "Push Further with More Energy" : "Redraw with More Energy") { sendEnergy("punchier", for: current) }
+                Button(model.hasRefined(step) ? "Push Further with Less Energy" : "Redraw with Less Energy") { sendEnergy("calmer", for: current) }
             } label: {
-                Label("Redraw with more or less energy", systemImage: "dial.medium")
+                Label(model.hasRefined(step) ? "Push further" : "Redraw with more or less energy", systemImage: "dial.medium")
             }
             .menuStyle(.button).fixedSize()
             .disabled(!canAct)
@@ -292,8 +302,9 @@ struct LookStage: View {
             }
             Button {
                 let ids = items.map(\.id)
-                Task { await model.send(step: step, type: "more",
-                                        value: .object(["near": .string(current.id), "exclude": .array(ids.map { .string($0) })])) }
+                Task { await model.refine(step: step, type: "more",
+                                          value: .object(["near": .string(current.id), "exclude": .array(ids.map { .string($0) })]),
+                                          message: "\(agent) is drawing new looks close to \(current.name)…") }
             } label: {
                 Label("More like this", systemImage: "sparkles")
             }
@@ -314,7 +325,8 @@ struct LookStage: View {
                 Button("Cancel", role: .cancel) { showMix = false }
                 Button("Mix") {
                     showMix = false
-                    Task { await model.send(step: step, type: "mix", value: .object(["look": .string(mixLook), "story": .string(mixStory)])) }
+                    Task { await model.refine(step: step, type: "mix", value: .object(["look": .string(mixLook), "story": .string(mixStory)]),
+                                              message: "\(agent) is mixing the two films…") }
                 }
                 .buttonStyle(.rasanPrimary).disabled(mixLook == mixStory)
             }
@@ -425,7 +437,7 @@ private struct LookMedia: View {
                 LookFallbackCard(item: item, hook: hook ?? item.hook, compact: compact)
             }
             if let videoURL, FileManager.default.fileExists(atPath: videoURL.path) {
-                LookLoopingVideo(url: videoURL).transition(.opacity)
+                LookLoopingVideo(url: videoURL, stamp: model?.loadStamp(for: videoURL) ?? "").transition(.opacity)
             }
         }
     }
@@ -464,13 +476,15 @@ private final class LookPlayerView: NSView {
 
 private struct LookLoopingVideo: NSViewRepresentable {
     let url: URL
+    /// Path + modification date: a preview re-rendered to the same path restarts from the new file.
+    let stamp: String
     func makeNSView(context: Context) -> LookPlayerView { let v = LookPlayerView(); v.load(url); return v }
     func updateNSView(_ view: LookPlayerView, context: Context) {
-        if context.coordinator.url != url { context.coordinator.url = url; view.load(url) }
+        if context.coordinator.stamp != stamp { context.coordinator.stamp = stamp; view.load(url) }
     }
     static func dismantleNSView(_ view: LookPlayerView, coordinator: Coordinator) { view.stop() }
-    func makeCoordinator() -> Coordinator { Coordinator(url: url) }
-    final class Coordinator { var url: URL; init(url: URL) { self.url = url } }
+    func makeCoordinator() -> Coordinator { Coordinator(stamp: stamp) }
+    final class Coordinator { var stamp: String; init(stamp: String) { self.stamp = stamp } }
 }
 
 /// A recipe drawn natively: its canvas, the hook line in its display face, swatches and its type names.
@@ -532,9 +546,13 @@ private struct LookHero: View {
     let aspect: CGFloat
     var hook: String?
     var maxHeight: CGFloat = 560
+    /// While a refine is out: what Rasan is doing. The picture dims under a shimmer and says so.
+    var working: String?
 
     var body: some View {
         LookMedia(item: item, hook: hook)
+            .overlay { if let working { RefineWorkingOverlay(text: working).transition(.opacity) } }
+            .animation(.easeOut(duration: 0.2), value: working)
             .aspectRatio(aspect, contentMode: .fit)
             .frame(maxHeight: maxHeight)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -544,6 +562,36 @@ private struct LookHero: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(item.label) look, \(item.name). \(item.blend)")
             .accessibilityAddTraits(.isImage)
+    }
+}
+
+/// A dark veil with a moving sheen and a spinner label: the picture below is the old one and a new one is on its way.
+struct RefineWorkingOverlay: View {
+    let text: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.45)
+            if !reduceMotion {
+                TimelineView(.animation) { context in
+                    let t = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8) / 1.8
+                    GeometryReader { geo in
+                        LinearGradient(colors: [.clear, .white.opacity(0.12), .clear], startPoint: .leading, endPoint: .trailing)
+                            .frame(width: geo.size.width * 0.5)
+                            .offset(x: (t * 1.5 - 0.5) * geo.size.width)
+                    }
+                }
+            }
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small).tint(.white)
+                Text(text).font(.system(size: 12, weight: .medium)).foregroundStyle(.white).lineLimit(2)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 8).background(.black.opacity(0.55), in: Capsule())
+        }
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
     }
 }
 

@@ -111,11 +111,26 @@ struct FilmStatusBar<Usage: View>: View {
                 Button("Resume", action: onResume).buttonStyle(.rasanSecondary).controlSize(.small)
                     .help("Start the director again. It picks up your message where it left off.")
             }
+        } else if let since = model.pendingRefine[step]?.since, let message = model.refineMessage(step) {
+            refineStatus(message, since: since)
         } else if sent {
             sentStatus
         } else if let turn {
             turnStatus(turn)
         }
+    }
+
+    /// A refine (redraw, more like this) is out and the director has not pushed the update yet.
+    private func refineStatus(_ message: String, since: Date) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(message).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                Text(clockText(max(0, context.date.timeIntervalSince(since)))).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                if let onDetails { Button("Details", action: onDetails).buttonStyle(.borderless).controlSize(.small) }
+            }
+        }
+        .help("The picture updates here when \(agent) is done.")
     }
 
     /// When the action went out: the engine's timestamp on the step's `sent`, else when this bar first saw it.

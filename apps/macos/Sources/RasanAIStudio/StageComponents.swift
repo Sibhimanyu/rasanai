@@ -292,6 +292,9 @@ struct PayloadImage: View {
     @State private var missing = false
 
     private var url: URL? { model?.fileURL(path) }
+    /// Path plus modification date, re-read when a new session arrives: a poster re-rendered to the same path (or to a versioned
+    /// name) reloads instead of showing the old decoded picture.
+    private var loadKey: String { url.flatMap { model?.loadStamp(for: $0) } ?? "" }
 
     var body: some View {
         ZStack {
@@ -303,7 +306,7 @@ struct PayloadImage: View {
             }
         }
         .clipped()
-        .task(id: url) {
+        .task(id: loadKey) {
             guard let url else { image = nil; missing = path != nil; return }
             let size = maxPixels
             let loaded = await Task.detached(priority: .utility) { () -> NSImage? in

@@ -146,9 +146,14 @@ struct StoryStage: View {
         return Button {
             let near = current?.id ?? all.first?.id ?? ""
             let exclude = all.map { JSONValue.string($0.id) }
-            Task { await model.send(step: step, type: "more", value: .object(["near": .string(near), "exclude": .array(exclude)])) }
+            Task { await model.refine(step: step, type: "more", value: .object(["near": .string(near), "exclude": .array(exclude)]),
+                                      message: "\(agent) is writing three more stories…") }
         } label: {
-            Label("Three more stories", systemImage: "arrow.triangle.2.circlepath")
+            if model.isRefining(step) {
+                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Writing three more stories…") }
+            } else {
+                Label(model.hasRefined(step) ? "Three more again" : "Three more stories", systemImage: "arrow.triangle.2.circlepath")
+            }
         }
         .controlSize(.regular)
         .disabled(!canAct)
