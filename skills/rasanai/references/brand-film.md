@@ -2,6 +2,8 @@
 
 Applies to every launch, promo and brand film for a named brand (route `product-launch-video`, or a `general-video` that is a launch, promo or brand film; not lyric, presenter or reel routes). The enforceable numbers (structure templates, timings, the grammar checklist, the red flags) are in `references/launch-film.md`; this file is the pipeline that uses them. The rule it exists for: *research the brand so the logo, accent, claim face and real UI are exact; the story stays simple and to the point.* The measured card is a REFERENCE that describes the brand's site / film. "Use brand" locks only the logo, the brand accent as the signal colour, the brand face on the claim and end line, and the real product UI. Canvas, palette, type system, texture, motion grammar and finish come from the chosen concept's `style_world` (the atlas). The card is the look only in strict brand mode (`decisions.strict_brand_film` / `film_style_strict`, set only when the user asks for a strict brand film).
 
+**Launch films are light on the brand** (`launch-grammar.md`, which overrides this file on these points for launch, promo and product-launch films; non-launch brand films keep the rules below): the logo appears at most 3 times and always small; the brand comes through as palette atmosphere plus the one carrier motif; the real product UI is shown as simplified recreated mockups where they prove a line, never full-screen screenshots; the ground and type come from the concept's launch grammar, and a style world is optional.
+
 ## 1. Brand film research (required whenever a brand applies)
 
 Runs during the Brief, in parallel with the research desk (crew phase `brand-film`), into `$RUN/brand-film/`. The Director runs `scripts/brandfilm.mjs`:

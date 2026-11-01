@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { die, readJSON, writeFile, esc, chromeScreenshot } from "./common.mjs";
 import { styleOf, composition, moveName, COMP_CSS, fontLinks } from "./story-visuals.mjs";
-import { lintConcept, ensureShotIds, moveIdOf, carrierOf } from "./concept-schema.mjs";
+import { lintConcept, isLaunchConcept, ensureShotIds, moveIdOf, carrierOf } from "./concept-schema.mjs";
 
 const s = (v) => (v == null ? "" : String(v));
 
@@ -18,6 +18,8 @@ export function loadConcept(file, pick) {
   return j;
 }
 
+// launch concepts: the board header shows the launch fields (ground, type pairing, signature transition, hook, turn, payoff); a world is shown only when the concept chose one
+const launchSub = (c) => (isLaunchConcept(c) ? [["ground", c.ground], ["type", c.type_pairing], ["signature transition", c.signature_transition], ["hook", Array.isArray(c.hook_lines) ? c.hook_lines.map((x) => (x && typeof x === "object" ? x.line || x.text : x)).join(" / ") : c.hook_lines], ["turn", c.turn_line], ["payoff", c.payoff && typeof c.payoff === "object" ? c.payoff.line || c.payoff.cta : c.payoff]].filter(([, v]) => s(v && typeof v === "object" ? v.what || v.line || v.id || "" : v)).map(([k, v]) => "<span>" + k + " <b>" + esc(s(v && typeof v === "object" ? v.what || v.line || v.id : v)) + "</b></span>").join("\n") : "");
 export function boardHtml(concept, o = {}) {
   const st = styleOf(concept);
   const shots = concept.shots;
@@ -69,7 +71,7 @@ figcaption{padding:8px 2px 0}.w{font-size:16px;font-weight:700;letter-spacing:-.
 ${COMP_CSS}
 </style></head><body><div class="wrap">
 <header><h1>${esc(s(concept.title || concept.id || "Story board"))}</h1>
-<div class="sub"><span>style world <b>${esc(st.name)}</b><span class="sw"><i style="background:${st.bg}"></i><i style="background:${st.ink}"></i><i style="background:${st.accent}"></i></span></span>
+<div class="sub">${launchSub(concept)}${isLaunchConcept(concept) && !concept.style_world ? "" : `<span>style world <b>${esc(st.name)}</b><span class="sw"><i style="background:${st.bg}"></i><i style="background:${st.ink}"></i><i style="background:${st.accent}"></i></span></span>`}
 ${carrier ? `<span>carrier <b>${esc(carrier)}</b></span>` : ""}
 ${sig ? `<span>signature moment <b>${esc(s(typeof sig === "object" ? sig.what || sig.name || sig.shot : sig))}</b></span>` : ""}
 <span>${shots.length} shots${concept.duration_s ? `, ${esc(s(concept.duration_s))} s` : ""}</span>${fallback ? `<span class="warn">${esc(fallback)}</span>` : ""}</div></header>

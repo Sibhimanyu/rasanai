@@ -1,0 +1,183 @@
+{
+  "id": "minase",
+  "film": "Minase launch film, 41 s, 16:9: dense white UI collages alternating with sparse lines, a quiet black reveal, dark stock footage with typed lines, three logo appearances",
+  "shots": [
+    {
+      "t": 0,
+      "to": 2.2,
+      "see": "white; UI collage cards (white, blue accent) assemble and drift",
+      "words": "You built something good.",
+      "technique": "open in; dense",
+      "move": null
+    },
+    {
+      "t": 2.2,
+      "to": 3.2,
+      "see": "near-black footage; cards gone; one silhouette, type words fly in",
+      "words": "Nobody's watching it.",
+      "technique": "flip-on-hit in; sparse",
+      "move": null
+    },
+    {
+      "t": 3.2,
+      "to": 4.6,
+      "see": "white; a soft blue orb sits behind italic word-swaps",
+      "words": "Not because the product is weak.",
+      "technique": "flip in; sparse",
+      "move": null
+    },
+    {
+      "t": 4.6,
+      "to": 8.9,
+      "see": "white; collage cards return around the line; a product page and prompt box scale in",
+      "words": "product is weak / Because nobody ever showed it the way you see it.",
+      "technique": "type-morph in; dense",
+      "move": null
+    },
+    {
+      "t": 8.9,
+      "to": 13.1,
+      "see": "white; a single bullet dot leads the typed line",
+      "words": "A product gets a few seconds to make sense. That's it.",
+      "technique": "mask-wipe in; sparse",
+      "move": null
+    },
+    {
+      "t": 13.1,
+      "to": 17.5,
+      "see": "dark stock footage; an up-arrow chip is dropped into the line, then carried into the next scene",
+      "words": "And in those seconds, people don't read. They feel.",
+      "technique": "flip-on-hit in; sparse",
+      "move": null
+    },
+    {
+      "t": 17.5,
+      "to": 20.5,
+      "see": "black; the chip becomes the blue hexagon mark, which sits left of the name",
+      "words": "So that's what Minase builds. The moment it clicks.",
+      "technique": "carried-element in; sparse; logo",
+      "move": null
+    },
+    {
+      "t": 20.5,
+      "to": 26.8,
+      "see": "white; arrow chip pushes the type; cards and a dashboard flow past; a circular diagram resolves",
+      "words": "From a launch nobody noticed to a launch that moves. Same product, different world.",
+      "technique": "push in; dense",
+      "move": null
+    },
+    {
+      "t": 26.8,
+      "to": 30.2,
+      "see": "dark stock footage; words stack and swap in place over typing hands",
+      "words": "Every frame, every second, every decision.",
+      "technique": "flip-on-hit in; sparse",
+      "move": null
+    },
+    {
+      "t": 30.2,
+      "to": 33.9,
+      "see": "white; a scrolling word list with an arrow carries to the final word",
+      "words": "With Minase, it's covered, crafted and ready to launch.",
+      "technique": "mask-wipe in; sparse; logo",
+      "move": null
+    },
+    {
+      "t": 33.9,
+      "to": 36.8,
+      "see": "dark stock footage; a typed prompt line with the chip, over a person at a table",
+      "words": "What if today was the day people finally saw it?",
+      "technique": "flip-on-hit in; sparse",
+      "move": null
+    },
+    {
+      "t": 36.8,
+      "to": 41.45,
+      "see": "white to grey fade; the hexagon mark and name resolve and hold",
+      "words": "Minase",
+      "technique": "carried-element in; sparse; logo",
+      "move": null
+    }
+  ],
+  "carrier": {
+    "kind": "ui-object",
+    "what": "UI collage cards plus a small up-arrow chip that is dropped into a line and becomes the brand mark",
+    "returns": 6
+  },
+  "signature_moment": {
+    "t": 2.23,
+    "what": "the first music hit flips white UI collage to a silhouette at a desk and the words 'Nobody's watching it' fly in: the viewer's problem, felt, in one frame"
+  },
+  "story": {
+    "hook": {
+      "end_s": 2.2,
+      "what": "'You built something good. Nobody's watching it.' over a dense collage that flips to a silhouette: the viewer's problem, no brand"
+    },
+    "turn": {
+      "at_s": 12,
+      "what": "'That's it' on an empty white ground, then 'And in those seconds, people don't read. They feel.'"
+    },
+    "proof": {
+      "from_s": 20.5,
+      "to_s": 33.9,
+      "what": "dense UI plates and a diagram, then one line of what the brand does"
+    },
+    "close": {
+      "from_s": 33.9,
+      "what": "'What if today was the day people finally saw it?' then the end card"
+    },
+    "brand_first_shown_s": 17.8
+  },
+  "image_use": [
+    {
+      "kind": "ui",
+      "how_moved": "simplified cards, dashboards and prompt boxes fly in, tilt and recede as a collage; a prompt box types its line",
+      "share": "45%"
+    },
+    {
+      "kind": "type",
+      "how_moved": "word-by-word builds, in-place word swaps in one slot, giant words behind cards",
+      "share": "35%"
+    },
+    {
+      "kind": "photo",
+      "how_moved": "dark stock footage of people at desks under typed lines, cut on a music hit",
+      "share": "20%"
+    }
+  ],
+  "atlas_style_world": {
+    "id": "none",
+    "why": "no atlas world is neutral kinetic type on white and black with UI cards; the nearest is an editorial/minimal type world",
+    "gap": "the atlas lacks a default 'carrier-led kinetic type on neutral ground' world; this grammar is the launch default, see references/launch-grammar.md"
+  },
+  "sound": {
+    "mode": "vo",
+    "agrees_with_guess": true,
+    "structure": "voice-over from 0 s (a sentence per beat, lines match the on-screen type); music bed in from 0.3 s; hits at 0.35, 1.1, 5.8, 9.9, 12.5, 19.0, 27.0, 31.7; a thin break at 38-39 s before the end card",
+    "mix_notes": "bed about -15 LUFS under the voice with no hard duck; clicks only on word swaps (about 5 per 10 s); end card holds on the bed's tail"
+  },
+  "what_to_take": [
+    "The copy is the spine: one thought per beat, second person, built word by word, with one emphasised word per line.",
+    "The brand appears small, 3 times at most (mid reveal, one pop, end card): the film's look carries the brand.",
+    "Alternate dense UI collages with a single small line on an empty ground; the ground flips on a music hit.",
+    "Hand an element from beat to beat: a chip dropped into a line becomes the mark.",
+    "Mixed media is fine when type leads: dark stock footage under typed lines is the breathing space."
+  ],
+  "what_not_to_copy": [
+    "its copy, its name or its hexagon mark",
+    "its exact collage cards and stock footage",
+    "its blue palette and serif/mono type pairing"
+  ],
+  "proposed_moves": [],
+  "launch_grammar": {
+    "logo_appearances": 3,
+    "plain_cuts_declared": 0,
+    "beats": 12,
+    "density_alternations": 5
+  },
+  "corrections": [
+    "refs.mjs counted 13 cuts at the 0.4 threshold (3.1 per 10 s) and 21 shots: these are ground flips (white to dark footage and back, dense to sparse) and fast in-frame changes that fall on music hits. Type, chips and cards carry across most of them. Read the film as 12 beats, not 21 shots.",
+    "the sound-mode guess 'vo' is right: this film has a voice-over that reads each on-screen line (92 words). The owner's target note says on-screen type carries the narration; for Minase the type and the voice say the same thing, one thought per beat.",
+    "the scene-score shot list misses morphs, word swaps and masks: the beat table in beats.json is the real structure."
+  ]
+}

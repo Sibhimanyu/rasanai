@@ -18,6 +18,28 @@ const args = parseArgs();
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IMAGEGEN = path.join(HERE, "imagegen.mjs");
 const s = (v) => (v == null ? "" : String(v));
+// LAUNCH grammar plates (references/launch-grammar.md): a launch-film concept (it names hook_lines / capabilities / ground, or --launch) whose style_world is absent or the default is drawn
+// as launch key frames: kinetic type on a neutral or brand-gradient ground, the carrier motif, a simplified UI mockup, brand palette as atmosphere. No pixel or fantasy worlds unless the concept chose one.
+const DEFAULT_WORLDS = ["", "kinetic-type-only", "kinetic-launch"];
+const isLaunchPlate = (c) => !!(args.launch || c.hook_lines || c.capabilities || c.signature_transition || c.ground) && DEFAULT_WORLDS.includes(styleWorldId(c).toLowerCase());
+function launchPrompt(c, sh) {
+  const g = s(c.ground).toLowerCase(), dark = /dark|black/.test(g);
+  const ground = dark ? "a flat near-black ground (the concept's ground is dark) with the brand accent as a clean flat shape, no glow" : /gradient/.test(g) ? "a soft, clean brand-gradient ground built from the brand palette" : "a clean white or very light neutral ground with generous empty space (or a soft brand-gradient ground)";
+  const pal = c.style && c.style.palette && typeof c.style.palette === "object" ? Object.values(c.style.palette).filter((v) => /^#[0-9a-f]{6}$/i.test(s(v))).slice(0, 4).join(", ") : "";
+  const brand = s((c.brand && (c.brand.colour || c.brand.color || c.brand.accent)) || c.brand_colour || (args.brand !== true && args.brand) || "");
+  const colours = [brand && `brand accent ${brand}`, pal && `palette ${pal}`].filter(Boolean).join("; ");
+  const car = carrierOf(c), ui = s(sh.ui_proof || sh.ui);
+  const line = s(sh.line || sh.words || sh.copy || (Array.isArray(c.hook_lines) ? c.hook_lines[0] : ""));
+  const tp = s(c.type_pairing && typeof c.type_pairing === "object" ? Object.values(c.type_pairing).join(" + ") : c.type_pairing);
+  return [
+    `Flat, clean, editorial motion-design key frame of a product launch film, in the style of a modern SaaS launch reel: ${ground}${colours ? ` (atmosphere from the ${colours}; the brand is a mood of colour, never a big logo)` : ""}.`,
+    s(sh.see),
+    line ? `Render exactly this copy line as large, clean kinetic type in the frame${tp ? `, set in the concept's type pairing (${tp})` : ""}: "${line}". It is the only text in the frame besides the UI words below.` : "",
+    car.what ? `One carrier motif travels the film: ${car.what}${s(sh.carrier_state) ? ` (${s(sh.carrier_state)})` : ""}, simply drawn, in the brand colour.` : "",
+    ui ? `A recognisable simplified UI (${ui}): a real card shape with rounded corners, a soft shadow and a few readable words of real UI text (a title, a label, a button), never grey placeholder bars and never a full-screen screenshot.` : "",
+    "Large confident empty space, one clear focal point, flat vector or soft-gradient rendering, sharp type. NOT a glowing 3D render: no neon, no fog, no haze, no lens flare, no dark moody lighting unless the ground is dark. No pixel art, no fantasy or game worlds, no characters unless the shot names one. No logos or watermarks."
+  ].filter(Boolean).join(" ");
+}
 const log = (m) => process.stderr.write(`story-plates: ${m}\n`);
 
 if (!args.concept || args.concept === true) die("--concept <treatments.json | concept.json> required");
@@ -82,9 +104,10 @@ async function runConcept(c, n) {
     const sh = c.shots[i], f = path.join(dir, `${s(sh.id)}.png`);
     // the picture only: the film's own type lays over it, so none in the image (the board and the build add the words)
     const see = [s(sh.see), carrier && s(sh.carrier_state) ? `${carrier}: ${s(sh.carrier_state)}` : "", "No text, letters, logos or watermarks in the image."].filter(Boolean).join(" ");
-    const prompt = art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`;
+    const launch = isLaunchPlate(c);
+    const prompt = launch ? launchPrompt(c, sh) : art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`;
     log(`${id} ${s(sh.id)}${i === anchor ? " (anchor)" : ""}: generating`);
-    const r = await generate(prompt, f, art ? world : "", palette, i === anchor ? "" : anchorFile);
+    const r = await generate(prompt, f, art && !launch ? world : "", launch ? "" : palette, i === anchor ? "" : anchorFile);
     if (r.ok && fs.existsSync(f)) {
       sh.image = f; rec.plates.push({ shot: s(sh.id), image: f }); report.made++;
       if (i === anchor) anchorFile = f;
@@ -119,9 +142,10 @@ for (let pass = 0; pass < 2; pass++) {
     const keep = () => { d.rec.plates = d.rec.plates.filter((x) => x !== d.pl); report.made--; };
     if (pass === 0) {
       const see = [s(sh.see), carrier && s(sh.carrier_state) ? `${carrier}: ${s(sh.carrier_state)}` : "", "No text, letters, logos or watermarks in the image."].filter(Boolean).join(" ");
-      const prompt = art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`;
+      const launch = isLaunchPlate(c);
+      const prompt = launch ? launchPrompt(c, sh) : art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`;
       const savedForce = args.force; args.force = true;
-      const r = await generate(prompt, d.pl.image, art ? world : "", c.style && c.style.palette_id ? s(c.style.palette_id) : "", "");
+      const r = await generate(prompt, d.pl.image, art && !launch ? world : "", !launch && c.style && c.style.palette_id ? s(c.style.palette_id) : "", "");
       args.force = savedForce;
       if (!r.ok || !fs.existsSync(d.pl.image)) { try { fs.rmSync(d.pl.image, { force: true }); } catch { /* gone */ } keep(); delete sh.image; d.rec.failed.push({ shot: d.pl.shot, error: `duplicate of ${d.of.cid}/${d.of.shot} and the regeneration failed` }); report.failed++; }
     } else { try { fs.rmSync(d.pl.image, { force: true }); } catch { /* gone */ } keep(); delete sh.image; d.rec.failed.push({ shot: d.pl.shot, error: `byte-identical to ${d.of.cid}/${d.of.shot} after a regeneration: marked failed` }); report.failed++; }

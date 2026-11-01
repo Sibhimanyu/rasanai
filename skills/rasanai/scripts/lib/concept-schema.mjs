@@ -20,6 +20,8 @@ export const atlasIndex = () => (_atlas ||= (readJ(path.join(SKILL_DIR, "library
 export const moveIds = () => new Set([...(moveIndex().moves || []).map((m) => m.id), ...(((readJ(path.join(SKILL_DIR, "library", "moves", "library.json")) || {}).moves) || []).map((m) => m && m.id)].filter(Boolean));
 export const atlasIds = () => new Set((atlasIndex().styles || []).map((s) => s.id));
 
+// a launch-film concept (references/launch-grammar.md): it names the launch fields, and a style_world is optional
+export const isLaunchConcept = (c) => !!(c && (c.hook_lines || c.capabilities || c.signature_transition || c.type_pairing || (c.ground && c.turn_line)));
 export const styleWorldId = (c) => { const sw = c && c.style_world; return S(isObj(sw) ? sw.id || sw.name : sw); };
 export const carrierOf = (c) => { const k = c && c.carrier; return isObj(k) ? { what: S(k.what || k.name), kind: S(k.kind) } : { what: S(k), kind: "" }; };
 export const signatureOf = (c) => { const k = c && c.signature_moment; return isObj(k) ? { what: S(k.what || k.see), shot: S(k.shot || k.id) } : { what: S(k), shot: "" }; };
@@ -92,11 +94,12 @@ export function lintConcept(c, opts = {}) {
   const errors = [], warnings = [];
   if (!isObj(c)) return { errors: ["concept is not an object"], warnings };
   const id = styleWorldId(c);
-  if (!id) errors.push("style_world missing (an atlas id, library/styles/atlas/index.json)");
+  if (!id) { if (!isLaunchConcept(c)) errors.push("style_world missing (an atlas id, library/styles/atlas/index.json)"); }
   else if (atlasIndex().styles.length && !atlasIds().has(id)) warnings.push(`style_world "${id}" is not in library/styles/atlas/index.json (known: ${[...atlasIds()].slice(0, 6).join(", ")}...)`);
   const car = carrierOf(c);
   if (!car.what) errors.push("carrier.what missing");
   if (car.kind && !CARRIER_KINDS.includes(car.kind)) warnings.push(`carrier.kind "${car.kind}" is not one of ${CARRIER_KINDS.join(", ")}`);
+  if (isLaunchConcept(c) && car.kind === "object") warnings.push("launch concept: carrier.kind \"object\" usually means an outside metaphor world; the carrier must come from the product, its UI or the brand (caret, highlight, card, chip, notification, orb, the user's own text). At most one wild-lane idea may use an outside metaphor, and the jury may not recommend it");
   if (!car.kind) warnings.push(`carrier.kind missing (one of ${CARRIER_KINDS.join(", ")})`);
   const sm = soundModeOf(c);
   if (sm && !SOUND_MODES.includes(sm)) errors.push(`sound_mode "${sm}" is not one of ${SOUND_MODES.join(", ")}`);

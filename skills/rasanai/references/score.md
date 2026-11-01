@@ -55,6 +55,18 @@ Film level also: `ground_motion` (how the ground lives, from the grammar's and t
 - **Brand film.** The look is the chosen concept's `style_world` (its grammar, finish and palette); the card (`brand-film/FILM-STYLE.md`) is a reference, and `film_style` is cited only in strict brand mode (`decisions.strict_brand_film`), where `video_direction` names which card moves each scene uses and easing comes from the card's `Easing:` line. At most 3 distinct motion types and one ease family (`references/launch-film.md` rule 9). Each `Not seen (allowed on a budget)` effect is a `budget` entry (2 under 30 s, 3 from 30 s). The finish layer follows the world's finish (the card's measured `Finish:` only in strict mode). The ground may change on the story's turns, inside the world's palette with the brand accent as the signal. Cut rate and transitions follow the world's grammar; the end card is the logo and the brand face.
 - **Intent overrides.** `score.intent["<rule>"]` (film) or `scenes[n].intent["<rule>"]`, 12+ characters, turns a taste rule into a note. Structure is not overridable.
 
+## 3b. Launch beats (launch and promo films)
+
+The gates read these per-beat fields (`lib/launch-beats.mjs`; the rules are in `references/launch-grammar.md`; `library/benchmarks/launch-refs/<id>/beats.json` shows the shape on two real films). Each `scenes[]` row carries:
+
+- `line`: the copy on screen (one thought; about 9 words at most at once, a line that builds word by word counts its final state: `copy-line-long` warns).
+- `carrier_state`: what the carrier motif is doing in the beat ("none" when absent). The film names it in `carrier: {what, kind}` (or `spine` / `motif`); present in at least 60% of the beats (`carrier-unnamed`, `carrier-share`: errors).
+- `transition_in`: carried-element | type-morph | mask-wipe | push | whip | zoom-through | flood | flip | iris | dissolve | cut. The seam into the scene is read when absent. A plain cut warns; more than 2 is `hard-cuts`, an error unless `grammar_waivers` has rule `hard-cuts` with a why. Frame-difference spikes in the render (`frame-spikes`) only warn, and only well above the references' 1 to 3 per 10 s.
+- `density`: dense (3+ elements, a collage, a full UI, a full-frame object) | sparse (one small line or object on an empty ground). At least two alternations (`rhythm`, an error; waivable).
+- `logo`: true where the mark is on screen; more than 3 beats warns (`logo-count`).
+
+The full-frame-type scale, a second scale, the 50% UI hero and the old shot-length median no longer apply to the default launch grammar: a launch film is judged on its beats and, with no stated gate profile, as `flat`.
+
 ## 4. The format
 
 ```jsonc

@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Launch films now follow the house launch grammar: a short copy-led story (hook, turn, meet, two or three capabilities, payoff), one carrier motif that travels the whole film, transitions that flow as one take, and a light touch of brand.
+
 ## 0.29.0 (build 77) — 2026-11-01
 
 - Refining a look now shows Rasan working: the status bar reads "Rasan is redrawing ... with more energy...", the large preview dims under a shimmer, and the refine buttons stay disabled until the director sends the updated look (or an error). The same goes for More like this, Mix two and Three more stories.

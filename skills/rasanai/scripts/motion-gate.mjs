@@ -955,16 +955,17 @@ export async function gate({ events = null, vo = null, video = null, project = n
       const total = P.duration || beats[beats.length - 1].end, rb = beats.find((b) => b.id === String(P.brandReveal));
       if (rb && total > 0) {
         const frac = rb.start / total;
-        if (rb.start < 3) add({ check: "hook-logo", severity: "error", at: r2(rb.start), message: `the brand is revealed at ${r2(rb.start)} s: no logo in the first 3 s (the hook is the viewer's problem and one object, not the brand)`, fix: "move the brand reveal after the pain beat: 20 to 30% of the runtime, or the end card" });
-        else if (frac < 0.18 || (frac > 0.32 && frac < 0.8)) add({ check: "brand-timing", severity: "warning", at: r2(rb.start), message: `the brand is revealed at ${Math.round(frac * 100)}% of the runtime (the favourites reveal at 20 to 30%, or at the very end)`, fix: "reveal at 20 to 30% of the runtime after the pain and the turn, or hold the reveal for the end card" });
+        // the house references reveal the brand at 27% (Kinso) and 43% (Minase): small, calm, after the problem and the turn. A reveal inside the hook is a warning, not an error; the old 20-30% window is gone.
+        if (rb.start < 3) add({ check: "hook-logo", severity: "warning", at: r2(rb.start), message: `the brand is revealed at ${r2(rb.start)} s: the hook is the viewer's problem; the references meet the brand after the turn (27 to 43% of the runtime)`, fix: "move the reveal after the problem and the turn, small and calm; references/launch-grammar.md" });
+        else if (frac < 0.1) add({ check: "brand-timing", severity: "warning", at: r2(rb.start), message: `the brand is revealed at ${Math.round(frac * 100)}% of the runtime (the references meet it after the problem and the turn)`, fix: "reveal after the problem and the turn" });
       }
       const hk = P.plan && P.plan.hook;
       if (!hk || typeof hk !== "object") add({ check: "hook-undeclared", severity: "warning", at: null, message: "score.json declares no hook {viewer_addressed, problem_shown, object_enters_s}: the first 3 s cannot be checked", fix: "declare the hook: address the viewer or show the problem, and name when the first object enters (within 2 s)" });
       else {
         if (!hk.viewer_addressed && !hk.problem_shown) add({ check: "hook-address", severity: "error", at: 0, message: "the first 3 s neither address the viewer nor show a problem", fix: "open on the viewer's own problem or a direct address (\"Your next deal...\", \"Stop\"), not a logo or a claim" });
         const oe = Number(hk.object_enters_s);
-        if (!Number.isFinite(oe) || hk.object_enters_s === "" || hk.object_enters_s == null) add({ check: "hook-object", severity: "warning", at: 0, message: "score.hook.object_enters_s is missing", fix: "name the second an object (dock with badges, photo cards, a now-playing pill) enters; within 2 s" });
-        else if (oe > 2) add({ check: "hook-object", severity: "error", at: r2(oe), message: `the first object enters at ${r2(oe)} s (within 2 s)`, fix: "bring one physical object in within the first 2 s" });
+        // "an object by 2 s" is retired for launch films: the house references open on type alone (Kinso: the first object is at 2 s, Minase: cards at 0 s); an object arriving late is only a note
+        if (Number.isFinite(oe) && hk.object_enters_s !== "" && oe > 4) add({ check: "hook-object", severity: "warning", at: r2(oe), message: `the first object enters at ${r2(oe)} s: a long stretch of type alone (the references bring an object or the carrier in within about 4 s)`, fix: "bring the carrier or one object in early, even small" });
       }
     }
     // Creative recovery (W06): the optional output trace (<run>/creative/execution-map.json, beside motion/) is read for traceability only: it owns no timing, and metadata

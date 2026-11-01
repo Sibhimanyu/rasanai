@@ -48,6 +48,7 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [Remocn/remocn](#remocn) | MIT | idea only | component registry | read; nothing taken |
 | [remotion-dev/skills and remotion](#remotion) | none found (skills repo); custom Remotion License (framework) | idea only | agent-skill packaging | read; skills-repo licence unverified |
 | [motionvideohq/motionvideo.xyz](#motionvideo) | MIT (website only); skill pack proprietary | idea only | public site and README only | read; paid pack not accessed |
+| [Owner-supplied launch reference films](#owner-launch-references) (Minase, Kinso) | not ours; owner's own references | analysed only, not redistributed | house references for launch films: beat tables, carrier, logo count, rhythm | taken (breakdowns only, `library/benchmarks/launch-refs`) |
 | [charlie947/motion-graphics-skills](#motion-graphics-skills) | MIT | idea only | motion prompts and skills | read; nothing taken |
 | [Leonxlnx/cinetic](#cinetic) | MIT | idea only | eval-driven motion skill | read; nothing taken |
 | [howseen-ai/claude-motion-design](#claude-motion-design) | MIT (media separate) | idea only | HTML + Playwright + ffmpeg motion skill | read; nothing taken |
@@ -534,3 +535,13 @@ Revalidated 2026-10-22 for the video-upgrade brief (heresay r_VejkvP8IXAd9jCgJ).
 - DECLINED: the 1.7B planner and the XL 4B DiT (3.8 GB and 9 GB more; the 0.6B planner and 2B turbo were enough for the pilot); MusicGen (CC-BY-NC weights); Stable Audio Open (Stability community licence: free commercial use only under a revenue threshold, instrumental, 47 s clips, gated download); YuE and LeVo (CUDA-first, very slow on a Mac; LeVo is non-commercial); bundling any weights or the venv.
 - PLANNED: try the XL turbo (4B DiT, better vocals) when a film needs it; `repaint` to fix one section without redoing the song.
 - Unverified: the training-data claims; whether a sung result can echo a real song (keep seed, caption and lyrics in LICENSES.json and listen before shipping a song).
+
+## owner-launch-references
+
+- What: two launch films the owner supplied as the target for every launch film (Minase, 41 s; Kinso, 46 s). Measured with `scripts/refs.mjs ingest` (Node + ffmpeg) and read by hand.
+- URL: none. Local files only; the paths are not recorded (the owner's attachments).
+- Licence: not ours. They are the owner's references and are analysed only, never redistributed.
+- TOOK: breakdowns only (`library/benchmarks/launch-refs/<id>/`: stats, beat tables, words and music maps, one 1 fps contact sheet each). No video, audio or frames beyond the contact sheet. Principles (beats, carrier, logo count, rhythm) became the launch grammar's gates; no copy, mark, palette or frame goes into a film.
+- DECLINED: placing any of their frames, lines, marks or sounds in a film.
+- PLANNED: none.
+- Unverified: beat times are read from a 1 fps sheet (about 0.5 s).
