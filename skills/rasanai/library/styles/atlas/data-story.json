@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "data-story",
   "number": 33,
+  "gate_profile": "flat",
   "name": "Infographic / data story",
   "look": "charts drawn mark by mark, annotations, one narrative axis.",
   "fits": {

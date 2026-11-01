@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "pixel-companion",
   "number": 2,
+  "gate_profile": "pixel",
   "name": "Pixel UI as a living screencast",
   "look": "a real hi-res interface with a low-res pixel mascot living and acting inside it.",
   "fits": {

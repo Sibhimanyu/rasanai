@@ -95,7 +95,7 @@ If fewer than **3** cards in a set pass, or the set gate S1 is false, put that s
 - Never rank a card that failed. Never leave a card unjudged.
 - Never accept an unsupported "novel". A card's `precedent` field must name the nearest known move and the difference; "none found" with no search is a G5 failure.
 - Never reward the set that is longest, or the one you read last.
-- Never pass a conceit under `product_first`: a museum, gallery, allegory, invented world, or an object or transformation that never resolves to a real surface or mark, fails G3. Never fail a letter or shape transformation that does resolve to the real product and reads, nor for being large: that is the bar.
+- Under `product_first` a metaphor, world or story object is allowed. G3 fails a move that carries the claim (or a real UI label) and never lands on the real surface, name or mark, or a prop or fake screen posing as the real UI. A move that belongs to the story's own world needs no product landing. Never fail a letter or shape transformation that does resolve to the real product and reads, nor for being large: that is the bar.
 - Never leave `set` out of a label, and never let a set with no full-frame type or shape transformation escape `denial`.
 
 ## Done when

@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "clay",
   "number": 4,
+  "gate_profile": "dimensional",
   "name": "Claymation / soft clay look",
   "look": "thumbprinted clay, imperfect forms, rim light, 12 fps wobble.",
   "fits": {

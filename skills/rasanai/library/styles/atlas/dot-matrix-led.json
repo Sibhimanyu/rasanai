@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "dot-matrix-led",
   "number": 15,
+  "gate_profile": "pixel",
   "name": "Dot-matrix and LED display",
   "look": "everything is made of round or square lit dots/segments: text scrolling on LED boards, images resolved from amber/red dot grids.",
   "fits": {

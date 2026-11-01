@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "brutalist",
   "number": 10,
+  "gate_profile": "flat",
   "name": "Brutalist / anti-design",
   "look": "raw system fonts, hard borders, harsh colours, no easing, deliberate \"ugly\".",
   "fits": {

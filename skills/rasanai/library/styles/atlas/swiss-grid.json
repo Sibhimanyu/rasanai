@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "swiss-grid",
   "number": 9,
+  "gate_profile": "flat",
   "name": "Swiss / International typographic motion",
   "look": "strict grid, one grotesk, one signal colour, exact moves; whitespace as structure.",
   "fits": {

@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "line-art",
   "number": 17,
+  "gate_profile": "hand-made",
   "name": "Line art / one continuous line",
   "look": "a single stroke draws, transforms, becomes the next shape; thin, monoweight.",
   "fits": {

@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "toon-3d",
   "number": 20,
+  "gate_profile": "dimensional",
   "name": "Cel-shaded 3D / toon",
   "look": "3D with flat lighting steps, ink outlines, hand-drawn effects layered on.",
   "fits": {

@@ -853,6 +853,7 @@ if (cmd === "push") {
     const FG = await import("./final-gate.mjs");
     const h = FG.verifyHandover(RUN, vf);
     if (!h.ok) die("not handed over: " + h.why.slice(0, 5).join(" | ") + ". Fix it (or STOP and report); a draft, an open fix round or an ungated render never goes to the person.");
+    for (const n of [...(h.needs_you || []), ...(h.warnings || [])]) console.error("final-gate warning: " + n); // scratch VO and other visible warnings: never shipped silently
   }
   // V3 W09 (policy revision >= 2 only; revision 1 and legacy runs are untouched): the render/final push states what the output truly is. The assessment rides in the existing note slot
   // and in creative_completion; the approve action, step order and controls are unchanged. Guarded: a missing helper never blocks a push.

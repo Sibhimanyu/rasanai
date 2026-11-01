@@ -50,6 +50,11 @@ export function decideSoundMode(o = {}) {
       mode = "instrumental-arc";
       reason += `, but ${conflict}`;
     }
+  } else if (o.conceptMode && Object.prototype.hasOwnProperty.call(MODE_STEMS, o.conceptMode)) {
+    // the chosen concept names its sound mode: it wins over the length / platform heuristic below (only the person's own answer, above, beats it)
+    mode = o.conceptMode;
+    reason = `the chosen concept's own sound_mode (${mode}): the idea decides, the length and platform heuristic does not`;
+    if (mode === "song-lyric" && o.songOptIn === false) { mode = "instrumental-arc"; reason += ", but the person opted out of songs"; }
   } else if ((o.lyricTrack || o.lyricText) && o.songOptIn !== false) {
     mode = "song-lyric";
     reason = "a song with lyrics is in hand; the song is the pitch (five acts ending on the tagline), the on-screen type runs its own short script beside it";

@@ -20,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
+import { shapeOf } from "./music-shapes.mjs";
 
 export const SR = 22050;
 export const HOP = 512;
@@ -1633,6 +1634,10 @@ export function renderTexture(c, out, { sr = 48000, peak = 0.5 } = {}) {
 //   break  a break before the end card: the quietest 0.25 s in the break window (else the last 4 s before the button) is 10 dB under the body
 //   peak   the loudest second of the film falls between the turn and the payoff's tail (never in the intro or the outro)
 // `file` is a bed already cut to the film (the fitted preview), so the numbers are what the film will get.
+// The arc's `shape` (lib/music-shapes.mjs; none = "drop", the four parts above) picks which parts are scored, scaled to 100: slow-burn = intro + rise + a late peak; ambient-bed and pulse-loop = steady;
+// cold-open = hit (full energy from the first second) + optional break + any peak; stinger = lift + peak + tail; lyric-song = the drop parts with an optional break.
+//   rise   the last third of the film is at least 6 dB over the first third     steady  the middle 80% of 1 s levels spans under 3 dB (full marks), 9 dB or more (none)
+//   hit    the first 1.5 s are within 4 dB of the body (full marks at or over it)     tail  the last 1.2 s are at least 6 dB under the body
 // The payoff lift, ONE definition for arcFit and the sound check (sound.mjs flat-payoff): the level of the 1.0 s from T minus the level of the 1.5 s before T, in 100 ms
 // windows of the momentary energies (mom = per-window dB, W = window s). Needs 1.5 s before T; returns null when it does not fit.
 export const PAYOFF_LIFT_NEED_DB = 2;
@@ -1647,6 +1652,7 @@ export function arcFit(file, arc, film) {
   const dur = Math.min(n * W, film || n * W);
   const mean = (a, b) => { const i0 = Math.max(0, Math.round(a / W)), i1 = Math.min(n, Math.round(b / W)); if (i1 <= i0) return -120; let z = 0; for (let i = i0; i < i1; i++) z += Math.pow(10, mom[i] / 10); return 10 * Math.log10(z / (i1 - i0) + 1e-12); };
   const cl = (x) => Math.max(0, Math.min(1, x));
+  const SH = shapeOf(arc.shape);
   const drop = arc.drop_at, button = Math.min(arc.button_at, dur);
   const bodyWin = mom.slice(Math.round(drop / W), Math.round(button / W)).filter((v) => v > -80).sort((a, b) => a - b);
   const body = bodyWin.length ? bodyWin[Math.floor(bodyWin.length / 2)] : -120;
@@ -1659,20 +1665,31 @@ export function arcFit(file, arc, film) {
   const breakBelow = low === 1e9 ? 0 : body - low;
   let best = -1e9, bestAt = 0;
   for (let t = 0; t + 1 <= dur + 1e-9; t += W) { const v = mean(t, t + 1); if (v > best) { best = v; bestAt = t + 0.5; } }
-  const peakOk = bestAt >= drop - 0.5 && bestAt <= (arc.payoff_at ?? button) + 2.5;
+  const peakOk = SH.peak === "any" ? true : SH.peak === "late" ? bestAt >= (arc.payoff_at ?? button) - 2.5 && bestAt <= button + 2.5 : bestAt >= drop - 0.5 && bestAt <= (arc.payoff_at ?? button) + 2.5;
   const payoffLift = arc.payoff_at != null && arc.payoff_at > arc.drop_at + 1 ? payoffLiftDb(mom, W, arc.payoff_at) : null;
-  const parts = { intro: Math.round(cl(introBelow / 6) * 25), lift: Math.round(cl(lift / 5) * 25), break: Math.round(cl(breakBelow / 10) * 25), peak: peakOk ? 25 : 8 };
+  const early = mean(0.3, Math.max(0.8, dur / 3)), late = mean(dur * 0.6, Math.max(dur * 0.6 + 0.5, dur - 0.3)), rise = late - early;
+  const secs = []; for (let t = 0.3; t + 1 <= dur + 1e-9; t += 0.5) { const v = mean(t, t + 1); if (v > -80) secs.push(v); }
+  secs.sort((a, b) => a - b);
+  const spread = secs.length > 4 ? secs[Math.floor(secs.length * 0.9)] - secs[Math.floor(secs.length * 0.1)] : 99;
+  const hitBelow = body - mean(0.2, Math.min(1.5, dur)), tailBelow = body - mean(Math.max(0, dur - 1.2), dur);
+  const all = { intro: Math.round(cl(introBelow / 6) * 25), lift: Math.round(cl(lift / 5) * 25), break: Math.round(cl(breakBelow / 10) * 25), peak: peakOk ? 25 : 8, rise: Math.round(cl(rise / 6) * 25), steady: Math.round(cl((9 - spread) / 6) * 25), hit: Math.round(cl((4 - hitBelow) / 4) * 25), tail: Math.round(cl(tailBelow / 6) * 25) };
+  const used = SH.parts.filter((k) => !((SH.optional || []).includes(k) && !(k === "break" && arc.break)));
+  const parts = Object.fromEntries(used.map((k) => [k, all[k]]));
   // the payoff must lift too (the sound check fails a flat payoff, unless a deep break sits right before it: then the dip is the lift)
   const pb = arc.payoff_at != null ? (() => { let lo = 1e9; for (let t = Math.max(0, arc.payoff_at - 2); t < arc.payoff_at; t += W) lo = Math.min(lo, mom[Math.round(t / W)] ?? 1e9); return lo === 1e9 ? 0 : body - lo; })() : 99;
-  const payoffFlat = payoffLift != null && payoffLift < PAYOFF_LIFT_NEED_DB && pb < 6;
-  const score = Math.max(0, parts.intro + parts.lift + parts.break + parts.peak - (payoffFlat ? 10 : 0));
+  const payoffFlat = !!SH.payoffLift && payoffLift != null && payoffLift < PAYOFF_LIFT_NEED_DB && pb < 6;
+  const score = Math.max(0, Math.round(used.reduce((x, k) => x + parts[k], 0) * (100 / (25 * used.length))) - (payoffFlat ? 10 : 0));
   const problems = [];
   if (payoffFlat) problems.push(`flat payoff at ${r1(arc.payoff_at)} s: ${r1(payoffLift)} dB over the 1.5 s before it (the sound check needs +${PAYOFF_LIFT_NEED_DB})`);
-  if (parts.intro < 12) problems.push(`no sparse intro: the first ${r1(introEnd)} s are ${r1(introBelow)} dB under the body (needs 6)`);
-  if (parts.lift < 12) problems.push(`no lift at the turn (${r1(drop)} s): ${r1(lift)} dB over the 1.5 s before it (needs 5)`);
-  if (parts.break < 12) problems.push(`no break before the end card (${r1(b0)}-${r1(b1)} s): only ${r1(breakBelow)} dB under the body (needs 10)`);
-  if (!peakOk) problems.push(`the loudest second is at ${r1(bestAt)} s, not between the turn and the payoff`);
-  return { score, parts, payoff_lift_db: payoffLift == null ? null : r1(payoffLift), intro_below_db: r1(introBelow), lift_db: r1(lift), break_below_db: r1(breakBelow), loudest_at_s: r1(bestAt), body_db: r1(body), problems };
+  if (parts.intro != null && parts.intro < 12) problems.push(`no sparse intro: the first ${r1(introEnd)} s are ${r1(introBelow)} dB under the body (needs 6)`);
+  if (parts.lift != null && parts.lift < 12) problems.push(`no lift at the turn (${r1(drop)} s): ${r1(lift)} dB over the 1.5 s before it (needs 5)`);
+  if (parts.break != null && parts.break < 12) problems.push(`no break before the end card (${r1(b0)}-${r1(b1)} s): only ${r1(breakBelow)} dB under the body (needs 10)`);
+  if (used.includes("peak") && !peakOk) problems.push(SH.peak === "late" ? `the loudest second is at ${r1(bestAt)} s, not at the finale (a slow burn peaks last)` : `the loudest second is at ${r1(bestAt)} s, not between the turn and the payoff`);
+  if (parts.rise != null && parts.rise < 12) problems.push(`the music does not build: the last third is only ${r1(rise)} dB over the first (a ${SH.label} needs 6)`);
+  if (parts.steady != null && parts.steady < 12) problems.push(`not steady: the level spans ${r1(spread)} dB (a ${SH.label} stays within about 3)`);
+  if (parts.hit != null && parts.hit < 12) problems.push(`no hit from the first second: the opening is ${r1(hitBelow)} dB under the body (a ${SH.label} starts at full energy)`);
+  if (parts.tail != null && parts.tail < 12) problems.push(`no tail: the last 1.2 s are only ${r1(tailBelow)} dB under the body (needs 6)`);
+  return { score, shape: SH.id || arc.shape || "drop", parts, payoff_lift_db: payoffLift == null ? null : r1(payoffLift), intro_below_db: r1(introBelow), lift_db: r1(lift), break_below_db: r1(breakBelow), loudest_at_s: r1(bestAt), body_db: r1(body), problems };
 }
 
 // ---------------------------------------------------------------- platform loudness and the layered mix (lib/mix.mjs)

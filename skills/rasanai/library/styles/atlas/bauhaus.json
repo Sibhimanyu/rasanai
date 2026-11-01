@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "bauhaus",
   "number": 31,
+  "gate_profile": "flat",
   "name": "Bauhaus / geometric primaries",
   "look": "circles, triangles, squares, primaries on cream, strictly modular.",
   "fits": {

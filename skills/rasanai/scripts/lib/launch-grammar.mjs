@@ -110,7 +110,7 @@ export function readFilmText({ project, run, plan } = {}) {
 const SAME_EVERYWHERE = /\bidentical in every (scene|beat|shot)\b|\bsame (fixed )?layout (in|for|across|on) (every|each|all)\b|\bone fixed layout\b|\bthe fixed layout\b|\bevery (scene|beat|shot) (uses|shares|has) the same (layout|template|frame)\b|\bunchanged (across|between) (scenes|beats|shots)\b/i;
 
 // plan = the parsed score (or null); scenes = its scenes[] (or scenes.json's)
-export function launchGrammarFindings({ plan = null, scenes = [], project = null, run = null, planPath = null, kind = null } = {}) {
+export function launchGrammarFindings({ plan = null, scenes = [], project = null, run = null, planPath = null, kind = null, waived = {} } = {}) {
   const F = [];
   const add = (severity, check, message, fix) => F.push({ severity, check, message, fix, basis: "score" });
   const k = filmKind({ kind, plan: plan || planPath, project, run });
@@ -143,6 +143,8 @@ export function launchGrammarFindings({ plan = null, scenes = [], project = null
     const hasUsers = (plan && plan.has_users === true);
     if (hasUsers) need.push(["person", "a person or photo"]);
     const miss = need.filter(([sc]) => !have.has(sc)).map(([, d]) => d);
+    // the full-frame-type requirement is a default a concept can waive (grammar_waivers [{rule: "full-frame-type", why}]): a note, not an error
+    if (waived["full-frame-type"] && miss.includes("full-frame type")) { miss.splice(miss.indexOf("full-frame type"), 1); F.push({ severity: "note", check: "shot-scale-mix", message: `waived by the concept (${waived["full-frame-type"]}): the film has no full-frame type scene (scales used: ${[...have].join(", ")})`, fix: "none: the concept waived the launch grammar's full-frame-type rule", basis: "score", waived: true }); }
     // the picture scales are interchangeable: a wide world, a generated image world, an illustration or an object all give the film its second scale
     if (!["world", "world-image", "illustration", "object"].some((sc) => have.has(sc))) miss.push("a wide world, an image world, an illustration or an object shot");
     if (miss.length) add("error", "shot-scale-mix", `the film has no ${miss.join(", no ")} (scales used: ${[...have].join(", ")})`, "mix the scales across the film: giant words that bleed off the frame, a wide world, an image world, an illustration or an object shot, the UI cropped and tilted in perspective where there is a UI-proof beat, and a person or photo when the product has users");

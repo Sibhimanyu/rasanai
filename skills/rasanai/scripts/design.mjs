@@ -116,7 +116,9 @@ function phraseHits(textWords, textRaw, phrases) {
 // Rank atlas styles for a product and tone. Pure, seeded: the same input gives the same list.
 // With count > 1 the picks are chosen greedily so they differ: a style that shares its sound mode, its effect finish or its engine class
 // with one already picked is penalised, so three looks are three worlds and not three tints of one.
-function pickStyleWorlds({ product = "", tone = "", count = 3, seed = "rasa", exclude = [], brandLocked = false } = {}) {
+// anchor = the chosen Story concept's style_world (storyWorldOf): Look A is that world, B and C are its neighbours or variants (same sound mode, engine, medium runtime or finish, then product fit);
+// product-keyword ranking decides the worlds only when no concept world exists (no anchor).
+function pickStyleWorlds({ product = "", tone = "", count = 3, seed = "rasa", exclude = [], brandLocked = false, anchor = "" } = {}) {
   const atlas = loadAtlas().filter((s) => !exclude.includes(s.id));
   let tp = null; try { tp = tasteProfile(); if (tp.empty) tp = null; } catch { tp = null; } // soft: +-1.5 on a score that runs to ~10; never excludes
   const pw = new Set(words(product)), tw = new Set(words(tone)), praw = String(product).toLowerCase(), traw = String(tone).toLowerCase();
@@ -127,8 +129,15 @@ function pickStyleWorlds({ product = "", tone = "", count = 3, seed = "rasa", ex
     return { ...s, score: Math.round(score * 100) / 100, why, risky: ap.n + at.n > 0 };
   }).sort((a, b) => b.score - a.score || a.number - b.number);
   const picks = [];
+  const A = anchor ? scored.find((s) => s.id === anchor) : null;
+  if (A) { // the Story's world leads; the rest are the closest neighbours (a world sharing its sound mode / engine / medium runtime / first finish pass / gate profile), product fit only breaks ties
+    const near = (s) => (s.sound_mode === A.sound_mode ? 2 : 0) + (s.engine === A.engine ? 1 : 0) + (s.medium_runtime && s.medium_runtime === A.medium_runtime ? 1.5 : 0) + (s.effects && A.effects && s.effects.length && A.effects.length && s.effects[0] === A.effects[0] ? 1.5 : 0) + (s.gate_profile && s.gate_profile === A.gate_profile ? 2 : 0) + s.score * 0.15;
+    A.why = "the chosen Story's own style world";
+    picks.push(A);
+    for (const s of scored.filter((x) => x !== A).sort((a, b) => near(b) - near(a) || a.number - b.number)) { if (picks.length >= Math.min(count, scored.length)) break; if (!s.risky || scored.filter((x) => !x.risky).length < count) { s.why = (s.why ? s.why + "; " : "") + `a neighbour of ${A.id}`; picks.push(s); } }
+  }
   const pool = scored.filter((s) => !s.risky || scored.filter((x) => !x.risky).length < count);
-  while (picks.length < Math.min(count, pool.length)) {
+  while (!A && picks.length < Math.min(count, pool.length)) {
     let best = null, bestV = -1e9;
     for (const s of pool) {
       if (picks.includes(s)) continue;
@@ -144,11 +153,26 @@ function pickStyleWorlds({ product = "", tone = "", count = 3, seed = "rasa", ex
     if (!best) break; picks.push(best);
   }
   // one in three is always an exploration: when taste is known and every pick is inside the comfort zone, the last pick is swapped for the best-ranked world the user has no like for
-  if (tp && count >= 3 && picks.length >= 3 && picks.every((p) => tastePrior("style_world", p.id, tp) > 0.15)) {
+  if (!A && tp && count >= 3 && picks.length >= 3 && picks.every((p) => tastePrior("style_world", p.id, tp) > 0.15)) {
     const alt = pool.find((x) => !picks.includes(x) && tastePrior("style_world", x.id, tp) <= 0.15);
     if (alt) { alt.why = (alt.why ? alt.why + "; " : "") + "kept as the exploration outside your usual taste"; picks[picks.length - 1] = alt; }
   }
-  return { picks: picks.map((p) => ({ id: p.id, name: p.name, score: p.score, why: p.why || "no direct match; chosen for contrast", sound_mode: p.sound_mode, effects: p.effects, when_not: p.when_not })), ranked: scored.slice(0, 12).map((p) => ({ id: p.id, score: p.score, why: p.why })), brand_locked: !!brandLocked };
+  return { anchor: A ? A.id : null, picks: picks.map((p) => ({ id: p.id, name: p.name, score: p.score, why: p.why || "no direct match; chosen for contrast", sound_mode: p.sound_mode, effects: p.effects, when_not: p.when_not })), ranked: scored.slice(0, 12).map((p) => ({ id: p.id, score: p.score, why: p.why })), brand_locked: !!brandLocked };
+}
+// the style world of the chosen Story concept: story/chosen*.json first (its own style_world, wherever the treatment nests it), else the jury's selected pick (story/jury.json selected / the chosen id)
+// looked up in the idea pools (story/ideas-*.json). null when the Story names none, and the product-keyword ranking applies.
+function storyWorldOf(run) {
+  const rj = (...p) => { try { return JSON.parse(fs.readFileSync(path.join(run, ...p), "utf8")); } catch { return null; } };
+  const idOf = (w) => String((w && typeof w === "object" ? w.id || w.name : w) || "").trim().toLowerCase();
+  const find = (o, d = 0) => { if (!o || typeof o !== "object" || d > 4) return ""; if (o.style_world) { const i = idOf(o.style_world); if (i) return i; } for (const k of ["concept", "treatment", "extensions", "creative_thinking", "idea", "selected"]) { const i = find(o[k], d + 1); if (i) return i; } return ""; };
+  const chosen = rj("story", "chosen-treatment.json") || rj("story", "chosen.json"), jury = rj("story", "jury.json");
+  let w = find(chosen);
+  if (!w) {
+    const ids = [chosen && (chosen.idea_id || chosen.id || chosen.treatment_id), jury && (jury.selected && (jury.selected.id || jury.selected)), jury && jury.selected_id].filter(Boolean).map(String);
+    const pool = ["story", "style", "wild"].flatMap((k) => { const j = rj("story", `ideas-${k}.json`); return j && Array.isArray(j.ideas) ? j.ideas : []; });
+    for (const i of ids) { const hit = pool.find((x) => x && String(x.id) === i); if (hit && idOf(hit.style_world)) { w = idOf(hit.style_world); break; } }
+  }
+  return w && atlasEntry(w) ? w : null;
 }
 // a look's style world: blend.json.style_world (an atlas id, or {id}) -> the summary; unknown ids are reported, never invented
 function styleWorldOfLabel(run, label) {
@@ -274,8 +298,9 @@ if (cmd === "style-worlds") {
   let product = args.product && args.product !== true ? String(args.product) : "", tone = args.tone && args.tone !== true ? String(args.tone) : "";
   if (runAbs && !product) { try { const d = JSON.parse(fs.readFileSync(path.join(runAbs, "decisions.json"), "utf8")); product = [d.subject, d.product, d.brief].filter(Boolean).join(" "); tone = tone || [d.tone, d.mood].filter(Boolean).join(" "); } catch {} }
   const locked = !!(args.brand && args.brand !== true) || !!(runAbs && runBrand(runAbs));
-  const r = pickStyleWorlds({ product, tone, count: Math.max(1, Math.min(9, Number(args.count || 3))), seed: String(args.seed || product || "rasa"), exclude: String(args.exclude || "").split(",").filter(Boolean), brandLocked: locked });
-  console.log(JSON.stringify({ ...r, rule: locked ? "brand lock: brand colour, type and logo stay in all three; the three style worlds are what differ" : "three looks = three different style worlds (material, finish, sound), not three tints of one", atlas: path.relative(process.cwd(), ATLAS_DIR), note: "ranked by fit to product and tone; a human or the design desk still judges: references/styles.md says when NOT to use each" }, null, 2));
+  const anchor = args["style-world"] && args["style-world"] !== true ? String(args["style-world"]) : runAbs ? storyWorldOf(runAbs) || "" : "";
+  const r = pickStyleWorlds({ product, tone, count: Math.max(1, Math.min(9, Number(args.count || 3))), seed: String(args.seed || product || "rasa"), exclude: String(args.exclude || "").split(",").filter(Boolean), brandLocked: locked, anchor });
+  console.log(JSON.stringify({ ...r, rule: anchor ? `Look A is the chosen Story's own style world (${anchor}); B and C are neighbours or variants of it. The Story's world is not re-decided here` : locked ? "brand lock: brand colour, type and logo stay in all three; the three style worlds are what differ" : "three looks = three different style worlds (material, finish, sound), not three tints of one", atlas: path.relative(process.cwd(), ATLAS_DIR), note: "ranked by fit to product and tone; a human or the design desk still judges: references/styles.md says when NOT to use each" }, null, 2));
 } else if (cmd === "style-world") {
   if (args.list || !args.id) { console.log(JSON.stringify(loadAtlas().map((x) => ({ id: x.id, number: x.number, name: x.name, engine: x.engine, sound_mode: x.sound_mode, effects: x.effects, fits: x.fits.slice(0, 3), when_not: x.when_not })), null, 2)); }
   else { const e = atlasEntry(args.id); if (!e) die(`no style world "${args.id}"; run: design.mjs style-world --list`); console.log(JSON.stringify(e, null, 2)); }
@@ -286,7 +311,7 @@ if (cmd === "style-worlds") {
   const count = Math.max(2, Math.min(9, Number(args.count || 6)));
   const looks = generateLooks({ picks: D.picks || {}, count, seed: String(args.seed || D.subject || "rasa"), brand, ground: String(args.ground || "auto"), recent: String(args.recent || "").split(",").filter(Boolean) });
   // each look names its style world (atlas): different worlds per look; a brand lock keeps palette and type, so the worlds are what vary
-  { const picks = pickStyleWorlds({ product: [D.subject, args.headline && args.headline !== true ? args.headline : ""].filter(Boolean).join(" "), tone: String(D.tone || D.mood || (D.picks && (D.picks.tone || D.picks.mood)) || ""), count: looks.length, seed: String(args.seed || D.subject || "rasa"), exclude: [], brandLocked: !!brand }).picks;
+  { const picks = pickStyleWorlds({ product: [D.subject, args.headline && args.headline !== true ? args.headline : ""].filter(Boolean).join(" "), tone: String(D.tone || D.mood || (D.picks && (D.picks.tone || D.picks.mood)) || ""), count: looks.length, seed: String(args.seed || D.subject || "rasa"), exclude: [], brandLocked: !!brand, anchor: args["style-world"] && args["style-world"] !== true ? String(args["style-world"]) : (args.run && args.run !== true ? storyWorldOf(path.resolve(String(args.run))) || "" : "") }).picks;
     looks.forEach((L, i) => { const w = picks[i] && worldSummary(picks[i].id); if (w) L.style_world = { ...w, pick_reason: picks[i].why }; }); }
   const [AW, AH] = normalizeAspect(args.aspect || "16:9").split("x").map(Number);
   const out = path.resolve(String(args.out));
@@ -401,7 +426,7 @@ if (cmd === "style-worlds") {
     const unknown = pl.styles.filter((st) => st.style_world.unknown).map((st) => `${st.label}: "${st.style_world.id}"`);
     if (unknown.length) die(`style_world is not in the atlas (library/styles/atlas): ${unknown.join(", ")}; run design.mjs style-world --list`);
     if (new Set(ids).size < ids.length && locked) die(`brand lock: the three Looks must be three different style worlds (brand colour, type and logo stay; the world varies), got ${pl.styles.map((st) => st.label + "=" + (st.style_world.id || "none")).join(", ")}. Pick from design.mjs style-worlds --run <run>`);
-    if (ids.length < pl.styles.length) { const sug = pickStyleWorlds({ product: firstLine(runAbs) || "", tone: "", count: 3, seed: runAbs, brandLocked: locked }).picks.map((p) => p.id).join(", "); console.error(`style worlds: ${pl.styles.length - ids.length} Look(s) name no style_world in blend.json; suggestions for this film: ${sug} (design.mjs style-worlds --run <run>)`); }
+    if (ids.length < pl.styles.length) { const sug = pickStyleWorlds({ product: firstLine(runAbs) || "", tone: "", count: 3, seed: runAbs, brandLocked: locked, anchor: storyWorldOf(runAbs) || "" }).picks.map((p) => p.id).join(", "); console.error(`style worlds: ${pl.styles.length - ids.length} Look(s) name no style_world in blend.json; suggestions for this film: ${sug} (design.mjs style-worlds --run <run>)`); }
     else if (new Set(ids).size < ids.length) console.error(`style worlds: two Looks share a style world (${ids.join(", ")}); three Looks should be three different worlds`);
   }
   // new creative policy: the Look is a craft class the Story supports. A look that names none is read as "not the dimensional craft" by the frame checks; say it before the user is asked (stderr: the payload is unchanged)

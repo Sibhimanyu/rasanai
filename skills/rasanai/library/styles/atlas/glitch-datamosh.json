@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "glitch-datamosh",
   "number": 14,
+  "gate_profile": "stepped",
   "name": "Glitch / datamosh / VHS",
   "look": "broken codec blocks, RGB split, pixel smears, tracking noise, scan tears.",
   "fits": {

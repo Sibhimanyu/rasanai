@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The anti-slop gate: checks a built film for the tells viewers read as generic AI video, before the render
 // question (next to obey.mjs, which checks the motion contract). Evidence: /references/craft.md "Anti-slop".
-//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--format reel] [--run <run>] [--score <score.json>] [--destination <id>] [--no-text-fit] [--no-chrome] [--chrome-allow <rule ids>] [--json]
+//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--format reel] [--run <run>] [--score <score.json>] [--gate-profile <profile>] [--destination <id>] [--no-text-fit] [--no-chrome] [--chrome-allow <rule ids>] [--json]
 // Hero effects (glow, blur-in, particles) are budgets, not bans: allowed on the hero up to the score's `budget`
 // (lib/budget.mjs); the same effect on every element is the error.
 // With a brand (the run's research/brand/assets/, found from --run, from "<run>/frames", or from the project's
@@ -92,6 +92,8 @@ if (/lens-?flare|flare\.png/i.test(allCode)) add("lens-flare", "warn", "lens fla
 // Corner labels have ONE rule name, corner-micro-label (lib/chrome-lint.mjs measures it in the rendered DOM). The timecode/BPM-style
 // strings found in the source are only a second way to see the same thing: section 5c merges them into that finding (or, when the
 // page-chrome pass did not run, reports them under the same name), so no element is reported twice.
+// the chosen world's gate profile (final-gate.mjs passes --gate-profile): pixel and stepped worlds hold frames on purpose, so a freeze is a warning there
+const steppedProfile = /^(pixel|stepped)$/.test(String(args["gate-profile"] || ""));
 const hudStyle = /hud|fui|terminal|telemetry|broadcast|vhs/.test(style);
 const cornerLabelTexts = [...new Set(visible.filter(({ t }) => /^(\d{1,2}:\d{2}(:\d{2})?|\d{2,3}\s?bpm|rec\s?●?|sys\b|v\d\.\d)/i.test(t)).map(({ t }) => t))];
 const centered = (allCode.match(/text-align\s*:\s*center/g) || []).length, lefty = (allCode.match(/text-align\s*:\s*(left|start)/g) || []).length;
@@ -301,7 +303,7 @@ if (args.video && fs.existsSync(String(args.video))) {
   const fr = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-vf", "freezedetect=n=0.003:d=0.8", "-map", "0:v:0", "-f", "null", "-"], { encoding: "utf8" });
   const starts = [...(fr.stderr || "").matchAll(/freeze_start: ([\d.]+)/g)].map((m) => Number(m[1])), ends = [...(fr.stderr || "").matchAll(/freeze_end: ([\d.]+)/g)].map((m) => Number(m[1]));
   const dur = probe(v);
-  starts.forEach((s, i) => { const e = ends[i] ?? dur; if (e < dur - 3.2 && e - s >= 0.8) add("dead-air", "error", `still frame ${s.toFixed(1)}–${e.toFixed(1)} s`, "A still stretch of 0.8 s or more mid-film reads as dead air (motion-gate.mjs measures the same).", "Stage something meaningful in that stretch (a reveal, a move, UI life, a line's carry) or cut it: holds are reading time and still carry secondary motion."); });
+  starts.forEach((s, i) => { const e = ends[i] ?? dur; if (e < dur - 3.2 && e - s >= 0.8) add("dead-air", steppedProfile ? "warn" : "error", `still frame ${s.toFixed(1)}–${e.toFixed(1)} s`, "A still stretch of 0.8 s or more mid-film reads as dead air (motion-gate.mjs measures the same).", "Stage something meaningful in that stretch (a reveal, a move, UI life, a line's carry) or cut it: holds are reading time and still carry secondary motion."); });
   // the render's own rhythm: shot lengths between hard cuts (lib/carry.mjs findCuts)
   try {
     const cuts = findCuts(decodeGrey(v));

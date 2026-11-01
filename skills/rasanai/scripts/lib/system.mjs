@@ -237,14 +237,16 @@ export function checkSystem(dir, opts = {}) {
   const italicSerif = SERIFS.has(d) && (recipe.fonts || {}).italic === true;
   if (!brand && [cream, rust, italicSerif].filter(Boolean).length >= 2) P.push(`this is the "Claude look" (${[cream && "cream canvas", rust && "rust accent", italicSerif && "italic serif display"].filter(Boolean).join(" + ")}): it is everyone's default; unless the brand is that, make a different choice`);
   if (opts.brand) {
-    // BRAND LOCK: when a brand applies, ALL three systems are the brand extended for motion (its palette and type
-    // system); they vary composition, motion and density, never the palette or the type
+    // BRAND LOCK: the brand is locked where a viewer recognises it: its accent (the film's one signal colour), its logo, and its face for the claim / end line.
+    // Canvas, ink and support colours come from the chosen style world (a pixel, riso or clay world is not the brand's website). Strict brand mode (decisions.strict_brand_film /
+    // film_style_strict, only when the user explicitly asks) keeps the old lock: canvas, ink, accent and the display face all stay the brand's.
     try {
       const BR = readDesignMd(path.resolve(opts.brand), { mode: opts.mode });
+      const strictBrand = strictBrandFilm(path.resolve(dir, "..", ".."), opts);
       {
-        for (const k of ["canvas", "ink", "accent"]) if (BR.roles[k] && R[k] && BR.roles[k].toLowerCase() !== R[k].toLowerCase()) P.push(`${label}: brand lock: this system must be the brand extended (Sure, Bold and Wild all stay inside the brand's palette and type): its ${k} is ${R[k]} but the brand's is ${BR.roles[k]}`);
+        for (const k of strictBrand ? ["canvas", "ink", "accent"] : ["accent"]) if (BR.roles[k] && R[k] && BR.roles[k].toLowerCase() !== R[k].toLowerCase()) P.push(`${label}: brand lock: the brand's ${k === "accent" ? "accent is the film's signal colour and stays" : k + " stays (strict brand mode)"}: this system's ${k} is ${R[k]} but the brand's is ${BR.roles[k]}`);
         const bf = BR.fonts.display && BR.fonts.display.family;
-        if (bf && info.display.toLowerCase() !== bf.toLowerCase()) P.push(`${label}: brand lock: this system must keep the brand's display face ${bf} (it has ${info.display})`);
+        if (bf && info.display.toLowerCase() !== bf.toLowerCase()) (strictBrand ? P : W).push(`${label}: ${strictBrand ? "brand lock (strict brand mode): this system must keep the brand's display face" : "the world's own faces carry the film; the brand face"} ${bf} ${strictBrand ? "" : "belongs on the claim and the end line"}(it has ${info.display})`);
       }
     } catch (e) { W.push(`couldn't read the brand DESIGN.md to compare: ${e.message}`); }
   }

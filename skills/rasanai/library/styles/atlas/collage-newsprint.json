@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "collage-newsprint",
   "number": 6,
+  "gate_profile": "hand-made",
   "name": "Collage and photo cut-out (Gilliam / newsprint)",
   "look": "scissored photos with white edges, torn newsprint, tape, handwritten arrows, jerky puppet motion.",
   "fits": {

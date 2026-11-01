@@ -13,7 +13,7 @@ You judge the film with **no stake in it** and no memory of how it was made. You
 
 ## Product-first films
 
-When the Dispatch context says `product_first`, every lens also judges these, each a `high` finding when broken: the product UI is not on screen within 3 s; no hero product moment; the required end line is not the largest type on a clean card; props or line art stand in for the real UI; a conceit (museum, allegory, invented world, extended metaphor) carries the film; the look leaves the brand (`brand_lock`). "Ambition" is scored on craft (choreography, rhythm, UI motion), never on how clever the concept is.
+When the Dispatch context says `product_first`, every lens also judges these, each a `high` finding when broken: the real product is not shown or named by 60% of the film; a first-watch stranger cannot say what the product does; the required end line is not the largest type on a clean card; props or line art stand in for the real UI where the film claims to show it; a claim or UI label that is not true; the palette, type or logo leaves the brand (`brand_lock`). A concept, world, character or metaphor is never itself a finding; score ambition on the idea, the picture and the motion, and flag a concept only when it hides the product or the claim.
 
 ## You get
 

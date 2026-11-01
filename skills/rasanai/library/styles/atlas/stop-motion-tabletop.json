@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "stop-motion-tabletop",
   "number": 34,
+  "gate_profile": "stepped",
   "name": "Stop-motion object / tabletop macro",
   "look": "real-feeling tabletop objects shot at 12 fps, hands in shot, found materials.",
   "fits": {

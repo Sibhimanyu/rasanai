@@ -201,7 +201,8 @@ export function conceptPrior(c, p = null) {
   for (const m of f.moves.slice(0, 6)) { const x = prior("move", m, pr); if (x !== 0) vs.push(x * 0.5); }
   return vs.length ? clamp(vs.reduce((a, b) => a + b, 0) / vs.length, -0.6, 1) : 0;
 }
-// of the concepts, the index to keep as the exploration: the one furthest from the comfort zone (lowest prior; ties: last). -1 when nothing is learned.
+// of the concepts, the index furthest from the comfort zone (lowest prior; ties: last). -1 when nothing is learned. Ranking aid only: the exploration slot of a Story set is the Wild writer's pick
+// (the jury keeps one wild-lane idea), never the lowest-prior concept; and taste never goes into a concept writer's prompt.
 export function explorationIndex(concepts, p = null) {
   const pr = p || profile();
   if (!Array.isArray(concepts) || concepts.length < 2 || pr.empty) return -1;
@@ -214,18 +215,15 @@ const NAMES = { style_world: "style world", carrier_kind: "carrier", story_shape
 export const itemLabel = (i) => `${NAMES[i.facet] || i.facet} ${i.value}`;
 const SOFT = "a dislike is a lean, never a ban";
 const ROLE_NOTE = {
-  "concept-writer-story": "Lean toward the likes, but one of your concepts must be an exploration outside them.",
-  "concept-writer-style": "Lean toward the liked worlds; one concept must explore a world not listed.",
-  "concept-writer-wild": "Use this as the comfort zone to leave: be wild where it is quiet.",
+  // concept writers (story, style, wild) and the legacy visual-writer get NO taste block: a writer who leans toward the likes flattens the pool. Taste ranks and recommends (jury, planner, critic) only.
   "script-writer": "Develop the ideas as picked; the exploration concept stays an exploration.",
-  "visual-writer": "Lean toward the likes; keep one concept outside them.",
   "design-system-designer": "Prefer liked looks; avoid disliked ones unless the story needs them.",
   "art-director": "Prefer liked looks; avoid disliked ones unless the story needs them.",
-  "script-editor": `As the jury, keep 1 of the 3 picks as an exploration outside the likes; ${SOFT}.`,
+  "script-editor": `As the jury, taste breaks ties between equally strong ideas; the exploration slot is the wild lane's pick, not the idea furthest from the likes; ${SOFT}.`,
   "styleframe-designer": "Prefer liked looks; avoid disliked ones unless the story needs them.",
   "frame-designer": "Prefer liked looks; avoid disliked ones unless the story needs them.",
-  "concept-critic": `Keep 1 of the 3 picks as an exploration outside the likes; ${SOFT}.`,
-  "story-planner": `Keep 1 of the 3 picks as an exploration outside the likes; ${SOFT}.`,
+  "concept-critic": `Use it to rank and recommend; the exploration slot is the wild lane's pick; ${SOFT}.`,
+  "story-planner": `Use it to rank and recommend; the exploration slot is the wild lane's pick; ${SOFT}.`,
   "music-supervisor": `Choose the sound mode and music prompt near the liked sound; ${SOFT}.`,
   "motion-director": "Prefer liked moves and pace; avoid disliked ones unless the beat needs them.",
 };

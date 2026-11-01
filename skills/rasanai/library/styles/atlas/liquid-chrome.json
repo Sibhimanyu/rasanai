@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "liquid-chrome",
   "number": 13,
+  "gate_profile": "dimensional",
   "name": "Liquid / blob / chrome liquid metal",
   "look": "gooey metaballs, mercury chrome, drops merging, logos condensing.",
   "fits": {

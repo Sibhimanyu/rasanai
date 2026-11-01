@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "riso-print",
   "number": 7,
+  "gate_profile": "hand-made",
   "name": "Risograph and halftone print",
   "look": "2 to 3 spot inks on cream paper, off-register, grain, dot screens, overprint multiply.",
   "fits": {

@@ -76,7 +76,7 @@
 //   node sound.mjs palette --carrier "<carrier>" --dir <run>/audio/palette [--key-hz 220] [--seed <film id>]   the film's sound palette: 3-5 signature sounds for its carrier (library/sfx/palettes.json)
 //   node sound.mjs sources                      -> which keyed adapters this environment can use (ElevenLabs, Stable Audio, Freesound CC0, local ACE-Step), with licence caveats
 //   node sound.mjs sfx-find --query "<words>" --out <file> [--from freesound|elevenlabs|stable] [--dur s]   one effect from a keyed source (only when its key is set)
-//   node sound.mjs mode --length <s> --platform muted-social|social|site|youtube|keynote|broadcast [--claims n] [--answer "<the person's words>"] [--interface] [--kinetic] [--brand] [--captions] [--lyric-track <file> | --lyric-text <text>] [--consumer] [--no-song]
+//   node sound.mjs mode --length <s> --platform muted-social|social|site|youtube|keynote|broadcast [--claims n] [--answer "<the person's words>"] [--interface] [--kinetic] [--brand] [--captions] [--lyric-track <file> | --lyric-text <text>] [--concept-mode <vo-kinetic|instrumental-arc|sfx-led|song-lyric>: the chosen concept's own sound_mode, which beats the heuristic; --answer beats it] [--consumer] [--no-song]
 //       -> the sound mode (vo-kinetic | instrumental-arc | sfx-led | song-lyric) with its reason and the VO recommendation (lib/sound-mode.mjs)
 import fs from "node:fs";
 import path from "node:path";
@@ -1001,9 +1001,9 @@ function check() {
       }
     } catch (e) { (measures.sync ||= {}).sfx_checks = { skipped: String(e.message).slice(0, 120) }; }
     Object.assign(measures, { sfx_count: cues.length, sfx_per_s: r3(cues.length / dur), sfx_max_in_1s: maxWin, whooshes });
-    // designed-SFX density (typing/tick textures are not designed cues): 1.5-2.2 per 10 s is the band, a warning outside it, an error above 3 (a reference film's own density moves the band, inside bounds)
+    // designed-SFX density (typing/tick textures are not designed cues): keyed to the sound mode (lib/ref-targets.mjs sfxDensityBand): music-led 1.5-2.2 per 10 s, error above 3 (a reference film's own density moves that band); sfx-led about 4-8, error above 12; vo-led or silent lower
     {
-      const designed = cues.filter((c) => !/typ|key|tick|click|texture/i.test(String(c.kind || ""))).length, per10 = (designed / dur) * 10, band = sfxDensityBand(args.run && args.run !== true ? path.resolve(String(args.run)) : null);
+      const designed = cues.filter((c) => !/typ|key|tick|click|texture/i.test(String(c.kind || ""))).length, per10 = (designed / dur) * 10, band = sfxDensityBand(args.run && args.run !== true ? path.resolve(String(args.run)) : null, args.mode && args.mode !== true ? String(args.mode) : undefined);
       measures.sfx_designed = { count: designed, per_10s: r1(per10), band: [band.lo, band.hi], error_above: band.err, from_refs: band.fromRefs };
       if (dur >= 10 && per10 > band.err) P("SFX density per 10 s", `${r1(per10)} designed SFX per 10 s`, `<= ${band.err} (band ${band.lo}-${band.hi})`, "drop the weakest cues: sounds only on causal, designed moments");
       else if (dur >= 10 && cues.length && (per10 > band.hi || per10 < band.lo)) warnings.push(`sfx-density: ${r1(per10)} designed SFX per 10 s is outside ${band.lo}-${band.hi}${band.fromRefs ? " (the run's reference films)" : ""}: ${per10 > band.hi ? "thin it to the moments that matter" : "add cues on the real landings and the reveal"}`);
@@ -1209,7 +1209,7 @@ if (cmd === "analyze") {
 } else if (cmd === "mode") {
   const { decideSoundMode } = await import("./lib/sound-mode.mjs");
   const flag = (k) => (args[k] === true ? true : undefined);
-  out(decideSoundMode({ lengthS: args.length != null ? Number(args.length) : undefined, platform: args.platform && args.platform !== true ? String(args.platform) : "site", claims: args.claims != null ? Number(args.claims) : undefined, userAnswer: args.answer && args.answer !== true ? String(args.answer) : undefined, interface: flag("interface"), kineticType: flag("kinetic"), brand: flag("brand"), captions: flag("captions"), lyricTrack: args["lyric-track"] && args["lyric-track"] !== true ? String(args["lyric-track"]) : undefined, songOptIn: flag("no-song") ? false : undefined, consumer: flag("consumer"), lyricText: args["lyric-text"] && args["lyric-text"] !== true ? String(args["lyric-text"]) : undefined }));
+  out(decideSoundMode({ lengthS: args.length != null ? Number(args.length) : undefined, platform: args.platform && args.platform !== true ? String(args.platform) : "site", claims: args.claims != null ? Number(args.claims) : undefined, userAnswer: args.answer && args.answer !== true ? String(args.answer) : undefined, interface: flag("interface"), kineticType: flag("kinetic"), brand: flag("brand"), captions: flag("captions"), lyricTrack: args["lyric-track"] && args["lyric-track"] !== true ? String(args["lyric-track"]) : undefined, songOptIn: flag("no-song") ? false : undefined, consumer: flag("consumer"), lyricText: args["lyric-text"] && args["lyric-text"] !== true ? String(args["lyric-text"]) : undefined, conceptMode: args["concept-mode"] && args["concept-mode"] !== true ? String(args["concept-mode"]) : undefined }));
 } else if (cmd === "probe") {
   const files = args._.slice(1);
   if (!files.length) die("usage: sound.mjs probe <sfx files...>");

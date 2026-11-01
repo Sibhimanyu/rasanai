@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "dark-keynote",
   "number": 30,
+  "gate_profile": "dimensional",
   "name": "Dark keynote / product-glow UI (today's default)",
   "look": "near-black stage, hairline grid, one accent, glass panels.",
   "fits": {

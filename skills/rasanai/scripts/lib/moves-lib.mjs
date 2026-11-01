@@ -8,8 +8,8 @@
 //   TECHNIQUE_TERMS          seam kinds, entrance types, the term names of references/vocabulary.md and the generic
 //                            transition words (cut, wipe, morph, zoom, reveal, fade...)
 //   validateMoves(obj, {beats, productFirst, uiLabels, productName, pack})  -> {errors[], warnings[]}
-//                            Each card needs scale ("full-frame" | "large" | "detail"); on a product-first film every hero
-//                            card needs resolves_to (the real product surface or mark a transformation lands on). Errors by
+//                            Each card needs scale ("full-frame" | "large" | "detail"); a card that carries a claim
+//                            (`claim`, or `ui_label`) needs resolves_to (the real product surface or mark it lands on). Errors by
 //                            id: no-full-frame-hero (no hero is a full-frame type/shape transformation), chain-sparse (the
 //                            chain[] has fewer than ceil(film_seconds / 1.5) entries), chain-gap (a gap over 3.0 s in the
 //                            chain, from 0 or to the film's end). Warnings: a detail hero, more than half the cards detail.
@@ -276,11 +276,11 @@ export function validateMoves(obj, opts = {}) {
     const d = Number(c.duration_s);
     if (!(d > 0)) W(`hero ${h}: duration_s missing (the rough is 1.5 to 4.5 s)`);
     else if (d < 1.5 || d > 4.5) W(`hero ${h}: duration_s ${d} is outside the rough's 1.5 to 4.5 s`);
-    if (pf) {
+    if (pf && (c.claim || c.carries_claim || c.ui_label)) { // resolves_to is required only on a move that carries a claim (or a real UI label); a story-world hero names the story object it lands on, optionally
       const r = str(c.resolves_to);
       const labels = arr(opts.uiLabels).map(str).filter((l) => l.length >= 2);
       const product = str(opts.productName);
-      if (!r) E(`hero ${h}: on a product film every hero needs resolves_to (the real product surface or mark the transformation lands on)`);
+      if (!r) E(`hero ${h}: a move that carries a claim needs resolves_to (the real product surface or mark the transformation lands on)`);
       else {
         const hit = labels.some((l) => r.toLowerCase().includes(l.toLowerCase())) || (product && r.toLowerCase().includes(product.toLowerCase())) || /\b(brand|logo|mark|cursor|caret|composer)\b/i.test(r);
         if (!hit) E(`hero ${h}: on a product film resolves_to must be a real UI label from the pitch's ui_labels, the product name, or the brand / logo / mark / cursor / caret / composer (resolves_to: "${r.slice(0, 70)}")`);

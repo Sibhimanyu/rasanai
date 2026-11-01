@@ -5,7 +5,7 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--no-energy] [--loop]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--no-energy] [--loop] [--gate-profile <profile>] [--waive rule:why;rule:why]
 //        [--events <events.json>] (the derived film-event manifest, events.mjs export; also found as events.json beside --plan; stale ones are refused)
 //        [--stillness] [--medium <medium.json>] [--json]   (--medium, or look/medium.json beside the project: a medium contract may qualify the named craft checks for its own scenes, recorded as medium_exceptions)
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
@@ -125,6 +125,7 @@ import { measureCamera, cameraKind, cameraFloor } from "./lib/camera-moves.mjs";
 import { whiteFlashes, seamBlanks, holdDrift, decodeFrames } from "./lib/frame-guards.mjs";
 import { rgbToLab } from "./lib/pixels.mjs";
 import { loadManifest, wordsOf } from "./lib/film-events.mjs";
+import { grammarWaivers, parseWaiversArg, GATE_PROFILES } from "./lib/gate-profile.mjs";
 import { launchGrammarFindings, doctrineFindings, motionMdOrderFindings, isLaunchKind } from "./lib/launch-grammar.mjs";
 import { beatStats, busyChecks, energyArcChecks, resultHoldChecks } from "./lib/film-energy.mjs";
 
@@ -197,7 +198,7 @@ async function main() {
     const beside = path.join(path.dirname(path.dirname(path.resolve(str(args.plan)))), "scenes.json");
     if (fs.existsSync(beside)) scenesArg = beside;
   }
-  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: scenesArg, endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null, medium: str(args.medium) || null, kind: str(args.kind), run: str(args.run) });
+  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: scenesArg, endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null, medium: str(args.medium) || null, kind: str(args.kind), run: str(args.run), gateProfile: str(args["gate-profile"]), waivers: parseWaiversArg(str(args.waive)) });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured", severity: "notice" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -502,22 +503,31 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null, medium = null, kind = null, run = null } = {}) {
+export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null, medium = null, kind = null, run = null, gateProfile = null, waivers = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
   const add = (f) => {
     const g = { basis: "measured", ...f };
+    // a launch-grammar rule the concept waived (with a stated why) is a note, never an error (lib/gate-profile.mjs WAIVABLE)
+    const wk = { "hook-address": "hook-address", "hook-object": "hook-object", "hook-logo": "hook-logo" }[g.check];
+    if (wk && g.severity === "error" && waived[wk]) { g.message = `waived by the concept (${waived[wk]}): ${g.message}`; g.severity = "note"; g.waived = true; g.fix = "none: the concept waived this launch-grammar rule"; }
     if (video && typeof g.at === "number" && g.see == null) g.see = `node "${path.join(SKILL_DIR, "scripts", "crew.mjs")}" strip --file ${path.resolve(video)} --from ${r2(Math.max(0, g.at - 0.4))} --to ${r2(g.at + 0.4)} --fps 24`;
     findings.push(g);
   };
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
   if (P.error) could.push(P.error);
+  // launch-grammar waivers (the score's grammar_waivers, plus --waive from the final gate) and the gate profile (the chosen world's: pixel | stepped accept stepped motion)
+  const waived = { ...grammarWaivers(P.plan).waived, ...(waivers || {}) };
+  if (Object.keys(waived).length) measured.grammar_waivers = waived;
+  const stepped = ["pixel", "stepped"].includes(String(gateProfile || ""));
+  if (gateProfile && GATE_PROFILES.includes(String(gateProfile))) measured.gate_profile = String(gateProfile);
   // a declared stillness style: the flag, the plan (stillness: true or motion_style: "stillness"), or motion.md
   if (stillness == null) {
     const md = project ? readText(path.join(path.resolve(project), "motion.md")) : "";
     stillness = !!(P.plan && (P.plan.stillness === true || P.plan.motion_style === "stillness")) || /^stillness:\s*true\b/m.test(md);
   }
   // a medium contract whose temporal mode is stepped / cut-based / still declares the stillness style (the whole-film fluency and dead-frame checks then run as warnings, and a qualified fluency finding is further listed as review)
+  if (!stillness && stepped) { stillness = true; skipped.push(`stepped motion: accepted (gate profile ${gateProfile}): on-twos and low-fps holds are the style, so freeze, coverage and fluency run as warnings and the one-frame pop check is off`); pop = false; }
   if (!stillness) { const mc = readMediumContract({ medium, project }); const tm = mc && mc.motion_policy && mc.motion_policy.temporal_mode; if (["stepped", "cut-based", "still"].includes(tm)) stillness = true; }
   measured.stillness = stillness;
   // a declared loop: the flag, the plan (loop: true), or motion.md
@@ -547,7 +557,7 @@ export async function gate({ events = null, vo = null, video = null, project = n
 
   // ---- launch / promo visual grammar: layout variety, shot-scale mix, a UI hero beat, no deck chrome, the doctrine (scripts/lib/launch-grammar.mjs)
   try {
-    const lg = launchGrammarFindings({ plan: P.plan || null, scenes: P.plan ? [] : (readJ0(scenes) || {}).scenes || [], project, run, planPath: plan, kind });
+    const lg = launchGrammarFindings({ plan: P.plan || null, scenes: P.plan ? [] : (readJ0(scenes) || {}).scenes || [], project, run, planPath: plan, kind, waived });
     measured.launch_grammar = { applies: lg.applies, kind: lg.kind || null, scenes: lg.scenes ?? null };
     for (const f of lg.findings) add(f);
     if (lg.applies && project) {

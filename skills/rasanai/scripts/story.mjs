@@ -22,8 +22,8 @@
 //           A launch / promo / product / brand truth sheet without "## Claim scope" is refused (regenerate it). Product-first trios need not
 //           differ on protagonist; a universal claim gets no user-protagonist device.
 //           Source mode (--sources <sources.json>, --source-mode <spine>, or <truth dir>/../sources.json): a footage or existing-video spine is never product-first and gets no ladder/pas shape (references/sources.md).
-//           Launch / promo / product films (format launch, or --product-first) are PRODUCT-FIRST: conceit devices
-//           (museums, allegories, invented worlds, extended metaphors, cover versions) are never offered.
+//           Launch / promo / product films (format launch, or --product-first) are PRODUCT-TRUTH films: every device is offered
+//           (metaphor, world, character, game, myth are free); what stays fixed is the real product and real claims, legible (G7).
 //   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit] [--sources <sources.json> | --source-mode <spine>] [--selects <selects.json>] [--brand-film <grammar.json>] [--calm] [--claims <claims.json>]
 //        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G10 shape-aware: `shape` ladder (refrain verb, 3-8 rungs by length, distinct uses, increasing levels, a real UI cause and effect per rung, a close) or scenario (one feature, one task), + G12 viewer first for launch / promo films (and any `pas` pitch): not-viewer-first, reveal-too-early (pas), no-benefit, no-proof (against research/claims.json: --claims, else <truth dir>/../research/claims.json), weak-cta, sparse-lines (film s / on-screen lines > 3.0); warnings slogan-copy, toy-demos, + G8 the aim: takeaway, feel, action, approach, a title that names the idea, + G9 tempo for the same films: ideas per length, a change every ~2.5 s, hold limits, the brand's measured tempo with --brand-film, + G13 scope for product-first films: the story's scope matches the truth sheet's Claim scope: uses, areas of life (D), the largest scenario's share (S_max), persona callbacks (P), reach, the promise clauses, the retell; the portfolio fails two scripts that collapse onto one scenario) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
 //           Exit 0 = ship, 2 = rewrite (reasons in the JSON), 1 = bad input.
@@ -451,7 +451,7 @@ function sceneAnalysis(p, beats, roles, lengthS, truth) {
 // --- product-first routes (launch, promo, product videos) ----------------------------
 // Real launch films (Apple, OpenAI, Linear, Raycast, Arc, Notion) are product-led: the real UI is the hero from
 // the first second. Conceit devices (a museum of the old way, an allegory, an invented world, a cover version)
-// are never offered for these routes; an instant visual pun that resolves to the product in a second is a pitch
+// ARE offered now (see PRODUCT TRUTH below); an instant visual pun that resolves to the product in a second is a pitch
 // detail (`visual_pun`), not a device.
 // PRODUCT TRUTH (references/product-first.md, rewritten in the creative-engine redesign): the old conceit ban is gone. All 70 devices are offered
 // to a launch film; metaphor, character, world, game and myth devices are legitimate. What stays is that the claim and the real product are
@@ -674,10 +674,10 @@ function featureLabelOf(text) {
   if (FELT_RE.test(t)) return false; // a felt moment
   return !/\b(is|are|was|were|be|am|has|have|had|do|does|did|can|will|would|they|he|she)\b|\w+(ing|ed)\b/i.test(t); // a bare noun phrase
 }
-// The recommendation for the console: the pitch that passes the bar, ranked by originality + memorability first.
+// The recommendation for the console: the pitch that passes the bar (product truth: G7), ranked by distinctness (originality) and signature moment (memorability) first, never by the safest scope or lowest S_max.
 // Never recommend a pitch with originality <= 3 when another passing pitch scores >= 4 on originality. The reason is shown in the console data.
 // `taste` (optional, taste.mjs): {priors: {label: -0.6..1}, exploration: label}. A SOFT prior: up to +-0.8 on a rank of about 10, so it breaks ties and nudges; it never
-// overrides the originality bar above and never removes a pitch. The exploration pitch (furthest from the likes) is never the taste-boosted one.
+// overrides the originality bar above and never removes a pitch. The exploration pitch (the Wild writer's pick; furthest from the likes only when no lane is recorded) is never the taste-boosted one.
 function recommendPitch(results, taste = null) {
   const tp = (label) => (taste && taste.priors && taste.priors[label] != null && label !== taste.exploration ? taste.priors[label] * 0.8 : 0);
   const rows = results.filter((r) => r && r.scores && r.scores.adjusted).map((r) => ({ label: r.label || r.pitch, ship: r.verdict === "ship", o: r.scores.adjusted.originality, m: r.scores.adjusted.memorability, total: r.scores.total, taste: tp(r.label || r.pitch), rank: Math.round(((r.scores.adjusted.originality * 1.5 + r.scores.adjusted.memorability * 1.25) * 100)) / 100 + r.scores.total / 10 + tp(r.label || r.pitch) }));
@@ -918,7 +918,7 @@ if (cmd === "truth") {
     product_first: productFirst || undefined,
     source_spine: src ? src.spine : undefined,
     footage_led: isFootageLed(src) && !args["product-first"] ? "A footage film: the story is cut from the footage, not written from a product's UI. Product-first gates (G7, G9, G10, G11, G12) do not apply; the footage-first gate GF does (the hook is the strongest real moment, plays at once, no card before the first real footage). The writers are the footage writers (paper edits): references/sources.md." : undefined,
-    product_first_rule: productFirst ? "Launch / promo / product film: the product UI is on screen within 3 s, one hero product moment, 2-4 real uses, short plain kinetic lines, the end line the largest type, a clean CTA. No conceit devices; Sure, Bold and Wild differ in structure, pacing and energy, never by leaving the product. See references/product-first.md." : undefined,
+    product_first_rule: productFirst ? "Launch / promo / product film (product truth): the real product and real claims stay true and the product is legible on a silent first watch (shown or named by 60%), the end line the largest type, a clean CTA. Concept, world, character, metaphor and style are free; 3 s UI, 2-4 uses and short lines are defaults a concept may waive for a stated reason. The three differ in idea and style world. See references/product-first.md." : undefined,
     shape: mixed && shapesUsed.length > 1 ? "mixed" : shapesUsed.length === 1 ? shapesUsed[0] : shape || undefined,
     shapes: mixed ? shapesUsed : undefined,
     shape_rule: [ruleOf(shape, shapesUsed), ...shapesUsed.filter((x) => !["ladder", "pas", "scenario"].includes(x)).map((x) => shapeRule(x, pickLen))].filter(Boolean).join(" ") || (shape === "scenario" ? "Scenario: one feature, one viewer, one task (G10 scenario rules)." : undefined),
@@ -996,7 +996,7 @@ if (cmd === "truth") {
   const allV2 = pitches.every((p) => p.story_format === "v2");
   const portfolio = pitches.length > 1 ? (allV2 ? checkV2Portfolio(pitches) : checkPortfolio(pitches.filter((p) => p.story_format !== "v2"), results.filter((r, i) => pitches[i].story_format !== "v2"), opts)) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
-  let recommendation = pitches.length > 1 ? recommendPitch(results, (() => { try { const tp = tasteProfile(); if (tp.empty) return null; const priors = {}; pitches.forEach((p) => { if (p && p.label) priors[p.label] = Math.round(conceptPrior(p, tp) * 100) / 100; }); const ei = explorationIndex(pitches, tp); return { priors, exploration: ei >= 0 && pitches[ei] ? pitches[ei].label : null }; } catch { return null; } })()) : null;
+  let recommendation = pitches.length > 1 ? recommendPitch(results, (() => { try { const tp = tasteProfile(); if (tp.empty) return null; const priors = {}; pitches.forEach((p) => { if (p && p.label) priors[p.label] = Math.round(conceptPrior(p, tp) * 100) / 100; }); const wi = pitches.findIndex((p) => p && (p.lane === "wild" || (p.treatment && p.treatment.lane === "wild"))); const ei = wi >= 0 ? wi : explorationIndex(pitches, tp); /* the exploration slot is the Wild writer's pick; the lowest prior only when no pitch carries a lane */ return { priors, exploration: ei >= 0 && pitches[ei] ? pitches[ei].label : null }; } catch { return null; } })()) : null;
   // v2 treatments carry no rubric scores, so recommendPitch has nothing to rank: the independent editor's review (story/edit-notes.json: recommended = a treatment id or label) is the recommendation, never a weighted score
   if (!recommendation && pitches.length > 1 && allV2) {
     try {
@@ -1856,7 +1856,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
 
   // G12: viewer first (references/script.md pass 0, "the viewer's day first"): launch / promo films and every pas pitch. The film is
   // about the viewer: second person early, the reveal not before 20% (pas), a benefit per benefit/rung beat, proof, a concrete cta, one line per 1.5-2.5 s.
-  if (opts.viewerFirst || (shapeOf(p, beats) === "pas" && !opts.footageLed)) {
+  // idea-led shapes (world, game, myth, journey, format-hijack, type-poem, character) are exempt: their own concept carries the viewer, the ladder-style beat rules do not apply
+  if ((opts.viewerFirst && !IDEA_SHAPES.includes(shapeOf(p, beats))) || (shapeOf(p, beats) === "pas" && !opts.footageLed)) {
     const g12 = [];
     const shape12 = shapeOf(p, beats);
     const roles12 = beats.map((b, i) => lfRole(b, i, beats.length, null));

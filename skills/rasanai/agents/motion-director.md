@@ -18,7 +18,7 @@ Your motion is chosen **from what each beat means**, never from a list of techni
 ## Film kinds
 
 - **Branded film (`brand_film`): read `brand-film/FILM-STYLE.md` FIRST**, before the script and the scenes. Its `Seen` moves are your vocabulary; its `Not seen (allowed on a budget)` effects are hero-only budget entries. It locks palette, type, logo, UI fidelity and tone, never finish, depth, camera or shot size. A flat card never means no 3D or hybrid scenes: it means flat-style 3D, in the flat style of the brand (matte or unlit, `references/3d.md` "Brand-flat 3D"). Set `"film_style": "brand-film/FILM-STYLE.md"`.
-- **Product-first (`product_first`):** ambition goes into craft (UI choreography, rhythm, the real product moving precisely), never into concept. The product UI is on screen by 3 s; the hero is the real UI; the end line is the largest type on a clean card; every line sits whole inside the 6% safe area.
+- **Product-first (`product_first`):** keep the concept you were given and push its craft (choreography, rhythm, the real product moving precisely). The real product is shown or named by 60% of the film (3 s is the default for product-demonstrating films); a real surface carries the claim; the end line is the largest type on a clean card; every line sits whole inside the 6% safe area.
 - **Lyric video (`lyric_video`):** the plates fix space, energy and windows; score inside them (`references/score.md` "Lyric video").
 - **3D:** give depth to the beat whose `buys` is about space, scale or many things at once, or to the moment the product becomes an object. Plan it in metres and millimetres of lens (`references/3d.md`).
 

@@ -12,6 +12,8 @@
 //   1 frame-gate  2 motion-gate (end-hold, saved to <run>/motion/motion-gate.json)  3 slop (the film's index.html)  4 sound check  5 obey  6 mix-duck (audio/mix.mix.json: duck.measured_db and duck.music_under_vo_lu; no duck is the default and 0 dB passes)
 //   7 text-qa (spell-check of the on-screen words in the film's index.html: doubled words, common typos, malformed contractions, number style; errors block)
 //   8 music-sync (music-map.mjs check: cuts and big visual hits land within 150 ms of music events; a film with no voice needs 50%)
+//   (all gates judge the film by its chosen style world: the atlas world's gate_profile (dimensional | flat | pixel | stepped | photographic | hand-made, lib/gate-profile.mjs) goes to frame-gate, motion-gate and slop as --gate-profile; the concept's grammar_waivers [{rule, why}] go down as --waive and turn the launch grammar's defaults into notes)
+//  10 vo-scratch (WARNING + needs_you, never silent: the voice is the macOS `say` scratch track from vo.mjs)
 //   9 earshot-tech (OPTIONAL, only when earshot is installed, see lib/earshot.mjs): critique's technical findings as WARNINGS only (true peak over -1 dBTP, dead air at the end, silent cuts, cuts missing accents); its verdict and score are never read; never blocks; a failure to run is a note
 // Writes <run>/final-gate.json {ok, video, video_sha, steps}; exit 0 pass, 2 blocked. `verifyHandover(run, video)` is what console.mjs push calls.
 import fs from "node:fs";
@@ -21,6 +23,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { textQa } from "./lib/text-qa.mjs";
 import * as earshot from "./lib/earshot.mjs";
+import { runGateProfile, runWaivers, waiversArg } from "./lib/gate-profile.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const jr = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
@@ -70,7 +73,7 @@ export function verifyHandover(run, video) {
     if (g.ok !== true) why.push(`final-gate did not pass: ${(g.blocked || []).slice(0, 4).join("; ")}`);
     if (g.video_sha !== sha(video)) why.push("final-gate passed a different render than this one: run it again on this file");
   }
-  return { ok: why.length === 0, why };
+  return { ok: why.length === 0, why, warnings: (g && g.warnings) || [], needs_you: (g && g.needs_you) || [] };
 }
 
 function run1(name, argv, { json = true } = {}) {
@@ -85,7 +88,7 @@ export function main(args) {
   if (!args.run || !ex(run)) return { ok: false, blocked: ["--run <run dir> is required"] };
   const project = args.project ? path.resolve(String(args.project)) : null;
   const video = args.video ? path.resolve(String(args.video)) : null;
-  const blocked = [], steps = [];
+  const blocked = [], steps = [], warnings = [], needs_you = [];
   if (!project || !ex(path.join(project, "index.html"))) blocked.push("--project must be the film's folder with its index.html (the final composition, not capture/)");
   if (project && /[\\/]capture[\\/]/.test(project + path.sep)) blocked.push("--project points into capture/: the gates run on the film's own index.html");
   if (!video || !ex(video)) blocked.push("--video must be the final render");
@@ -96,6 +99,12 @@ export function main(args) {
     const score = path.join(run, "motion", "score.json"), hasScore = ex(score);
     const briefKind = String((jr(path.join(run, "brief.json")) || {}).kind || "");
     const kind = args.kind || (/promo/i.test(plan.kind || briefKind) ? "promo" : /launch/i.test(plan.kind || briefKind) || plan.route === "product-launch-video" ? "launch" : /brand/i.test(plan.kind || briefKind) ? "brand" : null);
+    // the film's gate profile (its chosen world's atlas gate_profile, else the older look/medium.json contract) and the concept's grammar waivers
+    const gp = runGateProfile(run), wv = runWaivers(run);
+    const profArgs = gp.profile ? ["--gate-profile", gp.profile] : [], waiveArgs = Object.keys(wv.waived).length ? ["--waive", waiversArg(wv.waived)] : [];
+    steps.push({ step: "gate-profile", ok: true, profile: gp.profile, world: gp.world, source: gp.source, ...(Object.keys(wv.waived).length ? { grammar_waivers: wv.waived } : {}), ...(wv.ignored.length ? { ignored_waivers: wv.ignored } : {}) });
+    if (!gp.profile) warnings.push(`gate-profile: no gate_profile found for this film's style world${gp.world ? ` "${gp.world}"` : " (no style_world in story/chosen.json, motion/score.json or look/system.json)"}: judged as a dimensional film`);
+    for (const x of wv.ignored) warnings.push(`grammar_waivers: ${x}`);
     const rec = (step, r, extra = {}) => {
       const jOk = r.json ? r.json.ok !== false : true;
       const ok = r.code === 0 && jOk;
@@ -105,12 +114,12 @@ export function main(args) {
       if (!ok) blocked.push(`${step}: ${r.code === 1 ? "could not run (never a pass)" : "failed"} (exit ${r.code})${why}${r.stderr ? " " + r.stderr.replace(/\s+/g, " ").slice(-200) : ""}`);
       return ok;
     };
-    rec("frame-gate", run1("frame-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), ...(kind ? ["--kind", kind] : []), "--json"]));
-    const mg = run1("motion-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), "--end-hold", String(args["end-hold"] || 1.4), ...(kind ? ["--kind", kind] : []), "--run", run, "--json"]);
+    rec("frame-gate", run1("frame-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), ...(kind ? ["--kind", kind] : []), ...profArgs, ...waiveArgs, "--json"]));
+    const mg = run1("motion-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), "--end-hold", String(args["end-hold"] || 1.4), ...(kind ? ["--kind", kind] : []), "--run", run, ...profArgs, ...waiveArgs, "--json"]);
     try { fs.mkdirSync(path.join(run, "motion"), { recursive: true }); fs.writeFileSync(path.join(run, "motion", "motion-gate.json"), mg.json ? JSON.stringify(mg.json, null, 2) : JSON.stringify({ ok: false, exit: mg.code, stdout: mg.stdout.slice(0, 4000) })); } catch {}
     rec("motion-gate", mg, { saved: "motion/motion-gate.json" });
     const runScenes = path.join(run, "scenes.json");
-    const sl = run1("slop.mjs", ["--project", project, "--video", video, "--run", run, ...(ex(runScenes) ? ["--scenes", runScenes] : []), ...(hasScore ? ["--score", score] : []), "--json"]);
+    const sl = run1("slop.mjs", ["--project", project, "--video", video, "--run", run, ...(ex(runScenes) ? ["--scenes", runScenes] : []), ...(hasScore ? ["--score", score] : []), ...profArgs, "--json"]);
     if (sl.json && sl.json.scenes === 0 && ex(runScenes)) { steps.push({ step: "slop", ok: false, exit: sl.code }); blocked.push("slop: read 0 scenes (wrong file?): it must run on the film's own index.html"); }
     else rec("slop", sl);
     // the FINAL index.html is what is checked: a clip mounted there that is not in crew/sfx-plan.json is sfx-unplanned (an error)
@@ -144,6 +153,17 @@ export function main(args) {
     steps.push({ step: "music-sync", ok: ms.code === 0, ...(ms.json ? { measured: ms.json.measured, warnings: ms.json.warnings } : {}) });
     if (ms.code !== 0) blocked.push(`music-sync: ${ms.json && ms.json.errors && ms.json.errors.length ? ms.json.errors.join("; ") : `could not run (exit ${ms.code}) ${ms.stderr.replace(/\s+/g, " ").slice(-160)}`}`);
   }
+  // 10 vo-scratch: a voice made by the macOS `say` fallback (vo.mjs) is a timing track, not a finished voice: never ship it silently (a visible warning and a needs-you; the person decides)
+  {
+    const vf = [path.join(run, "audio", "vo", "words.json"), path.join(run, "audio", "words.json"), path.join(run, "audio", "vo.json"), path.join(run, "audio", "vo", "vo.json")];
+    const scratch = vf.map((f) => ({ f, j: jr(f) })).find((x) => x.j && String(x.j.provider || "").toLowerCase() === "say");
+    if (scratch) {
+      const msg = "the voice-over is the macOS `say` scratch voice (no ElevenLabs or OpenAI key was available): it is robotic, a timing track and not a finished voice";
+      warnings.push(`vo-scratch: ${msg}`);
+      needs_you.push(`${msg}. Set ELEVENLABS_API_KEY or OPENAI_API_KEY and re-run vo.mjs make, or confirm you want to ship the scratch voice (${path.relative(run, scratch.f)}).`);
+      steps.push({ step: "vo-scratch", ok: true, warning: true, file: path.relative(run, scratch.f) });
+    }
+  }
   // 9 earshot-tech: warnings only, never a block, never the verdict
   if (video && ex(video) && earshot.available()) {
     try {
@@ -151,7 +171,7 @@ export function main(args) {
       steps.push({ step: "earshot-tech", ok: true, optional: true, warnings });
     } catch (e) { steps.push({ step: "earshot-tech", ok: true, optional: true, warnings: [], note: `could not run (${String(e.message).slice(0, 120)}); skipped` }); }
   }
-  const res = { ok: blocked.length === 0, t: new Date().toISOString(), video: video || null, video_sha: video && ex(video) ? sha(video) : null, project, steps, blocked };
+  const res = { ok: blocked.length === 0, t: new Date().toISOString(), video: video || null, video_sha: video && ex(video) ? sha(video) : null, project, steps, blocked, warnings, needs_you };
   try { fs.writeFileSync(path.join(run, "final-gate.json"), JSON.stringify(res, null, 2)); } catch {}
   return res;
 }

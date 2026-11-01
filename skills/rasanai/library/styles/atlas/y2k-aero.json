@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "y2k-aero",
   "number": 21,
+  "gate_profile": "dimensional",
   "name": "Y2K chrome / acid / Frutiger Aero",
   "look": "chrome type, bubbles, aqua gradients, stickers, stars, early-web.",
   "fits": {

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+The creative engine's new ideas now reach the film. An audit of 1.32.0 found the old launch rules and gates still flattened every film; this connects the new front end to the back end. Source-level only: checked with syntax checks and import loads, not run, rendered or listened to.
+
+- **The concept jury works.** It gets the three idea pools and writes its three picks, and names the obvious film it passed over.
+- **Product truth everywhere.** The old "no concept, craft only" rule is gone from every agent and reference; worlds, games and metaphors are allowed as long as the product and its claim are true and legible. Hero moves no longer have to land on the UI, and the recommended story is the most distinct one, not the safest.
+- **Gates judge each film in its own style.** Every style world has a gate profile (dimensional, flat, pixel, stepped, photographic, hand-made), so pixel, riso or paper films are not failed for lacking depth or glossy grounds. A concept can waive a launch-grammar default with a stated reason. Scratch voiceover is flagged before handover.
+- **Music fits the film.** Seven arc shapes (drop, slow burn, ambient bed, cold open, stinger, loop, song) chosen per concept, with the local music prompt built from the shape and the style world. The concept's sound mode wins, a new lyricist writes the lyrics for sung films, ACE-Step runs once it is installed, any fallback is reported, and effects-led films can use far more effects.
+- **Real pictures at the Story call.** Each concept's hero shots get Codex image plates on its story board. Style frames are judged against their own world, the brand lock keeps your accent and logo but lets the world set the palette, the Look starts from the Story's world, and taste memory no longer steers the writers.
+
 ## 1.32.0 (2026-10-31): A rebuilt creative engine
 
 A rebuilt creative engine, so launch films stop coming out as slideshows. Checked with syntax checks, smoke runs and a dry run of a scratch film through every phase; no real film has been made with it yet.

@@ -2,6 +2,7 @@
   "format": "style-world@1",
   "id": "editorial-magazine",
   "number": 28,
+  "gate_profile": "flat",
   "name": "Editorial magazine / newspaper",
   "look": "columns, pull quotes, rules, drop caps, serif display, paper stock.",
   "fits": {
