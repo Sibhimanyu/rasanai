@@ -1,8 +1,7 @@
 (function () {
   "use strict";
   var root = document.documentElement;
-  // ?measure: every scene follows the scroll position exactly (no springs, no resting points), for timing measurements;
-  // ?pace only publishes window.__pace (the timeline position of the Squeak scene, the crew's resting points) and changes nothing
+  // ?measure and ?pace only publish window.__pace (the timeline position of the Squeak scene, the crew's resting points) and changes nothing
   var measure = /[?&]measure\b/.test(location.search), PACE = measure || /[?&]pace\b/.test(location.search) ? (window.__pace = {}) : null;
   var reduceQ = window.matchMedia("(prefers-reduced-motion: reduce)");
   var wideQ = window.matchMedia("(min-width: 900px)");
@@ -33,8 +32,8 @@
      A scene's timeline t (0..1) is what its render() draws; scroll fraction x (0..1) is how far through its pinned track the reader
      is. MAPS[scene].d / .m (desktop / phones) are flat lists of knots [x0, t0, x1, t1, ...], joined by a monotone cubic (no
      overshoot, no kinks), that give every stretch of the timeline the scroll it needs: busy stretches get more of the track, still
-     ones less, so the picture changes by about the same amount per px of scroll everywhere (see PACE_VH below for the ceiling on
-     speed). A scene with no entry plays 1:1. */
+     ones less, so the picture changes by about the same amount per px of scroll everywhere.
+     A scene with no entry plays 1:1. */
   var MAPS = {
     hero: {
       d: [
@@ -85,24 +84,24 @@
     },
     control: {
       d: [
-      0,0, 0.0407,0.0451, 0.0659,0.0717, 0.081,0.084, 0.0997,0.0984, 0.1247,0.1168, 0.1693,0.1516, 0.1913,0.168,
-      0.2438,0.209, 0.3434,0.2869, 0.3775,0.3135, 0.3879,0.3217, 0.3971,0.3299, 0.4,0.334, 0.4019,0.3381, 0.4043,0.3463,
-      0.4073,0.3586, 0.4165,0.3955, 0.4493,0.5266, 0.458,0.5615, 0.461,0.5738, 0.4634,0.582, 0.4652,0.5861, 0.4682,0.5902,
-      0.4802,0.6004, 0.496,0.6107, 0.5169,0.6189, 0.5472,0.6291, 0.5975,0.6434, 0.6405,0.6578, 0.6573,0.668, 0.6653,0.6742,
-      0.6732,0.6803, 0.6872,0.6926, 0.6914,0.6988, 0.6933,0.7029, 0.6984,0.7152, 0.7068,0.7357, 0.7378,0.8115, 0.7462,0.832,
-      0.7506,0.8422, 0.7541,0.8484, 0.7598,0.8545, 0.7732,0.8648, 0.7848,0.8709, 0.8108,0.8791, 0.8638,0.8934, 0.8933,0.9016,
-      0.9034,0.9057, 0.9189,0.916, 0.9406,0.9344, 0.9556,0.9508, 0.9834,0.9816, 1,1
+      0,0, 0.0384,0.0451, 0.0622,0.0717, 0.0765,0.084, 0.0942,0.0984, 0.1178,0.1168, 0.1599,0.1516, 0.1807,0.168,
+      0.2303,0.209, 0.3243,0.2869, 0.3565,0.3135, 0.3664,0.3217, 0.375,0.3299, 0.3778,0.334, 0.3796,0.3381, 0.3818,0.3463,
+      0.3847,0.3586, 0.3934,0.3955, 0.4243,0.5266, 0.4326,0.5615, 0.4354,0.5738, 0.4377,0.582, 0.4394,0.5861, 0.4422,0.5902,
+      0.4535,0.6004, 0.4684,0.6107, 0.4882,0.6189, 0.5168,0.6291, 0.5643,0.6434, 0.6049,0.6578, 0.6208,0.668, 0.6283,0.6742,
+      0.6358,0.6803, 0.649,0.6926, 0.653,0.6988, 0.6548,0.7029, 0.6596,0.7152, 0.6675,0.7357, 0.6968,0.8115, 0.7047,0.832,
+      0.7089,0.8422, 0.7122,0.8484, 0.7172,0.8541, 0.7283,0.8648, 0.7377,0.8709, 0.7587,0.8791, 0.8014,0.8934, 0.8252,0.9016,
+      0.8334,0.9057, 0.8459,0.916, 0.8505,0.9204, 0.8917,0.937, 0.9153,0.9508, 0.9683,0.9816, 1,1
       ],
       m: [
-      0,0, 0.0179,0.0289, 0.0286,0.0462, 0.036,0.0578, 0.0484,0.0751, 0.0592,0.0867, 0.0733,0.0982, 0.0881,0.1098,
-      0.0939,0.1156, 0.1034,0.1271, 0.1112,0.1387, 0.1221,0.156, 0.1328,0.1734, 0.1524,0.2023, 0.1631,0.2138, 0.1702,0.2196,
-      0.1844,0.2312, 0.1911,0.2369, 0.2015,0.2485, 0.2058,0.2543, 0.2135,0.2658, 0.2395,0.3063, 0.2543,0.3236, 0.2608,0.3294,
-      0.2659,0.3352, 0.2747,0.3467, 0.286,0.3641, 0.3218,0.4219, 0.3332,0.4392, 0.3434,0.4508, 0.351,0.4565, 0.362,0.4623,
-      0.3793,0.4681, 0.4365,0.4797, 0.4619,0.4854, 0.4767,0.4912, 0.4866,0.497, 0.4935,0.5028, 0.5034,0.5143, 0.5124,0.5259,
-      0.5177,0.5317, 0.5246,0.5374, 0.534,0.5432, 0.5476,0.549, 0.6131,0.5663, 0.6321,0.5721, 0.6556,0.5837, 0.6634,0.5895,
-      0.6928,0.6183, 0.6998,0.6241, 0.7247,0.6472, 0.7311,0.653, 0.7455,0.6704, 0.7606,0.6935, 0.7857,0.7339, 0.8321,0.8091,
-      0.858,0.8495, 0.8673,0.8611, 0.873,0.8668, 0.8882,0.8784, 0.9113,0.89, 0.9226,0.8957, 0.9385,0.9073, 0.9488,0.9189,
-      0.9529,0.9246, 0.9641,0.942, 0.9748,0.9593, 1,1
+      0,0, 0.0151,0.0289, 0.0242,0.0462, 0.0304,0.0578, 0.0409,0.0751, 0.05,0.0867, 0.0619,0.0982, 0.0745,0.1098,
+      0.0794,0.1156, 0.0874,0.1271, 0.094,0.1387, 0.1032,0.156, 0.1122,0.1734, 0.1288,0.2023, 0.1378,0.2138, 0.1438,0.2196,
+      0.1558,0.2312, 0.1615,0.2369, 0.1703,0.2485, 0.1739,0.2543, 0.1804,0.2658, 0.2024,0.3063, 0.2149,0.3236, 0.2204,0.3294,
+      0.2247,0.3352, 0.2321,0.3467, 0.2417,0.3641, 0.2719,0.4219, 0.2816,0.4392, 0.2902,0.4508, 0.2966,0.4565, 0.3059,0.4623,
+      0.3205,0.4681, 0.3689,0.4797, 0.3903,0.4854, 0.4028,0.4912, 0.4112,0.497, 0.417,0.5028, 0.4254,0.5143, 0.433,0.5259,
+      0.4375,0.5317, 0.4433,0.5374, 0.4513,0.5432, 0.4628,0.549, 0.5181,0.5663, 0.5342,0.5721, 0.554,0.5837, 0.5606,0.5895,
+      0.5855,0.6183, 0.5914,0.6241, 0.6124,0.6472, 0.6178,0.653, 0.63,0.6704, 0.6428,0.6935, 0.664,0.7339, 0.7032,0.8091,
+      0.728,0.8541, 0.7347,0.8611, 0.7412,0.8668, 0.7586,0.8784, 0.7851,0.89, 0.798,0.8957, 0.8163,0.9073, 0.8294,0.9204,
+      0.8829,0.937, 0.9244,0.9593, 1,1
       ]
     },
     projects: {
@@ -210,16 +209,16 @@
 
   /* ---------- scenes: the hero, the rising screenshot with its crew flight, and any [data-rise] window ---------- */
   var scenes = [];
-  var MBEAT_TRACK = 2.2;   // phones: how many screens of scroll a chapter’s narrator line takes when the chapter is not pinned around it
+  var MBEAT_TRACK = 1.2;   // phones: how many screens of scroll a chapter’s narrator line takes when the chapter is not pinned around it
   function addScene(sc) { scenes.push(sc); return sc; }
   var pinnedMode = { motion: false };
 
-  // hero: the copy leaves; the cards stay put until the flight (below) lifts them onto the screenshot
+  // hero: the copy leaves; the cards stay put until the flight (below) lifts them onto the screenshot; the flight starts while the copy is still fading
   var heroEl = $(".hero.track");
   var copy = heroEl && $("[data-hero-copy]", heroEl);
   if (heroEl) {
     addScene({
-      el: heroEl, pin: true, mpin: true, glide: 110, map: mapOf("hero"),
+      el: heroEl, pin: true, mpin: true, map: mapOf("hero"),
       progress: function (r, vh) { return clamp(-r.top / Math.max(1, r.height - vh), 0, 1); },
       render: function (p) {
         if (!copy) return;
@@ -237,8 +236,9 @@
      the words fill faint to full (.02-.32), the line holds, then the reveal named in data-beat plays (.45-1):
        scatter  every letter flies off on its own heading, spinning, while the paper thins out
        doors    the line and its paper split along the middle and part, up and down
-       playhead a timeline playhead scrubs across with a running timecode and a soft trail: behind it the chapter is revealed,
-                ahead of it the line and its paper are still there, cut cleanly at the playhead
+       playhead a mouse pointer glides in, grabs the playhead on a timeline ruler and drags it across with a running timecode:
+                behind it the chapter is revealed, ahead of it the line and its paper are still there, cut cleanly at the playhead;
+                at the end the pointer lets go and drifts off
        blinds   the letters drop, then the paper folds away in strips, top to bottom
      reset() puts the beat's own markup back exactly, so the stacked page never sees the reveal's extra elements. */
   var hash = function (n) { var x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -249,6 +249,11 @@
     });
     return $$(".beat-char", root);
   }
+  // the slam's physics: impulse v0 (px/s), drag k (1/s), gravity g (px/s^2), depth speed vz (px/s) and perspective p (px), over t simulated
+  // seconds; wave = how much later (of progress) the farthest letter is hit; apexes spread from the feet up to ~20px under the live nav
+  // bottom, and each letter's apex is aimed at its own column across the screen; jit = a random extra 0-jit of progress per letter, so the whole burst leaves within ~0.05 of progress
+  var SLAM = { v0: 1500, k: 2.4, g: 2600, vz: 500, p: 900, t: 1.8, wave: .03, jit: .03 };
+  var SLAM_SPAN = 1 - (SLAM.wave + SLAM.jit);                       // every letter's flight lasts this much progress, so the latest still ends by 1
   function makeBeat(el, at) {
     at = at || { fill: [.02, .32], out: .45 };   // when the words fill, and when the reveal starts
     var fx = el.getAttribute("data-beat"), html = el.innerHTML, style = el.getAttribute("style");
@@ -265,10 +270,48 @@
       el.insertBefore(box, el.firstChild);
     }
     if (fx === "scatter" || fx === "blinds" || fx === "slam" || fx === "playhead") chars = splitChars(line);
-    var head = null, code = null;
+    var grip = null, head = null, code = null, edge = null, cur = null, curA = null, curH = null, tl = null, tlGlow = null, tlRows = null, tlWave = null, tlItems = [], tlTop = -1, tcw = 0;
     if (fx === "playhead") {
+      // a timeline panel under the line (glow, ruler, footage / music / title tracks) and a hairline rail across the screen; the handle rides
+      // the ruler; the pointer is two inline drawings (arrow, closed hand) in one box
+      tlGlow = document.createElement("div"); tlGlow.className = "beat-glow"; tlGlow.setAttribute("aria-hidden", "true");
+      edge = document.createElement("div"); edge.className = "beat-edge"; edge.setAttribute("aria-hidden", "true");
+      tl = document.createElement("div"); tl.className = "beat-tl"; tl.setAttribute("aria-hidden", "true");
+      // the footage track: seven different scenes, each shown as 2-3 crops of one still (a push-in or a pan), [start, length, image, label, crops [zoom %, x %, y %]]
+      var CL = [[0, .15, "assets/crew/v2/endcard-ra.webp", "Hook", [[100, 8, 55], [125, 45, 60], [175, 88, 40]]],
+        [.156, .165, "brand/crew/lineup.jpg", "Crew", [[125, 20, 50], [125, 50, 50], [125, 80, 50]]],
+        [.327, .125, "img/open3d-pillars.jpg", "Wide", [[100, 50, 50], [135, 22, 45], [170, 78, 65]]],
+        [.458, .175, "img/mac-wallpaper.webp", "Montage", [[100, 0, 60], [150, 50, 85], [190, 100, 70]]],
+        [.639, .105, "assets/tl/stones.jpg", "Close-up", [[140, 50, 80], [210, 30, 92]]],
+        [.75, .135, "assets/tl/engraved.jpg", "Reveal", [[100, 50, 75], [150, 15, 85], [210, 85, 90]]],
+        [.891, .109, "brand/crew/laya.jpg", "End", [[150, 50, 40], [210, 50, 38]]]];
+      var h = '<div class="tl-row tl-rul"><i class="tl-bg tl-ticks"></i>', q;
+      for (q = 0; q <= 6; q++) h += '<b class="tl-lbl' + (q === 6 ? " is-end" : "") + '" style="left:' + (q / 6 * 100).toFixed(2) + '%">00:0' + q + "</b>";
+      h += '</div><div class="tl-row tl-v"><i class="tl-bg"></i><em class="tl-tag">V1</em>';
+      CL.forEach(function (c, k) {
+        h += '<div class="tl-clip" style="left:' + (c[0] * 100).toFixed(2) + "%;width:" + (c[1] * 100).toFixed(2) + '%"><s>' + c[4].map(function (f) { return '<u style="background-image:url(' + c[2] + ");background-size:auto " + f[0] + "%;background-position:" + f[1] + "% " + f[2] + '%"></u>'; }).join("") + "</s><span>" + c[3] + "</span></div>";
+      });
+      h += '</div><div class="tl-row tl-a"><i class="tl-bg"></i><em class="tl-tag">A1</em><div class="tl-wave">';
+      for (q = 0; q < 160; q++) {
+        var amp = clamp(.16 + .84 * (.55 * hash(q * 1.7) + .45 * Math.abs(Math.sin(q * .085 + 1)) * (.4 + .6 * hash(q + 4))), .12, 1);
+        h += '<i style="height:' + (amp * 100).toFixed(0) + '%"></i>';
+      }
+      h += "</div></div>";
+      tl.innerHTML = h + "</div>";
+      el.appendChild(tlGlow); el.appendChild(edge); el.appendChild(tl);
+      // what the playhead consumes: [element, where it starts to dissolve, where it is gone (both as a share of the panel), pop-in start, blur?]
+      var add = function (e, f0, f1, p0, blur, on, w) { f1 = Math.min(1, f1); tlItems.push({ e: e, f0: f0, f1: f1, p0: p0, blur: blur, on: on, w: w }); };
+      tlRows = $$(".tl-row", tl);
+      $$(".tl-lbl", tl).forEach(function (e, k) { add(e, k / 6 - .01, k / 6 + .05, .03 + k * .008, 0, 0, 0); });
+      $$(".tl-tag", tl).forEach(function (e) { add(e, -.13, -.03, .05, 0, 0, 0); });
+      $$(".tl-clip", tl).forEach(function (e, k) { var c = CL[k]; add(e, c[0] + c[1] * .45, c[0] + c[1] + .06, .02 + (c[0] + c[1] / 2) * .06, 1, c, 0); });
+      $$(".tl-wave i", tl).forEach(function (e, k) { var fx2 = (k + .5) / 160; add(e, fx2 - .02, fx2 + .07, 0, 0, 0, 1); });
+      tlWave = $(".tl-wave", tl);
       head = document.createElement("div"); head.className = "beat-head"; head.setAttribute("aria-hidden", "true");
-      head.innerHTML = "<b>00:00:00:00</b>"; code = head.firstChild;
+      head.innerHTML = "<b>00:00:00:00</b><i class=\"ph-grip\"></i><span class=\"ph-cur\">" +
+        "<svg class=\"ph-arrow\" viewBox=\"0 0 24 24\" focusable=\"false\"><path d=\"M5 3v16.2l4.1-3.9 2.7 5.9 2.6-1.2-2.6-5.8 5.6-.2Z\" fill=\"#000\" stroke=\"#fff\" stroke-width=\"1.6\" stroke-linejoin=\"round\" paint-order=\"stroke\"/></svg>" +
+        "<svg class=\"ph-hand\" viewBox=\"0 0 24 24\" focusable=\"false\"><path d=\"M6.6 12.4V10.6a1.4 1.4 0 0 1 2.8 0V9.6a1.4 1.4 0 0 1 2.8 0v.3a1.4 1.4 0 0 1 2.8 0v.7a1.4 1.4 0 0 1 2.8 0v5.2c0 2.9-2 5-4.9 5h-1.3c-1.9 0-3.2-.9-4.2-2.4L4.9 14.9c-.5-.9.5-1.8 1.3-1.2Z\" fill=\"#fff\" stroke=\"#000\" stroke-width=\"1.3\" stroke-linejoin=\"round\"/><path d=\"M9.4 11.4v2.6M12.2 10.6v3.4M15 11v3\" stroke=\"#000\" stroke-width=\".9\" stroke-linecap=\"round\" fill=\"none\"/></svg></span>";
+      code = head.firstChild; cur = $(".ph-cur", head); curA = $(".ph-arrow", head); curH = $(".ph-hand", head); grip = $(".ph-grip", head);
       el.appendChild(head);
     }
     var words = $$(".beat-word", el), lines = $$(".beat-line", el), N = chars.length;
@@ -279,32 +322,51 @@
       var ang = Math.atan2(dy + (hash(k) - .5) * 160, dx + (hash(k + 9) - .5) * 60);
       return { ang: ang, far: .7 + hash(k + 3) * .7, spin: (hash(k + 5) - .5) * 520, grow: .6 + hash(k + 7) * 1.4, at: hash(k + 11) * .32 };
     });
-    // slam: each letter's throw from the impact at the middle of the line (px per unit of its own time)
-    var lineBox = line.getBoundingClientRect(), half = Math.max(1, lineBox.width / 2);
+    // slam: a splash from the point Rasan touches down (his feet, in the crew scene; else the bottom middle of the line).
+    // Each letter is a small projectile: an impulse away from the impact (biased up), linear air drag, gravity, a spin and a
+    // depth velocity, all run in simulated seconds (see SLAM below). Nothing here depends on the previous frame.
+    var lineBox = line.getBoundingClientRect(), touch = at.touch && at.touch();
+    var ix = touch ? touch[0] : lineBox.left + lineBox.width / 2, iy = touch ? touch[1] : lineBox.bottom;
+    var deck = touch ? touch[3] : 0;                             // the stage's height: below it a letter is off screen
+    var sc = at.mob ? viewH() / 900 : 1;                         // phones: speeds and gravity follow the screen height
+    var spots = chars.map(function (ch) { var r = ch.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    var maxd = 1; spots.forEach(function (c) { maxd = Math.max(maxd, Math.hypot(c[0] - ix, c[1] - iy)); });
+    // apex height of a launch with upward speed u (drag k, gravity g): H = u/k - (g/k) ln((g/k + u)/(g/k)) / k
+    function apex(u, g) { var vt = g / SLAM.k; return u / SLAM.k - vt * Math.log((vt + u) / vt) / SLAM.k; }
+    // The aim is worked out live each frame from the letter's own on-screen start (the line's live rect plus its offset), the live nav
+    // bottom and the live width, so a pinned/scrolled layout at build time can't throw the apex off the top or the sides.
+    var navEl = $(".home .nav") || $(".top");
+    var glyphH = chars.length ? chars[0].getBoundingClientRect().height : 0;   // room for the letter's own size (scaled, tilted)
+    function navBottom() { var b = navEl ? navEl.getBoundingClientRect().bottom : 0; return b > 20 && b < window.innerHeight * .4 ? b : 80; }
+    // heights and sideways targets are ranks of a shuffle, so they spread evenly (no two letters alike): ~15% reach the cap, the rest fill the range
+    function ranks(key) { var o = chars.map(function (c, k) { return k; }).sort(function (a, b) { return key(a) - key(b); }), r = []; o.forEach(function (k, i) { r[k] = (i + .5) / chars.length; }); return r; }
+    var rh = ranks(function (k) { return hash(k + 29); }), rx = ranks(function (k) { return k / chars.length + .6 * (hash(k + 13) - .5); });
     var blast = chars.map(function (ch, k) {
-      var r = ch.getBoundingClientRect(), dx = (r.left + r.width / 2) - (lineBox.left + half), dy = (r.top + r.height / 2) - (lineBox.top + lineBox.height / 2);
-      var nx = clamp(Math.abs(dx) / half, 0, 1), sx = dx < 0 ? -1 : 1, near = 1 - nx * .55;
-      // the shockwave leaves from the impact at once (at: nearest letters first, all within a few frames);
-      // every letter its own throw: speed, lift and spin vary a lot, a few go the "wrong" way, and each has a depth: some fly at
-      // the reader and grow, some fall back and shrink, so the burst has front and back instead of travelling in clumps
-      var wild = hash(k + 13) < .18 ? -1 : 1, depth = hash(k + 17);
-      if (at.mob) {
-        // phones: the throw is sized to the screen. The hover (about .34 of the travel) lands 30-45% of the width and height out from
-        // the impact, so the slow drift is seen on screen; the later gathering of speed and the fall still carry the letters away
-        var pw = window.innerWidth, ph = viewH(), hov = .34;
-        return {
-          vx: sx * wild * pw * (.28 + .17 * hash(k + 19)) / hov * (.85 + .3 * near),
-          vy: (hash(k + 31) < .62 ? -ph * (.22 + .15 * hash(k + 3)) : ph * (.26 + .18 * hash(k + 3))) / hov + dy * 1.2,
-          spin: (hash(k + 5) - .5) * 700, at: nx * .05 + hash(k + 7) * .04, grow: depth < .35 ? .5 + depth : 1 + (depth - .35) * 1.2,
-          g: (1100 + hash(k + 23) * 1000) * ph / 900
-        };
-      }
+      var dx = spots[k][0] - ix, dy = spots[k][1] - iy, nd = clamp(Math.hypot(dx, dy) / maxd, 0, 1);
       return {
-        vx: sx * wild * (260 + 900 * near * hash(k + 19) + hash(k) * 520), vy: -(140 + 900 * hash(k + 3) * (.4 + near)) + dy * 2.5,
-        spin: (hash(k + 5) - .5) * 900, at: nx * .05 + hash(k + 7) * .04, grow: depth < .35 ? .35 + depth : 1 + (depth - .35) * 2.6,
-        g: 1100 + hash(k + 23) * 1000
+        vy: 0, g: SLAM.g * sc,
+        frac: .06 + .94 * rh[k], tx: .07 + .86 * rx[k],
+        rx: spots[k][0] - lineBox.left, vx: 0, ry: spots[k][1] - lineBox.top,
+        w: (dx < 0 ? -1 : 1) * (300 + 400 * hash(k + 5)), rot0: (hash(k + 7) - .5) * 20,   // deg/s, away from the impact side
+        vz: (hash(k + 17) - .5) * 2 * SLAM.vz,
+        // when it unsticks: the wave from the impact plus a tiny random delay, so it reads as one splash
+        at: nd * SLAM.wave + SLAM.jit * hash(k + 41), cy: touch ? spots[k][1] - touch[2] : -1e4
       };
     });
+    // live aim: the upward speed that peaks at frac of the way from the start up to just under the nav pill, and a sideways speed that
+    // keeps the letter inside the screen (5% margin) until that peak
+    function aim(lb, navB) {
+      var topY = navB + (at.mob ? 10 : 20) + glyphH * .45, vwL = window.innerWidth;   // the tallest letters' tops end up ~20px under the nav (phones: the ink sits lower in its box, so aim a little higher)
+      blast.forEach(function (f) {
+        var sx = lb.left + f.rx, sy = lb.top + f.ry;
+        var lo = 0, hi = 8000 * sc, tgt = Math.max(60, sy - topY) * f.frac;
+        for (var n = 0; n < 22; n++) { var m = (lo + hi) / 2; if (apex(m, f.g) < tgt) lo = m; else hi = m; }
+        f.vy = -lo;
+        var qa = 1 - 1 / (1 + lo * SLAM.k / f.g);   // share of the sideways travel done by the apex: aim the apex at this letter's own column
+        f.vx = (f.tx * vwL - sx) * SLAM.k / qa;
+        f.sy = sy; f.lim = navB + 8 + glyphH * .45 - sy;   // hard floor for y while rising: the letter's top stays under the nav
+      });
+    }
     // playhead: where each letter sits across the screen
     var cx = chars.map(function (ch) { var r = ch.getBoundingClientRect(); return r.left + r.width / 2; });
     function render(b) {
@@ -314,19 +376,18 @@
       var r = seg(b, at.out, 1);
       el.style.visibility = r >= 1 ? "hidden" : "";
       if (fx === "slam") {
-        // the shockwave reaches the letters nearest the impact first; each is thrown outward and up, then falls, spinning
+        // ballistic flight in simulated seconds: tau runs 0..TSIM over the letter's own progress. Linear drag k, gravity g (y down):
+        //   x = vx/k (1 - e^-k tau)    y = g/k tau + (vy - g/k)(1 - e^-k tau)/k    spin and depth decay with the same drag
+        aim(line.getBoundingClientRect(), navBottom());
         chars.forEach(function (ch, k) {
-          var f = blast[k], t = seg(r, f.at, f.at + .62 + hash(k + 29) * .2);
-          // the speed curve: a hard burst (a third of the travel in the first fifth, easing out), then a slow hover with a
-          // little bob, then gathering speed away, falling as it goes
-          var u = t < .2 ? .3 * (1 - Math.pow(1 - t / .2, 2.2))
-            : t < .68 ? .3 + .08 * ((t - .2) / .48)
-            : .38 + 1.2 * Math.pow((t - .68) / .32, 2);
-          var bob = t > .2 && t < .68 ? Math.sin((t - .2) / .48 * Math.PI * 2 + k) * 6 * Math.sin((t - .2) / .48 * Math.PI) : 0;
-          var fall = f.g * .55 * Math.pow(Math.max(0, t - .62) / .38, 2);
-          ch.style.transform = t ? "translate3d(" + (f.vx * u).toFixed(1) + "px," + (f.vy * u + bob + fall).toFixed(1) + "px,0) rotate(" + (f.spin * (u * .8 + .2 * t)).toFixed(1) + "deg) scale(" + (1 + (f.grow - 1) * Math.min(1, u * 1.3)).toFixed(3) + ")" : "";
-          ch.style.opacity = (1 - seg(t, .72, 1)).toFixed(3);
-          ch.style.zIndex = f.grow > 1 ? "2" : "";
+          var f = blast[k], t = seg(r, f.at, f.at + SLAM_SPAN), tau = t * SLAM.t, q = 1 - Math.exp(-SLAM.k * tau);
+          var x = f.vx / SLAM.k * q, y = Math.max(f.lim, f.g / SLAM.k * tau + (f.vy - f.g / SLAM.k) * q / SLAM.k);
+          var rot = f.w / SLAM.k * q + f.rot0 * q, z = f.vz / SLAM.k * q;
+          var s = clamp(SLAM.p / (SLAM.p - z), .4, 1.5);
+          ch.style.transform = t ? "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px,0) rotate(" + rot.toFixed(1) + "deg) scale(" + s.toFixed(3) + ")" : "";
+          // full while flying; it fades over the last quarter, and is gone once it has fallen below the screen
+          ch.style.opacity = t ? (f.cy + y > deck + 80 ? 0 : 1 - seg(t, .75, 1)).toFixed(3) : "1";
+          ch.style.zIndex = z > 0 ? "2" : "";
         });
         layer.style.opacity = (1 - seg(r, .05, .45)).toFixed(3);
       } else if (fx === "scatter") {
@@ -342,16 +403,72 @@
         halves[0].style.transform = "translate3d(0," + (-d).toFixed(1) + "px,0)";
         halves[1].style.transform = "translate3d(0," + d.toFixed(1) + "px,0)";
       } else if (fx === "playhead") {
-        // the playhead eases in from the left edge and accelerates through; everything left of it is the chapter
-        var x = r > 0 ? -24 + (vw + 48) * inOutC(r) : -24;
-        head.style.transform = "translate3d(" + x.toFixed(1) + "px,0,0)";
-        head.style.opacity = r > 0 && r < 1 ? "1" : "0";
-        var fr = Math.round(r * 96);   // 4 seconds at 24 fps
+        // phases of r: the pointer glides in .00-.10 (the timeline builds with it), grabs .10-.16, drags the handle along the ruler .16-.76,
+        // lets go and drifts off .76-.92; the reveal line then runs on to the right edge of the screen (.76-.92)
+        var u = seg(r, .16, .76), sc = mpinned() ? .8 : 1;
+        var d = u * u * u * (u * (u * 6 - 15) + 10) + .006 * Math.sin(Math.PI * seg(u, .86, 1));   // slow start, quick middle, a small overshoot that settles
+        var grab = seg(r, .1, .16) * (1 - seg(r, .74, .8));
+        // the panel sits a little below the line (never over it, never off the bottom); the handle rides its ruler, first tick to last
+        var pw = mpinned() ? vw * .92 : Math.min(1080, vw * .84), pl = (vw - pw) / 2, lb = line.getBoundingClientRect(), er = el.getBoundingClientRect();
+        var th = tl.offsetHeight || 180, le = ease(seg(r, .02, .1)), pe = ease(seg(r, .05, .14));
+        // the line fades, drifts up and blurs as the timeline arrives; the panel starts below it and rises to the middle of the space under the nav
+        var top0 = Math.min(lb.bottom + 16 * le - er.top + (mpinned() ? 46 : 58), vh2 - th - 24), topC = (68 + vh2) / 2 - th / 2, top = top0 + (topC - top0) * pe;
+        line.style.opacity = (1 - le).toFixed(3); line.style.transform = le ? "translate3d(0," + (-16 * le).toFixed(1) + "px,0)" : ""; line.style.filter = le > .02 && le < 1 ? "blur(" + (5 * le).toFixed(1) + "px)" : "";
+        if (Math.abs(top - tlTop) > .5 || tl.style.left !== pl.toFixed(1) + "px") {
+          tlTop = top; el.style.setProperty("--ty", top.toFixed(1) + "px");
+          tl.style.left = pl.toFixed(1) + "px"; tl.style.width = pw.toFixed(1) + "px"; tl.style.top = top.toFixed(1) + "px";
+          tlGlow.style.top = (top - 110).toFixed(1) + "px"; tlGlow.style.height = (th + 190) + "px";
+        }
+        var hx = pl + .5 + (pw - 1) * d, pf = d, tail = 1 - seg(r, .74, .88), live2 = r > 0 && r < 1;   // hx: the handle's centre, on the ruler's ticks
+        head.style.transform = "translate3d(" + (hx - 1).toFixed(1) + "px,0,0)";
+        head.style.opacity = live2 ? (seg(r, 0, .04) * (1 - seg(r, .84, .92))).toFixed(3) : "0";
+        head.style.setProperty("--g", grab.toFixed(3));
+        grip.style.opacity = (grab * .9).toFixed(3);
+        // the timecode pill rides to the right of the handle, and swings over to its left as the handle nears the panel's end
+        if (!tcw) tcw = code.offsetWidth || 100;
+        code.style.transform = "translateX(" + (-seg(d, .7, .9) * (tcw + 28)).toFixed(1) + "px)";
+        // the timeline: the glow rises, the tracks slide up one after another, the clips pop in left to right, the waveform draws in
+        tlGlow.style.opacity = live2 ? (seg(r, 0, .1) * tail).toFixed(3) : "0";
+        tl.style.opacity = live2 ? tail.toFixed(3) : "0";
+        tl.style.setProperty("--p", (pf * 100).toFixed(2));
+        tlRows.forEach(function (row, k) {
+          var te = ease(seg(r, .006 * k, .07 + .012 * k));
+          row.style.opacity = te.toFixed(3); row.style.transform = te < 1 ? "translate3d(0," + (16 * (1 - te)).toFixed(1) + "px,0)" : "";
+        });
+        var we = ease(seg(r, .03, .11));
+        tlWave.style.clipPath = we < 1 ? "inset(0 " + ((1 - we) * 100).toFixed(1) + "% 0 0)" : "";
+        // as the playhead moves on, what is behind it dissolves: fades, blurs a little, drifts up (the one under it glows and lifts)
+        tlItems.forEach(function (it) {
+          var pop = it.w ? we : ease(seg(r, it.p0, it.p0 + .045)), v = seg(pf, it.f0, it.f1); v = v * v * (3 - 2 * v);
+          var on = it.on ? seg(pf, it.on[0], it.on[0] + .012) * (1 - seg(pf, it.on[0] + it.on[1] * .75, it.on[0] + it.on[1] * .95)) : 0;
+          var k = pop.toFixed(2) + "|" + v.toFixed(3) + "|" + on.toFixed(2);
+          if (it.k === k) return;
+          it.k = k;
+          it.e.style.opacity = (pop * (1 - v)).toFixed(3);
+          it.e.style.transform = "translate3d(0," + (-10 * v * (it.w ? .8 : 1) - 4 * on + (it.w ? 0 : 6 * (1 - pop))).toFixed(1) + "px,0) scale(" + ((it.w ? 1 : .96 + .04 * pop) * (1 - .02 * v)).toFixed(3) + ")";
+          if (it.blur) it.e.style.filter = v > .02 && v < .98 ? "blur(" + (6 * v).toFixed(1) + "px)" : "";
+          if (it.on) it.e.style.setProperty("--on", on.toFixed(3));
+        });
+        // the pointer: in from below-right to the handle, a touch smaller as it presses, a couple of px of hand-shake while dragging, then off down-left
+        var ti = seg(r, 0, .1), go = ease(seg(r, .78, .92)), live = seg(r, .16, .2) * (1 - seg(r, .72, .76));
+        var wob = (1.5 * Math.sin(u * 17.3) + .8 * Math.sin(u * 41.7 + 1.3)) * live * sc;
+        var cx2 = 190 * sc * Math.pow(1 - ti, 3) - 30 * sc * go, cy2 = 250 * sc * Math.pow(1 - ti, 2) + 46 * sc * go + wob;
+        cur.style.opacity = seg(r, 0, .03).toFixed(3);
+        cur.style.transform = "translate3d(" + cx2.toFixed(1) + "px," + cy2.toFixed(1) + "px,0) scale(" + (1 - .07 * Math.sin(Math.PI * seg(r, .1, .16))).toFixed(3) + ")";
+        curA.style.opacity = grab < .5 ? "1" : "0"; curH.style.opacity = grab < .5 ? "0" : "1";
+        // the timecode follows the handle on the ruler: 00:00:00:00 at the first tick, 00:00:06:00 at the last (24 fps)
+        var fr = Math.round(clamp(d, 0, 1) * 144);
         code.textContent = "00:00:" + ("0" + Math.floor(fr / 24)).slice(-2) + ":" + ("0" + fr % 24).slice(-2);
-        layer.style.clipPath = x > -24 ? "inset(0 0 0 " + Math.max(0, x).toFixed(1) + "px)" : "";
+        // the reveal line is the handle's own x along the ruler, then runs on to the screen's right edge once the timeline is gone;
+        // the paper's cut edge catches up from the left edge as the pointer presses
+        var ex = hx + (vw + 4 - hx) * inOutC(seg(r, .76, .92)), cut = r > 0 ? Math.max(0, ex * ease(seg(r, .13, .2))) : -24;
+        edge.style.transform = "translate3d(" + (ex - 1).toFixed(1) + "px,0,0)";
+        edge.style.opacity = live2 ? (seg(r, .1, .13) * (1 - seg(r, .94, .98))).toFixed(3) : "0";
+        var cp = cut > -24 && r > .1 ? "inset(0 0 0 " + cut.toFixed(1) + "px)" : "";
+        layer.style.clipPath = cp; tlGlow.style.clipPath = cp;
+        layer.style.opacity = (1 - seg(r, .96, 1)).toFixed(3);
         // a clean wipe: the line is cut by the same edge as its paper, so nothing piles up at the playhead
-        var lb = line.getBoundingClientRect();
-        line.style.clipPath = x > -24 ? "inset(0 0 0 " + Math.max(0, x - lb.left).toFixed(1) + "px)" : "";
+        line.style.clipPath = cp ? "inset(0 0 0 " + Math.max(0, cut - lb.left).toFixed(1) + "px)" : "";
       } else if (fx === "blinds") {
         chars.forEach(function (ch, k) {
           var t = seg(r, k / N * .3, k / N * .3 + .34), sgn = hash(k + 2) < .5 ? -1 : 1;
@@ -399,7 +516,7 @@
       host.classList.remove("host-ready");
     };
     h.scene = addScene({
-      el: host, pin: true, mpin: h.mobile, glide: host.classList.contains("squeak-scene") ? 150 : 120,   // the device scene glides a touch softer
+      el: host, pin: true, mpin: h.mobile,
       map: mapOf(host.id),
       progress: function (r, view) {
         if (h.mtrack && mpinned()) return clamp(-r.top / (h.mtrack * view), 0, 1);
@@ -426,7 +543,7 @@
     var root = host.host, q = function (s) { return $(s, root); };
     var dev = q(".sq-device"), screen = q(".sq-screen"), mac = q(".sq-mac"), phone = q(".sq-phone");
     if (!dev || !screen || !mac || !phone) return;
-    var steps = $$(".sq-step", root), STEP = [[0, .2], [.2, .38], [.38, .52], [.52, .8], [.8, 1.1]];
+    var steps = $$(".sq-step", root), STEP = [[0, .2], [.2, .38], [.38, .52], [.52, .825], [.92, 1.1]];   // beat 4 comes in once the Mac screen has lit (iris .88-.905), never beside the dark glass; beat 3 stays until the iPhone has dissolved (.825)
     var parts = {
       badges: $$(".sq-badge", root),
       next: q(".sq-shot-next"), note: q(".sq-note"), ledger: q(".l-ledger"), cta: q(".sq-cta"), use: q(".sq-use"), sent: q(".sq-sent")
@@ -452,7 +569,7 @@
       gKey = key;
       return gGeo;
     }
-    var backOut = function (t) { var c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+    var backOut = function (t) { var c1 = 1.15, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
     function renderGrand(gp) {
       if (!G.root || !G.row) return 1;
       var g = grandGeo(), vw = window.innerWidth, vmin = Math.min(vw, window.innerHeight);
@@ -460,12 +577,12 @@
       if (gp >= 1) { if (G.small) G.small.style.opacity = ""; return 1; }
       // 1. the marks fly in from the edges, big and turning, and slam together (fast in, hard stop)
       var a = seg(gp, 0, .3), eA = 1 - Math.pow(1 - a, 4), hit = seg(gp, .3, .38);
-      // 2. the impact: a short shudder, the x pops, rings and sparks go out, the glow flares
-      var shake = gp > .3 && gp < .4 ? Math.sin(gp * 900) * 10 * (1 - hit) : 0;
+      // 2. the impact: one soft hit (a brief squash, one damped recoil, ~1.25 slow swings), the x pops, rings and sparks go out, the glow swells
+      var ht = seg(gp, .3, .58), kick = Math.exp(-4 * ht) * Math.sin(2 * Math.PI * 1.25 * ht), A = vw * .02 * kick;
       // 3. the words unfold out of the marks and the lockup opens up to full width
       var u = inOutC(seg(gp, .4, .6));
-      var rX = mix(g.rOff - vw * .75, g.rOff, eA), sX = mix(g.sOff + vw * .75, g.sOff, eA);
-      var squash = 1 - .1 * Math.sin(Math.PI * hit), sc = 1.35 - .35 * eA;
+      var rX = mix(g.rOff - vw * .75, g.rOff, eA) + A, sX = mix(g.sOff + vw * .75, g.sOff, eA) - A;
+      var squash = 1 - .14 * kick, sc = 1.35 - .35 * eA;
       G.r.style.transform = "translate3d(" + mix(rX, 0, u).toFixed(1) + "px,0,0)";
       G.s.style.transform = "translate3d(" + mix(sX, 0, u).toFixed(1) + "px,0,0)";
       G.rm.style.transform = "rotate(" + (-28 * (1 - eA)).toFixed(2) + "deg) scale(" + (sc * squash).toFixed(4) + "," + (sc * (2 - squash)).toFixed(4) + ")";
@@ -474,16 +591,18 @@
       [G.rw, G.sw].forEach(function (w) { w.style.clipPath = "inset(0 " + ((1 - u) * 100).toFixed(2) + "% 0 0)"; });
       var xp = seg(gp, .3, .42);
       G.x.style.opacity = xp > 0 ? "1" : "0";
-      G.x.style.transform = "translate3d(" + mix(g.xOff, 0, u).toFixed(1) + "px,0,0) scale(" + Math.max(0, backOut(xp)).toFixed(4) + ") rotate(" + ((1 - xp) * 90).toFixed(1) + "deg)";
+      G.x.style.transform = "translate3d(" + mix(g.xOff, 0, u).toFixed(1) + "px,0,0) scale(" + Math.max(0, backOut(xp)).toFixed(4) + ") rotate(" + ((1 - Math.pow(xp, .5)) * 70).toFixed(1) + "deg)";
       G.rings.forEach(function (ring, k) {
         var t = seg(gp, .3 + k * .03, .62 + k * .05), e = 1 - Math.pow(1 - t, 3);
         ring.style.transform = "scale(" + (.2 + e * (3.6 + k * 1.4)).toFixed(3) + ")";
         ring.style.opacity = (t > 0 ? (1 - t) * .9 : 0).toFixed(3);
       });
       G.sparks.forEach(function (sp, k) {
-        var t = seg(gp, .3, .58 + (k % 4) * .03), e = 1 - Math.pow(1 - t, 2.4), ang = k * Math.PI / 8 + (k % 3) * .2, dist = vmin * (.22 + (k % 5) * .07);
-        sp.style.transform = "translate3d(" + (Math.cos(ang) * dist * e).toFixed(1) + "px," + (Math.sin(ang) * dist * e).toFixed(1) + "px,0) scale(" + (1 - .6 * t).toFixed(3) + ")";
-        sp.style.opacity = (t > 0 ? 1 - t : 0).toFixed(3);
+        // ballistic: outward launch, drag, a little gravity, spin that dies away; one smooth path each
+        var t = seg(gp, .3 + (k % 4) * .004, .6 + (k % 4) * .015), ang = k * Math.PI / 8 + (k % 3) * .2, dist = vmin * (.22 + (k % 5) * .07);
+        var run = dist * 3.3 * (1 - Math.exp(-3.2 * t)) / 3.2, fall = vmin * .07 * t * t, spin = (((k * 47) % 180) - 90) * (1 - Math.exp(-3 * t)) / 3;
+        sp.style.transform = "translate3d(" + (Math.cos(ang) * run).toFixed(1) + "px," + (Math.sin(ang) * run + fall).toFixed(1) + "px,0) rotate(" + spin.toFixed(1) + "deg) scale(" + (1 - .6 * t).toFixed(3) + ")";
+        sp.style.opacity = (t > 0 ? 1 - Math.pow(t, 1.6) : 0).toFixed(3);
       });
       G.glow.style.opacity = (seg(gp, .28, .34) * (1 - .55 * seg(gp, .38, .7)) * (1 - seg(gp, .82, .95))).toFixed(3);
       G.glow.style.transform = "scale(" + (.6 + .5 * seg(gp, .28, .5)).toFixed(3) + ")";
@@ -501,7 +620,7 @@
       // phones: the whole row is built small enough to hold the words (it lands in the small lockup at that size), so the
       // marks collide at twice that size and the row shrinks back as the words unfold
       var big = mpinned() ? 1 + 1.15 * (1 - u) : 1;
-      G.row.style.transform = "translate3d(" + (tx * f + shake).toFixed(1) + "px," + (ty * f + shake * .4).toFixed(1) + "px,0) scale(" + (mix(1, k2, f) * big).toFixed(4) + ")";
+      G.row.style.transform = "translate3d(" + (tx * f).toFixed(1) + "px," + (ty * f).toFixed(1) + "px,0) scale(" + (mix(1, k2, f) * big).toFixed(4) + ")";
       // it lands, the small lockup takes over in place, and only then do the line and the Mac come in
       G.root.style.opacity = (1 - seg(gp, .92, .97)).toFixed(3);
       if (G.small) G.small.style.opacity = seg(gp, .92, .97).toFixed(3);
@@ -774,7 +893,7 @@
   $$("[data-rise]").forEach(function (el) {
     if (el.classList.contains("home-win")) return;   // the Home window rises with the crew flight, below
     addScene({
-      el: el, pin: false, glide: 90,
+      el: el, pin: false,
       progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1); },
       span: function (r, vh) { return vh * .75; },
       render: function (p) { var e = ease(p); el.style.transform = "translate3d(0," + ((1 - e) * 64).toFixed(1) + "px,0) scale(" + (.93 + .07 * e).toFixed(3) + ")"; },
@@ -845,7 +964,7 @@
     };
     var shotBand = homeWin.closest(".shot-band");
     var flight = addScene({
-      el: shotBand, pin: true, mpin: true, glide: 110, map: mapOf("flight"),
+      el: shotBand, pin: true, mpin: true, map: mapOf("flight"),
       // 0..1 while the screenshot rises into its resting place; at 1 every cut-out sits exactly on its painted-out spot,
       // so the flyers give way to the screenshot's own crew in one frame
       // 0..1 through the band's pinned stretch: the window rises over the first 85% of it and rests for the rest
@@ -908,12 +1027,12 @@
   }
 
   /* ---------- the orbit's resting points: only while the circle turns through the introductions ----------
-     When a scroll comes to rest between two introductions, it settles on the one its momentum points at: the nearest to where
-     the flick would have carried it. Before the first and after the last, and everywhere else on the page, scrolling is free. */
-  var lastY = window.scrollY, scrollT = 0, dir = 1, vel = 0, restTimer = 0, spring = 0;
+     When a scroll comes to rest between two introductions, the page glides to the one its momentum points at, so the reader is
+     never left on a bare circle. Before the first and after the last, and everywhere else on the page, scrolling is free. */
+  var lastY = window.scrollY, scrollT = 0, vel = 0, restTimer = 0, spring = 0, touching = false;
   var noRest = measure || /[?&]norest\b/.test(location.search);   // for frame-by-frame checks: hold any scroll position
-  // the glide is a critically damped spring on the scroll position: it starts with the speed the reader was scrolling at, so the
-  // hand-off from their flick is continuous, and it eases into the introduction without overshooting it. Any input stops it.
+  // a critically damped spring on the scroll position: it starts at the speed the reader was scrolling at, so the hand-off is
+  // continuous, and it eases into the introduction without overshooting. Any input stops it.
   var OMEGA = 8.5;   // spring stiffness (rad/s): settled in about 0.7 s
   function glideTo(target) {
     var y = window.scrollY, v = clamp(vel, -4, 4), prev = 0;
@@ -930,34 +1049,33 @@
     spring = requestAnimationFrame(step);
   }
   function stopGlide() { if (spring) { cancelAnimationFrame(spring); spring = 0; } }
-  ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (t) { window.addEventListener(t, stopGlide, { passive: true }); });
-  // phones: a resting point is only chosen once the finger is up (touchend starts the same quiet timer a scroll does)
-  var touching = false;
-  window.addEventListener("touchstart", function () { touching = true; }, { passive: true });
-  ["touchend", "touchcancel"].forEach(function (t) { window.addEventListener(t, function () { touching = false; clearTimeout(restTimer); restTimer = setTimeout(settle, 160); }, { passive: true }); });
+  function armRest() { clearTimeout(restTimer); restTimer = setTimeout(settle, 170); }
+  // trackpads keep sending inertial wheel events after the finger lifts: every one stops a glide and restarts the quiet timer
+  window.addEventListener("wheel", function () { stopGlide(); armRest(); }, { passive: true });
+  ["touchstart", "keydown", "mousedown"].forEach(function (t) { window.addEventListener(t, stopGlide, { passive: true }); });
+  // phones: a resting point is only chosen once the finger is up
+  window.addEventListener("touchstart", function () { touching = true; clearTimeout(restTimer); }, { passive: true });
+  ["touchend", "touchcancel"].forEach(function (t) { window.addEventListener(t, function () { touching = false; armRest(); }, { passive: true }); });
   function settle() {
     if (!(pinned() || mpinned()) || calm() || spring || noRest || !crewOn || touching) return;
     var r = crewScene.getBoundingClientRect(), span = Math.max(1, r.height - viewH()), top = window.scrollY + r.top, y = window.scrollY;
+    // the same retiming as the menu jump: crewRests() is in scroll progress, so a rest lands with its card fully open
     var rests = crewRests().map(function (p) { return top + p * span; });
     if (y < rests[0] - 2 || y > rests[rests.length - 1] + 2) return;
-    // where the reader's own momentum would carry the page (a flick decays over about a third of a second), and the introduction
-    // nearest to that: a small nudge past one settles back on it, a real flick carries on to the next one or further
-    var projected = y + clamp(vel, -1.6, 1.6) * 325, pick = null;   // a wild wheel spin cannot throw it past more than one
+    // where the reader's own momentum would carry the page, and the introduction nearest to that: a small nudge settles back,
+    // a real flick carries on to the next one
+    var projected = y + clamp(vel, -1.6, 1.6) * 325, pick = null;
     rests.forEach(function (t) { if (pick === null || Math.abs(t - projected) < Math.abs(pick - projected)) pick = t; });
     if (pick === null || Math.abs(pick - y) < 3) return;
-    // the spring starts with the reader's speed only when that speed points at the target
-    if ((pick - y) * vel < 0) vel = 0;
+    if ((pick - y) * vel < 0) vel = 0;   // the spring takes the reader's speed only when it points at the target
     glideTo(Math.round(pick));
   }
   window.addEventListener("scroll", function () {
     if (spring) return;   // our own glide: not the reader's input
     var y = window.scrollY, t = performance.now();
-    if (y !== lastY) {
-      dir = y > lastY ? 1 : -1;
-      if (scrollT && t - scrollT < 100) vel = vel * .6 + ((y - lastY) / (t - scrollT)) * .4; else vel = 0;
-    }
+    if (y !== lastY) { if (scrollT && t - scrollT < 100) vel = vel * .6 + ((y - lastY) / (t - scrollT)) * .4; else vel = 0; }
     lastY = y; scrollT = t;
-    clearTimeout(restTimer); restTimer = setTimeout(settle, 160);
+    if (!touching) armRest();
   }, { passive: true });
 
   /* ---------- menu jumps: in the pinned layout a chapter is a long scroll scene, so its menu link lands on the moment worth
@@ -990,49 +1108,35 @@
       requestAnimationFrame(function () { veil.classList.add("on"); });
       setTimeout(function () {
         window.scrollTo({ top: Math.round(jumpTarget(a.getAttribute("data-jump")) || y), behavior: "instant" });
-        snapAll = true; request();   // behind the veil every scene lands on its moment; none plays through to it
+        snapAll = true; request();   // every scene simply follows the new scroll position
         setTimeout(function () { veil.classList.remove("on"); }, 120);
       }, 230);
     });
   });
 
   /* ---------- the loop: rAF only while something is moving ----------
-     PACING. Every pinned scene's progress chases its scroll target with a critically damped spring (solved exactly, so it is the same
-     at 60 and 120 Hz) and a ceiling on how fast the picture may be played: PACE_VH viewport heights of scroll per second, as if the
-     reader scrolled at that speed. Each scene's timeline is retimed (MAPS, above the scenes) so the same scroll distance always buys
-     about the same amount of change; the ceiling then means the same thing everywhere. A slow scroll never reaches it; a hard flick
-     plays through at the ceiling and catches up, instead of skipping frames. The chase is position-only, so scrolling back retraces
-     the same frames. */
+     PACING. The scenes have no speed cap and no spring: a scene's progress is its scroll position, but it closes the gap with a very short
+     exponential catch-up (about 0.15 s), so a flick plays through its in-between frames instead of jumping, and normal scrolling
+     shows no lag. Each scene's timeline is retimed (MAPS, above the scenes) so the same scroll distance buys about the same change. */
+  var CATCH_TAU = .045;   // seconds: time constant of the catch-up toward the scroll position
   var raf = 0, vh = viewH(), lastT = 0, snapAll = false;
-  var PACE_VH = 1.8, PACE_VH_M = 1.6;   // desktop / phones: viewport heights of scroll per second the picture will play at most
-  function chase(s, target, dtMs, span) {
-    var w = 1700 / (s.glide || 120), h = Math.min(dtMs, 50) / 1000, x0 = s.cur - target, v0 = s.vel || 0;
-    var c = v0 + w * x0, e = Math.exp(-w * h), x1 = (x0 + c * h) * e, v1 = (v0 - w * c * h) * e;
-    var lim = (mpinned() ? PACE_VH_M : PACE_VH) * vh / span, step = target + x1 - s.cur;   // progress per second the picture may move at most
-    if (Math.abs(step) > lim * h) { step = step < 0 ? -lim * h : lim * h; v1 = Math.max(-lim, Math.min(lim, v1)); }
-    s.cur += step; s.vel = v1;
-    if (Math.abs(target - s.cur) * span < .25 && Math.abs(s.vel) * span < 4) { s.cur = target; s.vel = 0; }
-  }
   function draw(s, v) { s.render(s.map ? s.map(v) : v); s.last = v; }
   function tick(now) {
     raf = 0;
-    // frame time, so a glide feels the same at 60 and 120 Hz; a long gap (a background tab) counts as one frame
-    var dt = lastT && now - lastT < 100 ? now - lastT : 16.7; lastT = now;
     if (!pinnedMode.motion) return;
+    var dt = lastT && now ? Math.min(.05, Math.max(0, (now - lastT) / 1000)) : .05, snap = snapAll || measure, moving = false;
+    lastT = now || 0; snapAll = false;
+    var k = 1 - Math.exp(-dt / CATCH_TAU);
     var rects = scenes.map(function (s) { return s.el.getBoundingClientRect(); });
-    var more = false, snap = snapAll || measure; snapAll = false;
     scenes.forEach(function (s, i) {
       if (s.pin && !pinned() && !(s.mpin && mpinned())) return;   // pinned scenes run in the sticky layouts: desktop, or phones for scenes that opt in
-      var r = rects[i], near = r.bottom > -vh * .5 && r.top < vh * 1.5;
-      var target = s.progress(r, vh);
-      // far from the screen, the first frame it is back in range (a reload or a jump landed inside it), after a menu jump, or when
-      // measuring the timeline itself, a scene simply follows the scroll position; it only chases while the reader is scrolling
-      if (s.cur === undefined || !near || s.far || snap) { s.far = !near; s.cur = target; s.vel = 0; if (s.last !== target) draw(s, target); return; }
-      chase(s, target, dt, s.span ? s.span(r, vh) : Math.max(1, r.height - vh));
-      if (s.cur !== target) more = true;
-      if (s.cur !== s.last) draw(s, s.cur);
+      var target = s.progress(rects[i], vh);
+      var r = rects[i], span = s.span ? s.span(r, vh) : Math.max(1, r.height - vh);
+      if (snap || s.cur === undefined || r.bottom < -vh * .5 || r.top > vh * 1.5 || Math.abs(target - s.cur) * span < .5) s.cur = target;
+      else { s.cur += (target - s.cur) * k; moving = true; }
+      if (s.last !== s.cur) draw(s, s.cur);
     });
-    if (more) request();
+    if (moving) request(); else lastT = 0;
   }
   function request() { if (!raf) raf = requestAnimationFrame(tick); }
   window.addEventListener("scroll", request, { passive: true });
@@ -1176,10 +1280,16 @@
     }
     // the crew scene starts a screen early, behind the rising window, so its line is already in place when the window uncovers it;
     // the words fill as they are uncovered
-    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.12, .3], out: .42, mob: mob });
+    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.12, .3], out: .42, mob: mob, touch: crewFeet });
     // the specialists start off-screen, where lazy images would not load until they fly in; fetch and decode them all now
     crew.imgs.forEach(function (im) { var pre = new Image(); pre.src = im.currentSrc || im.src; if (pre.decode) pre.decode().catch(function () {}); });
     crewOn = true;
+  }
+
+  // where Rasan's feet meet the ground when he lands (viewport px): the middle of the stage, under him by his landing size
+  function crewFeet() {
+    var sr = crew.stage.getBoundingClientRect(), nw = crew.nodes[0].offsetWidth;
+    return [sr.left + sr.width / 2, sr.top + sr.height / 2 + nw * (.21 + .315 * crewGeo.land), sr.top, sr.height];
   }
 
   // how much of specialist i's introduction is showing (0..1): from when the circle brings them to the right-hand point until it turns on
@@ -1293,7 +1403,7 @@
     return crewRests().map(function (p) { return Math.round(top + p * span); });
   };
   crewRun = crew && addScene({
-    el: crewScene, pin: true, mpin: true, glide: 140, map: mapOf("crew"),
+    el: crewScene, pin: true, mpin: true, map: mapOf("crew"),
     progress: function (r, view) { return clamp(-r.top / Math.max(1, r.height - view), 0, 1); },
     render: renderCrew,
     reset: clearCrew
