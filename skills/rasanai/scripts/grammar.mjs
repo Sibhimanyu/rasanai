@@ -11,8 +11,8 @@
 //           Style world (the strongest signal, +3 per hit, up to 6): the chosen concept's style_world / shots[].style_world / carrier text
 //           (story/chosen.json, decisions.json, crew/plan.json) or --style "pixel, game"; each grammar lists style_world terms. Concept tags
 //           (+1 per hit, up to 3): the concept's title, premise, shots and signature moment against each grammar's concept_tags
-//           (or --concept "text"). Story-shape fits still count. Output has style_signal / concept_signal so the pick is explainable. --flat (a graphic-route brand: the brand film
-//           measured no finish, FILM-STYLE.json measured.finish.layerOff; set by itself from the card) keeps only flat_ok
+//           (or --concept "text"). Story-shape fits still count. Output has style_signal / concept_signal so the pick is explainable. --flat (a graphic-route brand in strict brand mode: the brand film
+//           measured no finish, FILM-STYLE.json measured.finish.layerOff; set by itself from the card only when strict_brand_film is set) keeps only flat_ok
 //           grammars (flat_ok false = the grammar's look is glow or blur on every element; budgets apply to every grammar)
 //   node grammar.mjs write --run <run> --id <id> [--label Sure|Bold|Wild] [--out <path>] [--brand <DESIGN.md>]
 //        -> copies the grammar into the run: look/grammar.json (or design/<label>/grammar.json, or --out); when a brand
@@ -50,7 +50,7 @@ function conceptSignals(run, args) {
 }
 const SHAPES = [["launch ladder", /launch|promo|product|reveal|announce|feature|demo|ad\b/], ["explainer", /explain|how|topic|faceless|tutorial|concept/], ["brand film", /brand|manifesto|identity|company|story/], ["music video", /music|lyric|song/], ["reel", /reel|showreel|sizzle/]];
 // graphic route: the brand film measured no finish (brandfilm.mjs measure: measured.finish.layerOff); older cards fall back to their words
-const runIsFlat = (run) => { const c = readJ(path.join(run, "brand-film", "FILM-STYLE.json")); if (!c) return false; const f = c.measured && c.measured.finish; if (f && typeof f.layerOff === "boolean") return f.layerOff; return FLAT_RE.test(`${(c.slots || {}).motionVocabulary || ""} ${(c.slots || {}).notes || ""}`); };
+const runIsFlat = (run) => { const dec = readJ(path.join(run, "decisions.json")) || {}; if (dec.strict_brand_film !== true && dec.film_style_strict !== true) return false; /* the measured site card is a reference; it flattens the grammar only in explicit strict brand mode */ const c = readJ(path.join(run, "brand-film", "FILM-STYLE.json")); if (!c) return false; const f = c.measured && c.measured.finish; if (f && typeof f.layerOff === "boolean") return f.layerOff; return FLAT_RE.test(`${(c.slots || {}).motionVocabulary || ""} ${(c.slots || {}).notes || ""}`); };
 // the actor is the product UI: a launch / promo shape and no declared object actor (decisions.json / score actor)
 function uiActor(run, text) {
   const dec = readJ(path.join(run, "decisions.json")) || {}, sc = readJ(path.join(run, "motion", "score.json")) || {};

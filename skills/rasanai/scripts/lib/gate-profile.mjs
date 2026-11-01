@@ -75,3 +75,26 @@ export function runWaivers(run) {
 // "rule:why;rule2:why2" (the CLI form final-gate passes down) <-> {rule: why}
 export const waiversArg = (w) => Object.entries(w || {}).map(([k, v]) => `${k}:${String(v).replace(/[;\n]/g, ",")}`).join(";");
 export const parseWaiversArg = (s) => Object.fromEntries(S(s).split(";").map((x) => x.split(/:(.*)/s)).filter((x) => x[0] && WAIVABLE[x[0]]).map((x) => [x[0], S(x[1]) || "waived"]));
+
+// ---- world families (the concept pool's spread rule; crew.mjs check concept-writer-*, check script-editor --key jury) ----
+// CALM: quiet, typographic or whitespace-led worlds that every launch film drifts to when nobody pushes (a calm film is allowed; a calm POOL is not).
+// BOLD: worlds whose picture is made differently (pixel, dimensional, stepped, hand-made, photographic gate profiles, plus the loud flat ones). One list, here.
+export const CALM_WORLDS = ["swiss-grid", "minimal-luxury", "editorial-magazine", "line-art", "kinetic-type-only", "data-story", "bauhaus"];
+export const BOLD_PROFILES = ["pixel", "dimensional", "stepped", "hand-made", "photographic"];
+export const BOLD_FLAT_WORLDS = ["sticker-maximal", "brutalist"];
+export const isCalmWorld = (id) => CALM_WORLDS.includes(S(id).toLowerCase());
+export const isBoldWorld = (id) => { const w = S(id).toLowerCase(); return !!w && !isCalmWorld(w) && (BOLD_PROFILES.includes(gateProfileOf(w)) || BOLD_FLAT_WORLDS.includes(w)); };
+// Pool rules over a list of style world ids (one per idea): [problem strings]. `pool` = all three writers together, else one writer's lane.
+export function worldSpreadProblems(worlds, { pool = false, lane = "", needBold = 0 } = {}) {
+  const P = [], ids = worlds.map((w) => S(w).toLowerCase()).filter(Boolean), n = {};
+  for (const w of ids) n[w] = (n[w] || 0) + 1;
+  const over = Object.entries(n).filter(([, c]) => c > 2).map(([w, c]) => `${w} x${c}`);
+  if (over.length) P.push(`${pool ? "the pool has" : `the ${lane} lane has`} more than 2 ideas in one style world (${over.join(", ")}): at most 2 per world; move the extras to other worlds`);
+  if (pool) {
+    if (Object.keys(n).length < 6) P.push(`the pool spans ${Object.keys(n).length} style world(s) (${Object.keys(n).join(", ")}): it needs at least 6 distinct worlds`);
+    const calm = ids.filter(isCalmWorld);
+    if (calm.length > 4) P.push(`${calm.length} ideas sit in the calm family (${[...new Set(calm)].join(", ")}): at most 4 across the pool; re-world the rest into bold families (${BOLD_PROFILES.join(", ")}, sticker, brutalist)`);
+  }
+  if (needBold) { const b = ids.filter(isBoldWorld).length; if (b < needBold) P.push(`the ${lane} lane has ${b} idea(s) in a bold world (pixel, dimensional, stepped, hand-made, photographic, sticker, brutalist): at least ${needBold} are required`); }
+  return P;
+}

@@ -49,8 +49,9 @@ export const paletteDistance = (A, B) => 0.4 * dist(A.canvas, B.canvas) + 0.6 * 
 
 
 // ---------------------------------------------------------------- the brand film card (brandfilm.mjs card -> <run>/brand-film/FILM-STYLE.json)
-// A branded launch / promo / brand film is built from the brand's OWN film grammar (references/launch-film.md section 3), not from
-// outside references: palette, type, motif and motion vocabulary come from the card, and the look must cite it.
+// The card is a REFERENCE describing the brand's site / film. Only in strict brand mode (decisions.strict_brand_film / film_style_strict) is a
+// branded launch built from the brand's OWN film grammar (references/launch-film.md section 3): palette, type, motif and motion vocabulary
+// come from the card and the look must cite it. Otherwise the checks below are silent and the concept's style_world carries the look.
 const lab3 = (hex) => {
   const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
   const [R, G, B] = rgbOf(hex).map(lin);
@@ -253,9 +254,11 @@ export function checkSystem(dir, opts = {}) {
   // medium policy: a new look is held to the brand's real constraints (palette, type, logo, declared motion limits; the brand lock
   // above), not to an outside brand film's measured style, unless the user asked for strict brand-film matching. Legacy: unchanged.
   const MEDIUM = opts.mediumPolicy !== undefined ? !!opts.mediumPolicy : mediumPolicyOf(dir, S);
-  const STRICT = !MEDIUM || strictBrandFilm(path.resolve(dir, "..", ".."), opts);
-  const PS = (m) => (STRICT ? P : W).push(m); // inferred style preferences: blocking when strict or legacy, advice otherwise
-  // BRAND FILM GRAMMAR: a branded launch / promo / brand film is the brand's own film style (FILM-STYLE card), never a blend of
+  // the measured FILM-STYLE card is a REFERENCE that describes the brand's site / film; it never sets the film's ground, palette or type. Its checks below fire only in explicit strict brand mode
+  // (decisions.strict_brand_film / film_style_strict, only when the user asked); otherwise they are silent (the world's own canvas, ink, palette and type carry the film).
+  const STRICT = strictBrandFilm(path.resolve(dir, "..", ".."), opts);
+  const PS = (m) => { if (STRICT) P.push(m); };
+  // BRAND FILM GRAMMAR (strict brand mode only): the look is the brand's own film style (FILM-STYLE card), never a blend of
   // outside references; palette and type must match the card, the motion must stay inside its vocabulary
   const FILM = opts.brand ? (opts.film !== undefined ? opts.film : runFilm(path.resolve(dir, "..", ".."))) : null;
   if (FILM) {
@@ -307,7 +310,7 @@ export function checkSystem(dir, opts = {}) {
   }
   const refs = Array.isArray(bl.references) ? bl.references : [];
   const ids = [...new Set(refs.map((r) => r && r.id).filter(Boolean))];
-  if (FILM && STRICT) { /* brand lock is palette, type, logo: library references and style_refs are allowed on branded looks (the style world is what varies); no quota */ }
+  if (FILM && (STRICT || !MEDIUM)) { /* brand lock is palette, type, logo: library references and style_refs are allowed on branded looks (the style world is what varies); no quota */ }
   else if (MEDIUM) {
     // a coherent single medium is valid: no reference-count quota, but the originality must be explainable
     if (ids.length < 2 && !(String(bl.originality || "").trim().length >= 20 || (Array.isArray(bl.style_refs) && bl.style_refs.length))) P.push(`blend.json cites ${ids.length} library references and has no "originality" (20+ characters: what makes this single-medium treatment this film's own) or style_refs: say what the look is made from`);

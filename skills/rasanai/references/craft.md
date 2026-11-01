@@ -434,7 +434,7 @@ Choose by effect. High information clarity and strong timing are compatible with
 
 **Scale.**
 - The primary visual covers at least 40% of the canvas.
-- UI as the subject fills at least 60% of the frame width (zoom in, screen-studio style); when type is the subject, it is one line that fits inside the safe area (never cropped by the frame), sized to the brand film card's type scale, or without a card the design system's display size.
+- UI as the subject fills at least 60% of the frame width (zoom in, screen-studio style); when type is the subject, it is one line that fits inside the safe area (never cropped by the frame), sized to the design system's display size (the brand film card's type scale only in strict brand mode).
 - Negative space has a job: type-led frames keep at least 40% empty. A frame that is mostly an empty flat field with nothing happening is sparse, not minimal: add scale or a second plane (unless the style is deliberately minimal).
 - At most 2 effects per element (a shadow and a mask, never shadow + glow + blur + stroke).
 

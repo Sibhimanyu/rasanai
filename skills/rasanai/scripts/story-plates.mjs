@@ -7,6 +7,7 @@
 // Image generation unavailable (imagegen.mjs status is not "ready") or a plate failing: nothing is faked. <out>/plates.json says so and the board labels the template
 // fallback (scripts/lib/story-board.mjs). Exit 0 always for "unavailable" (the template is the fallback), 2 only when the input has no concept with shots.
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -94,6 +95,39 @@ async function runConcept(c, n) {
 const conc = Math.max(1, Math.min(4, Number(args.concurrency) || 3));
 let next = 0;
 await Promise.all(Array.from({ length: Math.min(conc, targets.length) }, async () => { while (next < targets.length) { const n = next++; await runConcept(targets[n], n); } }));
+
+// duplicate check: the same bytes under two different shots means parallel jobs picked up each other's output. Keep the first (the anchor, else film order),
+// regenerate each other one once (--force, a fresh temp path inside imagegen.mjs), and mark it failed when it still comes back identical.
+const md5 = (p) => crypto.createHash("md5").update(fs.readFileSync(p)).digest("hex");
+function dupes() {
+  const seen = new Map(), bad = [];
+  for (const [cid, rec] of Object.entries(report.concepts)) for (const pl of rec.plates) {
+    if (!fs.existsSync(pl.image)) continue;
+    const h = md5(pl.image), first = seen.get(h);
+    if (first && first.image !== pl.image) bad.push({ cid, rec, pl, of: first }); else seen.set(h, { ...pl, cid });
+  }
+  return bad;
+}
+const targetById = new Map(targets.map((c, n) => [s(c.id) || `c${n + 1}`, c]));
+const shotOf = (cid, shotId) => (targetById.get(cid).shots || []).find((x) => s(x.id) === shotId);
+for (let pass = 0; pass < 2; pass++) {
+  const bad = dupes();
+  if (!bad.length) break;
+  for (const d of bad) {
+    const c = targetById.get(d.cid), sh = shotOf(d.cid, d.pl.shot), world = styleWorldId(c), art = world ? atlasArt(world) : null, carrier = carrierOf(c).what;
+    log(`${d.cid} ${d.pl.shot}: byte-identical to ${d.of.cid}/${d.of.shot}; ${pass === 0 ? "regenerating" : "marking failed"}`);
+    const keep = () => { d.rec.plates = d.rec.plates.filter((x) => x !== d.pl); report.made--; };
+    if (pass === 0) {
+      const see = [s(sh.see), carrier && s(sh.carrier_state) ? `${carrier}: ${s(sh.carrier_state)}` : "", "No text, letters, logos or watermarks in the image."].filter(Boolean).join(" ");
+      const prompt = art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`;
+      const savedForce = args.force; args.force = true;
+      const r = await generate(prompt, d.pl.image, art ? world : "", c.style && c.style.palette_id ? s(c.style.palette_id) : "", "");
+      args.force = savedForce;
+      if (!r.ok || !fs.existsSync(d.pl.image)) { try { fs.rmSync(d.pl.image, { force: true }); } catch { /* gone */ } keep(); delete sh.image; d.rec.failed.push({ shot: d.pl.shot, error: `duplicate of ${d.of.cid}/${d.of.shot} and the regeneration failed` }); report.failed++; }
+    } else { try { fs.rmSync(d.pl.image, { force: true }); } catch { /* gone */ } keep(); delete sh.image; d.rec.failed.push({ shot: d.pl.shot, error: `byte-identical to ${d.of.cid}/${d.of.shot} after a regeneration: marked failed` }); report.failed++; }
+  }
+}
+for (const bad of dupes()) { const sh = shotOf(bad.cid, bad.pl.shot); try { fs.rmSync(bad.pl.image, { force: true }); } catch { /* gone */ } bad.rec.plates = bad.rec.plates.filter((x) => x !== bad.pl); report.made--; delete sh.image; bad.rec.failed.push({ shot: bad.pl.shot, error: `byte-identical to ${bad.of.cid}/${bad.of.shot}: marked failed` }); report.failed++; }
 
 fs.writeFileSync(file, JSON.stringify(raw, null, 2));
 report.ok = report.failed === 0;

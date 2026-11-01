@@ -44,7 +44,7 @@ function referenceDna(file, brandLocked) {
 Guidance, not a metronome: use these as the film's habits where the story allows, never as a fixed interval.
 ${lines.join("\n") || "- Nothing could be measured with confidence."}
 Not measured: ${un || "nothing"}. Left out: ${out || "none"}.
-${brandLocked ? "\nThe brand's own film grammar wins on cut rate, transitions, palette and type; take only zoom habit and caption density from here.\n" : ""}${dna.applied ? "" : "\nLow confidence: the references were mixed or too few.\n"}`;
+${brandLocked ? "\nThe brand lock (logo, accent, claim face, real UI) wins; cut rate, transitions, palette and type come from the chosen world (a strict brand film: the brand's own film grammar); take zoom habit and caption density from here.\n" : ""}${dna.applied ? "" : "\nLow confidence: the references were mixed or too few.\n"}`;
   return { dna, body };
 }
 
