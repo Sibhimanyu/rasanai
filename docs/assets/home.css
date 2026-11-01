@@ -188,15 +188,15 @@
   .pin :is(.host-ready, .crew-ready) [data-beat="blinds"] .beat-layer { display: none; }
   /* playhead: a timeline playhead, the RasanAI blue line with its handle and a running timecode */
   .pin .beat-head { position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: 2px; opacity: 0; will-change: transform; }
-  .pin .beat-head::before { content: ""; position: absolute; left: -9px; top: calc(var(--ty, 88px) - 4px); width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--rasanai-blue); transform: scale(calc(1 + .14 * var(--g, 0))); }
+  .pin .beat-head::before { content: ""; position: absolute; left: -9px; top: -4px; width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--rasanai-blue); transform: scale(calc(1 + .14 * var(--g, 0))); }
   /* held: the handle grows a little and darkens (the dark copy fades in over it) */
-  .pin .beat-head .ph-grip { position: absolute; left: -9px; top: calc(var(--ty, 88px) - 4px); width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--indigo-deep); opacity: 0; transform: scale(calc(1 + .14 * var(--g, 0))); }
+  .pin .beat-head .ph-grip { position: absolute; left: -9px; top: -4px; width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--indigo-deep); opacity: 0; transform: scale(calc(1 + .14 * var(--g, 0))); }
   /* the pointer: its box sits on the handle's centre; the arrow's tip and the hand's middle are the hot spot */
-  .pin .beat-head .ph-cur { position: absolute; z-index: 3; left: 1px; top: calc(var(--ty, 88px) + 10px); width: 0; height: 0; font-size: 22px; opacity: 0; will-change: transform, opacity; filter: drop-shadow(0 2px 3px rgba(12, 16, 48, .35)); }
+  .pin .beat-head .ph-cur { position: absolute; z-index: 3; left: 1px; top: 10px; width: 0; height: 0; font-size: 22px; opacity: 0; will-change: transform, opacity; filter: drop-shadow(0 2px 3px rgba(12, 16, 48, .35)); }
   .pin .beat-head .ph-cur svg { position: absolute; display: block; overflow: visible; }
   .pin .beat-head .ph-arrow { width: 1em; height: 1em; left: -.209em; top: -.125em; }
   .pin .beat-head .ph-hand { width: 1.1em; height: 1.1em; left: -.55em; top: -.6em; opacity: 0; }
-  .pin .beat-head b { position: absolute; left: 14px; top: calc(var(--ty, 88px) - 32px); padding: 4px 8px; border-radius: 6px; background: var(--indigo); color: #fff; font: 500 .72rem/1 var(--mono); letter-spacing: .06em; white-space: nowrap; }
+  .pin .beat-head b { position: absolute; left: 14px; top: -32px; padding: 4px 8px; border-radius: 6px; background: var(--indigo); color: #fff; font: 500 .72rem/1 var(--mono); letter-spacing: .06em; white-space: nowrap; }
   /* the playhead's trail: a soft light band behind it, as if the frame were still developing */
 }
 
@@ -628,34 +628,36 @@ html.mpin { overflow-x: clip; }
 .mpin .beat-strip { background: var(--beat-bg); transform-origin: 50% 0; will-change: transform; }
 .mpin :is(.host-ready, .crew-ready) [data-beat="blinds"] .beat-layer { display: none; }
 .mpin .beat-head { position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: 2px; opacity: 0; will-change: transform; }
-.mpin .beat-head::before { content: ""; position: absolute; left: -9px; top: calc(var(--ty, 92px) - 3px); width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--rasanai-blue); transform: scale(calc(1 + .14 * var(--g, 0))); }
-.mpin .beat-head .ph-grip { position: absolute; left: -9px; top: calc(var(--ty, 92px) - 3px); width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--indigo-deep); opacity: 0; transform: scale(calc(1 + .14 * var(--g, 0))); }
-.mpin .beat-head .ph-cur { position: absolute; z-index: 3; left: 1px; top: calc(var(--ty, 92px) + 9px); width: 0; height: 0; font-size: 18px; opacity: 0; will-change: transform, opacity; filter: drop-shadow(0 2px 3px rgba(12, 16, 48, .35)); }
+.mpin .beat-head::before { content: ""; position: absolute; left: -9px; top: -3px; width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--rasanai-blue); transform: scale(calc(1 + .14 * var(--g, 0))); }
+.mpin .beat-head .ph-grip { position: absolute; left: -9px; top: -3px; width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--indigo-deep); opacity: 0; transform: scale(calc(1 + .14 * var(--g, 0))); }
+.mpin .beat-head .ph-cur { position: absolute; z-index: 3; left: 1px; top: 9px; width: 0; height: 0; font-size: 18px; opacity: 0; will-change: transform, opacity; filter: drop-shadow(0 2px 3px rgba(12, 16, 48, .35)); }
 .mpin .beat-head .ph-cur svg { position: absolute; display: block; overflow: visible; }
 .mpin .beat-head .ph-arrow { width: 1em; height: 1em; left: -.209em; top: -.125em; }
 .mpin .beat-head .ph-hand { width: 1.1em; height: 1.1em; left: -.55em; top: -.6em; opacity: 0; }
-.mpin .beat-head b { position: absolute; left: 14px; top: calc(var(--ty, 92px) - 30px); padding: 4px 8px; border-radius: 6px; background: var(--indigo); color: #fff; font: 500 .72rem/1 var(--mono); letter-spacing: .06em; white-space: nowrap; }
+.mpin .beat-head b { position: absolute; left: 14px; top: -30px; padding: 4px 8px; border-radius: 6px; background: var(--indigo); color: #fff; font: 500 .72rem/1 var(--mono); letter-spacing: .06em; white-space: nowrap; }
 
 /* ---- playhead: the timeline panel. A soft white glow, a ruler, a footage track (real stills as filmstrips), music (waveform) and
    titles. Everything is driven by progress from home.js: it builds in, the playhead dissolves what is behind it, then it is gone ---- */
-.beat-glow { position: absolute; z-index: 0; left: 0; right: 0; top: 0; height: 300px; opacity: 0; pointer-events: none;
+.beat-glow { position: absolute; z-index: 0; left: 0; right: 0; top: 0; height: 300px; opacity: 0; pointer-events: none; will-change: transform, opacity;
   background: radial-gradient(ellipse 46% 50% at 50% 50%, rgba(255, 255, 255, .92), rgba(255, 255, 255, .5) 55%, rgba(255, 255, 255, 0) 100%); }
-.beat-edge { position: absolute; z-index: 2; left: 0; top: 0; bottom: 0; width: 2px; background: var(--rasanai-blue); box-shadow: 0 0 0 1px rgba(255,255,255,.5), 0 0 24px rgba(42, 49, 168, .35); opacity: 0; will-change: transform; pointer-events: none; }
-.beat-edge::after { content: ""; position: absolute; right: 2px; top: 0; bottom: 0; width: 120px; background: linear-gradient(90deg, transparent, rgba(42, 49, 168, .1)); pointer-events: none; }
-.beat-tl { --rh: 26px; --vh: 60px; --ah: 42px; --gap: 8px; position: absolute; z-index: 1; top: 0; left: 0; width: 84vw; pointer-events: none; display: grid; gap: var(--gap); opacity: 0; }
+/* the paper's wipe: one strip, a soft left edge then solid, slid across by transform (reveal = what it has passed) */
+[data-beat="playhead"] .beat-layer { background: none !important; overflow: hidden; }
+.beat-wipe { position: absolute; left: 0; top: 0; bottom: 0; will-change: transform; background: linear-gradient(90deg, rgba(255, 255, 255, 0), var(--beat-bg) var(--wf, 90px)); }
+/* the playhead's line stays inside the panel: from the handle down to the panel's foot */
+.beat-head::after { content: ""; position: absolute; left: 0; top: 20px; width: 2px; height: var(--tlh, 100px); background: var(--rasanai-blue); box-shadow: 0 0 0 1px rgba(255, 255, 255, .5); }
+.beat-tl { --rh: 26px; --vh: 60px; --ah: 42px; --gap: 8px; position: absolute; z-index: 1; top: 0; left: 0; width: 84vw; pointer-events: none; display: grid; gap: var(--gap); opacity: 0; will-change: transform, opacity; }
 .mpin .beat-tl { --rh: 20px; --vh: 42px; --ah: 30px; --gap: 6px; }
 .tl-row { position: relative; will-change: transform, opacity; opacity: 0; }
 .tl-rul { height: var(--rh); } .tl-v { height: var(--vh); } .tl-a { height: var(--ah); } 
 .mpin .tl-tag { display: none; }
-.tl-bg { position: absolute; inset: 0; border-radius: 10px; background: rgba(27, 31, 94, .05); box-shadow: inset 0 0 0 1px rgba(27, 31, 94, .09);
-  -webkit-mask-image: linear-gradient(90deg, transparent calc(var(--p, -50) * 1% - 2%), #000 calc(var(--p, -50) * 1% + 10%)); mask-image: linear-gradient(90deg, transparent calc(var(--p, -50) * 1% - 2%), #000 calc(var(--p, -50) * 1% + 10%)); }
+.tl-bg { position: absolute; inset: 0; border-radius: 10px; background: rgba(27, 31, 94, .05); box-shadow: inset 0 0 0 1px rgba(27, 31, 94, .09); }
 .tl-ticks { background: none; box-shadow: none; border-radius: 0; border-bottom: 1px solid rgba(27, 31, 94, .22);
   background:
     repeating-linear-gradient(90deg, rgba(27, 31, 94, .5) 0 1px, transparent 1px calc(100% / 6)) 0 100% / 100% 13px no-repeat,
     linear-gradient(90deg, transparent calc(100% - 1px), rgba(27, 31, 94, .5) 0) 0 100% / 100% 13px no-repeat,
     repeating-linear-gradient(90deg, rgba(27, 31, 94, .38) 0 1px, transparent 1px calc(100% / 12)) 0 100% / 100% 8px no-repeat,
     repeating-linear-gradient(90deg, rgba(27, 31, 94, .26) 0 1px, transparent 1px calc(100% / 60)) 0 100% / 100% 5px no-repeat; }
-.tl-lbl { position: absolute; top: 1px; margin-left: 5px; will-change: transform, opacity; font: 500 10px/1 var(--mono); letter-spacing: .05em; color: rgba(27, 31, 94, .6); white-space: nowrap; }
+.tl-lbl { position: absolute; top: 1px; margin-left: 5px; font: 500 10px/1 var(--mono); letter-spacing: .05em; color: rgba(27, 31, 94, .6); white-space: nowrap; }
 .tl-lbl.is-end { left: auto !important; right: 0; margin-left: 0; margin-right: 5px; }
 .mpin .tl-lbl { font-size: 8.5px; } .mpin .tl-lbl:nth-of-type(even) { display: none; }
 .tl-tag { position: absolute; right: calc(100% + 12px); top: 50%; margin-top: -5px; font: 500 10px/1 var(--mono); letter-spacing: .08em; font-style: normal; color: rgba(27, 31, 94, .5); }
@@ -669,9 +671,8 @@ html.mpin { overflow-x: clip; }
   box-shadow: 0 0 0 1.5px var(--rasanai-blue), 0 10px 26px rgba(42, 49, 168, .45); }
 .tl-clip span { position: absolute; left: 6px; bottom: 5px; padding: 3px 5px 2px; border-radius: 4px; background: rgba(12, 16, 48, .58); font: 500 8.5px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: #fff; white-space: nowrap; }
 .mpin .tl-clip { border-radius: 6px; } .mpin .tl-clip span { display: none; }
-.tl-wave { position: absolute; inset: 0; display: flex; align-items: center; }
-.tl-wave i { flex: 1 1 0; will-change: transform, opacity; }
-.tl-wave i::before { content: ""; display: block; width: 56%; height: 100%; margin: 0 auto; border-radius: 2px; background: linear-gradient(180deg, rgba(42, 49, 168, .62), rgba(42, 49, 168, .34)); }
+.tl-wave { position: absolute; inset: 0; }
+.tl-wave svg { display: block; width: 100%; height: 100%; }
 
 /* ---- your projects: the playhead line pins over its own stretch (its stage holds the chapter's heading); the points and the
    picture then scroll on as a plain page. MBEAT_TRACK in home.js (1.5) is the 1.5 below ---- */
