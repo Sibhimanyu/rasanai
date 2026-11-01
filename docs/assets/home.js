@@ -1428,9 +1428,9 @@
       try { if (low && "fetchPriority" in im) im.fetchPriority = "low"; im.loading = "eager"; if (im.decode) im.decode().catch(function () {}); } catch (e) {}
     }
     function prime(src) { var im = new Image(); try { im.fetchPriority = "low"; } catch (e) {} im.decoding = "async"; im.src = src; if (im.decode) im.decode().catch(function () {}); return im; }
-    if (crewScene) $("img", crewScene).forEach(function (im) { warm(im, false); });
+    if (crewScene) $$("img", crewScene).forEach(function (im) { warm(im, false); });
     var later = function () {
-      $(".sq-wall, .sq-shot").forEach(function (im) { warm(im, true); });
+      $$(".sq-wall, .sq-shot").forEach(function (im) { warm(im, true); });
       ["ra", "rasika", "mala", "laya", "tara", "chitra", "kavi"].forEach(function (n) { prime("assets/crew/land/" + n + ".webp?v=4"); });
       ["assets/tl/stones.jpg", "assets/tl/engraved.jpg"].forEach(prime);
     };
