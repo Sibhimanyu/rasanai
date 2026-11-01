@@ -783,3 +783,7 @@ html.mpin { overflow-x: clip; }
   .skill-pane pre { padding: 46px 16px 14px; }
   .skill-pane code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
 }
+.heresay-credit { display: inline-flex; align-items: center; gap: 7px; color: inherit; text-decoration: none; }
+.heresay-credit img { width: 18px; height: 18px; flex: none; padding: 2px; border-radius: 5px; background: #f2f0ea; box-sizing: border-box; }
+.heresay-credit b { font-weight: 600; color: #fff; }
+.heresay-credit:hover b { text-decoration: underline; text-underline-offset: 3px; }
