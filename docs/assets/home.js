@@ -349,7 +349,7 @@
       var dx = spots[k][0] - ix, dy = spots[k][1] - iy, nd = clamp(Math.hypot(dx, dy) / maxd, 0, 1);
       return {
         vy: 0, g: SLAM.g * sc,
-        frac: .06 + .94 * rh[k], tx: .07 + .86 * rx[k],
+        frac: .06 + .94 * rh[k], tx: rx[k] * 2 - 1,
         rx: spots[k][0] - lineBox.left, vx: 0, ry: spots[k][1] - lineBox.top,
         w: (dx < 0 ? -1 : 1) * (300 + 400 * hash(k + 5)), rot0: (hash(k + 7) - .5) * 20,   // deg/s, away from the impact side
         vz: (hash(k + 17) - .5) * 2 * SLAM.vz,
@@ -358,16 +358,20 @@
       };
     });
     // live aim: the upward speed that peaks at frac of the way from the start up to just under the nav pill, and a sideways speed that
-    // keeps the letter inside the screen (5% margin) until that peak
+    // aims the apex at a column in a fan around Rasan (+-32% of the width, 240-460px; phones max 40%)
+    var qEnd = 1 - Math.exp(-SLAM.k * SLAM.t);
     function aim(lb, navB) {
       var topY = navB + (at.mob ? 10 : 20) + glyphH * .45, vwL = window.innerWidth;   // the tallest letters' tops end up ~20px under the nav (phones: the ink sits lower in its box, so aim a little higher)
+      var half = Math.min(clamp(.32 * vwL, 240, 460), (at.mob ? .4 : .46) * vwL), mid = clamp(ix, half + .04 * vwL, vwL - half - .04 * vwL);   // fan half-width and centre, kept on screen
       blast.forEach(function (f) {
         var sx = lb.left + f.rx, sy = lb.top + f.ry;
         var lo = 0, hi = 8000 * sc, tgt = Math.max(60, sy - topY) * f.frac;
         for (var n = 0; n < 22; n++) { var m = (lo + hi) / 2; if (apex(m, f.g) < tgt) lo = m; else hi = m; }
         f.vy = -lo;
         var qa = 1 - 1 / (1 + lo * SLAM.k / f.g);   // share of the sideways travel done by the apex: aim the apex at this letter's own column
-        f.vx = (f.tx * vwL - sx) * SLAM.k / qa;
+        f.vx = (mid + f.tx * half - sx) * SLAM.k / qa;
+        var fall = Math.min(1.2 * half, (at.mob ? .4 : .45) * vwL), end = sx + f.vx / SLAM.k * qEnd;   // low peaks come down sooner and drift on: keep where it lands near the fan too
+        if (end > mid + fall) f.vx = (mid + fall - sx) * SLAM.k / qEnd; else if (end < mid - fall) f.vx = (mid - fall - sx) * SLAM.k / qEnd;
         f.sy = sy; f.lim = navB + 8 + glyphH * .45 - sy;   // hard floor for y while rising: the letter's top stays under the nav
       });
     }
