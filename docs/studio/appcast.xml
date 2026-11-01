@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.29.0 beta 1</title>
+      <pubDate>Sun, 01 Nov 2026 16:41:02 GMT</pubDate>
+      <description><![CDATA[<ul><li>Refining a look now shows Rasan working: the status bar reads "Rasan is redrawing ... with more energy...", the large preview dims under a shimmer, and the refine buttons stay disabled until the director sends the updated look (or an error). The same goes for More like this, Mix two and Three more stories.</li><li>A refine can no longer be sent twice: a second press while one is pending is ignored. After the update lands the button reads "Push further".</li><li>Posters, frames and previews reload when their file is rewritten (even to the same path), so a redrawn look shows its new picture. Versioned file names work too.</li><li>The look's motion preview (<code>preview</code> video) plays muted and looping over the still when present; it restarts when the file is re-rendered.</li></ul>]]></description>
+      <sparkle:version>77</sparkle:version>
+      <sparkle:shortVersionString>0.29.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.29.0-beta.1/RasanAI-Studio-0.29.0.dmg" sparkle:edSignature="VXQ5uwvKN8mSXIev1q232qlqD9rqUQbCO+xcXXNAPf6PEL+sQo8/d/Exxw0rWOgwCS4uH0uTg/i4+aLiFyncBA==" length="98287901" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.28.1 beta 1</title>
       <pubDate>Sun, 01 Nov 2026 09:26:26 GMT</pubDate>
       <description><![CDATA[<ul><li>Scrolling Inspiration is smooth again: the page was redoing its filter counts on every update, which froze it for up to a second at a time.</li><li>The launch screen animation now runs outside the busy part of the app, so the logo draws without stalls while your library loads.</li></ul>]]></description>
