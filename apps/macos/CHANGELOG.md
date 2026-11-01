@@ -2,10 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.28.1 (build 76) — 2026-11-01
 
 - Scrolling Inspiration is smooth again: the page was redoing its filter counts on every update, which froze it for up to a second at a time.
 - The launch screen animation now runs outside the busy part of the app, so the logo draws without stalls while your library loads.
+- **Bundles RasanAI 1.33.1.**
 
 ## 0.28.0 (build 75) — 2026-11-01
 
