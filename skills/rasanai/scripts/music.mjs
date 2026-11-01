@@ -632,7 +632,7 @@ async function fromProcedural() {
     fs.writeFileSync(file, r.wav);
     const prov = r.provenance;
     fs.writeFileSync(sidecarPath(file), JSON.stringify({ schema_version: 1, origin: "procedural", wav: path.basename(file), sha256: crypto.createHash("sha256").update(r.wav).digest("hex"), sr: r.plan.sr, duration_s: r.plan.duration_s, fps: r.plan.fps, bpm: r.plan.bpm, key: r.plan.key, seed: r.plan.seed, identity: r.plan.identity, sections: r.plan.sections, hits: r.plan.hits, pause: r.plan.pause, gates: r.plan.gates, ending: r.plan.ending, foley: r.plan.foley, ...(r.plan.shape ? { shape: r.plan.shape } : {}), ...(r.plan.meter ? { meter: r.plan.meter } : {}), samples_used: [], license: prov, quality_downgrade: prov.quality_downgrade }, null, 2) + "\n");
-    noteDowngrade({ run: args.run, what: "sampled instruments in the original score", instead: "synthesised sine / triangle / noise voices", why: "no licence-verified instrument sample library ships with the skill", impact: "thinner than a produced track; pass --track <file> to use a real one" });
+    // the synthesised-voices downgrade is recorded below, only when the original score is what gets recommended: a candidate that loses to a real take is not a downgrade
     notes.push(`original score: ${identity.family}, ${r.plan.bpm} BPM, ${r.plan.key}, seed ${r.plan.seed}; peak hit ${r.plan.hits[0] ? `${r.plan.hits[0].id} at ${r.plan.hits[0].at_s} s` : "none (no drop cue or hit to build on)"}; quality downgrade recorded (synthesised voices, not sampled instruments)`);
     found.push({ id, title: `Original score: ${identity.family.replace("-", " ")}, ${r.plan.bpm} BPM, ${r.plan.key}`, file, source: "Original score (RasanAI, generated offline)", kind: "procedural", prior: procChain.explicit ? "ai" : "procedural", origin: "procedural", license: "Original work generated from code; no third-party material", requires_credit: false, attribution: null, url: null, intent: { family: { id: identity.family }, intent: "original score to the film's events" }, samples_used: [] });
   } catch (e) {
@@ -937,7 +937,9 @@ for (const o of options) {
 fs.writeFileSync(ledgerFile, JSON.stringify(ledger, null, 2) + "\n");
 
 // the user's track first; then usable before not, best ranked (score times the source's prior), best fit
-options.sort((a, b) => (b.origin === "user" && b.usable === true) - (a.origin === "user" && a.usable === true) || (b.usable === true) - (a.usable === true) || (b.rank ?? 0) - (a.rank ?? 0) || (a.fit?.cost ?? 9) - (b.fit?.cost ?? 9));
+// a passing take made to this film (ACE-Step etc.) outranks the synthesised score and catalog tracks: it is the one the bed should use
+const madeHere = (o) => (o.usable === true && (found.find((x) => x.id === o.id) || {}).kind === "ai") ? 1 : 0;
+options.sort((a, b) => (b.origin === "user" && b.usable === true) - (a.origin === "user" && a.usable === true) || (b.usable === true) - (a.usable === true) || madeHere(b) - madeHere(a) || (b.rank ?? 0) - (a.rank ?? 0) || (a.fit?.cost ?? 9) - (b.fit?.cost ?? 9));
 // `count` options, one per mood first (different moods, not three takes of one), best first
 const shown = [];
 for (const o of options) if (shown.length < count && o.usable && !shown.some((x) => x.mood.split(" · ")[0] === o.mood.split(" · ")[0])) shown.push(o);
@@ -954,6 +956,7 @@ const best = shown.find((o) => o.usable) || null;
   }
 }
 
+if (best && best.origin === "procedural") noteDowngrade({ run: args.run, what: "sampled instruments in the original score", instead: "synthesised sine / triangle / noise voices", why: "the original score is the music recommended, and no licence-verified instrument sample library ships with the skill", impact: "thinner than a produced track; pass --track <file> to use a real one" });
 // credits for the recommended track (re-run `credits --pick <id>` for the one the user picks)
 const credits = creditsText(best ? { ...ledger.find((l) => l.id === best.id), license: best.license } : null);
 fs.writeFileSync(path.join(dir, "CREDITS.txt"), credits.credits);

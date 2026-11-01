@@ -633,9 +633,19 @@ function plan() {
       assets.push(row);
     }
   });
-  // an atmospheric film (the brand film's measured finish route) gets ground plates as a standard asset: a calm ground and
-  // a plate to zoom through. Never on the graphic route (the brand's films are flat), unless a show asks for a colour field.
-  const route = (() => { try { const m = fs.readFileSync(path.join(run, "brand-film", "FILM-STYLE.md"), "utf8").match(/Route:\s*(atmospheric|graphic)/i); if (m) return m[1].toLowerCase(); } catch { /* none */ } return ((jsonMaybe(path.join(run, "brand-film", "FILM-STYLE.json")) || {}).finish || {}).route || null; })();
+  // an atmospheric film gets ground plates as a standard asset: a calm ground and a plate to zoom through. Never on the graphic route
+  // (a flat finish), unless a show asks for a colour field. The route follows the chosen look's world finish (look/visual-bible.json
+  // imagery.finish_policy: none = graphic, chosen = atmospheric); the brand film card's measured Route is read ONLY in strict brand mode
+  // (decisions.strict_brand_film / film_style_strict), because the card is a reference describing the brand's site, not the film's look.
+  const route = (() => {
+    const dec = jsonMaybe(path.join(run, "decisions.json")) || {};
+    if (dec.strict_brand_film === true || dec.film_style_strict === true) {
+      try { const m = fs.readFileSync(path.join(run, "brand-film", "FILM-STYLE.md"), "utf8").match(/Route:\s*(atmospheric|graphic)/i); if (m) return m[1].toLowerCase(); } catch { /* none */ }
+      return ((jsonMaybe(path.join(run, "brand-film", "FILM-STYLE.json")) || {}).finish || {}).route || null;
+    }
+    const fp = ((jsonMaybe(path.join(run, "look", "visual-bible.json")) || {}).imagery || {}).finish_policy;
+    return fp === "none" ? "graphic" : fp === "chosen" ? "atmospheric" : null;
+  })();
   if (route === "atmospheric" && !assets.some((a) => a.kind === "abstract")) {
     assets.push({ id: "plate-ground", kind: "abstract", variant: "fold", aspect: "16:9", calm: 0.5, seed: 1, prompt: "the film's living ground (flowGround): a calm abstract plate in the palette", treatments: [], used_by: ["film: the ground under every beat (cam.flowGround)"], from: { route } });
     assets.push({ id: "plate-through", kind: "abstract", variant: "vortex", aspect: "16:9", seed: 2, prompt: "a plate to zoom through between beats (plateTransition)", treatments: [], used_by: ["film: the transition into the turn (cam.plateTransition)"], from: { route } });

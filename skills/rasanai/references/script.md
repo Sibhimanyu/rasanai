@@ -22,7 +22,7 @@ The script is written once and travels: the Story card shows it, `scenes.json` i
 
 For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` first and let it win: the real product UI on screen early (3 s is the house target for product-demonstrating kinds, not a rule for every kind); a villain, when you use one, is the viewer's real pain at the claim's scope; a turn, when you use one, is the real product reversing it; one hero product moment (`hero_moment`) shows it for real; short plain lines; the required end line is the largest type on a clean CTA card; the concept, world, character, metaphor and style are free (product truth: the real product and claims stay true and legible). The three differ in idea and style world.
 
-**Branded launch, promo or brand film:** write to the template in `references/launch-film.md` §1 (the product or brand in 1 to 3 s, the reveal, the hero demo, 2 to 4 real feature demos, the payoff line, the end card), each beat inside its timing range; mark each beat's `role` and set `payoff_line`. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and its words. The three scripts differ only in emphasis and order, never in concept. On a ladder the order is the rungs' order and the emphasis is which uses and how the refrain is worded.
+**Branded launch, promo or brand film:** write to the template in `references/launch-film.md` §1 (the product or brand in 1 to 3 s, the reveal, the hero demo, 2 to 4 real feature demos, the payoff line, the end card), each beat inside its timing range; mark each beat's `role` and set `payoff_line`. The brand's own film (`brand-film/FILM-STYLE.md`, a reference) may inform the opening and its words; the look is the chosen concept's world. The three scripts differ only in emphasis and order, never in concept. On a ladder the order is the rungs' order and the emphasis is which uses and how the refrain is worded.
 
 ## Treatments mode: concept before outline
 
@@ -204,7 +204,7 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 - Sentence case, a full stop for weight, no exclamation marks, no em dashes.
 - **Talk to the viewer.** Second person ("Your next deal"), their own question, a reaction when the pain lands ("Ugh"). Say what the viewer gets ("You never retype a list"), not what the product is ("Notes, reimagined"); a line with no verb and no pronoun is a slogan.
 - **One line every 1.5 to 2.5 s** on launch films (`sparse-lines` above 3.0 s per line).
-- **Readability is a hard rule.** At rest the line sits fully inside the 6% safe area, on one line (two at most), at the brand film card's type scale or the design system's display size; never cropped. It may leave the frame only in a push-through of 1.2 s or less (`text-fit`).
+- **Readability is a hard rule.** At rest the line sits fully inside the 6% safe area, on one line (two at most), at the design system's display size (the brand film card's type scale only in strict brand mode); never cropped. It may leave the frame only in a push-through of 1.2 s or less (`text-fit`).
 
 **Voiceover**
 

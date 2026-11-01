@@ -45,15 +45,15 @@
   },
   "brand_lock": {
     "keeps": [
-      "brand colour",
-      "brand type",
       "logo",
-      "real product UI capture (composited as a screen plate, never redrawn)"
+      "brand accent as the signal colour",
+      "brand face on the claim and end line",
+      "the real product UI (composited as a screen plate, never redrawn)"
     ],
     "colour_role": "brand colour becomes the single signal colour of the palette; the other 7-15 colours come from the game palette",
     "type_role": "pixel face for in-world UI and labels; brand face sets the real claim line in clean type",
     "world_changes": "the product lives inside a game level; the real UI is a screen plate inside it",
-    "rule": "Under a brand lock the brand colour, type and logo stay; the style world (material, picture language, motion grammar, finish, sound) is what varies between looks. A branded launch shows 3 different style worlds."
+    "rule": "Under a brand lock only the logo, the brand accent (as the signal colour), the brand face on the claim and end line, and the real product UI stay; the style world sets canvas, palette, type system, material, picture language, motion grammar, finish and sound. A branded launch shows 3 different style worlds. Only strict brand mode keeps the brand site's own look."
   },
   "motion_grammar": {
     "hints": [

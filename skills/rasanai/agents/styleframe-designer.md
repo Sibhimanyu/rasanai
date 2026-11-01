@@ -85,7 +85,7 @@ Revise until each hero has had at least one real revision pass (x1's revisions m
 
 ## Brand
 
-A brand locks the palette, the type, the logo, the UI and the tone. It never locks the craft, and the selected Look (not this file) says which craft applies; where that Look is dimensional: depth of field, a camera angle, a lit ground, shadows, shot size and colour content are how a flat brand looks expensive (OpenAI's own film is white and frontal, and earns it with 88% H type, photography and colour fields). Read `brand-film/FILM-STYLE.md` for what the brand's films do and use its measured values; where it is silent, design. After rendering a branded film's boards the Director runs `brandfilm.mjs compare` on them.
+"Use brand" locks only the logo, the accent as the signal colour, the brand face on the claim and end line, and the real UI (the card locks more only in strict brand mode). It never locks the craft, and the selected Look (not this file) says which craft applies; where that Look is dimensional: depth of field, a camera angle, a lit ground, shadows, shot size and colour content are how a flat brand looks expensive (OpenAI's own film is white and frontal, and earns it with 88% H type, photography and colour fields). Read `brand-film/FILM-STYLE.md` for what the brand's films do, as a reference; the canvas, palette, type system, texture and finish are the chosen look's world. Use the card's measured values only in strict brand mode. After rendering a branded film's boards the Director runs `brandfilm.mjs compare` on them.
 
 ## Variants (the Dispatch context's `key`)
 

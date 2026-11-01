@@ -217,14 +217,13 @@ const SOFT = "a dislike is a lean, never a ban";
 const ROLE_NOTE = {
   // concept writers (story, style, wild) and the legacy visual-writer get NO taste block: a writer who leans toward the likes flattens the pool. Taste ranks and recommends (jury, planner, critic) only.
   "script-writer": "Develop the ideas as picked; the exploration concept stays an exploration.",
-  "design-system-designer": "Prefer liked looks; avoid disliked ones unless the story needs them.",
+  // design-system-designer and music-supervisor get NO taste block either: they draw the options (the Look, the music), and an option set drawn near the likes is a narrower one. Taste only re-ranks the finished options for the `recommended` badge.
   "art-director": "Prefer liked looks; avoid disliked ones unless the story needs them.",
   "script-editor": `As the jury, taste breaks ties between equally strong ideas; the exploration slot is the wild lane's pick, not the idea furthest from the likes; ${SOFT}.`,
   "styleframe-designer": "Prefer liked looks; avoid disliked ones unless the story needs them.",
   "frame-designer": "Prefer liked looks; avoid disliked ones unless the story needs them.",
   "concept-critic": `Use it to rank and recommend; the exploration slot is the wild lane's pick; ${SOFT}.`,
   "story-planner": `Use it to rank and recommend; the exploration slot is the wild lane's pick; ${SOFT}.`,
-  "music-supervisor": `Choose the sound mode and music prompt near the liked sound; ${SOFT}.`,
   "motion-director": "Prefer liked moves and pace; avoid disliked ones unless the beat needs them.",
 };
 export const TASTE_ROLES = new Set(Object.keys(ROLE_NOTE));

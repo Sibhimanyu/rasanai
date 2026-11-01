@@ -2,10 +2,10 @@
 // Design directions: many complete looks (visual style + palette by role + type pairing +
 // shape / stroke / shadow / texture), each rendered as a board with the user's own words,
 // each with a frame.md ready for HyperFrames. With a brand reference, looks are brand-locked
-// (its colors and fonts) and vary the art direction around them. On a branded launch / promo / brand film the
-// looks are the brand film's own grammar (<run>/brand-film/FILM-STYLE.json from brandfilm.mjs card): check-system
-// requires blend.json to cite FILM-STYLE.md (film_style, film_style_takes), library references allowed (brand lock is palette, type, logo), canvas /
-// ink / accent on the card's palette, the display face in the card's typefaces; finish, depth and camera are never refused (brand lock is palette, type, logo, UI and tone).
+// (its logo, accent, claim face, real UI) and vary the world around them. On a branded launch / promo / brand film the card
+// (<run>/brand-film/FILM-STYLE.json from brandfilm.mjs card) is a REFERENCE: every look names its own style_world (three distinct), and the
+// canvas / ink / accent / display-face match against the card, with the film_style / film_style_takes citation in blend.json, runs only in
+// strict brand mode (decisions.strict_brand_film / film_style_strict); finish, depth and camera are never refused.
 //   node design.mjs looks --out <dir> [--decisions <decisions.json>] [--count 6] [--aspect 16:9]
 //        [--headline "..."] [--sub "..."] [--brand DESIGN.md [--mode light|dark]] [--ground light|dark] [--seed s] [--recent style,ids] [--stills]
 //        -> <dir>/index.html (the board grid), <dir>/looks.json, <dir>/<A..>/frame.md (+ board.png with --stills)
@@ -29,6 +29,7 @@
 //   (Part 2) node design.mjs medium-wire --run <run> [--scene <n>]   -> what a medium scene needs and the project never guesses: the contract, eventBindings (scene-local seconds from motion/events.json), assets.canons (cast/<id>/identity.json), the runtime files, the treatment line
 //   (Part 2) check-system also gates design/<label>/medium.json for a medium Look: missing or invalid is "needs-you", never a pass
 //   (Plan 04) node design.mjs look-revise --run <run> --instruction "same typography, less glossy" [--ids a,b]   -> a bounded look revision: what changes, what stays fixed, the impact (Story kept)
+//   node design.mjs look-energy --run <run> --label <Sure|Bold|Wild> --value calmer|"as is"|punchier [--payload <look-payload.json>] [--no-preview]   -> the Look's energy knob: new versioned poster / frame (specimen-vN.png, frames/representative-vN.png) with the energy drawn into the still, a 3.5 s specimen-loop-vN.mp4 preview, an updated payload (`preview`, `changes`); a request that arrives while one is applying is queued as "push further"
 //   (Plan 04) node design.mjs continuity-check --file <continuity.json>   -> shared components (one owner each) and seam types (same object, analogy, causal handoff, temporal, discontinuity)
 //   (Style worlds) node design.mjs style-worlds [--product "..."] [--tone "..."] [--brand DESIGN.md|--run <run>] [--count 3] [--seed s] [--exclude id,id]
 //        -> the atlas (library/styles/atlas/, 34 style worlds) scored for this product and tone: ranked picks that differ in material, finish and sound.
@@ -43,7 +44,8 @@ import { parseArgs, die, readJSON, writeFile, esc, normalizeAspect, chromeScreen
 import { generateLooks, lookAsBrand } from "./lib/looks.mjs";
 import { readDesignMd, toFrameMd, contrast } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
-import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, runFilm, writeVisualBible, visualBibleInputs, LABELS } from "./lib/system.mjs";
+import { requestEnergy, applyEnergy, applyEnergyToPayload } from "./lib/look-energy.mjs"; // the Look's energy knob: a redraw changes the picture, not only the motion params
+import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, runFilm, strictBrandFilm, writeVisualBible, visualBibleInputs, LABELS } from "./lib/system.mjs";
 import { validateVisualBible, bibleCurrent, projectForWorker } from "./lib/visual-bible.mjs";
 import { comparisonPlan, validateComparisonPlan, reviseLook } from "./lib/look.mjs";
 import { validateContinuity, projectForScene } from "./lib/continuity.mjs";
@@ -120,7 +122,7 @@ function phraseHits(textWords, textRaw, phrases) {
 // product-keyword ranking decides the worlds only when no concept world exists (no anchor).
 function pickStyleWorlds({ product = "", tone = "", count = 3, seed = "rasa", exclude = [], brandLocked = false, anchor = "" } = {}) {
   const atlas = loadAtlas().filter((s) => !exclude.includes(s.id));
-  let tp = null; try { tp = tasteProfile(); if (tp.empty) tp = null; } catch { tp = null; } // soft: +-1.5 on a score that runs to ~10; never excludes
+  const tp = null; // taste memory never shapes which worlds are drawn (the designer draws the options); it only re-ranks the finished looks for the recommended badge
   const pw = new Set(words(product)), tw = new Set(words(tone)), praw = String(product).toLowerCase(), traw = String(tone).toLowerCase();
   const scored = atlas.map((s) => {
     const fp = phraseHits(pw, praw, s.fits), ap = phraseHits(pw, praw, s.avoid), ft = phraseHits(tw, traw, s.tones), at = phraseHits(tw, traw, s.avoid_tones);
@@ -425,7 +427,13 @@ if (cmd === "style-worlds") {
     const ids = pl.styles.map((st) => st.style_world.id).filter(Boolean);
     const unknown = pl.styles.filter((st) => st.style_world.unknown).map((st) => `${st.label}: "${st.style_world.id}"`);
     if (unknown.length) die(`style_world is not in the atlas (library/styles/atlas): ${unknown.join(", ")}; run design.mjs style-world --list`);
-    if (new Set(ids).size < ids.length && locked) die(`brand lock: the three Looks must be three different style worlds (brand colour, type and logo stay; the world varies), got ${pl.styles.map((st) => st.label + "=" + (st.style_world.id || "none")).join(", ")}. Pick from design.mjs style-worlds --run <run>`);
+    // the Look call always offers three distinct worlds: Look A (Sure) is the concept's own world, B and C are neighbours or contrasts; a brand-faithful site look may be one of B / C, never the only option. Strict brand mode (the user asked for it) is the one exception.
+    const strictLook = strictBrandFilm(runAbs);
+    if (!strictLook) {
+      const worlds = pl.styles.map((st) => st.label + "=" + (st.style_world.id || "none")).join(", "), anchorW = storyWorldOf(runAbs);
+      if (new Set(ids).size < pl.styles.length) die(`the Look must offer three distinct style worlds (a brand's site look is at most one of Bold / Wild, never the only option), got ${worlds}. Look A (Sure) is the concept's own world, B and C are neighbours or contrasts: design.mjs style-worlds --run <run>`);
+      if (anchorW && pl.styles[0].style_world.id !== anchorW) die(`Look A (Sure) must be the chosen concept's own style world (${anchorW}), got ${worlds}`);
+    }
     if (ids.length < pl.styles.length) { const sug = pickStyleWorlds({ product: firstLine(runAbs) || "", tone: "", count: 3, seed: runAbs, brandLocked: locked, anchor: storyWorldOf(runAbs) || "" }).picks.map((p) => p.id).join(", "); console.error(`style worlds: ${pl.styles.length - ids.length} Look(s) name no style_world in blend.json; suggestions for this film: ${sug} (design.mjs style-worlds --run <run>)`); }
     else if (new Set(ids).size < ids.length) console.error(`style worlds: two Looks share a style world (${ids.join(", ")}); three Looks should be three different worlds`);
   }
@@ -466,8 +474,23 @@ if (cmd === "style-worlds") {
     const film = runFilm(path.resolve(String(args.run)));
     if (film && film.card) pl.film_style = path.relative(process.cwd(), film.card.replace(/\.json$/, ".md"));
   }
+  applyEnergyToPayload(path.resolve(String(args.run)), pl); // an earlier energy redraw keeps its versioned poster / frame / preview and its `changes` line on a re-push
   if (args.out) writeFile(path.resolve(String(args.out)), JSON.stringify(pl, null, 2) + "\n");
   console.log(JSON.stringify(pl, null, 2));
+} else if (cmd === "look-energy") {
+  // the console's knob {name: "energy", value: calmer | as is | punchier, film}: record it, and (when this call owns the render) redraw the poster and frame to new versioned files and render a short motion preview
+  if (!args.run || !args.label || !args.value || args.value === true) die("--run <run dir> --label Sure|Bold|Wild --value calmer|\"as is\"|punchier [--payload <look-payload.json>] [--no-preview] required");
+  const run = path.resolve(String(args.run));
+  const label = LABELS.find((l) => l.toLowerCase() === String(args.label).toLowerCase());
+  if (!label) die("--label must be Sure, Bold or Wild");
+  const req = requestEnergy(run, label, String(args.value));
+  if (!req.apply) { console.log(JSON.stringify({ ok: true, queued: true, label, level: req.level, note: req.note }, null, 2)); process.exit(0); }
+  let done;
+  try { done = await applyEnergy(run, label, { preview: !args["no-preview"] }); } catch (e) { die(`energy redraw failed: ${e.message}`, 2); }
+  const pf = args.payload && args.payload !== true ? path.resolve(String(args.payload)) : path.join(run, "look-payload.json");
+  let pl = null; try { pl = JSON.parse(fs.readFileSync(pf, "utf8")); } catch { /* none yet */ }
+  if (pl) { applyEnergyToPayload(run, pl, { label }); writeFile(pf, JSON.stringify(pl, null, 2) + "\n"); }
+  console.log(JSON.stringify({ ok: true, label, passes: done.map((d) => ({ level: d.level, version: d.version, changes: d.changes })), payload: pl ? path.relative(process.cwd(), pf) : null, next: "re-push the look step with that payload (console.mjs push --step look --data @<payload>); the poster, frame and preview paths are new, so nothing cached can show the old picture" }, null, 2));
 } else if (cmd === "choose-system") {
   if (!args.run || !args.label || !args.decisions) die("--run <run dir> --label Sure|Bold|Wild --decisions <decisions.json> required");
   const label = LABELS.find((l) => l.toLowerCase() === String(args.label).toLowerCase());
@@ -563,4 +586,4 @@ if (cmd === "style-worlds") {
   const r = validateContinuity(c, {});
   console.log(JSON.stringify(r, null, 2));
   process.exit(r.ok ? 0 : 2);
-} else die("usage: design.mjs looks|pick|stills|check-system|check-systems|look-payload|choose-system|compare-plan|bible|bible-check|bible-for|look-revise|continuity-check|medium-wire (see the header)");
+} else die("usage: design.mjs looks|pick|stills|check-system|check-systems|look-payload|choose-system|compare-plan|bible|bible-check|bible-for|look-revise|look-energy|continuity-check|medium-wire (see the header)");

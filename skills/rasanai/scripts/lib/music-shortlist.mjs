@@ -125,7 +125,9 @@ export function rankCandidates(candidates, o = {}) {
     if (K.hard.exclude_ids.includes(lc(r.id))) { out("excluded by the user"); continue; }
     if (r.rights.sync_into_film === false) { out(`rights: ${r.rights.why.sync_into_film}`); continue; }
     if (raw.usable === false && raw.origin !== "user") { out(`not usable: ${arr(raw.problems)[0] || "failed the quality gate"}`); continue; }
-    const need = K.hard.min_duration_s ?? (film ? film + 4 : null);
+    // a take already edited to the picture (or the original score built to it) is exactly the film's length: the 4 s margin is for source tracks that still have to be fitted
+    const fitted = T(raw.origin) === "procedural" || /edited-to-picture/.test(T(raw.mood));
+    const need = K.hard.min_duration_s ?? (film ? (fitted ? film - 0.5 : film + 4) : null);
     if (need && r.dur != null && r.dur < need && raw.origin !== "user") { out(`${r.dur} s is shorter than the ${Math.round(need)} s the film needs: a short track is not looped to fill it`); continue; }
     if (r.fams.some((f) => K.hard.exclude_families.includes(f)) && r.fams.every((f) => K.hard.exclude_families.includes(f))) { out(`family ${r.fams[0]} excluded by the user`); continue; }
     const hit = K.hard.exclude_terms.find((t) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(`${r.text} ${r.instr.join(" ")}`));

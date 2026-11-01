@@ -14,7 +14,7 @@
 //           ($RASANAI_HOME/moves-ledger.json)}. The same run, label and seed always give the same pack.
 //           It also carries family (one of glyph|component|line|object|mark|data, a different one for each label of the run,
 //           drawn from hash(run basename + seed): family "<id>", family_description, family_examples, family_rule), and brand_motif when the brand film card or the
-//           brand DESIGN.md names a motif (allowed as a secondary element in any script; only glyph or mark may carry it).
+//           brand DESIGN.md names a motif (allowed as a secondary element in any script; only glyph or mark may carry it; an optional accent that never overrides the chosen world's motion grammar).
 //   node moves.mjs check --file <run>/story/moves-<label>.json --pitch <run>/story/pitch-<label>.json [--product-first]
 //        -> {ok, errors, warnings}; exit 0 ok, 2 errors (the move-inventor's gate), 1 could not read. The pitch gives the
 //           beats, ui_labels and product name. Every card needs scale (full-frame|large|detail); with --product-first every
@@ -154,7 +154,8 @@ function shuffled(list, rnd) {
   return a;
 }
 
-// the brand's motif, when its film card (<run>/brand-film/FILM-STYLE.json) or its DESIGN.md names one
+// the brand's motif, when its film card (<run>/brand-film/FILM-STYLE.json) or its DESIGN.md names one. It is an OPTIONAL ACCENT for a move
+// (never the carrier by default, and it never overrides the chosen world's motion grammar, look/grammar.json); strict brand mode aside.
 function brandMotif(run) {
   const fs_ = jsonMaybe(path.join(run, "brand-film", "FILM-STYLE.json"));
   if (fs_ && typeof fs_ === "object" && str(fs_.motif).trim()) return str(fs_.motif).trim();
@@ -323,7 +324,7 @@ if (cmd === "pack") {
   const order = shuffled(CARRIER_FAMILIES, prng(fnv1a(`${path.basename(run)}|${seed}`)));
   const family = order[MOVE_LABELS.indexOf(label)];
   const motif = brandMotif(run);
-  const pack = { label, seed, product_first: pf, ...(bar ? { bar } : {}), family: family.id, family_description: family.description, family_examples: family.examples, family_rule: `your carrier must come from the "${family.id}" family; the other two scripts got the other families, so a dot is not yours unless your family is glyph`, ...(motif ? { brand_motif: { motif, rule: "the brand's own motif may appear as a secondary element in any script, but only the label whose family is glyph or mark may make it the carrier" } } : {}), exemplars, generators, stimulus, stimulus_kind: pf ? "choreography" : "stimulus", banned };
+  const pack = { label, seed, product_first: pf, ...(bar ? { bar } : {}), family: family.id, family_description: family.description, family_examples: family.examples, family_rule: `your carrier must come from the "${family.id}" family; the other two scripts got the other families, so a dot is not yours unless your family is glyph`, ...(motif ? { brand_motif: { motif, rule: "the brand's own motif may appear as a secondary element in any script, but only the label whose family is glyph or mark may make it the carrier; it is an optional accent and never overrides the chosen world's motion grammar (look/grammar.json)" } } : {}), exemplars, generators, stimulus, stimulus_kind: pf ? "choreography" : "stimulus", banned };
   const file = path.join(run, "story", `moves-pack-${label}.json`);
   writeFile(file, JSON.stringify(pack, null, 2) + "\n");
   console.log(cwdRel(file));

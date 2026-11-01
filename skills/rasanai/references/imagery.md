@@ -24,7 +24,7 @@ Never use it for:
 node $SKILL_DIR/scripts/imagegen.mjs generate --prompt "<text>" --out assets/images/kiln.png [--aspect 16:9|9:16|1:1|4:5|WxH] [--ref a.png,b.png] [--transparent]
 node $SKILL_DIR/scripts/imagegen.mjs batch --plan assets/images/plan.json [--concurrency 3] [--only id,id] [--force]
 node $SKILL_DIR/scripts/imagegen.mjs sheet --plan assets/images/plan.json --out assets/images/sheet.jpg      # a labelled contact sheet to look at
-node $SKILL_DIR/scripts/story-plates.mjs --concept <treatments-or-concept.json> --out <run>/story/plates   # Story stage: one plate per hero shot of each concept, in its style world; the board uses them (no imagegen = an honest template board)
+node $SKILL_DIR/scripts/story-plates.mjs --concept <treatments-or-concept.json> --out <run>/story/plates   # Story stage: one plate per hero shot of each concept, in its style world; REQUIRED when imagegen is ready (the Story check fails without story/plates/plates.json); the board uses them (no imagegen = it writes plates.json as unavailable and the board is an honest template)
 ```
 
 Each image is one Codex run, about 1.5 minutes. The output is cover-cropped to the exact size (16:9 is 1920x1080), the untouched file is kept as `<name>.raw.png`, and `<out>.json` records the prompt, model and seconds. An existing `--out` is kept unless `--force`. In a batch, name an `anchor` image: it is made first and passed as a reference to every other image, which is how a set of images looks like one world.
