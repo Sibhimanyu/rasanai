@@ -21,11 +21,14 @@ Code: `scripts/lib/concept-schema.mjs` (read by story.mjs gate GV, treatment.mjs
 }
 ```
 
+Launch films (references/launch-grammar.md): a launch concept names `hook_lines`, `turn_line`, `meet`, `capabilities` (2 or 3 of `{ line, ui_proof }`), `payoff`, `carrier` `{ what, kind, handoff }`, `signature_transition`, `ground` and `type_pairing`; `style_world` is then OPTIONAL (a world only when the concept chose one), and the board reads the launch fields.
+
 Rules
 - `style_world`: an atlas id string (`library/styles/atlas/index.json`). `style` is optional; when missing, `resolveStyle()` takes what the atlas file offers and falls back to neutral colours. An older `style_world` object ({name, palette, font}) still reads and is folded into `style_world` + `style`.
 - `carrier.kind` is one of `dot, word-line, icon-set, palette-dither, card-field, ui-plane, ui-object, object, mark` (the move library's `carrier_kinds`). `ui-object` means one product UI element (a pill, an icon stack with rising counters, a card morphing through 6 states) is the carrier and the protagonist (move `ui-object-state-morph`). A plain-string carrier or signature_moment still reads.
 - `signature_moment.shot` is a shot id. `sound_mode` is `vo-kinetic | instrumental-arc | sfx-led | song-lyric` (the atlas used `vo-led` once; it is renamed). Optional `music_arc`: the music's shape, a name (`drop` (the default) | `slow-burn` | `ambient-bed` | `cold-open` | `stinger` | `pulse-loop` | `lyric-song`) or `{ shape, genre?, instruments?, meter?, bpm? }`: pick it with the sound mode (`references/sound.md`, "Music arc shapes"); `genre` / `instruments` / `meter` ("3/4") say what the music is made of (a pixel world is chiptune, a paper world felt piano).
 - `shots[].id` is `s01`, `s02`...: the same ids `art/world.json` `used_by[].shot` uses (`art.mjs world init` takes them from the concept). `treatment.mjs` fills a missing id by position.
+- `shots[].ui_proof` (launch films: required on each capability's shot): the one simplified UI mockup that proves the shot's line, a short phrase ("an inbox list, one reply drafted"). `story-plates.mjs` reads it from the shot.
 - `shots[].move` is a real move id (`library/moves/index.json`, or an old `library.json` id: legacy warning). `image` is optional: an absolute plate path.
 - Unknown `style_world` or `move` ids are warnings (GV, `moves.mjs validate-score`, board), never silent.
 

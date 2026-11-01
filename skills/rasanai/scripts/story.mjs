@@ -72,7 +72,7 @@ import { loadIntent, validateIntent } from "./lib/intent.mjs";
 import { STORY_GRAMMARS, grammarBrief, grammarKinds, OPTIONAL_TOOLS } from "./lib/story-grammars.mjs";
 import { normalizeTreatment, readTreatment, validateTreatment, validateTreatmentSet, validateReview, toLegacyPitch, toIntent, compareCandidates, conceptCard } from "./lib/treatment.mjs";
 import { retrieveReferences } from "./lib/story-refs.mjs";
-import { lintConcept, styleWorldId, carrierOf, signatureOf, moveIdOf, soundModeOf, ensureShotIds } from "./lib/concept-schema.mjs";
+import { lintConcept, isLaunchConcept, styleWorldId, carrierOf, signatureOf, moveIdOf, soundModeOf, ensureShotIds } from "./lib/concept-schema.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -1136,7 +1136,7 @@ function visualPlanLint(p, lengthS, warnings) {
   const str = (x) => String(x == null ? "" : x).trim();
   const car = carrierOf(p), sig = signatureOf(p), sm = soundModeOf(p);
   for (const w of lintConcept(p, { shots: false }).warnings) warnings.push(w);
-  if (!styleWorldId(p)) g.push("style_world missing: the visual world of the film as a style id from library/styles/atlas/ (any string id; e.g. a clay world, a risograph print, a vector-flat crowd): pick it BEFORE writing shots");
+  if (!styleWorldId(p) && !isLaunchConcept(p)) g.push("style_world missing (a launch concept names hook_lines / capabilities / ground instead; a world is optional there): the visual world of the film as a style id from library/styles/atlas/ (any string id; e.g. a clay world, a risograph print, a vector-flat crowd): pick it BEFORE writing shots");
   if (!car.what) g.push("carrier missing: the one thing that travels through the film and changes shape (a dot, a letter, a cursor, a character, a ball, a ribbon)");
   if (sig.what.split(/\s+/).filter(Boolean).length < 6) g.push("signature_moment missing or under 6 words: the one shot a viewer retells, as a picture (what we see, what changes)");
   if (!SOUND_MODES.includes(sm)) g.push(`sound_mode must be one of ${SOUND_MODES.join(" | ")} (got "${sm}")`);

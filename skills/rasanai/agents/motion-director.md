@@ -128,7 +128,19 @@ Score pass: `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role motion
 
 ## Hook, music map and shot length (R6)
 
-- Declare `hook: { viewer_addressed, problem_shown, object_enters_s }` in score.json: no logo in the first 3 s, the viewer addressed or a problem shown, an object entering within 2 s; the brand reveal at 20-30% of the runtime or at the end.
+- Declare `hook: { viewer_addressed, problem_shown, object_enters_s }` in score.json: the viewer addressed or a problem shown in the first 3 s. On a launch film the brand is met after the problem and the turn (the house references: 27% and 43% of the runtime), small and calm; "an object by 2 s" and "no logo before 3 s" are retired as errors (a reveal inside the hook only warns).
 - Read `audio/music-map.json` (made before the pictures): cuts and big visual hits land within 150 ms of an onset, hit or break edge; the first world flip is the loudest hit; a break sits inside the proof. Do not snap to a BPM grid.
-- The render is gated on shot length, not a change count: median about 1.5-2.5 s, p10 at least 0.5 s, p90 at most about 5 s, no static hold over 5 s outside UI proof and the end card. Hard cuts are rare and fine; morphs, word swaps and colour-world flips make the rest.
+- A launch or promo film is gated on its BEATS (below), not on shot length: a one-take film has long "shots". Other films keep the shot-length gate (median about 1.5-2.5 s, p10 at least 0.5 s, p90 at most about 5 s). Either way no static hold over 5 s outside UI proof and the end card; morphs, word swaps and colour-world flips make the changes.
 - A carrier of kind `ui-object` (one UI element that morphs through up to 6 states) uses the move `ui-object-state-morph`.
+
+## Launch films: the beat table (references/launch-grammar.md)
+
+When the film is a launch or promo film, the score lists **beats**, one `scenes[]` row each, with these fields (the gates read them; `references/score.md` "Launch beats"):
+
+- `line`: the copy on screen in the beat, one thought, about 9 words at most at once (a longer line builds word by word: write its final state).
+- `carrier_state`: what the carrier motif is doing in the beat ("none" if absent). The score names the carrier (`carrier: {what, kind}`) and it is present in at least 60% of the beats.
+- `transition_in`: how the beat arrives: carried-element, type-morph, mask-wipe, push, whip, zoom-through, flood, iris, or "cut". Every boundary is motivated; more than 2 plain cuts is an error unless the concept waives it with a reason (`grammar_waivers` rule `hard-cuts`).
+- `density`: dense (3+ elements, a collage, a full-frame object) or sparse (one small line on an empty ground). They alternate, at least twice.
+- `logo`: true on the beats that show the mark: 3 at most, small (the meet, one more, the end card).
+
+Read the house references first (the Dispatch context lists `library/benchmarks/launch-refs/<id>/beats.json`, two real films' beat tables) unless the user gave their own: count beats, not shots, and take principles, never their copy, marks, palette or frames.

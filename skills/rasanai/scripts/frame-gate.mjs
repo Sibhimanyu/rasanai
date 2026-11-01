@@ -66,6 +66,7 @@ import { loadIntent, intentBeats } from "./lib/emphasis.mjs";
 import { craftProfile } from "./lib/frames-lib.mjs";
 import { shotLimits } from "./lib/ref-targets.mjs";
 import { grammarWaivers, parseWaiversArg, GATE_PROFILES } from "./lib/gate-profile.mjs";
+import { spikeFinding } from "./lib/launch-beats.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -509,7 +510,8 @@ export async function measureFrames(opts = {}) {
   // look. For any other look those findings are `review` (measured evidence for the creative review), never errors or warnings.
   // Legibility (text-load, phone-small-text) and structure stay as they are. No policy: every check as before.
   // gate profile (lib/gate-profile.mjs; final-gate passes the chosen world's atlas gate_profile): photographic judges as dimensional; flat | pixel | stepped | hand-made take the dimensional craft as `review`
-  const gProfile = opts.gateProfile && GATE_PROFILES.includes(String(opts.gateProfile)) ? String(opts.gateProfile) : null;
+  // a LAUNCH / promo film with no stated profile is judged "flat": the default launch grammar is kinetic type on neutral or brand-gradient grounds, so the depth / ground-chroma demands do not apply (a chosen dimensional world still passes --gate-profile dimensional)
+  const gProfile = opts.gateProfile && GATE_PROFILES.includes(String(opts.gateProfile)) ? String(opts.gateProfile) : /^(launch|promo)/i.test(opts.kind || "") ? "flat" : null;
   const policy = craftProfile(opts.creativePolicy != null ? opts.creativePolicy : opts.lookProfile != null ? opts.lookProfile : gProfile === "photographic" ? "dimensional" : gProfile);
   // launch-grammar waivers: a concept's grammar_waivers [{rule, why}] (the score named by --plan, or --waive); a waived rule is a note, never an error
   const waived = { ...(() => { try { const pl = opts.plan ? readJ(path.resolve(opts.plan)) : null; return grammarWaivers(pl).waived; } catch { return {}; } })(), ...(opts.waivers || {}) };
@@ -558,10 +560,12 @@ export async function measureFrames(opts = {}) {
     const sg = `${film.shotsPer10s} shots per 10 s; ${film.hardCuts} hard cuts in ${r1(dur)} s`, seeLaunch = "references/launch-film.md section 6";
     const RT = shotLimits(opts.run, GATE); // the run's own reference films may widen these limits inside sane bounds (refs/summary.json, scripts/lib/ref-targets.mjs); no references = the defaults
     if (film.shotMedianS > RT.err && waived["median-shot"]) add("note", "shot-length", `waived by the concept (${waived["median-shot"]}): median shot ${film.shotMedianS} s (the launch default is about ${RT.lo} to ${RT.hi} s, error above ${RT.err} s; ${sg})`, `none: the concept waived the launch grammar's median-shot rule`, { value: film.shotMedianS, limit: RT.err, waived: true });
-    else if (film.shotMedianS > RT.err) add("error", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg}): the frame is not being remade often enough`, `change the composition about every 2 s: a hard cut is one way (rare is fine); so is a morph of the carrier, an in-place word swap, a colour-world flip or a push-in to a new scale; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
+    else if (film.shotMedianS > RT.err) add("warning", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg}): the frame is not being remade often enough`, `change the composition about every 2 s: a hard cut is one way (rare is fine); so is a morph of the carrier, an in-place word swap, a colour-world flip or a push-in to a new scale; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
     else if (film.shotMedianS > RT.hi || film.shotMedianS < RT.lo) add("warning", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg})`, `the favourites sit at a median of 1.9 s; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
     if (film.shotP10S < RT.p10) add("warning", "shot-length-short", `p10 shot ${film.shotP10S} s (at least ${RT.p10} s): too many flicker shots; one burst of 5 to 6 short shots per film is the most the favourites use`, `merge the flicker pairs or hold the shot; ${seeLaunch}`, { value: film.shotP10S, limit: RT.p10 });
-    if (film.shotP90S > RT.p90) add("warning", "shot-length-long", `p90 shot ${film.shotP90S} s (at most about ${RT.p90} s)`, `break the long shots up unless they are UI proof (a typed input, a state change) or the end card; ${seeLaunch}`, { value: film.shotP90S, limit: RT.p90 });
+    if (film.shotP90S > RT.p90 && film.hardCuts > 3) add("warning", "shot-length-long", `p90 shot ${film.shotP90S} s (at most about ${RT.p90} s)`, `break the long shots up unless they are UI proof (a typed input, a state change) or the end card; ${seeLaunch}`, { value: film.shotP90S, limit: RT.p90 });
+    // one-take launch films (the references: 1 to 3 frame-difference spikes per 10 s, all ground flips) have long "shots": the beat table of the score is measured instead (lib/launch-beats.mjs); only a spike rate far above the references is reported
+    { let pl = null; try { pl = opts.plan ? readJ(path.resolve(opts.plan)) : null; } catch {} const sp = spikeFinding({ hardCuts: film.hardCuts, dur, plan: pl }); if (sp) add(sp.severity, sp.check, sp.message, sp.fix, { value: film.hardCuts }); }
     const holds = (film.longHolds || []).filter((h) => h.t0 < dur - GATE.hold_end_s);
     if (holds.length) add("warning", "static-hold", `${holds.length} static hold(s) over ${GATE.hold_max_s} s with nothing changing: ${holds.slice(0, 4).map((h) => `${h.t0}-${h.t1} s`).join(", ")}`, `give the hold a state change (typed text, a cursor action, a progress tween, a re-sort) or cut it; the end card (last ${GATE.hold_end_s} s) may hold still`, { value: holds.length });
   }

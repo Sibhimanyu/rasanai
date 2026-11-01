@@ -1,0 +1,161 @@
+{
+  "format": "launch-beats@1",
+  "id": "minase",
+  "duration_s": 41.45,
+  "beats": [
+    {
+      "id": "hook",
+      "t0": 0,
+      "t1": 2.2,
+      "copy": "You built something good.",
+      "carrier_state": "UI collage cards (white, blue accent) assemble and drift",
+      "transition_in": "open",
+      "density": "dense",
+      "logo": false,
+      "ground": "white",
+      "note": "voice-over line; cards and a hero image fill the frame"
+    },
+    {
+      "id": "nobody",
+      "t0": 2.2,
+      "t1": 3.2,
+      "copy": "Nobody's watching it.",
+      "carrier_state": "cards gone; one silhouette, type words fly in",
+      "transition_in": "flip-on-hit",
+      "density": "sparse",
+      "logo": false,
+      "ground": "near-black footage",
+      "note": "ground flip on the first music hit (2.23 s)"
+    },
+    {
+      "id": "not-weak",
+      "t0": 3.2,
+      "t1": 4.6,
+      "copy": "Not because the product is weak.",
+      "carrier_state": "a soft blue orb sits behind italic word-swaps",
+      "transition_in": "flip",
+      "density": "sparse",
+      "logo": false,
+      "ground": "white",
+      "note": "words swap in place; one italic emphasis"
+    },
+    {
+      "id": "collage-weak",
+      "t0": 4.6,
+      "t1": 8.9,
+      "copy": "product is weak / Because nobody ever showed it the way you see it.",
+      "carrier_state": "collage cards return around the line; a product page and prompt box scale in",
+      "transition_in": "type-morph",
+      "density": "dense",
+      "logo": false,
+      "ground": "white",
+      "note": "giant serif word, cards behind; the line is built word by word"
+    },
+    {
+      "id": "few-seconds",
+      "t0": 8.9,
+      "t1": 13.1,
+      "copy": "A product gets a few seconds to make sense. That's it.",
+      "carrier_state": "a single bullet dot leads the typed line",
+      "transition_in": "mask-wipe",
+      "density": "sparse",
+      "logo": false,
+      "ground": "white",
+      "note": "empty white ground, one small line typed on; the turn is 'That's it'"
+    },
+    {
+      "id": "dont-read",
+      "t0": 13.1,
+      "t1": 17.5,
+      "copy": "And in those seconds, people don't read. They feel.",
+      "carrier_state": "an up-arrow chip is dropped into the line, then carried into the next scene",
+      "transition_in": "flip-on-hit",
+      "density": "sparse",
+      "logo": false,
+      "ground": "dark stock footage",
+      "note": "type over a person at a desk; the chip is the carrier"
+    },
+    {
+      "id": "meet",
+      "t0": 17.5,
+      "t1": 20.5,
+      "copy": "So that's what Minase builds. The moment it clicks.",
+      "carrier_state": "the chip becomes the blue hexagon mark, which sits left of the name",
+      "transition_in": "carried-element",
+      "density": "sparse",
+      "logo": true,
+      "ground": "black",
+      "note": "brand reveal 1: small, calm, mid-film"
+    },
+    {
+      "id": "launch-moves",
+      "t0": 20.5,
+      "t1": 26.8,
+      "copy": "From a launch nobody noticed to a launch that moves. Same product, different world.",
+      "carrier_state": "arrow chip pushes the type; cards and a dashboard flow past; a circular diagram resolves",
+      "transition_in": "push",
+      "density": "dense",
+      "logo": false,
+      "ground": "white",
+      "note": "dense UI plates, words swap in place on the diagram"
+    },
+    {
+      "id": "every-frame",
+      "t0": 26.8,
+      "t1": 30.2,
+      "copy": "Every frame, every second, every decision.",
+      "carrier_state": "words stack and swap in place over typing hands",
+      "transition_in": "flip-on-hit",
+      "density": "sparse",
+      "logo": false,
+      "ground": "dark stock footage",
+      "note": "three words in one slot: frame, second, decision"
+    },
+    {
+      "id": "covered",
+      "t0": 30.2,
+      "t1": 33.9,
+      "copy": "With Minase, it's covered, crafted and ready to launch.",
+      "carrier_state": "a scrolling word list with an arrow carries to the final word",
+      "transition_in": "mask-wipe",
+      "density": "sparse",
+      "logo": true,
+      "ground": "white",
+      "note": "brand mark pops (logo 2) then words scroll through one slot"
+    },
+    {
+      "id": "what-if",
+      "t0": 33.9,
+      "t1": 36.8,
+      "copy": "What if today was the day people finally saw it?",
+      "carrier_state": "a typed prompt line with the chip, over a person at a table",
+      "transition_in": "flip-on-hit",
+      "density": "sparse",
+      "logo": false,
+      "ground": "dark stock footage",
+      "note": "emotional line; the whole sentence builds as a typed line (11 words at the end)"
+    },
+    {
+      "id": "end-card",
+      "t0": 36.8,
+      "t1": 41.45,
+      "copy": "Minase",
+      "carrier_state": "the hexagon mark and name resolve and hold",
+      "transition_in": "carried-element",
+      "density": "sparse",
+      "logo": true,
+      "ground": "white to grey fade",
+      "note": "end card (logo 3), holds about 4 s"
+    }
+  ],
+  "measured": {
+    "beats": 12,
+    "beat_median_s": 3.7,
+    "logo_appearances": 3,
+    "max_words_per_beat_line": 14,
+    "density_alternations": 5,
+    "plain_cuts": 0,
+    "carrier_beats_share": 1
+  },
+  "note": "timings are read from a 1 fps contact sheet and the word timings: good to about 0.5 s. This is the shape of the score the Motion Director writes for a launch film (references/score.md, references/launch-grammar.md)."
+}

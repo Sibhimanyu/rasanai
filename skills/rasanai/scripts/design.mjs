@@ -188,6 +188,18 @@ function styleWorldOfLabel(run, label) {
   } catch { return { id: null }; }
 }
 
+// LAUNCH films (references/launch-grammar.md): the three Looks are three treatments of the launch grammar, not three art worlds.
+// A treatment is blend.json.treatment { ground: soft-gradient|white|near-black, type_pairing, carrier, density }; the three must differ in ground, type pairing and carrier.
+function isLaunchRun(run) {
+  const J = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")) || {}; } catch { return {}; } };
+  const dec = J(path.join(run, "decisions.json")), br = J(path.join(run, "brief.json")), plan = J(path.join(run, "crew", "plan.json"));
+  if ([dec.route, plan.route].includes("product-launch-video")) return true;
+  return /launch|promo|feature[- ]reveal|product film|announce/i.test(String(br.kind || dec.kind || plan.kind || "")) && !/lyric|music|song|presenter/i.test(String(dec.route || plan.route || ""));
+}
+function launchTreatmentOf(run, label) {
+  try { const b = JSON.parse(fs.readFileSync(path.join(run, "design", label, "blend.json"), "utf8")); const t = (b && (b.treatment || b.launch_treatment)) || {}; const n = (v) => String(v && typeof v === "object" ? v.id || v.what || v.name || "" : v || "").trim().toLowerCase(); return { ground: n(t.ground), type_pairing: n(t.type_pairing || t.type), carrier: n(t.carrier), density: n(t.density) }; } catch { return { ground: "", type_pairing: "", carrier: "", density: "" }; }
+}
+
 // A presenter film (route "presenter") has generated images, so its design systems must carry the art direction
 // they obey: a "## Imagery" section of at least 25 words. Any other route: optional. The run is two folders above
 // <run>/design/<label>; its route comes from decisions.json, the crew plan or the presence of presenter/plan.json.
@@ -414,7 +426,7 @@ if (cmd === "style-worlds") {
   if (dirs.length !== 3) die(`the design desk makes exactly three systems (Sure, Bold, Wild); found ${dirs.length} in ${args.run}/design`);
   const r = await checkSystems(dirs, { hook: args.hook && args.hook !== true ? String(args.hook) : firstLine(run), libraryIds: libraryIds(), brand: args.brand && args.brand !== true ? String(args.brand) : runBrand(run), offline: !!args.offline });
   { const ws = LABELS.map((l) => [l, styleWorldOfLabel(run, l).id]).filter(([, id]) => id), ids = ws.map(([, id]) => id);
-    if (ids.length > 1 && new Set(ids).size < ids.length) { const m = `style-world-repeat: two Looks use the same style world (${ws.map(([l, id]) => l + "=" + id).join(", ")}); three Looks are three different worlds`; r.P.push(m); } }
+    if (!isLaunchRun(run) && ids.length > 1 && new Set(ids).size < ids.length) { const m = `style-world-repeat: two Looks use the same style world (${ws.map(([l, id]) => l + "=" + id).join(", ")}); three Looks are three different worlds`; r.P.push(m); } }
   console.log(JSON.stringify({ ok: !r.P.length, problems: r.P, warnings: r.W, pairs: r.pairs, systems: r.systems }, null, 2));
   process.exit(r.P.length ? 2 : 0);
 } else if (cmd === "look-payload") {
@@ -422,7 +434,15 @@ if (cmd === "style-worlds") {
   const pl = lookPayload(path.resolve(String(args.run)), { recommended: args.recommended, hook: args.hook && args.hook !== true ? String(args.hook) : "", sub: args.sub && args.sub !== true ? String(args.sub) : "" });
   if (pl.styles.length !== 3) die(`the Look step shows exactly the three bespoke systems; ${pl.styles.length} are ready in ${args.run}/design`);
   // Style worlds: each Look names one atlas world (design/<label>/blend.json style_world). Under a brand lock the three must be three DIFFERENT worlds (palette, type and logo are the lock; the world is what varies).
-  { const runAbs = path.resolve(String(args.run)), locked = !!runBrand(runAbs);
+  if (isLaunchRun(path.resolve(String(args.run)))) { // launch film: three distinct TREATMENTS of the launch grammar (ground + type pairing + carrier differ), no atlas-world check
+    const runAbs = path.resolve(String(args.run));
+    for (const st of pl.styles) { st.treatment = launchTreatmentOf(runAbs, st.label); st.style_world = styleWorldOfLabel(runAbs, st.label); }
+    const miss = pl.styles.filter((st) => !st.treatment.ground || !st.treatment.type_pairing || !st.treatment.carrier).map((st) => st.label);
+    if (miss.length) die(`launch film: ${miss.join(", ")} name no treatment in design/<label>/blend.json: { "treatment": { "ground": "soft-gradient|white|near-black", "type_pairing": "...", "carrier": "orb|card|cursor|shape|...", "density": "..." } } (references/launch-grammar.md section 9)`);
+    const T = pl.styles.map((st) => st.treatment), tup = T.map((t) => `${t.ground}|${t.type_pairing}|${t.carrier}`);
+    const axes = ["ground", "type_pairing", "carrier"].filter((k) => new Set(T.map((t) => t[k])).size < 2);
+    if (new Set(tup).size < 3 || axes.length) die(`the Look must offer three distinct launch treatments (ground, type pairing and carrier differ across the three; same on every Look: ${axes.join(", ") || "none, but two Looks are identical"}): ${pl.styles.map((st, i) => st.label + "=" + tup[i]).join(", ")}`);
+  } else { const runAbs = path.resolve(String(args.run)), locked = !!runBrand(runAbs);
     for (const st of pl.styles) st.style_world = styleWorldOfLabel(runAbs, st.label);
     const ids = pl.styles.map((st) => st.style_world.id).filter(Boolean);
     const unknown = pl.styles.filter((st) => st.style_world.unknown).map((st) => `${st.label}: "${st.style_world.id}"`);

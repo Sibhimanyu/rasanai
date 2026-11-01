@@ -66,3 +66,14 @@ Shots come first, words last. At least one shot per 6 s. Check one idea alone wi
 ## Never
 
 Describe a style only in adjectives ("premium, modern, minimal"): name the material, the lighting, the camera, the type behaviour. Pick a style with no way to show the real product. Default to a card-and-headline layout with a nicer font.
+
+
+## Launch films (Dispatch context `product_first`, a launch / promo / product-launch film): the launch grammar overrides the world rules above
+
+Read `references/launch-grammar.md`. On a launch film every concept is a **launch-grammar film**: copy-led kinetic type, the fixed arc, a light brand, simplified UI proof, one-take motion. Your lane keeps its ANGLE (the treatment of the type and the carrier: its pairing, ground, density and motion personality) but not a different art world.
+
+- Required fields on every idea, besides `signature_moment`, `sound_mode` and `shots[]`: `hook_lines` (2 to 4 lines, the viewer problem, no logo), `turn_line`, `meet` (the small calm reveal), `capabilities` (2 or 3 of `{ "line", "ui_proof" }`, the proof a simplified mockup), `payoff` (line plus CTA), `carrier` `{ "what", "kind", "handoff" }` (how it hands off between beats), `signature_transition` (type morph | carried element | object mask/wipe | push/pull | whip swap | word split, with the specific idea), `ground` (`neutral` | `brand-gradient` | `dark`), `type_pairing`.
+- **`ui_proof` goes on the shots too.** Each capability's shot in `shots[]` carries `ui_proof` (the one simplified UI mockup that proves the line, e.g. "an inbox list with one reply drafted"); `story-plates.mjs` reads it from the shot, and a capability shot without it is drawn with no proof. Other shots may leave it out.
+- `style_world` is OPTIONAL. The default is the kinetic-launch grammar (kinetic type, carrier-led, one take, on a neutral or brand-gradient ground). Name a world only if the brief asks for one or the idea truly needs it; at most 1 of the jury's 3 picks may use a non-default world.
+- The world-spread rules above (6+ worlds, 4 calm at most, 2+ bold) do NOT apply. Spread is checked on **hook, carrier motif and signature transition**: 3+ distinct per lane, 6+ across the pool, at most 2 ideas sharing any one. Two ideas with the same orb carrier or the same opening problem are one idea.
+- Logo at most 3 times, small; the brand is palette atmosphere plus the carrier; the real product UI is shown as simplified recreated mockups only where they prove a line.

@@ -17,6 +17,7 @@
 import { canonicalDigest, SCHEMA_VERSION } from "./contracts.mjs";
 import { STORY_GRAMMARS, OPTIONAL_TOOL_IDS } from "./story-grammars.mjs";
 import { KIND_IDS } from "./communication.mjs";
+import { isLaunchConcept } from "./concept-schema.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -209,7 +210,7 @@ export function validateTreatment(raw, ctx = {}) {
 
   // --- the visual plan (not required on a legacy run: ctx.noVisualPlan, or story.mjs --no-visual-plan)
   if (!ctx.noVisualPlan && !t.legacy) {
-    for (const k of ["style_world", "carrier", "signature_moment", "sound_mode"]) if (!T(isObj(t[k]) ? t[k].id || t[k].name || t[k].what : t[k])) add(`${k}-missing`, null, `${k} is missing: a concept names its style world, carrier, signature moment and sound mode`, "error", `name the ${k.replace("_", " ")} (see agents/concept-writer-*.md); words are a layer on top of the shot list`, "mechanical");
+    for (const k of ["style_world", "carrier", "signature_moment", "sound_mode"]) if (!(k === "style_world" && isLaunchConcept(t)) && !T(isObj(t[k]) ? t[k].id || t[k].name || t[k].what : t[k])) add(`${k}-missing`, null, `${k} is missing: a concept names its style world, carrier, signature moment and sound mode`, "error", `name the ${k.replace("_", " ")} (see agents/concept-writer-*.md); words are a layer on top of the shot list`, "mechanical");
     if (!Array.isArray(t.shots) || t.shots.length < 3) add("shots-missing", null, `shots[] has ${Array.isArray(t.shots) ? t.shots.length : 0} entries (3 at least): the concept is a shot list: see, style, carrier_state, move, transition, words`, "error", "write the shots first, then the words", "mechanical");
   }
   // --- mechanical / factual errors

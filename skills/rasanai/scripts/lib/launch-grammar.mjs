@@ -1,3 +1,4 @@
+// NOTE (launch grammar, references/launch-grammar.md): the scale-mix, UI-hero (50%) and median-shot rules below were retired for the default kinetic launch grammar; beats are measured instead (lib/launch-beats.mjs).
 // Visual grammar checks for launch / promo films (references/launch-film.md section 6, measured on the reference reels).
 // They read the SCORE (motion/score.json scenes[], or scenes.json), the written contract (motion/CONTRACT.md) and the composition HTML,
 // and return findings { severity, check, message, fix } for motion-gate (and scenes.mjs, obey.mjs for the doctrine).
@@ -12,6 +13,7 @@
 // A score may also say has_users: true|false (the product has people using it: a person or photo beat is then owed) and actor ("ui" | "object" | "mascot" ...).
 import fs from "node:fs";
 import path from "node:path";
+import { launchBeatFindings } from "./launch-beats.mjs";
 
 // the frame-change rate is replaced by the shot-length distribution (frame-gate.mjs, R6): median about 1.5-2.5 s, p10 >= 0.5 s, p90 <= about 5 s, no long static hold
 export const LG = { shot_median_s: [1.5, 2.5], shot_p10_min_s: 0.5, shot_p90_max_s: 5, max_same_layout_run: 2, ui_hero_fill: 0.5 };
@@ -123,39 +125,22 @@ export function launchGrammarFindings({ plan = null, scenes = [], project = null
   }
   const rows = sceneRows(scenes && scenes.length ? scenes : (plan && (plan.scenes || plan.beats)) || [], htmls);
   const named = rows.filter((r) => r.layout);
-  if (rows.length >= 3 && !named.length) add("error", "layout-undeclared", "no scene names its layout (score scenes[].layout, or data-layout on the scene root): layout variety cannot be checked, and a film with no declared layouts is usually one layout repeated", "give every scene a `layout` (e.g. type-full, ui-tilt-close, split, world-wide, person-photo) and a `scale`; no layout in more than 2 beats in a row");
+  if (rows.length >= 3 && !named.length) add("warning", "layout-undeclared", "no scene names its layout (score scenes[].layout, or data-layout on the scene root): layout variety cannot be checked, and a film with no declared layouts is usually one layout repeated", "give every scene a `layout` (e.g. type-full, ui-tilt-close, split, world-wide, person-photo) and a `scale`; no layout in more than 2 beats in a row");
   // 2. no layout in more than 2 consecutive beats
   let run0 = 0, prev = null;
   named.forEach((r, i) => {
     const key = String(r.layout).toLowerCase().trim();
     run0 = key === prev ? run0 + 1 : 1; prev = key;
-    if (run0 === LG.max_same_layout_run + 1) add("error", "layout-repeat", `layout "${r.layout}" is used in more than ${LG.max_same_layout_run} beats in a row (through beat ${r.id})`, "change the composition: switch scale (full-frame type, close UI in perspective, wide world, a person), flip the ground, or cut to a new framing of the same product");
+    if (run0 === LG.max_same_layout_run + 1) add("warning", "layout-repeat", `layout "${r.layout}" is used in more than ${LG.max_same_layout_run} beats in a row (through beat ${r.id})`, "change the composition: switch scale (full-frame type, close UI in perspective, wide world, a person), flip the ground, or cut to a new framing of the same product");
   });
-  if (named.length >= 4 && new Set(named.map((r) => String(r.layout).toLowerCase().trim())).size < 3) add("error", "layout-variety", `only ${new Set(named.map((r) => String(r.layout).toLowerCase().trim())).size} distinct layout(s) in ${named.length} beats (3 at least)`, "a launch film uses at least 3 different compositions; see references/launch-film.md section 6");
-  // 3. shot-scale mix
+  if (named.length >= 4 && new Set(named.map((r) => String(r.layout).toLowerCase().trim())).size < 3) add("warning", "layout-variety", `only ${new Set(named.map((r) => String(r.layout).toLowerCase().trim())).size} distinct layout(s) in ${named.length} beats (3 at least)`, "a launch film uses at least 3 different compositions; see references/launch-film.md section 6");
+  // 3. shot scale: the default launch grammar is kinetic type and simplified UI mockups on neutral or brand-atmosphere grounds, so NO scale mix is demanded
+  // (the old full-frame-type, second-scale and UI-hero (50% of the frame) rules fought the target: type leads, a UI proof is a small clean mockup beside its line).
+  // Only a product with real users still owes a person beat, as a warning.
   const scaled = rows.filter((r) => r.scale);
-  if (rows.length >= 4 && !scaled.length) add("error", "shot-scale-undeclared", "no scene names its shot scale (score scenes[].scale: type | ui | world | person): the mix cannot be checked", "tag every scene with its scale; the film needs full-frame type, close or cropped UI in perspective, and wide or world shots (and a person or photo when the product has users)");
-  else if (scaled.length) {
-    const have = new Set(scaled.map((r) => r.scale));
-    const hasUI = uiProof(rows, plan);
-    const need = [["type", "full-frame type"]];
-    if (hasUI) need.push(["ui", "close or cropped UI in perspective"]);
-    const hasUsers = (plan && plan.has_users === true);
-    if (hasUsers) need.push(["person", "a person or photo"]);
-    const miss = need.filter(([sc]) => !have.has(sc)).map(([, d]) => d);
-    // the full-frame-type requirement is a default a concept can waive (grammar_waivers [{rule: "full-frame-type", why}]): a note, not an error
-    if (waived["full-frame-type"] && miss.includes("full-frame type")) { miss.splice(miss.indexOf("full-frame type"), 1); F.push({ severity: "note", check: "shot-scale-mix", message: `waived by the concept (${waived["full-frame-type"]}): the film has no full-frame type scene (scales used: ${[...have].join(", ")})`, fix: "none: the concept waived the launch grammar's full-frame-type rule", basis: "score", waived: true }); }
-    // the picture scales are interchangeable: a wide world, a generated image world, an illustration or an object all give the film its second scale
-    if (!["world", "world-image", "illustration", "object"].some((sc) => have.has(sc))) miss.push("a wide world, an image world, an illustration or an object shot");
-    if (miss.length) add("error", "shot-scale-mix", `the film has no ${miss.join(", no ")} (scales used: ${[...have].join(", ")})`, "mix the scales across the film: giant words that bleed off the frame, a wide world, an image world, an illustration or an object shot, the UI cropped and tilted in perspective where there is a UI-proof beat, and a person or photo when the product has users");
-    else if (!hasUsers && !have.has("person") && plan && plan.has_users == null) F.push({ severity: "warning", check: "shot-scale-person", message: "no person or photo beat: if the product has users, one is owed (set score.has_users)", fix: "add a real person or photo beat, or set has_users: false with a reason", basis: "score" });
-  }
-  // 4. a UI hero beat: only when the score has a UI-proof beat (a film built on illustration, objects or type owes no UI card)
-  const fills = rows.map((r) => r.ui_fill).filter((v) => v != null);
-  if (rows.length >= 4 && uiProof(rows, plan)) {
-    if (!fills.length) add("error", "ui-hero-undeclared", "the score has a UI-proof beat but no scene says how much of the frame the product UI fills (score scenes[].ui_fill, 0 to 1): the UI hero beat cannot be checked", "declare ui_fill on the scenes that show the product; the UI-proof beat must reach 0.5 (or set ui_proof: false on the score if the film has no UI-proof beat, with the reason)");
-    else if (Math.max(...fills) < LG.ui_hero_fill) add("error", "ui-hero-small", `the product UI never fills more than ${Math.round(Math.max(...fills) * 100)}% of the frame (50% at least once, because the film has a UI-proof beat)`, "give the UI-proof beat one hero moment: scaled up, tilted and cropped until it fills half the frame or more; never small cards only");
-  }
+  if (scaled.length && plan && plan.has_users === true && !scaled.some((r) => r.scale === "person")) F.push({ severity: "warning", check: "shot-scale-person", message: "the score says the product has users but no beat shows a person or photo", fix: "add a person or photo beat, or set has_users: false with a reason", basis: "score" });
+  // 4. launch beats: motivated transitions, logo count, carrier continuity, one thought per beat, rhythm (lib/launch-beats.mjs; references/launch-grammar.md)
+  if (plan) for (const f of launchBeatFindings({ plan, waived })) F.push(f);
   // 5. deck chrome: counters, page numbers, persistent pills (the composition HTML, the on-screen text, the contract)
   const chrome = deckChrome([...htmls, ...rows.map((r) => `<p>${r.text}</p>`), ...contract.map((c) => c.text.split("\n").map((l) => (/\b\d{1,2}\s*\/\s*\d{1,2}\b/.test(l) && /counter|step|page|progress/i.test(l) ? `<p>${(l.match(/\b\d{1,2}\s*\/\s*\d{1,2}\b/) || [""])[0]}</p>` : "")).join(""))]);
   if (chrome.length) add("error", "deck-chrome", `deck chrome on a film: ${chrome.slice(0, 3).join("; ")}`, "delete step counters (\"01 / 04\"), page numbers and persistent label pills; the film is the story, not a slide deck");

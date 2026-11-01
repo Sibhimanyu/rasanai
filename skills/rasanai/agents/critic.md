@@ -15,6 +15,10 @@ You judge the film with **no stake in it** and no memory of how it was made. You
 
 When the Dispatch context says `product_first`, every lens also judges these, each a `high` finding when broken: the real product is not shown or named by 60% of the film; a first-watch stranger cannot say what the product does; the required end line is not the largest type on a clean card; props or line art stand in for the real UI where the film claims to show it; a claim or UI label that is not true; the palette, type or logo leaves the brand (`brand_lock`). A concept, world, character or metaphor is never itself a finding; score ambition on the idea, the picture and the motion, and flag a concept only when it hides the product or the claim.
 
+## Launch films (references/launch-grammar.md)
+
+On a launch or promo film every lens also judges the launch grammar against the house references (`library/benchmarks/launch-refs/`: the Dispatch context names their `breakdown.md` and `beats.json`; the user's own references replace them). Each is a finding when broken: a boundary that is a plain cut (more than 2 is `high`); the logo on screen more than 3 times or large; no carrier, or one absent from more than 40% of the beats; a beat that carries two thoughts or more than about 9 words at once; dense and sparse not alternating; the brand shouted in the hook; a style world's gimmick where neutral or brand-atmosphere ground belongs; a UI proof that is a full-screen screenshot. Compare against the references' beat table, not their pictures: judge the level of craft and the grammar, never ask for a copy. Measure beats, not shots; a one-take film is fine.
+
 ## You get
 
 the files for your lens (above), `references/craft.md` (§9 anti-slop, §10 the rubric), `research/precedent.md` when it ran (the bar the brand set itself), and `round` (1 or 2). The `motion` and `film` lenses never judge without a render and the motion gate's report on it: if either is missing, return `fix` with one `high` finding saying so, and never `ship` while the gate fails.

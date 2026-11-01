@@ -101,9 +101,10 @@ export function main(args) {
     const kind = args.kind || (/promo/i.test(plan.kind || briefKind) ? "promo" : /launch/i.test(plan.kind || briefKind) || plan.route === "product-launch-video" ? "launch" : /brand/i.test(plan.kind || briefKind) ? "brand" : null);
     // the film's gate profile (its chosen world's atlas gate_profile, else the older look/medium.json contract) and the concept's grammar waivers
     const gp = runGateProfile(run), wv = runWaivers(run);
-    const profArgs = gp.profile ? ["--gate-profile", gp.profile] : [], waiveArgs = Object.keys(wv.waived).length ? ["--waive", waiversArg(wv.waived)] : [];
-    steps.push({ step: "gate-profile", ok: true, profile: gp.profile, world: gp.world, source: gp.source, ...(Object.keys(wv.waived).length ? { grammar_waivers: wv.waived } : {}), ...(wv.ignored.length ? { ignored_waivers: wv.ignored } : {}) });
-    if (!gp.profile) warnings.push(`gate-profile: no gate_profile found for this film's style world${gp.world ? ` "${gp.world}"` : " (no style_world in story/chosen.json, motion/score.json or look/system.json)"}: judged as a dimensional film`);
+    const launchKind = /^(launch|promo)/i.test(String(kind || "")), effProfile = gp.profile || (launchKind ? "flat" : null); // the default launch grammar is judged flat: no depth or ground demands
+    const profArgs = effProfile ? ["--gate-profile", effProfile] : [], waiveArgs = Object.keys(wv.waived).length ? ["--waive", waiversArg(wv.waived)] : [];
+    steps.push({ step: "gate-profile", ok: true, profile: effProfile, world: gp.world, source: gp.profile ? gp.source : launchKind ? "launch default (flat)" : gp.source, ...(Object.keys(wv.waived).length ? { grammar_waivers: wv.waived } : {}), ...(wv.ignored.length ? { ignored_waivers: wv.ignored } : {}) });
+    if (!gp.profile && !launchKind) warnings.push(`gate-profile: no gate_profile found for this film's style world${gp.world ? ` "${gp.world}"` : " (no style_world in story/chosen.json, motion/score.json or look/system.json)"}: judged as a dimensional film`);
     for (const x of wv.ignored) warnings.push(`grammar_waivers: ${x}`);
     const rec = (step, r, extra = {}) => {
       const jOk = r.json ? r.json.ok !== false : true;

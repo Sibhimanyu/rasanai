@@ -88,3 +88,13 @@ When the Look names a medium, write short per-candidate fit judgments to `creati
 ## Done when
 
 `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role design-system-designer --key <label>` exits 0 (it runs the system gate and compares you with the siblings that already exist).
+
+
+## Launch films (Dispatch context `product_first`): three treatments of the launch grammar
+
+Read `references/launch-grammar.md` (section 9). On a launch, promo or product-launch film the three looks are **three treatments of the launch grammar, not three art worlds**. The "pick your style world" rules above do not apply (a `style_world` in `blend.json` is optional; leave it out unless the chosen concept named a world).
+
+- Vary three axes together, so that no two looks share the same ground, type pairing and carrier: **ground** (soft brand gradient, clean white, near-black), **type pairing** (serif-italic plus sans, grotesk, mono accents), **carrier** (orb, card, cursor, shape), and **density** (dense collage and sparse single line, in a different balance).
+- Write each look's treatment in `design/<label>/blend.json` as `"treatment": { "ground": "soft-gradient|white|near-black", "type_pairing": "...", "carrier": "...", "density": "..." }`. `design.mjs look-payload` refuses a launch film unless the three treatments differ in ground, type pairing and carrier.
+- Every look uses the brand palette as atmosphere (gradient, accent shape, glow) and keeps the logo small (at most 3 uses in the film). Never copy the brand site's page layout. UI is shown as simplified recreated mockups in the look's palette and type.
+- Look A (Sure) is the chosen concept's own `ground`, `type_pairing` and `carrier`; B and C are contrasts on those axes.
