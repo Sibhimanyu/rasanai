@@ -2,12 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.29.0 (build 77) — 2026-11-01
 
 - Refining a look now shows Rasan working: the status bar reads "Rasan is redrawing ... with more energy...", the large preview dims under a shimmer, and the refine buttons stay disabled until the director sends the updated look (or an error). The same goes for More like this, Mix two and Three more stories.
 - A refine can no longer be sent twice: a second press while one is pending is ignored. After the update lands the button reads "Push further".
 - Posters, frames and previews reload when their file is rewritten (even to the same path), so a redrawn look shows its new picture. Versioned file names work too.
 - The look's motion preview (`preview` video) plays muted and looping over the still when present; it restarts when the file is re-rendered.
+- **Bundles RasanAI 1.34.0.**
 
 ## 0.28.1 (build 76) — 2026-11-01
 
