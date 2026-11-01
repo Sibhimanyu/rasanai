@@ -27,3 +27,6 @@ skills/rasanai/scripts/tests/fixtures/story-scope/check-ledger.json
 
 # Third-party reference stills: local only, never published
 skills/rasanai/library/benchmarks/reference-frames/*.png
+
+# Blender auto-backups
+*.blend1
