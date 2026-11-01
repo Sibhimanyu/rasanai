@@ -922,7 +922,7 @@
   var homeWin = $(".shot-band .window[data-rise]"), homeImg = homeWin && $("img", homeWin);
   if (heroEl && homeImg) {
     // percentages of the Studio home capture (light, sidebar collapsed, 3024x1768): each box is the full character, measured against the painted-out version
-    var BOX = { tara: [32.077, 43.269, 4.233, 6.222], kavi: [36.442, 37.5, 4.398, 11.991], chitra: [40.906, 36.652, 5.06, 12.839], ra: [45.966, 35.86, 7.11, 13.631], laya: [53.142, 36.256, 4.332, 12.217], rasika: [57.474, 44.005, 5.225, 5.486], mala: [62.765, 40.554, 5.225, 8.937] };
+    var BOX = { tara: [31.925, 43.065, 4.509, 7.178], kavi: [36.323, 37.271, 4.658, 13.057], chitra: [40.754, 36.335, 5.283, 13.948], ra: [45.748, 35.574, 7.44, 14.635], laya: [52.99, 36.052, 4.777, 12.599], rasika: [56.976, 43.745, 5.833, 6.516], mala: [62.613, 40.325, 5.446, 10.003] };
     var RIM = 49.5, STAG = .06;   // the prompt box's top edge
     // while the crew fly in, the screenshot shows its prompt with the crew painted out, so no one lands on top of themselves
     var emptyImg = new Image(); emptyImg.className = "shot-empty"; emptyImg.alt = ""; emptyImg.setAttribute("aria-hidden", "true"); emptyImg.decoding = "async";
@@ -938,10 +938,11 @@
       var d = parseFloat(c.style.getPropertyValue("--d")) || 1;
       var box = document.createElement("div"); box.className = "cf";
       var card = new Image(); card.className = "cf-card"; card.alt = ""; card.decoding = "async"; card.src = im.getAttribute("src");
-      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=4";   // v4: from the light Studio home
+      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=5";   // v5: full-body cut-outs (hero renders at the screenshot scale, transparent margins)
       card.style.opacity = (.6 + d * .4).toFixed(2);
+      box.style.zIndex = Math.round(d * 10);   // nearer characters in front, so overlaps read as depth, not clipping
       box.appendChild(card); box.appendChild(cut); layer.appendChild(box);
-      fl.push({ c: c, fi: $(".fi", c), box: box, card: card, cut: cut, b: BOX[m[1]], base: .6 + d * .4, sw: 0, tw: 0 });
+      fl.push({ c: c, z: Math.round(d * 10), fi: $(".fi", c), box: box, card: card, cut: cut, b: BOX[m[1]], base: .6 + d * .4, sw: 0, tw: 0 });
     });
     // ripple from the middle outwards: Rasan first
     fl.slice().sort(function (a, b) { return Math.abs(a.b[0] + a.b[2] / 2 - 50) - Math.abs(b.b[0] + b.b[2] / 2 - 50); })
@@ -952,6 +953,7 @@
     var rests = fl.map(function (f) {
       var im = new Image();
       im.className = "cf-rest"; im.alt = ""; im.setAttribute("aria-hidden", "true"); im.decoding = "async"; im.src = f.cut.src;
+      im.style.zIndex = 1 + f.z;
       homeWin.appendChild(im);
       return im;
     });
@@ -1032,14 +1034,12 @@
           f.card.style.opacity = (f.base * (1 - shed) + shed * 0).toFixed(3);
           f.cut.style.transform = "scale(" + cs.toFixed(4) + ")";
           f.cut.style.opacity = shed.toFixed(3);
-          // the cut-outs are cropped flat at their box edges (feet at the rim, a hand or ear where a neighbour begins): in the air those
-          // edges are feathered away, closing to a hard edge only as they land, where the rim and the neighbours hide it
-          var fw = 12 * (1 - ease(seg(t, .72, 1)));
-          if (fw > .4) {
-            f.cut.style.webkitMaskImage = f.cut.style.maskImage = "linear-gradient(to top, transparent, #000 " + fw.toFixed(2) + "%), linear-gradient(to right, transparent, #000 " + fw.toFixed(2) + "%, #000 " + (100 - fw).toFixed(2) + "%, transparent)";
-            f.cut.style.webkitMaskComposite = "source-in"; f.cut.style.maskComposite = "intersect";
-          } else { f.cut.style.webkitMaskImage = f.cut.style.maskImage = "none"; }
-          f.card.style.clipPath = "none"; f.cut.style.clipPath = "none";
+          // the cut-outs are whole characters with transparent margins, so nothing is cropped in the air; only as they land do the
+          // feet that stand behind the prompt box's rim tuck in, exactly as the resting picture does (no pop at the hand-over)
+          var over = Math.max(0, f.b[1] + f.b[3] - RIM), tuck = over > 0 ? over / f.b[3] * 100 * inOut(seg(t, .8, 1)) : 0;
+          f.cut.style.webkitMaskImage = f.cut.style.maskImage = "none";
+          f.cut.style.clipPath = tuck > .05 ? "inset(0 0 " + tuck.toFixed(3) + "% 0)" : "none";
+          f.card.style.clipPath = "none";
         });
       },
       reset: function () { setShown(false); setEmpty(false); setAway(false); setRest(false); homeWin.style.transform = ""; homeWin.style.transformOrigin = ""; homeWin.style.boxShadow = ""; }
@@ -1452,7 +1452,7 @@
     if (crewScene) $$("img", crewScene).forEach(function (im) { warm(im, false); });
     var later = function () {
       $$(".sq-wall, .sq-shot").forEach(function (im) { warm(im, true); });
-      ["ra", "rasika", "mala", "laya", "tara", "chitra", "kavi"].forEach(function (n) { prime("assets/crew/land/" + n + ".webp?v=4"); });
+      ["ra", "rasika", "mala", "laya", "tara", "chitra", "kavi"].forEach(function (n) { prime("assets/crew/land/" + n + ".webp?v=5"); });
       ["assets/tl/stones.jpg", "assets/tl/engraved.jpg"].forEach(prime);
     };
     if (window.requestIdleCallback) requestIdleCallback(later, { timeout: 2500 }); else setTimeout(later, 800);
