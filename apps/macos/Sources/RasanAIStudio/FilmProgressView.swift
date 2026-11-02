@@ -131,7 +131,8 @@ struct FilmProgressView: View {
             researchNotice(s, now: now)
             activityWarning(s)
             ProgressRenderStrip(render: s.render, now: now)
-            ProgressPreviewPane(snapshot: s, aspect: model.snapshot.aspectRatio, maxMediaHeight: previewMax)
+            // Working: the preview is pinned in a bubble on the crew stage. Asking: there is no stage, so the pane stays.
+            if s.isWaitingForYou { ProgressPreviewPane(snapshot: s, aspect: model.snapshot.aspectRatio, maxMediaHeight: previewMax) }
             nextRow(s)
         }
     }
@@ -205,11 +206,14 @@ struct FilmProgressView: View {
     private func stageArt(_ s: FilmProgressSnapshot, lead: CrewCharacter, asleep: Bool, height h: CGFloat) -> some View {
         let headroom = min(150, h * 0.32)
         let unit = max(40, min(320, h - headroom))
+        let picture = lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil
+        // The easel already holds this picture: the bubble would only repeat it.
+        let preview = ProgressPreviewItem.latest(in: s).flatMap { $0.openURL == picture ? nil : $0 }
         return CrewStage(character: lead, thoughts: CrewThoughts.make(s, lead: lead), asleep: asleep,
                          stuck: stuck.flatMap { healthStuck ? "No progress for \(ChatFollowUps.span($0.quietFor))" : nil },
                          lines: lead == .kavi ? CrewThoughts.finishedSteps(s) : 0,
-                         picture: lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil, unit: unit,
-                         stageHeight: min(h, unit + headroom))
+                         picture: picture, unit: unit,
+                         stageHeight: min(h, unit + headroom), preview: preview, previewAspect: model.snapshot.aspectRatio)
             .id(lead)
             .frame(maxWidth: .infinity)
             .help("\(lead.displayName), \(lead.roleTitle)")
@@ -217,7 +221,10 @@ struct FilmProgressView: View {
 
     /// "Kavi · 3 writers drafting": the character, then what the crew is doing as the model words it, else their role.
     private static func crewLine(_ lead: CrewCharacter, _ s: FilmProgressSnapshot) -> String {
-        if let detail = s.now.detail, !detail.isEmpty { return "\(lead.displayName) · \(detail)" }
+        // The model's detail often already opens with the name ("Laya · Motion Director ..."): never say it twice.
+        if let detail = s.now.detail, !detail.isEmpty {
+            return detail.lowercased().hasPrefix(lead.displayName.lowercased() + " · ") ? detail : "\(lead.displayName) · \(detail)"
+        }
         let running = s.crew.filter { $0.state == .running && $0.character == lead }.count
         return running > 1 ? "\(lead.displayName) · \(running) helpers working" : "\(lead.displayName) · \(lead.roleTitle)"
     }
