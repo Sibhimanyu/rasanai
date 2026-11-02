@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.30.0 beta 1</title>
+      <pubDate>Mon, 02 Nov 2026 07:28:59 GMT</pubDate>
+      <description><![CDATA[<ul><li>The latest preview now sits in a still speech bubble beside the crew character on every working screen, instead of a block under the status line, so the character keeps its full size. Click it to open the file. When Chitra or Rasika already hold that picture on their easel, no bubble repeats it.</li><li>A stuck film is visible: after five minutes with no progress the character freezes, dims and frowns, a bubble says "No progress for N min", and the status line offers Retry step and Restart Rasan. A new pill in the bottom bar always shows the director's state (Working, Thinking, Stuck, Retrying, Restarting, Paused, Waiting on you).</li><li>Rasan follows up in the chat without being asked: when a stall starts, after Retry or Restart ("Running again: ..." or "Still no movement"), and after you ask whether it is running.</li><li>Rasan's chat is one ongoing Haiku conversation per film that streams as it types and can act: pass an instruction to the director, retry, resume, or offer Restart and Pause as buttons. It says honestly when the director has not read your message yet.</li><li>The crew line no longer repeats the character's name ("Laya · Laya · ...").</li></ul>]]></description>
+      <sparkle:version>80</sparkle:version>
+      <sparkle:shortVersionString>0.30.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.30.0-beta.1/RasanAI-Studio-0.30.0.dmg" sparkle:edSignature="EGOCEZLh+7CaA15zOAalYyPyQUmY4DC1CDT+YMtZ/+lFn+Tn9nkU09RVRWXbs44ZiGlZnyeu6WnrkFi8O2BBAw==" length="98714897" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.29.2 beta 1</title>
       <pubDate>Mon, 02 Nov 2026 04:49:00 GMT</pubDate>
       <description><![CDATA[<ul><li>Launch films move with one signature curve and follow ten motion laws (momentum-gated bounce, arcs on long moves, tight cascades, calm heavy elements, counter-moving backgrounds and more), checked as warnings while the film is built.</li></ul>]]></description>
