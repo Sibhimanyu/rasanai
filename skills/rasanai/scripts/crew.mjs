@@ -238,6 +238,7 @@ const ROLES = {
   "ab-juror": { desk: "review", tier: "inherit", desc: (p, k) => `Judging two films blind (X or Y) and picking the one to show${k ? ` (A/B ${k})` : ""}` },
   retrospective: { desk: "review", tier: "inherit", desc: () => "Reading how the film was made and keeping at most two craft rules for the next one" },
   "frame-juror": { desk: "review", tier: "inherit", desc: () => "Judging every styleframe next to reference stills of the same kind" },
+  "reference-juror": { desk: "review", tier: "inherit", desc: (p, k) => `Judging the launch film's contact sheet next to the house reference sheets${k ? ` (${k})` : ""}` },
   "scene-animator": { desk: "animation", tier: "inherit", desc: (p, k) => `Animating scene ${k}` },
   "film-builder": { desk: "animation", tier: "inherit", desc: (p, k) => (k === "lead" ? "Building the root and every object that crosses a cut" : "Building the whole film in one pass, root and every beat") },
   "footage-logger": { desk: "research", tier: "fast", desc: (p, k) => `Logging ${k ? "bin " + k : "the footage"}: every shot described, rated and trimmed` },
@@ -259,7 +260,7 @@ export const TOKENS = {
   "concept-writer-story": 50000, "concept-writer-style": 50000, "concept-writer-wild": 50000, "style-frame-juror": 30000,
   "script-writer": 60000, "footage-writer": 60000, "treatment-writer": 60000, "visual-writer": 60000,
   "design-researcher": 45000, "design-system-designer": 35000,
-  "scene-animator": 90000, "styleframe-designer": 60000, "frame-designer": 40000, "frame-juror": 30000,
+  "scene-animator": 90000, "styleframe-designer": 60000, "frame-designer": 40000, "frame-juror": 30000, "reference-juror": 30000,
   "product-researcher": 30000, "brand-researcher": 25000, "screens-researcher": 20000, "precedent-researcher": 30000, "local-scout": 25000, "research-lead": 30000,
   "move-inventor": 40000, "move-juror": 30000, "move-sketcher": 20000, "script-editor": 40000, "story-planner": 40000, "structure-critic": 30000, "concept-critic": 20000,
   "art-director": 80000, "character-designer": 45000, "footage-logger": 25000, "selects-producer": 40000, "brand-kit-builder": 30000, "brand-film-analyst": 30000, "reference-analyst": 40000, retrospective: 15000, lyricist: 15000,
@@ -595,6 +596,7 @@ function planCrew(p) {
       phases.push({ phase: "review", when: "after the seam pass (motion, grounding) and the draft render (film); motion-gate.mjs has run on the draft", dispatch: review, then: "route each finding to its scene's animator (" + FRT + " at most; carry each critic's strengths[] into the fix brief as what to keep)" + (full ? "; film critic on the draft" : "") });
     }
     if (bf) phases.push({ phase: "style-match-draft", when: "after the first draft render, before the film critic", dispatch: [], gate: "node scripts/brandfilm.mjs compare --ref <run>/brand-film/grammar.json --ours <draft.mp4>", then: "on FAIL fix the failing scenes (colour, canvas, cut rate) and re-render; record the numbers in decisions (decisions.style_match.draft) and push the short note" });
+    if (p.route === "product-launch-video" || /launch|promo|product/i.test(String(p.kind || ""))) phases.push({ phase: "reference-jury", when: "a LAUNCH film only: after the draft render and the critics' fixes, BEFORE the Final call (references/launch-grammar.md section 12)", dispatch: [d("reference-juror", "jury-1")], director_steps: ["node scripts/crew.mjs refsheet --run <run> --video <draft.mp4>   (writes crew/ref-jury/film-sheet.jpg: 1.5 fps tiles, 8 per row, ffmpeg only)"], then: "crew.mjs check --role reference-juror --key jury-1. ANY score under 7 triggers ONE targeted fix round: route each beat's concrete fixes to the film builder (or the scene animators), re-render, re-run refsheet, then dispatch reference-juror jury-2 and check it; no third round (what is still under 7 goes into the Final as a stated weakness). Report the final scores in the Final push (one line: story, type, ground, motion, brand-light, pacing)" });
     if (full) phases.push({ phase: "review-film", when: "after the draft render", dispatch: [d("critic", "film-1")], then: "fix or waive at the Final" });
   }
   if (footageSp && p.route === "reel") {
@@ -1448,6 +1450,19 @@ function contextFor(run, role, key, plan) {
       else { O(R(run, "frames", "shots.json")); O(`${rel(R(run, "frames"))}/<id>.html + <id>.png (${k === "heroes" ? "the 3 heroes" : "every shot"})`); O(R(run, "frames", "FRAMES.md")); }
       break;
     }
+    case "reference-juror": {
+      const rj = Number(String(key || "jury-1").split("-").pop()) || 1, hdir = path.join(SKILL_DIR, "library", "benchmarks", "launch-refs");
+      Object.assign(ctx, { round: rj, sheet_cmd: `node "${path.join(SKILL_DIR, "scripts", "crew.mjs")}" refsheet --run ${rel(run)} --video <draft.mp4>`, bar: "the house references (Minase, Kinso), not the film itself: blunt, per-beat, numbers" });
+      I("THE FILM: contact sheet, 1.5 fps, 8 tiles a row (crew.mjs refsheet writes it; read at 100%)", R(run, "crew", "ref-jury", "film-sheet.jpg"));
+      for (const id of ["kinso", "minase"]) I(`house reference ${id}: 1 fps contact sheet (8 tiles a row; look at it BEFORE the film)`, path.join(hdir, id, "thumbs", "1fps-contact-sheet.jpg"));
+      for (const id of ["kinso", "minase"]) I(`house reference ${id}: beat table`, path.join(hdir, id, "beats.json"));
+      I("the score (per-beat ground, hero_scale, ui_scale, role, hold_s: compare what it promises with what the sheet shows)", R(run, "motion", "score.json"));
+      I("the motion gate's report on the draft", R(run, "crew", "motion-gate.json"));
+      I("launch grammar (sections 1 to 12; section 12 is your rubric)", path.join(SKILL_DIR, "references", "launch-grammar.md"));
+      if (rj > 1) I("your earlier verdict (judge again only what the fix round touched, but rescore all six)", R(run, "crew", "ref-jury", `verdict-${rj - 1}.json`));
+      O(R(run, "crew", "ref-jury", `verdict-${rj}.json`));
+      break;
+    }
     case "frame-juror": {
       const fjs = path.join(SKILL_DIR, "scripts", "frames.mjs");
       Object.assign(ctx, { round: Number(String(key || "frames-1").split("-").pop()) || 1, aspect: B.aspect, refs_cmd: `node "${fjs}" refs --run ${rel(run)} --sheet`, sheet_cmd: `node "${fjs}" sheet --ours ${rel(R(run, "frames"))}/<id>.png --refs <1 to 3 stills of its kind> --out ${rel(R(run, "frames", "sheets"))}/<id>.png --title "<id> · <beat>"`, set_cmd: `node "${fjs}" sheet --ours ${rel(R(run, "frames"))} --out ${rel(R(run, "frames", "sheet.png"))} --title "the set"` });
@@ -1712,6 +1727,7 @@ const DARES = {
   "styleframe-designer": "Show off. x1 already beat the pipeline on 6 of 8 frames with one rule set: a different shot size every frame (macro, object, giant type, wide); real depth of field (a sharp copy and a blurred copy of the same plane, layers blurred by distance) so the blur says where to look; ONE hero per frame, the product rebuilt as DOM at 3 to 6x with real labels; a camera angle (one lens, a yaw of 15 to 35 degrees on two axes at most) with a contact shadow on the ground; words and UI touching at very different sizes (a 210 px line inside a 14 px-labelled component); a lit, tinted ground a few percent darker than the UI. That is the floor, not the bar. Then the poster test on every frame: squint for one brightest and one darkest region, 3 to 4 hues, one focal mass; would it hang next to the reference still you picked for it? Beat x1 where it fell short: light with colour (a rim in the product's own functional colours on the hero moment), a real material (glass, thickness, a specular edge), a type-UI collision only motion can finish. Name your three rewind frames, draw two compositions for each hero and keep the stronger, and revise every frame that would look weaker next to its reference.",
   "ab-juror": "Be the motion designer who has two films in front of you and one slot on the reel. Pick the one you would rewind, by quoted seconds, and take the riskier film that is still sound over the tidier one. You are never told which came first: a guess about that is not a reason.",
   retrospective: "Be a coach with two minutes: keep only a rule that repeated or cost a round, in one imperative line another film could use. Zero rules is a good answer; a wise-sounding rule the files do not support is not.",
+  "reference-juror": "Be the owner who made these two reference films the target and is now shown a draft next to them. Say what is smaller, greyer, slower, emptier than the references, by tile and number. A 7 means the draft could be cut into the reference reel without anyone noticing; a draft that passes every gate and still looks like a slide deck is a 4.",
   "frame-juror": "Be the creative director who has just watched Kinso, Sovra and Google's launch films and is shown these boards next to them. A board that is clean, centred and correct but would look weaker in that reel is below, and you say exactly what would lift it (size, crop, focus, light, type scale, with numbers). Find the weakest frame first. Never pass a frame because it follows the shot list.",
   "treatment-writer": "Show off. Two other writers pitch against you. Do the method at the end of your role in full: ban the three obvious treatments, overgenerate the concept and the peak plate, pick by the swap test, rewrite bolder and say what changed. If a plate's idea is just the lyric restated, you are not done.",
   "visual-writer": "Show off. Two other writers are staging this same talk against you, and the user will pick one. Write the one that wins the room, not the one that merely passes presenter.mjs check: one running visual idea the whole talk happens inside, images that argue with the sentence instead of illustrating it, at least one cutaway that lands on a word, and one moment where the person interacts with the world (points at it, steps into it, is framed by it). If a plate is just the sentence drawn as a picture, you are not done.",
@@ -3108,6 +3124,11 @@ async function checkRole(run, role, key) {
         const rows = Array.isArray(sj.scenes) ? sj.scenes : Array.isArray(sj.beats) ? sj.beats : [], carNamed = sj.carrier && (typeof sj.carrier !== "object" || sj.carrier.what || sj.carrier.name);
         if (!carNamed) P.push('launch film: motion/score.json names no carrier (set "carrier": { "what": "...", "kind": "..." })');
         const lack = (k) => rows.map((r, i) => (r && (k === "logo" ? r.logo == null : k === "carrier_state" ? r.carrier_state == null : !String(r[k] == null ? "" : r[k]).trim()) ? String(r.id != null ? r.id : r.n != null ? r.n : i + 1) : null)).filter(Boolean);
+        for (const k of ["ground", "role", "hero_scale", "ui_scale", "hold_s"]) { const m = lack(k); if (m.length) P.push(`launch film: scenes[].${k} missing on beat(s) ${m.slice(0, 8).join(", ")} (references/launch-grammar.md section 12: ground family, role hook|turn|meet|capability|payoff, hero_scale = cap height % of frame height, ui_scale = UI % of frame area (0 when none), hold_s = longest static hold in s)`); }
+        { const gs = new Set(rows.map((r) => String(r && r.ground || "").toLowerCase().trim()).filter(Boolean)); if (rows.length >= 6 && gs.size < 2) P.push(`launch film: only ${gs.size} ground family across ${rows.length} beats (at least 2, alternating: brand-gradient, dark, white)`);
+          const hs = rows.map((r) => Number(r && r.hero_scale)).filter((n) => Number.isFinite(n)); if (hs.length && Math.max(...hs) < 9) P.push(`launch film: the largest hero_scale is ${Math.max(...hs)}% of frame height; hero lines need 9 to 20% at least once per beat`);
+          const hl = rows.map((r) => Number(r && r.hold_s)).filter((n) => Number.isFinite(n)); if (hl.length && Math.max(...hl) > 1.5) W.push(`launch film: a beat declares a hold of ${Math.max(...hl)} s (about 1.2 s at most; fill it with a word swap, carrier drift or count-up)`);
+          const hook = rows.find((r) => r && String(r.role || "").toLowerCase() === "hook"), dur0 = Number(sj.duration) || 0; if (hook && dur0 && Array.isArray(rows) && rows.length > 1) { const hs0 = rows.filter((r) => String(r && r.role || "").toLowerCase() === "hook").reduce((a, r) => a + (Number(r.duration != null ? r.duration : r.duration_s) || 0), 0); if (hs0 && hs0 / dur0 > 0.25) P.push(`launch film: the hook runs ${hs0.toFixed(1)} s, ${Math.round(100 * hs0 / dur0)}% of the film (at most 25%)`); } }
         for (const k of ["line", "carrier_state", "transition_in", "density", "logo"]) { const m = lack(k); if (m.length) P.push(`launch film: scenes[].${k} missing on beat(s) ${m.slice(0, 8).join(", ")} (the launch-beats gate reads line, carrier_state, transition_in, density and logo per beat)`); }
       }
       if (sj) writeFile(R(run, "motion", "score.md"), renderScoreMd(sj));
@@ -3170,6 +3191,22 @@ async function checkRole(run, role, key) {
         if (!/data-width/.test(html)) P.push(`${rel(path.join(dir, f))}: the root needs data-width / data-height`);
         if (/lorem ipsum|john doe|acme corp|placeholder text/i.test(html)) P.push(`${rel(path.join(dir, f))} has placeholder content`);
       }
+      break;
+    }
+    case "reference-juror": {
+      const rj = Number(String(key || "jury-1").split("-").pop()) || 1, vf = R(run, "crew", "ref-jury", `verdict-${rj}.json`), v = jsonMaybe(vf);
+      if (v === null) { P.push(`crew/ref-jury/verdict-${rj}.json is missing`); break; }
+      if (v === undefined || typeof v !== "object") { P.push(`crew/ref-jury/verdict-${rj}.json is not valid JSON`); break; }
+      const dims = ["story_clarity", "type_scale_craft", "ground_rhythm", "motion_choreography", "brand_light", "pacing"];
+      for (const dm of dims) { const n = Number(v.scores && v.scores[dm]); if (!(n >= 1 && n <= 10)) P.push(`scores.${dm} must be 1 to 10`); }
+      if (!Array.isArray(v.evidence) || v.evidence.length < 3) P.push('"evidence" must list the images you opened (the film sheet and both reference sheets)');
+      const low = dims.filter((dm) => Number(v.scores && v.scores[dm]) < 7);
+      if (!Array.isArray(v.vs_references) || v.vs_references.filter((x) => String(x || "").trim().length > 25).length < 3) P.push('"vs_references" needs 3 or more lines, each naming a reference (kinso or minase) and what the draft does worse, with a tile or a number');
+      const fixes = Array.isArray(v.fixes) ? v.fixes : [];
+      if (low.length && fixes.filter((x) => x && String(x.beat || "").trim() && String(x.fix || "").trim().length > 20).length < 1) P.push(`scores under 7 (${low.join(", ")}) need "fixes": [{beat, dimension, fix}] with a concrete per-beat fix (a size in % of frame height, a ground, a motion), never "more energy"`);
+      if (v.trigger_fix_round !== (low.length > 0)) P.push('"trigger_fix_round" must be true exactly when any score is under 7');
+      if (rj >= 2 && low.length) W.push(`still under 7 after the one fix round (${low.join(", ")}): no third round; name it in the Final as a stated weakness`);
+      if (!P.length) CHECK_EXTRA = { ...(CHECK_EXTRA || {}), reference_jury: { round: rj, scores: v.scores, below_7: low, fix_round: low.length > 0 && rj === 1 ? "ONE targeted fix round, then re-run refsheet and reference-juror jury-2" : "none" } };
       break;
     }
     case "frame-juror": {
@@ -4522,6 +4559,18 @@ if (cmd === "plan") {
   sheet(res.files, res.W, res.H, outPng, Number(args.cols) || (args.phone ? 3 : args.crop ? 3 : 6), args.phone ? 360 : args.crop ? 640 : 420); // 3 across keeps the sheet small enough to be read unscaled
   if (!exists(outPng)) die("the sheet did not render");
   out({ ok: true, sheet: rel(outPng), frames: res.files.length, dir: rel(dir), times: T, look: args.phone ? "Read the sheet at 100%: this is the film at phone size. Every line meant to be read must read here; one that doesn't is a readability finding" : "Read the sheet image: spacing between frames shows the ease (wide gaps = fast, tight = slowing into a landing)" });
+} else if (cmd === "refsheet") {
+  // the reference jury's evidence: the draft as a 1.5 fps contact sheet (8 tiles a row), ffmpeg only
+  const run = runDir();
+  const file = args.video && args.video !== true ? path.resolve(String(args.video)) : die("--video <draft.mp4> required");
+  if (!exists(file)) die(`not found: ${file}`);
+  const dir = R(run, "crew", "ref-jury");
+  fs.mkdirSync(dir, { recursive: true });
+  const dur = Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file], { encoding: "utf8" }).stdout) || 45;
+  const rows = Math.ceil(dur * 1.5 / 8), sheetPath = path.join(dir, "film-sheet.jpg");
+  const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", file, "-vf", `fps=1.5,scale=360:-2,tile=8x${rows}`, "-frames:v", "1", "-q:v", "4", sheetPath], { encoding: "utf8" });
+  if (r.status !== 0 || !exists(sheetPath)) die("ffmpeg could not draw the contact sheet: " + String(r.stderr || "").slice(0, 200));
+  out({ ok: true, sheet: rel(sheetPath), duration_s: Math.round(dur * 10) / 10, tiles: Math.round(dur * 1.5), seconds_per_tile: 0.667, next: "dispatch the reference-juror (crew.mjs brief --role reference-juror --key jury-1)" });
 } else if (cmd === "marks") {
   const run = runDir();
   const file = args.file && args.file !== true ? path.resolve(String(args.file)) : die("--file <draft.mp4 | composition.html> required (the render the notes were left on)");

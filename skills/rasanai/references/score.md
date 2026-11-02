@@ -64,6 +64,10 @@ The gates read these per-beat fields (`lib/launch-beats.mjs`; the rules are in `
 - `transition_in`: carried-element | type-morph | mask-wipe | push | whip | zoom-through | flood | flip | iris | dissolve | cut. The seam into the scene is read when absent. A plain cut warns; more than 2 is `hard-cuts`, an error unless `grammar_waivers` has rule `hard-cuts` with a why. Frame-difference spikes in the render (`frame-spikes`) only warn, and only well above the references' 1 to 3 per 10 s.
 - `density`: dense (3+ elements, a collage, a full UI, a full-frame object) | sparse (one small line or object on an empty ground). At least two alternations (`rhythm`, an error; waivable).
 - `logo`: true where the mark is on screen; more than 3 beats warns (`logo-count`).
+- `ground`: the beat's ground family, `brand-gradient | dark | white | brand-slate`. At least 2 families across the film, alternating, with brand-colour atmosphere in at least about 30% of the runtime. `crew.mjs check` requires it on a launch score.
+- `role`: `hook | turn | meet | capability | payoff` (the hook's beats together are at most 25% of `duration`; `crew.mjs check` errors above).
+- `hero_scale`: cap height of the beat's biggest line as a percentage of frame height (9 to 20 at least once per beat; the largest in the film must reach 9). `ui_scale`: the UI proof's share of the frame, percent of area (35 to 60 when it is the proof; 0 when none).
+- `hold_s`: the longest static hold in the beat, seconds (about 1.2 at most; filled with secondary motion). These four fields and `ground` are what the reference jury (`agents/reference-juror.md`) compares with the contact sheet: a declared number the sheet does not show is a finding.
 
 ### Motion laws (launch films; any film may carry `moves`)
 

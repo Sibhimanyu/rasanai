@@ -42,7 +42,7 @@ The arc also sets the character of the motion (the `beat-profile` warning reads 
 | Capability 3 (optional; at 30 s fold it into 2) | skipped | 32.5 to 38.0 | 40.0 to 47.5 |
 | Payoff and CTA | 24.0 to 30.0 | 38.0 to 45.0 | 47.5 to 60.0 |
 
-The hook is never longer than a quarter of the film and the meet never starts before 28 percent or after 40 percent of it (the reference films meet the brand at roughly a third). The payoff gets at least 12 percent of the film so that the last line can breathe.
+The hook is never longer than a quarter of the film and the meet never starts before 30 percent or after 40 percent of it (the reference films meet the brand at roughly a third). The payoff gets at least 12 percent of the film so that the last line can breathe.
 
 ## 2. Copy rules (the spine)
 
@@ -76,7 +76,7 @@ One object travels the whole film and hands off between beats. Kinds that work: 
 - Simplified, recreated mockups: an inbox list, a phone with a notification, a prompt box, a stat card, a toggle row. Never a full-screen screenshot, never the whole site, never a screen recording.
 - One idea per mockup; 3 to 7 rows or elements; real words from the claims, the rest greyed placeholders.
 - A mockup lands next to the line it proves (type and UI share the frame), enters from the carrier or the line, and leaves by the carrier or the next transition.
-- It is allowed to be partly cropped, tilted or floated as a card; it may sit at 25 to 60 percent of the frame. One mockup per film may fill 50 percent or more (the hero proof).
+- It is allowed to be partly cropped, tilted or floated as a card. **As the proof of a line it fills 35 to 60 percent of the frame** (under 25 percent is a chip, not a proof; section 12). One mockup per film may fill 50 percent or more (the hero proof).
 - A mockup enters with travel or scale paired to its fade, never opacity-only and never from `scale(0)` (0.92 to 0.95 up). Heavy UI (the panel, the hero mockup) lands with no overshoot; chips and pills may settle only when thrown (`craft.md`, "Weight classes").
 - Real product pixels (a captured screenshot) are used only where the product's look itself is the point and the user supplied it; otherwise recreate in the film's palette and type.
 
@@ -97,7 +97,7 @@ Each concept names one **signature transition** (its own, repeated 2 to 3 times 
 
 - **Dense and sparse alternate.** A dense moment (a collage of cards, app icons, a dashboard, a stack of lines) is always followed by a sparse one (a single small line on an empty ground) and the reverse. No more than 2 dense or 2 sparse beats in a row (the launch-beats gate warns on more than 2 dense in a row: `dense-run`).
 - The tempo is locked to the music: seams land on its hits, drops and break edges (`audio/music-map.json`); the turn lands on the drop.
-- Grounds are neutral or brand atmosphere: clean white, a soft brand gradient, or near-black. Mix at most 2 grounds in a film, and change ground only on the turn, the meet or one interlude. Never a gimmick ground.
+- Grounds are neutral or brand atmosphere: clean white, a soft brand gradient, a brand-colour slate, or near-black. Never a gimmick ground. **Use at least 2 ground families and alternate them with the beats** (section 12); one grey ground for the whole film is a defect.
 - Type scale swings: full-frame type, then small centred type. A film that keeps the same type size for 5 s is wrong.
 - **One signature curve.** A launch film declares one `signature_ease` in its score (a custom cubic-bezier or an expo.out family) and 70 to 85 percent of its moves use it: that is what makes it one take. Other curves are accents, reserved for contrast: a whip, the signature transition, the payoff hit. The gate warns under 60 percent or with none declared (`signature-share-low`, `signature-ease-missing`). The 40 percent variety cap applies to non-launch films only (`craft.md`, "A curve per role").
 - **Cascades are short** (3 to 7 items inside 0.5 s; a set piece 1.2 s) and **ambient layers counter-drift** at 20 to 30 percent of hero speed (`craft.md`).
@@ -126,6 +126,7 @@ The Look step makes three treatments of this grammar, not three art worlds. Axes
 8. Dense and sparse alternate; grounds stay neutral or brand atmosphere.
 9. Real claims only.
 10. One signature curve on 70 to 85 percent of moves; accents only for a whip, the signature transition and the payoff hit; hook, meet and payoff move the way the profile table says.
+11. Section 12 holds: hero cap height 9 to 20% in every beat, UI proof 35 to 60%, 2 or more ground families with brand atmosphere in 30% or more of the film, no hold over about 1.2 s, no plain fade or blur transition, hook at most 25%, no grey 3D hero.
 
 Related: `launch-film.md` (timings, measurement, red flags), `product-first.md`, `ui-rebuild.md`, `motion-handoffs.md`, `composition-transitions.md`.
 
@@ -135,3 +136,31 @@ Related: `launch-film.md` (timings, measurement, red flags), `product-first.md`,
 - **Looks: contrast and atmosphere.** The 3 looks use 3 different grounds (soft-gradient, white, near-black; near-black, dark and black are one ground), and at least one is a soft brand-gradient ground built from the brand palette (Kinso-style atmosphere).
 
 - **Launch concept carrier rule.** The carrier and the props come from the product, its UI and the brand (caret, highlight, card, chip, notification, an orb in the brand colour, or the user's own text), not from an outside metaphor world (a Tetris tank, a letterpress, a courtroom, karaoke, a nature doc). At most ONE wild-lane idea may use an outside metaphor, and the jury may not recommend it. A concept whose carrier.kind is "object" gets a schema warning.
+
+## 12. Scale, ground rhythm, always moving, and the reference jury (the measured bar)
+
+A film made on engine 1.36 passed every gate and still looked like a slide deck beside the references: one grey ground for 45 s, type at 4% of frame height, small UI cards in an empty frame, 8 s holds, a 13 s hook on one grey 3D render. The numbers below come from the reference contact sheets (`library/benchmarks/launch-refs/<id>/thumbs/1fps-contact-sheet.jpg`): look at them before you write a score.
+
+**Scale (hero_scale, ui_scale).**
+- Hero lines are display scale: **cap height 9 to 20% of frame height at least once per beat** (Kinso's "here", "One inbox" and "for every conversation" are 10 to 25%; Minase's slate words about 12%). The big line builds word by word and the words fill a good part of the frame width (40 to 90%). Ordinary small lines (4 to 6%) may exist only as the quiet half of a dense/sparse pair.
+- **UI mockups are 35 to 60% of the frame (by area of its bounding card) when they are the proof**, cropped or tilted if you like. Under 25% is a chip or an accent, never a proof. A small card in a big empty frame is allowed only when the beat is declared `sparse` and it is a single line.
+- **Scale contrast is the rhythm.** A dense beat (a collage, a stack of app icons, a hero mockup at 50%) is followed by a sparse one (one line on an open ground), and the two differ by at least 2.5x in the biggest element's height. Type that stays the same size for 5 s is wrong.
+
+**Ground rhythm.**
+- At least **2 ground families in the film** (brand-gradient, dark, white, a flat brand-colour slate), alternating with the beats: Kinso goes gradient, dark hex slate, gradient, white UI; Minase goes white, dark footage-like slates, white. The ground changes on the turn, on the meet and on at least one capability, on a music hit and carried by the carrier or a wipe, never by a fade to a new colour.
+- **Brand-colour atmosphere (gradient, glow, tint or a flat brand slate) is on screen for at least 30% of the film.** A film that is one neutral ground throughout is wrong even when every other gate passes. The score declares `ground` per beat (`brand-gradient | dark | white | brand-slate`).
+- Light brand does not mean no brand: the logo stays small and rare, the colour is everywhere.
+
+**Always moving.**
+- Every beat has continuous, visible motion: something builds, moves, swaps or travels at every moment. **A hold is at most about 1.2 s** and is filled with secondary motion (a word swap, carrier drift, a count-up, a cursor, a scrolling list). The score declares the beat's longest hold in `hold_s`.
+- **No plain fade and no blur-only transition.** Blur is a finish on a whip or push, never the transition. Use the motivated vocabulary of section 6. A move that reads as opacity plus blur is not choreography: it needs travel, scale, a mask or a carried object.
+
+**Pacing.**
+- **The hook is at most 20 to 25% of the film** (6 to 10 s at 45 s; 7 s at 30 s) and meets the brand by about 30 to 40%. A hook of 30% or more is an error.
+- A hook is 2 to 4 lines on changing images, not one hold. One thing changes every 1 to 2 s.
+
+**3D renders.** A dull grey 3D render is not a hero. 3D may be used only if it is lit in the brand atmosphere (brand-colour key and rim light, a gradient ground, no neutral grey studio) and earns its time: it moves, it becomes something (the carrier, the next scene), and it is not on screen for more than a quarter of the hook. A flat 2D card or kinetic type beats a grey keyboard every time.
+
+**The score fields** (all required on a launch film; `crew.mjs check` refuses a launch score without them): per beat `ground`, `role` (hook | turn | meet | capability | payoff), `hero_scale` (cap height of the biggest line, % of frame height), `ui_scale` (the UI proof's % of frame area, 0 if none) and `hold_s` (longest static hold, s); plus `line`, `carrier_state`, `transition_in`, `density`, `logo` from section 8.
+
+**The reference jury.** After the draft render and the critics' fixes, and before the Final call, the `reference-juror` (`agents/reference-juror.md`) looks at the film's 1.5 fps contact sheet (`crew.mjs refsheet`) beside the two house reference sheets and scores 1 to 10 on story clarity, typography scale and craft, ground and atmosphere rhythm, motion choreography, brand-light presence and pacing. **Any score under 7 triggers ONE targeted fix round** (a concrete fix per beat), then a re-check; the scores go in the Final push. It compares against the references, not against the film itself.

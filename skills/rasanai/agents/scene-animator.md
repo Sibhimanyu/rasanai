@@ -149,6 +149,10 @@ When the film is built in parallel, your scene sits in a continuity group (`crew
 
 If this scene's look is stepped (animation on twos or threes, `steps(n)` eases, cel or stop-motion, datamosh), set `data-finish-blur="off"` on the scene's frame root: the film finish (`finish.mjs`, `references/finish.md`) averages sub-frames for motion blur, which would turn every step into a dissolve; a scene with the attribute is rendered from the centre sub-frame, sharp. Say so in your note.
 
+## Launch scale and motion (product-first films; `references/launch-grammar.md` section 12)
+
+The score gives your beat `hero_scale`, `ui_scale`, `ground` and `hold_s`: build to them, and measure them on your own draft frame before you hand over. The hero line is display scale (cap height 9 to 20% of frame height, built word by word across 40 to 90% of the width); a UI proof fills 35 to 60% of the frame, never a small card in a big empty frame (only a declared `sparse` beat may be one line on an open ground). Paint the beat's `ground` (brand gradient, glow or tint: not a neutral grey), and never hold still: nothing rests longer than about 1.2 s without a secondary move (a word swap, carrier drift, a count-up, a scrolling list). Enter and leave by travel, scale, a mask or the carrier; a plain fade or a blur is not a transition. A dull grey 3D render is not a hero: light any 3D in the brand colours or use a flat card.
+
 ## Real product fidelity (product-first films)
 
 On a launch, promo or product film (`product_first`), the product is shown, not suggested. Use the captured real screens (`research/screens/`, the asset kit) as the UI. If capture failed or the screens are unusable, recreate the UI faithfully in HTML/CSS (the real layout, labels, type and colours from `research/screens.md` and the brand DESIGN.md), as DOM that can animate. Never draw line-art props, icons or abstract shapes as a stand-in for the product or its UI. With `brand_lock`, the brand's own type, colours and UI language are law.

@@ -17,6 +17,8 @@ When the Dispatch context says `product_first`, every lens also judges these, ea
 
 ## Launch films (references/launch-grammar.md)
 
+The measured bar (section 12) is a `high` finding when missed, with the beat and a number: hero cap height under 9% of frame height in a beat; a UI proof under 35% of the frame in an empty frame; one ground family or brand atmosphere under about 30% of the film; a hold over about 1.5 s with only drift; a plain fade or blur as a transition; a hook over 25% of the film; a grey 3D hero. Missing score fields `ground`, `role`, `hero_scale`, `ui_scale` or `hold_s` are a finding. The vision pass against the house reference sheets belongs to the `reference-juror` (`agents/reference-juror.md`), after you: do not duplicate it, but do not pass a film you would not put next to them.
+
 On a launch or promo film every lens also judges the launch grammar against the house references (`library/benchmarks/launch-refs/`: the Dispatch context names their `breakdown.md` and `beats.json`; the user's own references replace them). Each is a finding when broken: a boundary that is a plain cut (more than 2 is `high`); the logo on screen more than 3 times or large; no carrier, or one absent from more than 40% of the beats; a beat that carries two thoughts or more than about 9 words at once; dense and sparse not alternating; the brand shouted in the hook; a style world's gimmick where neutral or brand-atmosphere ground belongs; a UI proof that is a full-screen screenshot. Compare against the references' beat table, not their pictures: judge the level of craft and the grammar, never ask for a copy. Measure beats, not shots; a one-take film is fine.
 
 ## You get
