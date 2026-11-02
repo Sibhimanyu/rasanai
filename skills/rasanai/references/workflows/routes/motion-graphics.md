@@ -4,7 +4,9 @@
 
 ## Single units (route `motion-graphics`)
 
-One short unnarrated unit (title, sting, stat hit, lower third): Brief → Look (three bespoke systems drawn on the headline; Story optional) → Animatic (the key poses, optional keyframe board: `board.mjs`, `references/board-format.md`) → `handoff.mjs --decisions "$RUN/decisions.json"` (`references/handoff.md`) → build through `/motion-graphics` with `DISPATCH.md` appended to every subagent, `obey.mjs` + `slop.mjs` after verify → Final. The crew is small here (`crew.mjs plan --route motion-graphics`): the brand researcher when there's a brand, the Motion Director's score for the one unit (its shots are the key poses), and the motion critic on the built unit.
+One short unnarrated unit (title, sting, stat hit, lower third): Brief → Look (three bespoke systems drawn on the headline;
+Story optional) → Animatic (the key poses, optional keyframe board: `board.mjs`, `references/board-format.md`) → `handoff.mjs --decisions "$RUN/decisions.json"` (`references/handoff.md`) → build through `/motion-graphics` with `DISPATCH.md` appended to every subagent, `obey.mjs` + `slop.mjs` after verify → Final.
+The crew is small here (`crew.mjs plan --route motion-graphics`): the brand researcher when there's a brand, the Motion Director's score for the one unit (its shots are the key poses), and the motion critic on the built unit.
 
 Revising an existing unit: [single-unit-and-revision](../operations/single-unit-and-revision.md).
 

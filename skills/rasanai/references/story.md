@@ -1,5 +1,20 @@
 # Story: the playbook
 
+## Contents
+
+- [0. Format-aware treatments (the default, Plan 03)](#0-format-aware-treatments-the-default-plan-03)
+- [1. The truth sheet (before any argument)](#1-the-truth-sheet-before-any-argument)
+- [2. Plot engines: a legacy turn (optional)](#2-plot-engines-a-legacy-turn-optional)
+- [3. Product-truth routes: the form is open](#3-product-truth-routes-the-form-is-open)
+- [4. Story shapes](#4-story-shapes)
+- [5. The device menu](#5-the-device-menu)
+- [6. Write the argument, then the pitch](#6-write-the-argument-then-the-pitch)
+- [7. Check, then rewrite](#7-check-then-rewrite)
+- [Different from your recent films](#different-from-your-recent-films)
+- [Principles](#principles)
+- [Avoid](#avoid)
+- [Taking feedback](#taking-feedback)
+
 Left alone, every AI launch video tells the same story: hook stat → problem montage → "Introducing X" → three features → CTA. That is a sales deck built outward from the feature list, and it has no argument. RasanAI's stories start from **one argument** instead: a proposition a viewer could say back and the proof that carries it. A villain they know, a turn that reverses something, a peak where the proof is hardest and a payoff that answers the opening are **optional tools** (Plan 03): the grammar for the film's communication kind (`story.mjs grammar --kind <kind>`, `lib/story-grammars.mjs`) says which tend to help; none is required and none is banned (`references/intent.md`). The features show up inside that argument as evidence.
 
 Why: three films in a row (FILM-D, E, F) reused one story assembled from a seeded device draw, a template with no turn slot and a launch template's payoff line. Its "turn" was a third, unrelated use; its payoff answered a question asked ten seconds earlier; its biggest type went to a price input. Every check passed, because the checks counted form. Judgment now comes from one owner (the writer) holding one written argument, checked by meaning tests.
@@ -24,7 +39,7 @@ The writing itself (lines, the show column, structures by length, worked example
 
 ## 0. Format-aware treatments (the default, Plan 03)
 
-**Workflow.** `crew.mjs plan --story-mode balanced` (the default): ONE scoped script writer proposes **three compact treatments** in `story/treatments.json`; ONE independent editor reviews the set; ONE focused revision; an independent extra writer only when `story.mjs treatments` reports `escalation.needed` (diversity, clarity or evidence insufficient). `--story-mode multi` is the three-writer room (planner, Sure/Bold/Wild writers, engines) and `deep` adds the Moves pass; a series keeps its one-script path. The user is offered three choices unless a series, "you decide" or a budget choice authorizes fewer. No polished boards, camera plans or rendered hero moves exist before Look; one selected treatment is developed afterwards. Cards are titled by the treatment's premise (`treatment_title`); Sure / Bold / Wild is a secondary tag.
+**Workflow.** `crew.mjs plan --story-mode balanced` (the default): one scoped script writer proposes **three compact treatments** in `story/treatments.json`; one independent editor reviews the set; one focused revision; an independent extra writer only when `story.mjs treatments` reports `escalation.needed` (diversity, clarity or evidence insufficient). `--story-mode multi` is the three-writer room (planner, Sure/Bold/Wild writers, engines) and `deep` adds the Moves pass; a series keeps its one-script path. The user is offered three choices unless a series, "you decide" or a budget choice authorizes fewer. No polished boards, camera plans or rendered hero moves exist before Look; one selected treatment is developed afterwards. Cards are titled by the treatment's premise (`treatment_title`); Sure / Bold / Wild is a secondary tag.
 
 **Grammars.** `story.mjs grammar --kind <communication_kind>` prints the starting narrative logic and the evidence a kind needs (whole-product introduction, single-feature announcement, workflow demo, instructional explainer, brand manifesto, identity reveal, performance ad, teaser, event opener, evidence case study, character short, music/lyric film, footage-led story). They are starting points. Optional craft tools (villain, twist, peak, reveal timing, "Introducing / Meet X", early logo, metaphor, crescendo, motif, hard cut, silence) are used when they serve the assignment and listed in `optional_tools` with their purpose; no checker requires or bans one.
 
@@ -82,7 +97,7 @@ Three engines (the legacy multi-writer room; the default balanced workflow uses 
 | Engine | Shapes | The turn | The peak (60-75%) | The payoff |
 |---|---|---|---|---|
 | `reversal` | pas, intercut, scenario | the product reverses the villain, at 15-45% ("Send one link instead": the thread folds into one chip) | the hardest proof: the use that goes furthest (one meeting becomes a whole week) | the opening's object returns, changed (the buried Thursday, clean) |
-| `refrain-break` | ladder, montage, claim-ladder, hero-strip | the break IS the peak: after 2 to 4 rungs of one pattern, one rung breaks it (the product finishes the refrain line itself, the refrain stops, the plain answer arrives) | the break | the close generalises the refrain ("Ask anything") and answers the open |
+| `refrain-break` | ladder, montage, claim-ladder, hero-strip | the break is the peak: after 2 to 4 rungs of one pattern, one rung breaks it (the product finishes the refrain line itself, the refrain stops, the plain answer arrives) | the break | the close generalises the refrain ("Ask anything") and answers the open |
 | `before-after` | before-after, steps, process | the cause made visible: the one action that makes the difference, on screen | the after at full, the cause still visible | the before's frame, now after |
 
 How to tell a real turn: write what the viewer believed just before it and just after. If the two sentences are the same with another example, it is not a turn. A new topic ("and it also plans retirement") is not a turn. A turn changes what the next beats mean.

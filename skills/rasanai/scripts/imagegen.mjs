@@ -25,6 +25,10 @@
 //     -> writes <plan minus .json>.result.json and prints {ok, result, done: [{id,out,seconds}], skipped: [...], failed: [{id,error}]}
 //        full prompt = "<prompt>. Style: <style>. Avoid: <avoid>."; existing outs are skipped unless --force; the anchor
 //        image is made first and passed as an extra reference to every other image. Paths are relative to the plan.
+//   node imagegen.mjs plan-from-score --score <run>/motion/score.json --out <assets/images/launch-plan.json> [--style "<world style line>"]
+//     launch films: reads the score's per-beat `imagery` refs (a beat names an id from score.imagery_plan[] {id, prompt, aspect?, transparent?, role?}, or "none") and writes the
+//     batch plan for exactly the images the beats use (1 to 4 per film; more is warned). Then: imagegen.mjs batch --plan <that file>. Paths in the plan are relative to it.
+//     When art/world.json exists, run `batch --world art/world.json` instead so the images share the world bible; this command then only checks the refs.
 //   node imagegen.mjs sheet --plan <images.json> --out <sheet.jpg>     contact sheet of every image, labelled with its id
 //
 // Exit codes: 0 ok; 1 usage or internal error; 2 a generation failed after its retry (batch: any failed);
@@ -43,6 +47,7 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { parseArgs, normalizeAspect, ASPECTS } from "./lib/common.mjs";
+import { imageryPromptRisk, IMAGERY_STYLE, IMAGERY_AVOID } from "./lib/launch-beats.mjs";
 import { findCodex, codexHome, imageModels, loginStatus, rememberModel, forgetModel, rememberedModel } from "./lib/codex.mjs";
 
 const args = parseArgs();
@@ -325,6 +330,26 @@ async function cmdGenerate() {
   out(res);
 }
 
+function cmdPlanFromScore() {
+  if (!args.score || args.score === true) fail("plan-from-score needs --score <motion/score.json>");
+  let sc; try { sc = JSON.parse(fs.readFileSync(path.resolve(args.score), "utf8")); } catch (e) { fail(`cannot read score ${args.score}: ${e.message}`); }
+  const beats = Array.isArray(sc.scenes) ? sc.scenes : Array.isArray(sc.beats) ? sc.beats : [], bank = Array.isArray(sc.imagery_plan) ? sc.imagery_plan : [];
+  const ref = (b) => { const v = b && b.imagery; return v == null ? "" : String(typeof v === "object" ? v.id || v.ref || "" : v).trim(); };
+  const ids = [...new Set(beats.map(ref).filter((v) => v && !/^(none|no|-|n\/a)$/i.test(v)))], problems = [];
+  const images = ids.map((id) => { const e = bank.find((x) => x && String(x.id) === id); if (!e || !String(e.prompt || "").trim()) { problems.push(`beat imagery "${id}" has no entry with a prompt in score.imagery_plan[]`); return null; }
+    return { id, prompt: String(e.prompt), out: `${id}.png`, ...(e.aspect ? { aspect: String(e.aspect) } : {}), ...(e.transparent ? { transparent: true } : {}) }; }).filter(Boolean);
+  if (images.length > 4) problems.push(`${images.length} images (1 to 4 per launch film: only where they add meaning)`);
+  // style direction + negative guidance for launch imagery: editorial still life, no people, no neon or blue-glow AI look (references/imagery.md "Launch imagery")
+  const peopleOk = sc.imagery_people === true || sc.brief_requires_people === true || sc.people_ok === true || !!args["allow-people"];
+  const warnings = peopleOk ? [] : images.map((i) => { const r = imageryPromptRisk(i.prompt); return r.length ? `image "${i.id}" prompt mentions ${r.join(", ")}: people or a neon/glow look reads as AI-generated; draw still-life objects, props, places without people, materials or printed matter (imagery_people: true when the brief requires people)` : ""; }).filter(Boolean);
+  warnings.forEach((m) => process.stderr.write(`imagegen: WARNING ${m}\n`));
+  const style = [String(args.style || sc.imagery_style || ""), IMAGERY_STYLE].filter(Boolean).join(" ");
+  const plan = { aspect: String(args.aspect || sc.aspect || "16:9"), style, avoid: `${peopleOk ? "text, letters, logos, watermarks, UI chrome, neon, blue or purple glow gradients, holograms" : IMAGERY_AVOID + ", watermarks, UI chrome"}`, images };
+  if (args.out && args.out !== true && images.length) { fs.mkdirSync(path.dirname(path.resolve(args.out)), { recursive: true }); fs.writeFileSync(path.resolve(args.out), JSON.stringify(plan, null, 2)); }
+  out({ ok: !problems.length, images: images.map((i) => i.id), warnings, plan: args.out && args.out !== true ? args.out : null, problems, next: images.length ? `node imagegen.mjs batch --plan ${args.out || "<plan>"}` : "no beat asks for an image: nothing to generate" });
+  if (problems.length) process.exit(2);
+}
+
 async function cmdBatch() {
   if (args.world && args.world !== true) { // a world bible (art/world.json): its plan is written beside it, anchor first, sheets before the shots that need them
     const { loadWorld, batchPlan } = await import("./lib/world-bible.mjs");
@@ -505,6 +530,7 @@ async function main() {
   if (cmd === "generate") return cmdGenerate();
   if (cmd === "batch") return cmdBatch();
   if (cmd === "sheet") return cmdSheet();
-  fail("usage: imagegen.mjs status [--kv] | generate --prompt <text> --out <file> [--aspect --ref --transparent --model --timeout --force] | batch --plan <images.json> [--concurrency --only --force] | sheet --plan <images.json> --out <sheet.jpg>");
+  if (cmd === "plan-from-score") return cmdPlanFromScore();
+  fail("usage: imagegen.mjs status [--kv] | plan-from-score --score <score.json> --out <plan.json> | generate --prompt <text> --out <file> [--aspect --ref --transparent --model --timeout --force] | batch --plan <images.json> [--concurrency --only --force] | sheet --plan <images.json> --out <sheet.jpg>");
 }
 main().catch((e) => fail(`internal error: ${e && e.stack || e}`));

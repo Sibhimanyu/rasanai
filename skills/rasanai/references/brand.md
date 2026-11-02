@@ -4,7 +4,7 @@ When the workspace already has a brand reference, RasanAI uses it instead of inv
 
 ## When a brand step is required
 
-If the brief names a brand (`brand_name` / `use_brand: true`) or the product is a known brand, a brand step ALWAYS runs: a workspace DESIGN.md wins; otherwise the brand researcher builds `research/brand/DESIGN.md` from official sources (type, colours, UI language, logo usage, motion) and the research lead's `crew.mjs check` fails without it. The Director reads it with `brand.mjs read`, pushes it to the console as step `brand`, and sets `brand` in decisions. From then on the brand lock applies: all three looks stay inside the brand's type, colours and UI, and vary composition, motion and density only (`references/design-desk.md`, `references/product-first.md`). `use_brand: false` (the user chose a new look) is the only way out.
+If the brief names a brand (`brand_name` / `use_brand: true`) or the product is a known brand, a brand step always runs: a workspace DESIGN.md wins; otherwise the brand researcher builds `research/brand/DESIGN.md` from official sources (type, colours, UI language, logo usage, motion) and the research lead's `crew.mjs check` fails without it. The Director reads it with `brand.mjs read`, pushes it to the console as step `brand`, and sets `brand` in decisions. From then on the brand lock applies: all three looks stay inside the brand's type, colours and UI, and vary composition, motion and density only (`references/design-desk.md`, `references/product-first.md`). `use_brand: false` (the user chose a new look) is the only way out.
 
 ### Logos: real files only
 
@@ -29,7 +29,7 @@ A brand record is read in four authorities, never one: **required identity** (th
 | Stitch-style prose | `- **Canvas White** (#F9FAFB) — Primary background` |
 | CSS custom properties | `--bg: #0a0e15; /* base */` anywhere in the file |
 | Token tables | `| INK | 1A1A1A | the slide's answer |` (hex with or without `#`) |
-| Font lines and tables | `**Display:** \`Geist\``, `font-family:`, role tables (`Interface | SF Pro | Roboto`); "Banned fonts" sections and "`X` is BANNED" fragments are skipped; "Same family at 400" inherits the display face |
+| Font lines and tables | `**Display:** \`Geist\``, `font-family:`, role tables (`Interface | SF Pro | Roboto`); "Banned fonts" sections and "`X` is banned" fragments are skipped; "Same family at 400" inherits the display face |
 | Rules | Do / Don't / Do Not / Anti-patterns / Do's and Don'ts sections |
 | Sidecar | `.impeccable/design.json` shadows |
 

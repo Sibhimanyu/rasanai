@@ -1,5 +1,18 @@
 # Lyric videos and music videos: the treatment playbook
 
+## Contents
+
+- [1. What makes it work](#1-what-makes-it-work)
+- [2. The treatment, step by step](#2-the-treatment-step-by-step)
+- [3. Idioms: the instruments](#3-idioms-the-instruments)
+- [4. Hooks and repeated lines](#4-hooks-and-repeated-lines)
+- [5. Karaoke rules](#5-karaoke-rules)
+- [6. Pacing by section](#6-pacing-by-section)
+- [7. 2D, 3D or hybrid per plate](#7-2d-3d-or-hybrid-per-plate)
+- [8. The show-off bar](#8-the-show-off-bar)
+- [9. Anti-slop for lyric videos](#9-anti-slop-for-lyric-videos)
+- [10. Handing off](#10-handing-off)
+
 A song with fixed lyrics does not need three scripts. The words are written; the music has its own structure. What the film needs is **one concept, one visual world, and a plate per lyric section in which every line becomes a picture**. This playbook is what separates a lyric video people rewind (the P(doom) video is the reference: 46 lines, 22 plates, one world, nothing repeated except on purpose) from a slideshow of words over a loop. It is generalised from that film's treatment; the machine-checkable version is `scripts/treatment.mjs check`.
 
 Read this when the brief is a song (a track the film is cut to, with or without a lyric sheet). Route: `music-to-video`; the Story step becomes **three treatments** (Sure, Bold, Wild) written by `agents/treatment-writer.md`.

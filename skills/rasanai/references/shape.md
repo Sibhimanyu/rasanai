@@ -1,5 +1,13 @@
 # The shape kit: RasanShape
 
+## Contents
+
+- [Installing and checking](#installing-and-checking)
+- [The one rule: the paused timeline drives everything](#the-one-rule-the-paused-timeline-drives-everything)
+- [The API](#the-api)
+- [Recipes for the reference clips' signature moves](#recipes-for-the-reference-clips-signature-moves)
+- [Checklist before you hand back](#checklist-before-you-hand-back)
+
 Core GSAP moves boxes: position, scale, opacity, rotation. The reference films (the Eye intro, the Lilium specimen, the pixel manifesto) move **shapes**: an `a` turns into an `o`, a round pupil narrows to a slit, a signature draws itself, ink smears the frame, a photo breaks into pixels, letters scatter and land as LOVE. That is shape-level motion, and it needs a small kit on top of GSAP. `RasanShape` is that kit: one browser file, no build step, deterministic and seek-safe, driven by the scene's own paused GSAP timeline.
 
 ## Installing and checking

@@ -1,5 +1,22 @@
 # Vocabulary: art-directing in code
 
+## Contents
+
+- [Conventions](#conventions)
+- [Start from the meaning](#start-from-the-meaning)
+- [Writing a scene's build instruction](#writing-a-scenes-build-instruction)
+- [1. Camera](#1-camera)
+- [2. Lenses and optics](#2-lenses-and-optics)
+- [3. Lighting](#3-lighting)
+- [4. Color grade and film stock](#4-color-grade-and-film-stock)
+- [5. Editing and transitions](#5-editing-and-transitions)
+- [6. Animation principles](#6-animation-principles)
+- [7. Motion-design techniques](#7-motion-design-techniques)
+- [8. Texture](#8-texture)
+- [9. Typography](#9-typography)
+- [10. Sound](#10-sound)
+- [11. Real 3D (Rasan3D)](#11-real-3d-rasan3d)
+
 The working vocabulary Claude uses to turn a direction ("a slow push on the device, rim-lit, warm negative grade, whip pan into the reveal") into build instructions a frame worker can execute without interpreting anything. Each term has a one-line definition and a recipe with numbers for HTML, CSS, GSAP, SVG or canvas. The taxonomy (`taxonomy/dimensions/*.json`) says **which** terms a film uses; this file says **how** each one is built. The rules for when to use them are in `references/craft.md`.
 
 ## Conventions

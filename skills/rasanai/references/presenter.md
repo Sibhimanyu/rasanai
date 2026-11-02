@@ -1,5 +1,19 @@
 # Presenter films
 
+## Contents
+
+- [The five calls, for a presenter film](#the-five-calls-for-a-presenter-film)
+- [The owner's answers](#the-owners-answers)
+- [What makes a presenter film good](#what-makes-a-presenter-film-good)
+- [Sure, Bold, Wild, for this format](#sure-bold-wild-for-this-format)
+- [Where the plates come from](#where-the-plates-come-from)
+- [The plan: presenter/plan-<Label>.json](#the-plan-presenterplan-labeljson)
+- [The check, in plain words](#the-check-in-plain-words)
+- [What it costs](#what-it-costs)
+- [Without Codex](#without-codex)
+- [A worked example, four beats](#a-worked-example-four-beats)
+- [Done when](#done-when)
+
 Read this when the footage is one person talking to camera, shot on a green or blue screen (or any single-subject talking clip the user wants put "into" other worlds). Route: `presenter`. The person is keyed out; behind and around them the film cuts between **generated image plates** made for what they are saying at that moment, moving with designed camera moves, plus motion graphics (titles, callouts, stats, lists, labels) and optional captions. The voice is the spine. In this version the clip plays whole: the cut never changes what they said, and nothing is trimmed.
 
 This is the playbook for the visual writers (`agents/visual-writer.md`) and the Director. The scripts are `presenter.mjs` (key, marks, beats, check, plates, stills, build) and `imagegen.mjs` (the Codex image tool). Prompt craft for the plates is in `references/imagery.md`.

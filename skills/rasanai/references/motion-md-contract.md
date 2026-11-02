@@ -1,5 +1,18 @@
 # motion.md contract
 
+## Contents
+
+- [Format](#format)
+- [The vocabulary: RasanMotion](#the-vocabulary-rasanmotion)
+- [Tween classes](#tween-classes)
+- [Rules](#rules)
+- [Banned-pattern signatures](#banned-pattern-signatures)
+- [Page-chrome rules (slop.mjs)](#page-chrome-rules-slopmjs)
+- [The draft: fluency](#the-draft-fluency)
+- [Adjectives (motion-md.mjs write --adjust a,b)](#adjectives-motion-mdmjs-write---adjust-ab)
+- [Creative policy and profiles (new creative policy only)](#creative-policy-and-profiles-new-creative-policy-only)
+- [Waivers](#waivers)
+
 `motion.md` sits at the project root next to `frame.md`. `frame.md` says what things look like; `motion.md` says how they move. It is written by `scripts/motion-md.mjs` (from a motion language, a swatch or a design system, via `scripts/lib/fluent.mjs`) and enforced by `scripts/obey.mjs` on the build and `scripts/motion-gate.mjs` (fluency) on the draft.
 
 **Why it looks like this.** The old contract was a duration grid (±15%), a three-ease whitelist, one stagger and an overshoot ban, and obey errored on anything else (custom eases included). R5 (`.context/night/R5-motion-fluency.md`) measured that exactly those four things are the strongest machine tells: one curve shape on every move (t50 spread 0.09–0.17 vs 0.24–0.48 in the references), durations on a grid, a metronome stagger, nothing ever settling. "Precise" had been turned into "uniform". The contract now keeps a language's *signature* (its eases, pace and bans) and enforces *variety*: a curve per role, durations from distance, overlap, irregular cascades, a settle budget, arcs and a living camera.

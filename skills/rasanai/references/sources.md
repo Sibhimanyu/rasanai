@@ -1,5 +1,15 @@
 # Source modes: what the film is made from
 
+## Contents
+
+- [1 · Source mode, at the brief](#1--source-mode-at-the-brief)
+- [2 · Which gates apply](#2--which-gates-apply)
+- [3 · The footage desk (scripts)](#3--the-footage-desk-scripts)
+- [4 · Crew, files and checks](#4--crew-files-and-checks)
+- [5 · How to cut footage (for the writers)](#5--how-to-cut-footage-for-the-writers)
+- [6 · The brand kit](#6--the-brand-kit)
+- [7 · Not built yet](#7--not-built-yet)
+
 RasanAI's research desk was built for a public product with a website: the truth is on the web and the pictures are made from scratch. When the film is made from the user's **own footage**, that turns around. The truth is in the rushes, and the job is to find the film inside them, not to write one. So the Brief decides a **source mode**, and the source decides who researches, who writes the story and which gates apply.
 
 Research behind this: `.context/night/R4-footage-and-cases.md` (how professionals cut a client's own footage, the 18 cases, the tool audit).

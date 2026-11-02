@@ -1,5 +1,13 @@
 # Handoff to HyperFrames
 
+## Contents
+
+- [decisions.json](#decisionsjson)
+- [What handoff.mjs does](#what-handoffmjs-does)
+- [Why the route adopts it without re-asking](#why-the-route-adopts-it-without-re-asking)
+- [Why DISPATCH.md exists](#why-dispatchmd-exists)
+- [Revise](#revise)
+
 ## decisions.json
 
 Written by the agent at the Plan step of a single motion unit (references/workflows/routes/motion-graphics.md, "Single units") in the run's scratch dir, consumed by `scripts/handoff.mjs`.

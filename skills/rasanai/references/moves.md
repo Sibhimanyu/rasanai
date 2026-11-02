@@ -1,5 +1,20 @@
 # Moves: how a film's transformations are invented
 
+## Contents
+
+- [0. Why: the label problem and the carrier](#0-why-the-label-problem-and-the-carrier)
+- [1. The procedure (11 steps)](#1-the-procedure-11-steps)
+- [1b. Every show gets a card, not only the joins](#1b-every-show-gets-a-card-not-only-the-joins)
+- [2. The move card and the chain ledger](#2-the-move-card-and-the-chain-ledger)
+- [3. The 20 generators, as questions](#3-the-20-generators-as-questions)
+- [4. The showreel checklist and the competent tells](#4-the-showreel-checklist-and-the-competent-tells)
+- [5. Earn the trick, personality, puns](#5-earn-the-trick-personality-puns)
+- [6. Product-first variant](#6-product-first-variant)
+- [7. Brand-film variant](#7-brand-film-variant)
+- [8. How roughs are built (the grey-box rule)](#8-how-roughs-are-built-the-grey-box-rule)
+- [9. The verdict's pairwise rounds (checkable)](#9-the-verdicts-pairwise-rounds-checkable)
+- [10. The reference move library and the story spine (R5)](#10-the-reference-move-library-and-the-story-spine-r5)
+
 The brief for the move-inventor, the move-juror, the move-sketcher and the Motion Director. A **move** is a transformation of one carrier across a boundary: a letter becomes a dot, the dot becomes a pupil, the pupil's white becomes the next page. It is never a technique name. Data for this pass lives in `library/moves/` (`generators.json`, `library.json`, `stimuli.json`, `choreography.json`, `banned.json`); the CLI is `scripts/moves.mjs`.
 
 ## 0. Why: the label problem and the carrier
@@ -19,7 +34,7 @@ Four rules follow, and the checks enforce them:
 
 You tend to converge toward the safest on-distribution storyboard: the transition names from the standard menu, applied to the most literal reading of the brief. That output is the failure condition. Make deliberate, opinionated choices specific to this subject. Where the brief leaves an axis free, do not spend that freedom on a default.
 
-**A grammar, when one exists.** The motion layer commits to ONE grammar for the whole film (`library/grammars/`, `references/craft.md` "Grammar: one per film, a technique per beat"). At the Story step the look is not chosen yet, so moves are written grammar-agnostic: a carrier, a state change and a bridge, never a technique name. When `look/grammar.json` exists, the inventor reads it and may shape the joins with its frame device. The Motion Director then restates every hero in the grammar (the same carrier, travelling as that grammar's frame device would, executed with the beat's technique).
+**A grammar, when one exists.** The motion layer commits to one grammar for the whole film (`library/grammars/`, `references/craft.md` "Grammar: one per film, a technique per beat"). At the Story step the look is not chosen yet, so moves are written grammar-agnostic: a carrier, a state change and a bridge, never a technique name. When `look/grammar.json` exists, the inventor reads it and may shape the joins with its frame device. The Motion Director then restates every hero in the grammar (the same carrier, travelling as that grammar's frame device would, executed with the beat's technique).
 
 ## 1. The procedure (11 steps)
 
@@ -176,45 +191,30 @@ If you can only write the left column, the idea is not there yet: go back to the
 
 Ask the question of an atom or a boundary; do not pick the generator and then look for an atom. Each has a definition, one example, when it fails and a cheap build route. Full data: `library/moves/generators.json`.
 
-**G1 Glyph-as-object.** *What does this letter look like, and what is its hole, dot, stem or terminal?* A letterform's counter, dot or stem becomes a real object. Prefer letters in words that matter (o: eye, ball, sun; i: person, candle, pin; l: pencil, door; c: mouth; s: river). Bass's Vertigo: the eye's pupil radiates spirals. Fails when the letter is in a throwaway word, or every letter becomes a thing. Route: `svg-morph`.
+Each generator uses the move shape: name | when (the question to ask) | how (the recipe and its cheap build route) | not when (where it fails).
 
-**G2 Shape rhyme across beats.** *What is the plain geometric shape of this beat, and what in the next beat has the same silhouette at the same place?* 2001's bone becomes a satellite on the same trajectory; Lawrence's match flame becomes a sunrise. Fails when the rhyme is only silhouette with no semantic jump (small to cosmic, tool to result). Route: `scale-anchor`.
-
-**G3 Scale-through.** *If I keep zooming into this element, what is inside it? If I zoom out, what is it part of?* A small element grows until it is the next ground. Keep a fixed screen point (the centre of the pupil) during the push. Fails when the anchor is lost. Route: `scale-anchor`.
-
-**G4 Object-born transition.** *What is moving at the last frame, and what does the next beat need first?* The momentum carries the cut: velocity-matched, cut at peak speed. Juno walks behind a tree and the world changes on the far side. Fails when speed or direction does not match; "if you cut at frame six, continue from frame seven". Route: `dom-flip`.
-
-**G5 Negative-space reveal.** *Which part is empty, and what could live in it?* Something slides out of a gap or outline. Anatomy of a Murder's cut-out silhouette. Fails when the revealed element leaks outside the shape or the opening is too small to read. Route: `clip-mask`.
-
-**G6 Mask-from-content.** *What shape here could be a window?* A scene element's shape is the window onto the next content. True Detective's double exposure. Fails when the window content is generic. Route: `clip-mask`.
-
-**G7 Behavioural beat.** *What would this object do if it were alive?* A shape looks, blinks, hesitates, startles. The Pink Panther treats the credits as a playground; Google's dots listen, think, fail. One per 8 to 12 s. Fails when the personality contradicts the brand's tone. Route: `svg-morph`.
-
-**G8 Line-becomes-path.** *If this stroke were a track, who rides it?* A line drawn in one beat is the route the camera follows in the next. Lord of War's bullet; Game of Thrones' map. Fails when the path has no landmarks. Route: `path-follow`.
-
-**G9 UI element becomes stage.** *What if this component were a room?* A real button, card or window expands to be the environment (container transform). Only with the real UI. Fails when the UI is fake or the expansion hides what the product does. Route: `scale-anchor`.
-
-**G10 Number-becomes-object.** *What is the unit of this number, physically?* A statistic is rendered as the thing it counts. Fails when the object is not recognisable at small size, or the number is not sourced. Route: `dom-flip`.
-
-**G11 Cursor, hand or camera as character.** *Who is looking or clicking, and what do they want?* The pointer is a protagonist: it hesitates, hunts, overshoots. Fails when it does a stock click-and-zoom with no motive. Route: `path-follow`.
-
-**G12 Kinetic semantics.** *What physical verb is this word, and what is the surprising but inevitable version?* The text behaves like its meaning, on a second layer (cause, personality, pun). Ferro's mismatched hand-lettered sizes. Fails when the literal is the only layer. Route: `split-text`.
-
-**G13 Container swap.** *What frame is this content in, and what other frame could hold it?* The same content moves between containers (page, window, card) while one object continues. Catch Me If You Can's stamps. Fails when the new container needs explaining. Route: `dom-flip`.
-
-**G14 Oner logic.** *What leaves the frame at the end of this beat, and what enters at the start of the next in the same direction?* One continuous shot; every cut hidden by a matched vector. Fails when continuity is the only idea. Route: `path-follow`.
-
-**G15 Morph chain.** *What is the shortest sequence of legible intermediates between these two ideas?* A to B to C to D, each held for a beat. Buck's "Metamorphosis". Fails when intermediates are blobs. Route: `svg-morph`.
-
-**G16 Artefact as author.** *What would the person or product physically produce?* The motion is made with the subject's own craft (stamps, tickets, redlines). Se7en's scratchboard. Fails when the artefact look is the only idea. Under product-first, only the product's own real artefacts. Route: `other`.
-
-**G17 Delete to create.** *What if we get there by taking away?* The end state emerges by deleting in an order. Fails when deletion reads as a glitch. Route: `split-text`.
-
-**G18 Rule and break.** *What rule does the film teach in its first 3 s, and where does breaking it once matter?* Establish a pattern and break it once. Stack's metronome and its planned irregularity. Fails when the break is arbitrary. Route: `other`.
-
-**G19 Scatter and assembly.** *What is the physics of this assembly, and who is pushed out when the hero arrives?* Parts fly in or are scattered with a visible cause. Fails when scatter is generic energy. Route: `split-text`.
-
-**G20 Double image (fusion).** *What if source and target were one object?* Two readings occupy one shape. Fails when the viewer cannot name both halves in 1 s. Route: `svg-morph`.
+| Name | When | How | Not when |
+|---|---|---|---|
+| G1 Glyph-as-object | What does this letter look like, and what is its hole, dot, stem or terminal? | A letterform's counter, dot or stem becomes a real object. Prefer letters in words that matter (o: eye, ball, sun; i: person, candle, pin; l: pencil, door; c: mouth; s: river). Bass's Vertigo: the eye's pupil radiates spirals. Route: `svg-morph`. | the letter is in a throwaway word, or every letter becomes a thing. |
+| G2 Shape rhyme across beats | What is the plain geometric shape of this beat, and what in the next beat has the same silhouette at the same place? | 2001's bone becomes a satellite on the same trajectory; Lawrence's match flame becomes a sunrise. Route: `scale-anchor`. | the rhyme is only silhouette with no semantic jump (small to cosmic, tool to result). |
+| G3 Scale-through | If I keep zooming into this element, what is inside it? If I zoom out, what is it part of? | A small element grows until it is the next ground. Keep a fixed screen point (the centre of the pupil) during the push. Route: `scale-anchor`. | the anchor is lost. |
+| G4 Object-born transition | What is moving at the last frame, and what does the next beat need first? | The momentum carries the cut: velocity-matched, cut at peak speed. Juno walks behind a tree and the world changes on the far side. Route: `dom-flip`. | speed or direction does not match; "if you cut at frame six, continue from frame seven". |
+| G5 Negative-space reveal | Which part is empty, and what could live in it? | Something slides out of a gap or outline. Anatomy of a Murder's cut-out silhouette. Route: `clip-mask`. | the revealed element leaks outside the shape or the opening is too small to read. |
+| G6 Mask-from-content | What shape here could be a window? | A scene element's shape is the window onto the next content. True Detective's double exposure. Route: `clip-mask`. | the window content is generic. |
+| G7 Behavioural beat | What would this object do if it were alive? | A shape looks, blinks, hesitates, startles. The Pink Panther treats the credits as a playground; Google's dots listen, think, fail. One per 8 to 12 s. Route: `svg-morph`. | the personality contradicts the brand's tone. |
+| G8 Line-becomes-path | If this stroke were a track, who rides it? | A line drawn in one beat is the route the camera follows in the next. Lord of War's bullet; Game of Thrones' map. Route: `path-follow`. | the path has no landmarks. |
+| G9 UI element becomes stage | What if this component were a room? | A real button, card or window expands to be the environment (container transform). Only with the real UI. Route: `scale-anchor`. | the UI is fake or the expansion hides what the product does. |
+| G10 Number-becomes-object | What is the unit of this number, physically? | A statistic is rendered as the thing it counts. Route: `dom-flip`. | the object is not recognisable at small size, or the number is not sourced. |
+| G11 Cursor, hand or camera as character | Who is looking or clicking, and what do they want? | The pointer is a protagonist: it hesitates, hunts, overshoots. Route: `path-follow`. | it does a stock click-and-zoom with no motive. |
+| G12 Kinetic semantics | What physical verb is this word, and what is the surprising but inevitable version? | The text behaves like its meaning, on a second layer (cause, personality, pun). Ferro's mismatched hand-lettered sizes. Route: `split-text`. | the literal is the only layer. |
+| G13 Container swap | What frame is this content in, and what other frame could hold it? | The same content moves between containers (page, window, card) while one object continues. Catch Me If You Can's stamps. Route: `dom-flip`. | the new container needs explaining. |
+| G14 Oner logic | What leaves the frame at the end of this beat, and what enters at the start of the next in the same direction? | One continuous shot; every cut hidden by a matched vector. Route: `path-follow`. | continuity is the only idea. |
+| G15 Morph chain | What is the shortest sequence of legible intermediates between these two ideas? | A to B to C to D, each held for a beat. Buck's "Metamorphosis". Route: `svg-morph`. | intermediates are blobs. |
+| G16 Artefact as author | What would the person or product physically produce? | The motion is made with the subject's own craft (stamps, tickets, redlines). Se7en's scratchboard. Route: `other`. | the artefact look is the only idea. Under product-first, only the product's own real artefacts. |
+| G17 Delete to create | What if we get there by taking away? | The end state emerges by deleting in an order. Route: `split-text`. | deletion reads as a glitch. |
+| G18 Rule and break | What rule does the film teach in its first 3 s, and where does breaking it once matter? | Establish a pattern and break it once. Stack's metronome and its planned irregularity. Route: `other`. | the break is arbitrary. |
+| G19 Scatter and assembly | What is the physics of this assembly, and who is pushed out when the hero arrives? | Parts fly in or are scattered with a visible cause. Route: `split-text`. | scatter is generic energy. |
+| G20 Double image (fusion) | What if source and target were one object? | Two readings occupy one shape. Route: `svg-morph`. | the viewer cannot name both halves in 1 s. |
 
 Cheapest builds in HTML and GSAP: G2, G3, G5 and G6 (clip-path or SVG mask), G15 (SVG path morph), G17, G19. Costlier: G14, G8 (path-following camera), G9, 3D variants.
 
@@ -252,7 +252,7 @@ Moves under the new policy start from the approved signature event (`creative/br
 7. **Personality.** At least one behaviour that is characterful rather than informative.
 8. **Earn the trick** (§5).
 9. **Legibility.** Every intermediate state is recognisable. Freeze any frame: it is a good poster.
-10. **Restraint.** One signature move per scene at most; everything around it quiet. A carrier's chain of transformations is ONE signature and ONE motion type (morph), however many steps it has: restraint is about unrelated ideas, not about the number of transformations of one carrier.
+10. **Restraint.** One signature move per scene at most; everything around it quiet. A carrier's chain of transformations is one signature and one motion type (morph), however many steps it has: restraint is about unrelated ideas, not about the number of transformations of one carrier.
 11. **Scale.** At least one hero is full-frame: the transformation fills most of the frame at its bridge.
 
 **Competent tells** (any one means "rewrite the plan"):

@@ -1,7 +1,7 @@
 // The ONE concept schema (references/concept-schema.md). Every reader (story.mjs GV, treatment.mjs, board.mjs, style-frames.mjs,
 // story-visuals.mjs, moves.mjs validate-score, grammar.mjs) and writer (concept-writer-*, script-writer, imagegen) goes through here.
 //   style_world: an atlas id string; optional `style` {palette{bg,bg2,ink,accent}, font}, resolved from the atlas when missing.
-//   carrier {what, kind}; signature_moment {what, shot}; sound_mode; shots[] {id s01.., t, see, style, carrier_state, move, transition, words, image?}
+//   carrier {what, kind} (OPTIONAL on a launch concept: local, 40% of beats at most; a launch concept lists scene_plan[] {beat, scene_type, texture, move?, imagery?} and texture_accents[] instead); signature_moment {what, shot}; sound_mode; shots[] {id s01.., t, see, style, carrier_state, move, transition, words, image?}
 // Older spellings still read: style_world as an object {name|id, palette, font}, carrier / signature_moment as plain strings.
 import fs from "node:fs";
 import path from "node:path";
@@ -97,10 +97,10 @@ export function lintConcept(c, opts = {}) {
   if (!id) { if (!isLaunchConcept(c)) errors.push("style_world missing (an atlas id, library/styles/atlas/index.json)"); }
   else if (atlasIndex().styles.length && !atlasIds().has(id)) warnings.push(`style_world "${id}" is not in library/styles/atlas/index.json (known: ${[...atlasIds()].slice(0, 6).join(", ")}...)`);
   const car = carrierOf(c);
-  if (!car.what) errors.push("carrier.what missing");
+  if (!car.what && !isLaunchConcept(c)) errors.push("carrier.what missing"); // a launch concept carrier is optional and local (references/launch-grammar.md)
   if (car.kind && !CARRIER_KINDS.includes(car.kind)) warnings.push(`carrier.kind "${car.kind}" is not one of ${CARRIER_KINDS.join(", ")}`);
   if (isLaunchConcept(c) && car.kind === "object") warnings.push("launch concept: carrier.kind \"object\" usually means an outside metaphor world; the carrier must come from the product, its UI or the brand (caret, highlight, card, chip, notification, orb, the user's own text). At most one wild-lane idea may use an outside metaphor, and the jury may not recommend it");
-  if (!car.kind) warnings.push(`carrier.kind missing (one of ${CARRIER_KINDS.join(", ")})`);
+  if (!car.kind && (car.what || !isLaunchConcept(c))) warnings.push(`carrier.kind missing (one of ${CARRIER_KINDS.join(", ")})`);
   const sm = soundModeOf(c);
   if (sm && !SOUND_MODES.includes(sm)) errors.push(`sound_mode "${sm}" is not one of ${SOUND_MODES.join(", ")}`);
   if (opts.shots === false) return { errors, warnings };

@@ -29,13 +29,13 @@ Each beat:
 | Field | Type | Constraint |
 |---|---|---|
 | `name` | string | the pitch beat's `name` |
-| `buys` | string | "The viewer now believes / knows / feels / wants …": ONE belief, no `and`, 20 words at most |
+| `buys` | string | "The viewer now believes / knows / feels / wants …": one belief, no `and`, 20 words at most |
 | `viewer_before` | string | what the viewer thinks or feels as the beat starts |
 | `viewer_after` | string | as it ends; different from `viewer_before` (a beat that changes nothing is cut) |
 | `relation` | string | to the beat before: `because` \| `but` \| `so` \| `example` \| `escalation` \| `answer`; the first beat is `open`. A beat with no relation word is cut |
 | `importance` | number | `1` \| `2` \| `3` |
 | `peak` | boolean | exactly one beat is `true` |
-| `read` | object | `{text, seconds, kind (opt)}` (`s` is read as `seconds`): the ONE thing to read. `kind` `words` (default) \| `number` \| `picture`. `seconds` at least `readTime(text)` (`scripts/lib/reading.mjs`: 0.6 + 0.3 per word); a picture read at least 1.0 |
+| `read` | object | `{text, seconds, kind (opt)}` (`s` is read as `seconds`): the one thing to read. `kind` `words` (default) \| `number` \| `picture`. `seconds` at least `readTime(text)` (`scripts/lib/reading.mjs`: 0.6 + 0.3 per word); a picture read at least 1.0 |
 | `rest_after` | boolean | the film breathes after this beat |
 | `duration_s` | number | the pitch beat's draft `duration_s`, copied, so the peak's place and its length against the other beats can be measured |
 | `slot` | string (opt) | the beat sheet's slot for this beat (`story.mjs sheet --length <s>`): `open` \| `hook` \| `turn` \| `rung` \| `proof` \| `rest` \| `peak` \| `payoff` \| `end` \| `close` |

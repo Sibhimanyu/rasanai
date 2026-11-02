@@ -4,7 +4,8 @@
 
 ### Story for a song (route `music-to-video`)
 
-A track with fixed lyrics needs one concept, one visual world and a plate per lyric section in which every line becomes a picture, not three scripts. The playbook is `references/lyric-video.md` (what makes a lyric video people rewind; the format `treatment.mjs` checks); the words and music come from `music/lyrics.json` and `music/audio.json` (above; `references/lyrics.md`).
+A track with fixed lyrics needs one concept, one visual world and a plate per lyric section in which every line becomes a picture, not three scripts.
+The playbook is `references/lyric-video.md` (what makes a lyric video people rewind; the format `treatment.mjs` checks); the words and music come from `music/lyrics.json` and `music/audio.json` (above; `references/lyrics.md`).
 
 ```bash
 node $SKILL_DIR/scripts/crew.mjs plan --run "$RUN" --route music-to-video --subject "<song>" [--public] [--length <s>]   # precedent researcher only with --public: the artist's and genre's visual conventions
@@ -12,9 +13,15 @@ node $SKILL_DIR/scripts/crew.mjs brief --run "$RUN" --role treatment-writer --ke
 node $SKILL_DIR/scripts/crew.mjs check --run "$RUN" --role treatment-writer --key <label>                              # runs treatment.mjs check with the lyrics and the audio, and wants story/TREATMENT-<label>.md
 ```
 
-Each writer starts from `treatment.mjs skeleton` (plates per section, starts snapped to downbeats) and returns `story/treatment-<label>.json` plus `story/TREATMENT-<label>.md`. A treatment that fails `treatment.mjs check` (every line covered once, plates contiguous and on the beat grid, varied idioms, a recurring motif, escalating hooks, one owned accent, 3D present, energy that follows the song) goes back to its writer with what it names; two rewrites at most, then the Director writes it. Sure is the obvious-in-hindsight format for this song, Bold a strong formal conceit with a signal running through it, Wild the one a studio would put on its reel.
+Each writer starts from `treatment.mjs skeleton` (plates per section, starts snapped to downbeats) and returns `story/treatment-<label>.json` plus `story/TREATMENT-<label>.md`.
+A treatment that fails `treatment.mjs check` (every line covered once, plates contiguous and on the beat grid, varied idioms, a recurring motif, escalating hooks, one owned accent, 3D present, energy that follows the song) goes back to its writer with what it names;
+two rewrites at most, then the Director writes it.
+Sure is the obvious-in-hindsight format for this song, Bold a strong formal conceit with a signal running through it, Wild the one a studio would put on its reel.
 
-Push `story` with `stories: [{id, angle, title, logline (≤ 12 words), treatment_md: "$RUN/story/TREATMENT-<label>.md", plates: [{id, title, start, end, idiom, space, energy}], concept, last_line}]` and `recommended`; the page shows the three treatments as tabs, each read from its TREATMENT-<label>.md. Answers: `choose <id>` → copy that treatment to `$RUN/story/chosen-treatment.json` (and its words to `chosen-treatment.md`; the Motion Director reads both), record `memory.mjs record --step concept --value <concept> --mode confirmed`, close `story`, and go to the Look. A `note` → send it to that writer (`SendMessage` or a fresh dispatch with the note), re-check, re-push. `more` → three new treatments on new concepts.
+Push `story` with `stories: [{id, angle, title, logline (≤ 12 words), treatment_md: "$RUN/story/TREATMENT-<label>.md", plates: [{id, title, start, end, idiom, space, energy}], concept, last_line}]` and `recommended`;
+the page shows the three treatments as tabs, each read from its TREATMENT-<label>.md.
+Answers: `choose <id>` → copy that treatment to `$RUN/story/chosen-treatment.json` (and its words to `chosen-treatment.md`; the Motion Director reads both), record `memory.mjs record --step concept --value <concept> --mode confirmed`, close `story`, and go to the Look.
+A `note` → send it to that writer (`SendMessage` or a fresh dispatch with the note), re-check, re-push. `more` → three new treatments on new concepts.
 
 ## Where the rest of the lyric-video steps live
 

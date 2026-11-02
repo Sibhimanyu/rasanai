@@ -1,5 +1,20 @@
 # UI rebuild kit (RasanUI)
 
+## Contents
+
+- [Use it for](#use-it-for)
+- [The calls](#the-calls)
+- [Brand tokens in, not zinc](#brand-tokens-in-not-zinc)
+- [The slop tells it will not draw](#the-slop-tells-it-will-not-draw)
+- [Cursor and press physics](#cursor-and-press-physics)
+- [Typing only in a field](#typing-only-in-a-field)
+- [Drag and drop, agent work, dense scrolls, a terminal (1.1.0)](#drag-and-drop-agent-work-dense-scrolls-a-terminal-110)
+- [Cursor-driven simulations (RasanSim)](#cursor-driven-simulations-rasansim)
+- [Readability: the hard gate (G1)](#readability-the-hard-gate-g1)
+- [The captured marker](#the-captured-marker)
+- [Determinism and seek-safety](#determinism-and-seek-safety)
+- [Sequence for a beat](#sequence-for-a-beat)
+
 A launch film shows the real product, redrawn for video: one captured screen rebuilt as DOM in the film's own look, magnified until it reads, with a cursor that behaves like a person's. `RasanUI` (`runtime/rasan-ui.js`) is that kit. It is one browser file with no build step, deterministic and seek-safe on the scene's paused GSAP timeline, and it draws the parts that make "real product" read and the generic "vibe-coded card" impossible to write. Adapted in part from motionmaxxing (Apache-2.0, Tejas Makwana), `runtime/native-ui`; see `third_party/` for the licence.
 
 ```

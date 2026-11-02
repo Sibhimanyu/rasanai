@@ -10,7 +10,8 @@
 //   0 preflight  the planner's files exist (crew/plan.json, policy.json, motion/score.json) and no hand-made plan was logged; the render is not a
 //                draft; no fix round is open (every crew member's latest ledger row is accepted; no fix-brief newer than the render)
 //   1 frame-gate  2 motion-gate (end-hold, saved to <run>/motion/motion-gate.json)  3 slop (the film's index.html)  4 sound check  5 obey  6 mix-duck (audio/mix.mix.json: duck.measured_db and duck.music_under_vo_lu; no duck is the default and 0 dB passes)
-//   7 text-qa (spell-check of the on-screen words in the film's index.html: doubled words, common typos, malformed contractions, number style; errors block)
+//   2b launch-gates (launch/promo films: lib/launch-gates.mjs on the render at 4 fps: foreground coverage and display-scale type, ground variety and brand colour, meaningful stillness, hook length; waivable by rule name)
+//   7 text-qa (spell-check of the on-screen words in the film's index.html and its sub-compositions (data-composition-src): doubled words, common typos, malformed contractions, number style; errors block)
 //   8 music-sync (music-map.mjs check: cuts and big visual hits land within 150 ms of music events; a film with no voice needs 50%)
 //   (all gates judge the film by its chosen style world: the atlas world's gate_profile (dimensional | flat | pixel | stepped | photographic | hand-made, lib/gate-profile.mjs) goes to frame-gate, motion-gate and slop as --gate-profile; the concept's grammar_waivers [{rule, why}] go down as --waive and turn the launch grammar's defaults into notes)
 //  10 vo-scratch (WARNING + needs_you, never silent: the voice is the macOS `say` scratch track from vo.mjs)
@@ -76,6 +77,16 @@ export function verifyHandover(run, video) {
   return { ok: why.length === 0, why, warnings: (g && g.warnings) || [], needs_you: (g && g.needs_you) || [] };
 }
 
+// the film's markup: index.html plus every sub-composition it mounts (data-composition-src) and the files in compositions/: a film built from
+// sub-compositions keeps all its words there, so reading index.html alone found 0 words (26keys-launch, 1.36)
+export function filmHtml(project) {
+  const root = path.resolve(project), seen = new Set(), parts = [];
+  const add = (f) => { const p = path.resolve(f); if (seen.has(p) || !ex(p) || !/\.html?$/i.test(p)) return; seen.add(p); let h = ""; try { h = fs.readFileSync(p, "utf8"); } catch { return; } parts.push(h); for (const m of h.matchAll(/data-composition-src\s*=\s*["']([^"']+)["']/g)) add(path.resolve(path.dirname(p), m[1])); };
+  add(path.join(root, "index.html"));
+  try { for (const f of fs.readdirSync(path.join(root, "compositions")).sort()) add(path.join(root, "compositions", f)); } catch {}
+  return parts.join("\n");
+}
+
 function run1(name, argv, { json = true } = {}) {
   const r = spawnSync(process.execPath, [path.join(HERE, ...name.split("/")), ...argv], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, maxBuffer: 256 * 1024 * 1024 });
   let j = null;
@@ -115,10 +126,27 @@ export function main(args) {
       if (!ok) blocked.push(`${step}: ${r.code === 1 ? "could not run (never a pass)" : "failed"} (exit ${r.code})${why}${r.stderr ? " " + r.stderr.replace(/\s+/g, " ").slice(-200) : ""}`);
       return ok;
     };
-    rec("frame-gate", run1("frame-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), ...(kind ? ["--kind", kind] : []), ...profArgs, ...waiveArgs, "--json"]));
+    const fg = run1("frame-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), ...(kind ? ["--kind", kind] : []), ...profArgs, ...waiveArgs, "--json"]);
+    rec("frame-gate", fg);
     const mg = run1("motion-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), "--end-hold", String(args["end-hold"] || 1.4), ...(kind ? ["--kind", kind] : []), "--run", run, ...profArgs, ...waiveArgs, "--json"]);
     try { fs.mkdirSync(path.join(run, "motion"), { recursive: true }); fs.writeFileSync(path.join(run, "motion", "motion-gate.json"), mg.json ? JSON.stringify(mg.json, null, 2) : JSON.stringify({ ok: false, exit: mg.code, stdout: mg.stdout.slice(0, 4000) })); } catch {}
     rec("motion-gate", mg, { saved: "motion/motion-gate.json" });
+    // launch gates on the rendered video (lib/launch-gates.mjs): scale, ground variety, meaningful stillness, hook length. Text size reuses frame-gate's DOM rows.
+    if (launchKind) {
+      const rowsF = path.join(run, "motion", "launch-text-rows.json");
+      const rows = ((fg.json && fg.json.frames) || []).filter((f) => f && typeof f.t === "number" && typeof f.bigPct === "number").map((f) => ({ t: f.t, bigPct: f.bigPct }));
+      try { fs.mkdirSync(path.dirname(rowsF), { recursive: true }); fs.writeFileSync(rowsF, JSON.stringify(rows)); } catch {}
+      const lg = run1("lib/launch-gates.mjs", ["--video", video, ...(rows.length ? ["--text-rows", rowsF] : ["--project", project]), ...(hasScore ? ["--score", score] : []), "--end-hold", String(args["end-hold"] || 1.4)]);
+      const fnd = (lg.json && lg.json.findings) || [];
+      if (!lg.json) { steps.push({ step: "launch-gates", ok: false, exit: lg.code }); blocked.push(`launch-gates: could not run (never a pass) ${lg.stderr.replace(/\s+/g, " ").slice(-200)}`); }
+      else {
+        const waived = (f) => wv.waived && Object.prototype.hasOwnProperty.call(wv.waived, f.check);
+        const errs = fnd.filter((f) => f.severity === "error" && !waived(f));
+        steps.push({ step: "launch-gates", ok: !errs.length, measured: lg.json.measured });
+        for (const f of errs) blocked.push(`launch-gates (${f.check}): ${f.message}`);
+        for (const f of fnd.filter((f) => f.severity !== "error" || waived(f))) warnings.push(`launch-gates (${f.check})${waived(f) ? " [waived]" : ""}: ${f.message}`);
+      }
+    }
     const runScenes = path.join(run, "scenes.json");
     const sl = run1("slop.mjs", ["--project", project, "--video", video, "--run", run, ...(ex(runScenes) ? ["--scenes", runScenes] : []), ...(hasScore ? ["--score", score] : []), ...profArgs, "--json"]);
     if (sl.json && sl.json.scenes === 0 && ex(runScenes)) { steps.push({ step: "slop", ok: false, exit: sl.code }); blocked.push("slop: read 0 scenes (wrong file?): it must run on the film's own index.html"); }
@@ -141,7 +169,7 @@ export function main(args) {
   // 7 text-qa: the words on screen, from the FINAL index.html (a typo on screen is a defect the person sees on every play)
   if (project && ex(path.join(project, "index.html"))) {
     try {
-      const html = fs.readFileSync(path.join(project, "index.html"), "utf8");
+      const html = filmHtml(project);
       const brand = String((jr(path.join(run, "brief.json")) || {}).name || (jr(path.join(run, "brief.json")) || {}).product || "");
       const q = textQa(html, { allow: brand.split(/\W+/).filter(Boolean) });
       steps.push({ step: "text-qa", ok: q.ok, words: q.words, errors: q.errors.length, warnings: q.warnings.length });

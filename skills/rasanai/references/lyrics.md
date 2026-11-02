@@ -1,5 +1,12 @@
 # Lyric videos: every word on its sung start, every frame on the beat
 
+## Contents
+
+- [Commands](#commands)
+- [In the composition](#in-the-composition)
+- [How the film uses it](#how-the-film-uses-it)
+- [Accuracy (measured on the pdoom song, 227 words)](#accuracy-measured-on-the-pdoom-song-227-words)
+
 A lyric video is a film whose clock is the song. Two JSON files make that exact, and one small browser runtime reads them: nothing in a scene is timed by eye.
 
 | File | Made by | Holds |

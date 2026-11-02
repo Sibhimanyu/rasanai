@@ -1,5 +1,21 @@
 # Script: how to write a video script that holds up
 
+## Contents
+
+- [What you're given, what you return](#what-youre-given-what-you-return)
+- [Launch, promo and product films are product-first](#launch-promo-and-product-films-are-product-first)
+- [Treatments mode: concept before outline](#treatments-mode-concept-before-outline)
+- [Pass 0: the argument](#pass-0-the-argument)
+- [Shapes](#shapes)
+- [The passes](#the-passes)
+- [The show column: a motion that means each line](#the-show-column-a-motion-that-means-each-line)
+- [Structures by length](#structures-by-length)
+- [Hooks that work](#hooks-that-work)
+- [Lines: on screen and in the ear](#lines-on-screen-and-in-the-ear)
+- [The turn, the peak and the end](#the-turn-the-peak-and-the-end)
+- [Self-check before the checks](#self-check-before-the-checks)
+- [Rewrite moves, in order](#rewrite-moves-in-order)
+
 This is the writer's brief. RasanAI's Story call runs it as its own pass, separate from the look: a script is judged as an argument, beats and words before any style touches it. A good script is not a description of a video. It is the film in words: every second accounted for, every line something the viewer hears or reads, every visual something you could point a camera at, and every beat there because the argument needs it.
 
 ## What you're given, what you return
@@ -72,7 +88,7 @@ Kinso's launch (`library/showcases/kinso-launch.json`) is the viewer's day: "You
 - `hook`: the villain as a picture, in second person. For a universal or category claim the pain is the category's, never the set-up of one benefit.
 - `agitate` (optional): the pain lands; a reaction line ("Ugh.").
 - `meet`: the reveal and the turn, not before 20% (`reveal-too-early`): the product visibly reverses the villain.
-- `benefit` x2 to 4: each `benefit` (what the viewer gains, 12 words at most) and ONE UI behaviour in `ui[]`, escalating toward the peak, from different moments of life.
+- `benefit` x2 to 4: each `benefit` (what the viewer gains, 12 words at most) and one UI behaviour in `ui[]`, escalating toward the peak, from different moments of life.
 - `proof`: one line with a number from `research/claims.json` (`proof: {line, claim}`); none in the ledger, no number.
 - `cta`: `cta: {line, action, where}`, a verb and a place.
 
@@ -105,7 +121,7 @@ Its argument: the proposition "One link books the meeting, not fourteen replies"
 
 ### One feature, one scenario (single-task claims only)
 
-ONE feature whose promise is one job, shown as one person doing one real task. Write the `feature` block first:
+One feature whose promise is one job, shown as one person doing one real task. Write the `feature` block first:
 
 ```jsonc
 "feature": { "name": "Cues", "url": "https://greenroom.example/cues",
@@ -128,7 +144,7 @@ Write in passes; each has one question.
 7. **The end.** Does it land the ending you wrote first, and answer the opening? The name, one call to action, an end card of 2 to 3 s whose elements land in sequence.
 8. **The cut.** Delete 20% of the words. Cover each beat in turn: if no belief is lost, cut the beat. Then run the checks.
 
-## The show column: a motion that MEANS each line
+## The show column: a motion that means each line
 
 A line with no motion of its own is a caption, and a film of captions is a slide deck. After pass 4, give every beat `shows: [{ line, show, built_from, handoff }]`, **one row per on-screen line** (a title that changes in place is one row per state), and name the pitch's `actor: { what, does }`, the one persistent element (an orb, the composer, a dot, the cursor) that carries the film (required on launch, promo and brand films). The references are in `library/showcases/` (Sovra and Kinso for a launch).
 

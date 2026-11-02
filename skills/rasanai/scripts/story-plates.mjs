@@ -12,6 +12,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die } from "./lib/common.mjs";
+import { imageryPromptRisk, IMAGERY_STYLE, IMAGERY_AVOID } from "./lib/launch-beats.mjs";
 import { ensureShotIds, styleWorldId, carrierOf, signatureOf, atlasArt } from "./lib/concept-schema.mjs";
 
 const args = parseArgs();
@@ -37,7 +38,8 @@ function launchPrompt(c, sh) {
     line ? `Render exactly this copy line as large, clean kinetic type in the frame${tp ? `, set in the concept's type pairing (${tp})` : ""}: "${line}". It is the only text in the frame besides the UI words below.` : "",
     car.what ? `One carrier motif travels the film: ${car.what}${s(sh.carrier_state) ? ` (${s(sh.carrier_state)})` : ""}, simply drawn, in the brand colour.` : "",
     ui ? `A recognisable simplified UI (${ui}): a real card shape with rounded corners, a soft shadow and a few readable words of real UI text (a title, a label, a button), never grey placeholder bars and never a full-screen screenshot.` : "",
-    "Large confident empty space, one clear focal point, flat vector or soft-gradient rendering, sharp type. NOT a glowing 3D render: no neon, no fog, no haze, no lens flare, no dark moody lighting unless the ground is dark. No pixel art, no fantasy or game worlds, no characters unless the shot names one. No logos or watermarks."
+    `Any picture inside the frame follows this direction: ${IMAGERY_STYLE} Soft brand-gradient grounds come from the brand's own palette and stay subtle, never a default blue or purple glow.`,
+    "Large confident empty space, one clear focal point, flat vector or soft-gradient rendering, sharp type. NOT a glowing 3D render: no neon, no fog, no haze, no lens flare, no dark moody lighting unless the ground is dark. No pixel art, no fantasy or game worlds. No people, faces, hands, figures or silhouettes unless the shot names them. No blue or purple glow gradients, glowing screens, holograms or cinematic AI mood. No logos or watermarks."
   ].filter(Boolean).join(" ");
 }
 const log = (m) => process.stderr.write(`story-plates: ${m}\n`);
@@ -106,6 +108,7 @@ async function runConcept(c, n) {
     const see = [s(sh.see), carrier && s(sh.carrier_state) ? `${carrier}: ${s(sh.carrier_state)}` : "", "No text, letters, logos or watermarks in the image."].filter(Boolean).join(" ");
     const launch = isLaunchPlate(c);
     const prompt = launch ? launchPrompt(c, sh) : art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`;
+    if (launch && !args["allow-people"]) { const risk = imageryPromptRisk([s(sh.see), s(sh.ui_proof || sh.ui), s(sh.carrier_state)].join(" ")); if (risk.length) log(`WARNING ${id} ${s(sh.id)}: the shot asks for people or a neon/glow look (${risk.join(", ")}): it reads as AI-generated; use still-life objects, props, places and printed matter (pass --allow-people when the brief requires people)`); }
     log(`${id} ${s(sh.id)}${i === anchor ? " (anchor)" : ""}: generating`);
     const r = await generate(prompt, f, art && !launch ? world : "", launch ? "" : palette, i === anchor ? "" : anchorFile);
     if (r.ok && fs.existsSync(f)) {
