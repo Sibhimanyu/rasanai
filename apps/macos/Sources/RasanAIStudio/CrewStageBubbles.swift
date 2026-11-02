@@ -496,6 +496,8 @@ struct CrewPreviewBubble: View {
     let size: CGSize
     let dark: Bool
     @State private var image: NSImage?
+    @State private var hovering = false
+    @State private var token = UUID()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Padding, the caption block and the tail: everything in the card that is not the picture.
@@ -523,32 +525,13 @@ struct CrewPreviewBubble: View {
         let shape = SpeechCardShape(tail: true, flip: true)
         let tw = size.width - 2 * Self.pad
         let ink = dark ? StageColors.darkInk : StageColors.ink
-        Button { NSWorkspace.shared.open(item.openURL) } label: {
-            VStack(spacing: 4) {
-                ZStack {
-                    Color(nsColor: .underPageBackgroundColor)
-                    if let image { Image(nsImage: image).resizable().scaledToFill().frame(width: tw, height: tw / CGFloat(max(0.1, aspect))).clipped().id(ObjectIdentifier(image)).transition(.opacity) }
-                    if item.isVideo { Image(systemName: "play.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 30, height: 30).background(.black.opacity(0.5), in: Circle()) }
-                }
-                .frame(width: tw, height: (size.height - Self.chrome) + 0)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                VStack(spacing: 1) {
-                    Text(item.title).font(.system(size: 12, weight: .medium)).foregroundStyle(ink).lineLimit(1).truncationMode(.tail)
-                        .contentTransition(.opacity)
-                    Text("Latest preview").font(.system(size: 10)).foregroundStyle(StageColors.quiet).lineLimit(1)
-                }
-                .frame(width: tw)
-            }
-            .padding(Self.pad)
-            .padding(.bottom, BubbleMetrics.tailHeight)
-            .frame(width: size.width, height: size.height, alignment: .top)
-            .glassPanel(in: shape)
-            .overlay { shape.strokeBorder(Color.white.opacity(dark ? 0.08 : 0.5), lineWidth: 0.5) }
-            .shadow(color: .black.opacity(dark ? 0.35 : 0.12), radius: 10, y: 4)
-            .contentShape(shape)
+        Button(action: open) {
+            card(shape: shape, tw: tw, ink: ink)
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .topTrailing) { expandButton }
+        .onHover { hovering = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: hovering)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: image)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: item.title)
         .task(id: item.thumb.url) { if let loaded = await VideoPosters.image(for: item.thumb.url, isVideo: item.thumb.isVideo) { image = loaded } }
@@ -557,5 +540,54 @@ struct CrewPreviewBubble: View {
         .accessibilityLabel("Latest preview: \(item.title)")
         .accessibilityHint("Opens the \(item.isVideo ? "video" : "image")")
         .accessibilityAddTraits(.isButton)
+    }
+
+    /// Full-size, in the app for a video (every control, true full screen); a still opens in the system viewer.
+    private func open() {
+        guard item.isVideo else { NSWorkspace.shared.open(item.openURL); return }
+        guard !FilmTheater.shared.isOpen else { return }
+        let made = VideoPlayback()
+        made.load(url: item.openURL, fallbackDuration: 0)
+        VideoStageOverlay.shared.present(made, owner: token) { made.shutdown(); made.detach() }
+        Task { @MainActor in
+            for _ in 0..<40 where !made.isReady { try? await Task.sleep(for: .milliseconds(100)) }
+            made.play()
+        }
+    }
+
+    private var expandButton: some View {
+        Button(action: open) {
+            Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 22, height: 22).background(.black.opacity(0.55), in: Circle()).contentShape(Circle())
+        }
+        .buttonStyle(.plain).opacity(hovering ? 1 : 0.7).padding(.top, Self.pad + 4).padding(.trailing, Self.pad + 4)
+        .help(item.isVideo ? "Play full screen" : "Open \(item.title)").accessibilityLabel(item.isVideo ? "Play full screen" : "Open image")
+    }
+
+    private func card(shape: SpeechCardShape, tw: CGFloat, ink: Color) -> some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Color(nsColor: .underPageBackgroundColor)
+                if let image { Image(nsImage: image).resizable().scaledToFill().frame(width: tw, height: tw / CGFloat(max(0.1, aspect))).clipped().id(ObjectIdentifier(image)).transition(.opacity) }
+                if item.isVideo { Image(systemName: "play.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 30, height: 30).background(.black.opacity(hovering ? 0.7 : 0.5), in: Circle())
+                    .scaleEffect(hovering ? 1.1 : 1) }
+            }
+            .frame(width: tw, height: size.height - Self.chrome)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(spacing: 1) {
+                Text(item.title).font(.system(size: 12, weight: .medium)).foregroundStyle(ink).lineLimit(1).truncationMode(.tail)
+                    .contentTransition(.opacity)
+                Text("Latest preview").font(.system(size: 10)).foregroundStyle(StageColors.quiet).lineLimit(1)
+            }
+            .frame(width: tw)
+        }
+        .padding(Self.pad)
+        .padding(.bottom, BubbleMetrics.tailHeight)
+        .frame(width: size.width, height: size.height, alignment: .top)
+        .glassPanel(in: shape)
+        .overlay { shape.strokeBorder(Color.white.opacity(dark ? 0.08 : 0.5), lineWidth: hovering ? 1 : 0.5) }
+        .shadow(color: .black.opacity(dark ? 0.35 : 0.12), radius: hovering ? 14 : 10, y: 4)
+        .contentShape(shape)
     }
 }

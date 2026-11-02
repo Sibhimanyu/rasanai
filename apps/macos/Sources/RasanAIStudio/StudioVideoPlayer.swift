@@ -29,7 +29,11 @@ struct StudioVideoPlayer: View {
     var aspect: Double?
     @State private var playback: VideoPlayback?
     @State private var token = UUID()
+    @State private var narrow = false
     @FocusState private var focused: Bool
+
+    /// Under this width the transport is one slim row over the picture instead of the full two-row bar.
+    static let compactWidth: CGFloat = 480
 
     init(url: URL, fallbackDuration: Double = 0, muted: Bool = false, loops: Bool = false, autoplay: Bool = false, takesKeys: Bool = false, aspect: Double? = nil) {
         source = .url(url); self.fallbackDuration = fallbackDuration; self.muted = muted; self.loops = loops; self.autoplay = autoplay; self.takesKeys = takesKeys; self.aspect = aspect
@@ -42,12 +46,13 @@ struct StudioVideoPlayer: View {
     var body: some View {
         VStack(spacing: 6) {
             if let playback, !VideoStageOverlay.shared.isShowing(token) {
-                StudioVideoStage(playback: playback, aspect: aspect, isFullScreen: false, onFocus: { focused = true }) { VideoStageOverlay.shared.present(playback, owner: token) }
+                StudioVideoStage(playback: playback, aspect: aspect, isFullScreen: false, compact: narrow, onFocus: { focused = true }) { VideoStageOverlay.shared.present(playback, owner: token) }
                     .playerKeys(playback: playback, focus: $focused) { VideoStageOverlay.shared.present(playback, owner: token) }
             }
             else { Color.black.aspectRatio(aspect ?? 16 / 9, contentMode: .fit) }
         }
         .environment(\.colorScheme, .dark)
+        .onGeometryChange(for: Bool.self) { $0.size.width < Self.compactWidth } action: { narrow = $0 }
         .task(id: source) { start() }
         .onDisappear { stop() }
     }
@@ -87,10 +92,36 @@ private struct StudioVideoStage: View {
     let playback: VideoPlayback
     var aspect: Double?
     var isFullScreen: Bool
+    var compact = false
     var onFocus: () -> Void = {}
     var onFullScreen: () -> Void
+    @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        if compact { compactBody } else { fullBody }
+    }
+
+    /// Narrow tile: the picture fills it and one slim row (play, scrubber, time, full screen) sits over the bottom edge.
+    private var compactBody: some View {
+        let bar = hovering || !playback.isPlaying
+        return ZStack(alignment: .bottom) {
+            ZStack {
+                Color.black
+                if let player = playback.avPlayer { NativeFilmPlayer(player: player) }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { onFocus(); playback.toggle() }
+            CompactTransport(playback: playback, onFullScreen: onFullScreen)
+                .opacity(bar ? 1 : 0)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: bar)
+        }
+        .modifier(PictureShape(aspect: aspect))
+        .onHover { hovering = $0 }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var fullBody: some View {
         StageCardLayout {
             ZStack {
                 Color.black
@@ -108,6 +139,32 @@ private struct StudioVideoStage: View {
             .background(Color.black)
         }
         .clipShape(RoundedRectangle(cornerRadius: isFullScreen ? 0 : 14, style: .continuous))
+    }
+}
+
+/// The narrow player's one-row transport: play or pause, the scrubber filling the rest, the clock and full screen.
+private struct CompactTransport: View {
+    let playback: VideoPlayback
+    var onFullScreen: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button { playback.toggle() } label: {
+                Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white).frame(width: 26, height: 26).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).disabled(!playback.isReady).opacity(playback.isReady ? 1 : 0.5)
+            .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
+            TransportScrubber(playback: playback)
+            Text(reviewTime(playback.time)).font(.system(size: 10.5, weight: .medium, design: .monospaced)).foregroundStyle(.white.opacity(0.85)).fixedSize()
+            Button(action: onFullScreen) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white).frame(width: 26, height: 26).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).help("Full screen (F)").accessibilityLabel("Full screen")
+        }
+        .padding(.horizontal, 6).padding(.top, 14).padding(.bottom, 4)
+        .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom).allowsHitTesting(false))
     }
 }
 
@@ -209,13 +266,15 @@ final class VideoStageOverlay {
 
     func isShowing(_ owner: UUID) -> Bool { playback != nil && self.owner == owner }
 
-    func present(_ playback: VideoPlayback, owner: UUID) {
+    /// `onDismiss` runs when the full screen closes, so a caller that made the player just for this can shut it down.
+    func present(_ playback: VideoPlayback, owner: UUID, onDismiss: (() -> Void)? = nil) {
         guard !FilmTheater.shared.isOpen else { return }
         self.owner = owner
         self.playback = playback
         FilmTheater.shared.open(title: "Preview", onClose: { [weak self] in
             self?.playback = nil
             self?.owner = nil
+            onDismiss?()
         }) {
             StudioTheaterView(playback: playback)
         }
