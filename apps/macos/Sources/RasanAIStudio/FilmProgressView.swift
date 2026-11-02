@@ -125,7 +125,8 @@ struct FilmProgressView: View {
             researchNotice(s, now: now)
             activityWarning(s)
             ProgressRenderStrip(render: s.render, now: now)
-            ProgressPreviewPane(snapshot: s, aspect: model.snapshot.aspectRatio, maxMediaHeight: previewMax)
+            // Working: the preview is pinned in a bubble on the crew stage. Asking: there is no stage, so the pane stays.
+            if s.isWaitingForYou { ProgressPreviewPane(snapshot: s, aspect: model.snapshot.aspectRatio, maxMediaHeight: previewMax) }
             nextRow(s)
         }
     }
@@ -181,7 +182,7 @@ struct FilmProgressView: View {
         return CrewStage(character: lead, thoughts: CrewThoughts.make(s, lead: lead), asleep: asleep,
                          lines: lead == .kavi ? CrewThoughts.finishedSteps(s) : 0,
                          picture: lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil, unit: unit,
-                         stageHeight: min(h, unit + headroom))
+                         stageHeight: min(h, unit + headroom), preview: ProgressPreviewItem.latest(in: s), previewAspect: model.snapshot.aspectRatio)
             .id(lead)
             .frame(maxWidth: .infinity)
             .help("\(lead.displayName), \(lead.roleTitle)")
@@ -189,7 +190,10 @@ struct FilmProgressView: View {
 
     /// "Kavi · 3 writers drafting": the character, then what the crew is doing as the model words it, else their role.
     private static func crewLine(_ lead: CrewCharacter, _ s: FilmProgressSnapshot) -> String {
-        if let detail = s.now.detail, !detail.isEmpty { return "\(lead.displayName) · \(detail)" }
+        // The model's detail often already opens with the name ("Laya · Motion Director ..."): never say it twice.
+        if let detail = s.now.detail, !detail.isEmpty {
+            return detail.lowercased().hasPrefix(lead.displayName.lowercased() + " · ") ? detail : "\(lead.displayName) · \(detail)"
+        }
         let running = s.crew.filter { $0.state == .running && $0.character == lead }.count
         return running > 1 ? "\(lead.displayName) · \(running) helpers working" : "\(lead.displayName) · \(lead.roleTitle)"
     }
