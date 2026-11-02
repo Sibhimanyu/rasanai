@@ -15,7 +15,7 @@ public enum ChatIntent: Equatable, Sendable { case statusQuestion, feedback }
 
 /// The one-tap actions a quick status offers: the same ones as the "Rasan needs permission" banner.
 public enum ChatQuickAction: String, Equatable, Sendable, CaseIterable {
-    case fixIt, retryStep, restartRasan, viewActivity, copyDetails
+    case fixIt, retryStep, restartRasan, viewActivity, copyDetails, pauseRun, resumeRun
     public var title: String {
         switch self {
         case .fixIt: "Fix it"
@@ -23,6 +23,8 @@ public enum ChatQuickAction: String, Equatable, Sendable, CaseIterable {
         case .restartRasan: "Restart Rasan"
         case .viewActivity: "View activity"
         case .copyDetails: "Copy details"
+        case .pauseRun: "Pause"
+        case .resumeRun: "Resume"
         }
     }
 }

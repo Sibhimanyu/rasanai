@@ -93,7 +93,7 @@ struct NotesInspector: View {
                 HStack(spacing: 5) {
                     let note = model.isReplying ? nil : model.followUpNote
                     Circle().fill(model.isReplying || note?.warn == true ? Color.orange : Color.green).frame(width: 6, height: 6)
-                    Text(model.isReplying ? "Thinking…" : (note?.text ?? "Listening")).font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(model.isReplying ? "Thinking…" : model.answering > 0 ? "Typing…" : (note?.text ?? "Listening")).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -235,7 +235,8 @@ struct ConversationList<Empty: View>: View {
                     let label: String? = !startsRun ? nil : message.fromUser ? (previous != nil ? "You" : nil) : "Rasan"
                     if message.isStudioInstruction {
                         // Studio's own instruction to Rasan: a short line, never the raw text as if the person wrote it.
-                        StudioSystemLine(text: model.studioLine(for: message)).padding(.vertical, 4)
+                        let line = model.studioLine(for: message)
+                        if !line.isEmpty { StudioSystemLine(text: line).padding(.vertical, 4) }
                     } else {
                         ThreadBubble(message: message, label: label, onAction: model.quickActionHandler)
                             .padding(.top, previous != nil && startsRun ? 6 : 0)
@@ -255,7 +256,7 @@ struct ConversationList<Empty: View>: View {
             }
             if let confirm = model.pendingConfirm, confirm.step == model.draftStep { RevisionConfirmCard(model: model, confirm: confirm) }
             if model.lastUnanswered != nil { ThinkingRow(model: model).padding(.top, 4) }
-            if model.answering > 0 { ChatReplyThinkingRow() }
+            if model.answering > 0 { ChatReplyStreamRow(model: model) }
             Color.clear.frame(height: 1).id("end")
         }
     }
@@ -289,7 +290,7 @@ extension FilmSessionModel {
     /// The step the draft goes with: a pending mark's, else the one the chat was opened for, else the one on screen.
     var draftStep: String { pendingMark?.step ?? tellStep ?? shownStep }
     /// Changes whenever a row is added to the conversation (or Rasan starts or stops thinking), for scrolling to the end.
-    var conversationSignature: String { "\(conversation.count)|\(snapshot.notes.count)|\(isReplying)|\(answering)" }
+    var conversationSignature: String { "\(conversation.count)|\(snapshot.notes.count)|\(isReplying)|\(answering)|\(streamingText?.count ?? -1)" }
 
     /// Sends the draft (`tellText`): as a timed note when a mark is waiting, else as a message on `draftStep`. Clears it once sent.
     func sendDraft() {
