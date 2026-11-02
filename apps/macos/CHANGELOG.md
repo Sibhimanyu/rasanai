@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Launch films move with one signature curve and follow ten motion laws (momentum-gated bounce, arcs on long moves, tight cascades, calm heavy elements, counter-moving backgrounds and more), checked as warnings while the film is built.
+
 ## 0.29.1 (build 78) — 2026-11-01
 
 - Launch films now follow the house launch grammar: a short copy-led story (hook, turn, meet, two or three capabilities, payoff), one carrier motif that travels the whole film, transitions that flow as one take, and a light touch of brand.

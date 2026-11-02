@@ -18,6 +18,18 @@ hook, turn, meet, 2 to 3 capabilities, payoff. One thought per beat. On-screen t
 | Capabilities | 2 or 3 beats, each proves one thing | one line plus ONE simplified UI mockup that proves that line |
 | Payoff / CTA | the emotional line, or social proof | a closing line, or a count-up number then its label; the end card holds the logo (the last logo use) and the call to action |
 
+### Motion profile per beat
+
+The arc also sets the character of the motion (the `beat-profile` warning reads the score's `moves[]`; `references/score.md` "Motion laws").
+
+| Beat | Motion |
+|---|---|
+| Hook | tight and urgent: durations below the film's mean, ease-out, no overshoot |
+| Turn | sharp: one fast move, the whip or the signature transition, on the drop |
+| Meet | calm and slow: sine or a long ease-out, the longest entrance of the film, no overshoot |
+| Capabilities | medium: the signature curve at ordinary durations, one settle at most, on a thrown card only |
+| Payoff | the longest holds of the film (`hold_s`); the payoff hit is the one accent curve |
+
 ### Beat timing template (seconds; each cell is start to end, and may move by up to 10 percent to land on a music hit)
 
 | Beat | 30 s | 45 s | 60 s |
@@ -65,6 +77,7 @@ One object travels the whole film and hands off between beats. Kinds that work: 
 - One idea per mockup; 3 to 7 rows or elements; real words from the claims, the rest greyed placeholders.
 - A mockup lands next to the line it proves (type and UI share the frame), enters from the carrier or the line, and leaves by the carrier or the next transition.
 - It is allowed to be partly cropped, tilted or floated as a card; it may sit at 25 to 60 percent of the frame. One mockup per film may fill 50 percent or more (the hero proof).
+- A mockup enters with travel or scale paired to its fade, never opacity-only and never from `scale(0)` (0.92 to 0.95 up). Heavy UI (the panel, the hero mockup) lands with no overshoot; chips and pills may settle only when thrown (`craft.md`, "Weight classes").
 - Real product pixels (a captured screenshot) are used only where the product's look itself is the point and the user supplied it; otherwise recreate in the film's palette and type.
 
 ## 6. Transition vocabulary (continuous one-take: every transition is motivated)
@@ -86,6 +99,9 @@ Each concept names one **signature transition** (its own, repeated 2 to 3 times 
 - The tempo is locked to the music: seams land on its hits, drops and break edges (`audio/music-map.json`); the turn lands on the drop.
 - Grounds are neutral or brand atmosphere: clean white, a soft brand gradient, or near-black. Mix at most 2 grounds in a film, and change ground only on the turn, the meet or one interlude. Never a gimmick ground.
 - Type scale swings: full-frame type, then small centred type. A film that keeps the same type size for 5 s is wrong.
+- **One signature curve.** A launch film declares one `signature_ease` in its score (a custom cubic-bezier or an expo.out family) and 70 to 85 percent of its moves use it: that is what makes it one take. Other curves are accents, reserved for contrast: a whip, the signature transition, the payoff hit. The gate warns under 60 percent or with none declared (`signature-share-low`, `signature-ease-missing`). The 40 percent variety cap applies to non-launch films only (`craft.md`, "A curve per role").
+- **Cascades are short** (3 to 7 items inside 0.5 s; a set piece 1.2 s) and **ambient layers counter-drift** at 20 to 30 percent of hero speed (`craft.md`).
+- **The carrier keeps its velocity at every handoff** (`motion-handoffs.md`).
 - The signature moment is the one place the film spends everything: the moment a viewer rewinds (the carrier transforming, the word splitting, the count-up landing).
 
 ## 8. Concept fields for a launch film
@@ -109,6 +125,7 @@ The Look step makes three treatments of this grammar, not three art worlds. Axes
 7. Every seam is a motivated, named transition (a plain cut is a waivable exception: warns at 1 to 2, errors above 2); the signature transition recurs.
 8. Dense and sparse alternate; grounds stay neutral or brand atmosphere.
 9. Real claims only.
+10. One signature curve on 70 to 85 percent of moves; accents only for a whip, the signature transition and the payoff hit; hook, meet and payoff move the way the profile table says.
 
 Related: `launch-film.md` (timings, measurement, red flags), `product-first.md`, `ui-rebuild.md`, `motion-handoffs.md`, `composition-transitions.md`.
 

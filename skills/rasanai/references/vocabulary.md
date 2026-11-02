@@ -5,7 +5,7 @@ The working vocabulary Claude uses to turn a direction ("a slow push on the devi
 ## Conventions
 
 - **World.** All scene layers sit inside one wrapper, `#world`. The virtual camera is a transform on `#world` only; objects animate inside it. Set `transform-origin` to the point of interest before scaling.
-- **Depth factor d.** Per layer: about 0.2 for the far background, 1 for content, 3–6 for a near foreground. A camera move of distance D moves each layer D × d.
+- **Depth factor d.** Per layer: about 0.2 for the far background, 1 for content, 3–6 for a near foreground. A camera move of distance D moves each layer D × d. An ambient layer drifts at 20-30% of the hero's speed, opposite its direction (`craft.md`, "Three motion layers").
 - **Deterministic.** Every tween lives on the paused GSAP timeline (no CSS animations or transitions, no `requestAnimationFrame`). All randomness is seeded (for example mulberry32) and sampled on the **integer frame index**, so every seek renders the same frame.
 - **Numbers** are for 1920×1080 at 30 or 60 fps. Sizes as "% of short side" hold in every aspect. Durations are starting values: the film's `motion.md` duration scale wins.
 - **Cost.** Full-frame SVG filters and large blurs are slow to render. Pre-blur static layers once, keep blur radii under about 40 px, and prefer a 256–512 px noise tile over a full-frame `feTurbulence`.
