@@ -4,7 +4,7 @@ Applies to every launch, promo, feature-reveal and brand film (same scope as `pr
 
 Source quality note: Apple, OpenAI/Studio Dumbar and the Apple HIG are primary. Linear, Raycast, Figma, Notion, Arc, Stripe, Vercel and Framer launch films were only reachable through secondary write-ups, so their entries are patterns, not specs. Agency numbers (length, hook window) are agency opinion and disagree with each other; the ranges below are the overlap.
 
-**The default look and shape of a launch film is `launch-grammar.md`** (the two reference films, the fixed arc with 30/45/60 s timings, copy, carrier, brand-light, UI-mockup, transition and rhythm rules). Read it first; this file adds the measured detail. Where they disagree on a launch film's logo count, ground or world, `launch-grammar.md` wins.
+**The default look and shape of a launch film is `launch-grammar.md`** (the three reference films Minase, Kinso and Sovra.fm, the fixed arc with 30/45/60 s timings, copy, scene variety, motion texture, optional local carriers, brand-light, UI-mockup, transition and rhythm rules; the 15+ reference moves and the AI-cliche table are in `launch-moves.md`). Read it first; this file adds the measured detail. Where they disagree on a launch film's logo count, ground or world, `launch-grammar.md` wins.
 
 ## 1. Structure templates
 
@@ -63,7 +63,7 @@ Four to five beats (`story.mjs sheet --length 10` prints it; a `refrain-break` l
 |---|---|---|
 | 0-4 | Hook + brand/product | As 60 s. |
 | 4-16 | Promise + principle | 2-3 statements. Brand motif introduced and transformed. |
-| 16-24 | Hero demo | Real UI, 6 s at most per hold, one take where possible, changing every ~2 s. |
+| 16-24 | Hero demo | Real UI, 6 s at most per hold, scene changes every ~2 to 4 s, each beat its own scene type. |
 | 24-54 | 5 or 6 feature demos | 5-6 s each, escalating, a stat or detail beat inside at most 1; a rest before the peak. |
 | 54-62 | The peak | At 60-75%: the densest build (fast cuts on the beat) landing on one hit, then silence. |
 | 62-76 | 2 demos | Calmer, 7 s each. |

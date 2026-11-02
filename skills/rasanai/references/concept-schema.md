@@ -21,7 +21,7 @@ Code: `scripts/lib/concept-schema.mjs` (read by story.mjs gate GV, treatment.mjs
 }
 ```
 
-Launch films (references/launch-grammar.md): a launch concept names `hook_lines`, `turn_line`, `meet`, `capabilities` (2 or 3 of `{ line, ui_proof }`), `payoff`, `carrier` `{ what, kind, handoff }`, `signature_transition`, `ground` and `type_pairing`; `style_world` is then OPTIONAL (a world only when the concept chose one), and the board reads the launch fields.
+Launch films (references/launch-grammar.md): a launch concept names `hook_lines`, `turn_line`, `meet`, `capabilities` (2 or 3 of `{ line, ui_proof }`), `payoff`, `scene_plan[]` (`{ beat, scene_type, texture, move, imagery? }` per beat; 5+ scene types in 45 s, none over 30%, neighbours differ), `texture_accents[]` (at least one stepped or flicker section), `signature_transition`, `ground` and `type_pairing`; a `carrier` `{ what, kind, beats, handoff }` is OPTIONAL and local (40% of beats at most); `style_world` is then OPTIONAL (a world only when the concept chose one), and the board reads the launch fields.
 
 Rules
 - `style_world`: an atlas id string (`library/styles/atlas/index.json`). `style` is optional; when missing, `resolveStyle()` takes what the atlas file offers and falls back to neutral colours. An older `style_world` object ({name, palette, font}) still reads and is folded into `style_world` + `style`.

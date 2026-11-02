@@ -127,6 +127,16 @@ node $SKILL_DIR/scripts/art.mjs world lock  --run "$RUN"      # hash the anchor 
 
 **Order of work.** The Moves pass tags each beat's `shows` with `image:` and the technique; the art director writes the world bible and `used_by` from that; `world make` generates; the film builder uses `assets/` plus `rasan-image-fx.js`; the frame and motion gates read `used_by` and the movers.
 
+## Launch imagery (where a launch scene needs meaning)
+
+A launch film uses **1 to 4 Codex images, only where they add meaning** (`launch-grammar.md` section 4d). Minase fills its landing pages and cards with generated worlds (grass hills, a chair on a mound, flowers): the imagery is the content of the product shot, never wallpaper.
+
+**When to ask for one.** (1) A **world inside a UI card**: the card or landing page has a hero image that is part of the pitch (a place, a mood, an object). (2) An **object or metaphor shot**: one clean object for a line ("a chair on a mound" for rest), lit in the brand palette. (3) A **cinematic plate** behind type: a dark or bright scene the type sits over. Not for the product's real UI, text, logos, charts or a real person (the "Never use it for" list above stands).
+
+**How.** The designer or the motion director declares score-level `imagery_plan[]` (`{id, prompt, aspect?, transparent?}`; the prompt comes from the concept and the brand palette, one style line shared by all) and per beat `imagery: "<id>"` or `"none"`. `node scripts/imagegen.mjs plan-from-score --score <run>/motion/score.json --out assets/images/launch-plan.json` writes the batch plan for exactly the images the beats use (it warns above 4); then `imagegen.mjs batch --plan assets/images/launch-plan.json`. When the film has a world bible (`art/world.json`) run `batch --world art/world.json` instead so every image shares the anchor and the style line.
+
+**Animate it** (a still is held at most about 1.2 s): parallax layers (the T-techniques above, `RasanImageFX` depth), a slow push, a light sweep, a stepped reveal (`RasanTexture.stepped`), or the image scrolling inside its card on threes. `launch-beats` counts the distinct images (`imagery-count`).
+
 ## Abstract plates
 
 A plate is atmosphere, not a subject: flowing organic shapes, soft gradients, a minimal composition, in the film's own colours and nothing else. It is the layer the reference films have and flat films lack (Kinso's peach to sage field, Sovra's violet glows; R1 §1.3 and recipe C). Uses: a living ground under the whole film (`cam.flowGround`), a depth layer far behind the UI (defocused, hazed), a plate to zoom through between beats (`cam.plateTransition`), and an end-card field.

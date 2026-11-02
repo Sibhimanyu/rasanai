@@ -134,7 +134,7 @@ Everything obeys `motion.md` (the style's motion language: its signature curves,
 
 **Camera shake** only on an on-screen impact, synced to an audio hit, 6 frames or less, at most 2 per 30 s.
 
-**The cursor in UI demos** (the cursor is the protagonist; the click is the beat):
+**The cursor in UI demos** (the cursor is the protagonist; the click is the beat). On a LAUNCH film a travelling cursor or caret is a rare tool: once per film, only for a real typing, selecting, clicking or dragging moment in the product, with a declared reason; never as the emphasis on a word (`launch-moves.md`, AI cliches). Where it is used, build it as follows:
 - **Oversized:** 3–4% of the short side tall (32–44 px at 1080, about twice a real cursor), in the brand ink or white with a 1–2 px contrasting outline so it reads on any surface; exact hotspot. Never the real OS cursor, browser chrome or a scrollbar.
 - **Enters from off-screen,** from the edge nearest its first target, on a curved path (a gentle arc, never a straight line), 0.5–0.8 s, `power3.out`. It never materializes mid-frame.
 - **Moves on arcs,** decelerating into each target, 0.4–0.7 s per move, and rests 0.1–0.2 s on the target before acting.

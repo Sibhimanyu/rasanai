@@ -13,8 +13,10 @@ export const WAIVABLE = {
   "hook-object": "an object enters within 2 s",
   "hook-logo": "no brand before 3 s",
   "median-shot": "the median shot is 3.5 s or less (frame-gate shot-length error)",
-  "hard-cuts": "more than 2 plain cuts (launch-beats hard-cuts)",
-  "carrier": "a carrier motif in 60% of the beats (launch-beats carrier)",
+  "hard-cuts": "undeclared plain cuts (launch-beats hard-cuts; a cut on a music hit is fine)",
+  "carrier": "a carrier in more than 40% of the beats (launch-beats carrier-overuse)",
+  "scene-variety": "5+ scene types, none over 30% (launch-beats scene-variety)",
+  "texture": "a stepped or flicker section, 15-40% non-smooth (launch-beats texture-mix)",
   "rhythm": "two dense/sparse alternations (launch-beats rhythm)",
 };
 const ALIAS = { "hook-3s": ["hook-address"], "object-by-2s": ["hook-object"], "no-brand-before-3s": ["hook-logo"], "hook": ["hook-address", "hook-object", "hook-logo"], "shot-length": ["median-shot"], "plain-cuts": ["hard-cuts"], "cuts": ["hard-cuts"], "carrier-share": ["carrier"], "dense-sparse": ["rhythm"], "median-shot-length": ["median-shot"], "type-full": ["full-frame-type"] };
@@ -102,30 +104,33 @@ export function worldSpreadProblems(worlds, { pool = false, lane = "", needBold 
   return P;
 }
 
-// LAUNCH films (references/launch-grammar.md): diversity is a different hook, carrier motif and signature transition, never a different art world.
+// LAUNCH films (references/launch-grammar.md): diversity is a different hook, scene plan and signature transition, never a different art world (a carrier is optional and local).
 // `ideas` = concept objects; returns [problem strings]. Lane: each lane's ideas differ; pool: all three writers together.
 const _lw = (v) => S(v && typeof v === "object" ? v.what || v.name || v.id || v.kind : v).toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 export const launchHookOf = (x) => _lw(Array.isArray(x && x.hook_lines) ? x.hook_lines[0] : x && (x.hook_lines || x.hook));
 export const launchCarrierOf = (x) => _lw(x && x.carrier);
+// the scene plan as a signature: the ordered scene types of the concept (scene_plan[].scene_type)
+export const scenePlanTypes = (x) => (Array.isArray(x && x.scene_plan) ? x.scene_plan : []).map((b) => _lw(b && typeof b === "object" ? b.scene_type || b.type : b).replace(/ /g, "-")).filter(Boolean);
+export const launchScenePlanOf = (x) => scenePlanTypes(x).join(">");
 export const launchTransitionOf = (x) => _lw(x && x.signature_transition);
 export function launchSpreadProblems(ideas, { pool = false, lane = "" } = {}) {
   const P = [], who = pool ? "the pool" : `the ${lane} lane`;
-  for (const [name, f] of [["hook", launchHookOf], ["carrier motif", launchCarrierOf], ["signature transition", launchTransitionOf]]) {
+  for (const [name, f] of [["hook", launchHookOf], ["scene plan", launchScenePlanOf], ["signature transition", launchTransitionOf]]) {
     const ids = ideas.map(f).filter(Boolean), uniq = new Set(ids);
     const need = pool ? Math.min(6, ids.length) : Math.min(3, ids.length);
-    if (ids.length && uniq.size < need) P.push(`${who} has only ${uniq.size} distinct ${name}(s) across ${ids.length} launch ideas (need ${need}+): launch-film diversity is a different hook, carrier motif and signature transition, not a different style world`);
+    if (ids.length && uniq.size < need) P.push(`${who} has only ${uniq.size} distinct ${name}(s) across ${ids.length} launch ideas (need ${need}+): launch-film diversity is a different hook, scene plan and signature transition, not a different style world`);
     const n = {}; for (const i of ids) n[i] = (n[i] || 0) + 1;
     const over = Object.entries(n).filter(([, c]) => c > 2).map(([w, c]) => `${w} x${c}`);
     if (over.length) P.push(`${who} reuses one ${name} on more than 2 ideas (${over.join(", ")}): at most 2 per ${name}`);
   }
   return P;
 }
-// the jury's 3 picks on a launch film: different hook, carrier and signature transition; at most 1 non-default style world
+// the jury's 3 picks on a launch film: different hook, scene plan and signature transition; at most 1 non-default style world
 export function launchJuryProblems(picks) {
   const P = [];
-  for (const [name, f] of [["hook", launchHookOf], ["carrier motif", launchCarrierOf], ["signature transition", launchTransitionOf]]) {
+  for (const [name, f] of [["hook", launchHookOf], ["scene plan", launchScenePlanOf], ["signature transition", launchTransitionOf]]) {
     const v = picks.map(f).filter(Boolean);
-    if (v.length === picks.length && new Set(v).size < picks.length) P.push(`the three picks do not differ in ${name}: on a launch film they must each have a different hook, carrier motif and signature transition`);
+    if (v.length === picks.length && new Set(v).size < picks.length) P.push(`the three picks do not differ in ${name}: on a launch film they must each have a different hook, scene plan and signature transition`);
   }
   const nonDefault = picks.filter((x) => { const w = S(x && typeof x.style_world === "object" ? x.style_world.id || x.style_world.name : x && x.style_world).toLowerCase(); return w && w !== "kinetic-type-only" && w !== "kinetic-launch"; }).length;
   if (nonDefault > 1) P.push(`${nonDefault} of the three picks use a non-default style world: on a launch film at most 1 may (the default is the kinetic-launch grammar)`);
@@ -140,7 +145,17 @@ export function launchConceptProblems(x, id) {
   if (!has(x && x.meet)) P.push(`concept ${id}: no meet beat (the small, calm brand reveal)`);
   if (caps.length < 2 || caps.length > 3 || caps.some((c) => !c || !S(c.line) || !S(c.ui_proof))) P.push(`concept ${id}: capabilities needs 2 or 3 beats, each { line, ui_proof }`);
   if (!has(x && x.payoff)) P.push(`concept ${id}: no payoff / CTA`);
-  if (!(x && x.carrier && typeof x.carrier === "object" && S(x.carrier.handoff))) P.push(`concept ${id}: carrier needs { what, kind, handoff } (how it hands off between beats)`);
+  // a carrier is OPTIONAL and local (a few neighbouring beats, at most 40%); when one is named it says where it lives and how it hands off
+  if (x && x.carrier && (typeof x.carrier !== "object" || S(x.carrier.what || x.carrier.name)) && !(typeof x.carrier === "object" && S(x.carrier.handoff))) P.push(`concept ${id}: a named carrier needs { what, kind, beats, handoff } (which 2 or 3 beats it links, and how it hands off); or drop it: carriers are optional`);
+  // the scene plan (references/launch-grammar.md section 2): the backbone of a launch film
+  { const plan = Array.isArray(x && x.scene_plan) ? x.scene_plan : [], types = scenePlanTypes(x);
+    if (plan.length < 5 || types.length < plan.length) P.push(`concept ${id}: scene_plan needs one entry per beat ({beat, scene_type, texture, move?, imagery?}, 5 or more beats)`);
+    else {
+      const distinct = new Set(types); if (distinct.size < 5) P.push(`concept ${id}: scene_plan has ${distinct.size} scene type(s) (5 or more different types in a 45 s film: type-slate, type-collage, ui-proof, ui-collage, cinematic-image, diagram, data, kinetic-list, object-shot, typed-prompt, footage, logo-end)`);
+      const cnt = {}; types.forEach((t) => { cnt[t] = (cnt[t] || 0) + 1; }); const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+      if (top[1] / types.length > 0.34) P.push(`concept ${id}: scene type "${top[0]}" is ${top[1]} of ${types.length} beats (about 30% at most)`);
+      const tx = plan.map((b) => _lw(b && b.texture)); if (!tx.some((t) => /step|flicker|glitch/.test(t)) && !(Array.isArray(x.texture_accents) && x.texture_accents.length)) P.push(`concept ${id}: no stepped, flicker or glitch accent (texture_accents[] or scene_plan[].texture): a launch film is never all smooth`);
+    } }
   if (!has(x && x.signature_transition)) P.push(`concept ${id}: no signature_transition`);
   if (!["neutral", "brand-gradient", "dark"].includes(S(x && x.ground).toLowerCase())) P.push(`concept ${id}: ground is neutral, brand-gradient or dark`);
   if (!has(x && x.type_pairing)) P.push(`concept ${id}: no type_pairing`);

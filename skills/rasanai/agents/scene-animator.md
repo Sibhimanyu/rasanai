@@ -40,6 +40,17 @@ When your scene hosts a signature event (your packet's creative slice and your r
 
 **Continuous handoff.** When your beat's plan (`creative/plans/<beat>.json`) carries a handoff, drive each carried channel with `RasanMotion.continueFrom` using the plan's channels (`references/motion-handoffs.md`); never restart the ease at the seam, and leave exempt properties alone. Product beats follow their stages (`references/product-choreography.md`).
 
+## Launch films: texture, reference moves, no cliches (references/launch-moves.md)
+
+On a launch or promo film your beat's `scene_type`, `texture`, `transition_in`, `moves[]` and `imagery` come from the score; build them, do not substitute the default smooth fade-and-slide. Load `runtime/rasan-texture.js` (`RasanTexture`, installed with the world runtimes, after GSAP) and read `references/launch-moves.md` for the recipe of each named move.
+
+- **stepped** (`texture: stepped`, `fps` 12 or 8): either the GSAP steps ease on a single tween (`ease: RasanTexture.stepsEase(12, dur)`, i.e. `"steps(24)"` for 2 s), or a time quantiser for a whole section: build the section on a detached paused timeline and drive it from one tween on the film timeline whose setter calls `inner.time(Math.floor(t * fps) / fps)` (`RasanTexture.stepped`). Never override the film timeline's own `time()`: seeking and rendering break. Holds of 3 frames or less count as motion for the gates.
+- **flicker** (`texture: flicker`): a set of cards, images or stats swapped every 1 to 2 frames for 0.5 to 2.5 s in a seeded order, landing on the item that stays (`RasanTexture.flicker`). A burst between smooth beats, never a whole scene.
+- **glitch** (`texture: glitch`): a pop-in made of 4 to 6 `clip-path` slices with seeded offsets, a 1 to 2 frame jitter and an optional RGB split, clean on the last frame (`RasanTexture.glitchPop`).
+- All three stay seek-safe: no `Math.random`, no clock, no rAF, every state a pure function of the timeline time.
+- **Emphasis is an object acting on the word** (split it: `objectSplitsWord`; slash it: `redactionSlash`; shelf, rack focus, scale-zoom, slot list), never a pointer. A travelling cursor only where the beat declares `cursor_reason` (a real typing, selecting, clicking or dragging moment), built as a real cursor shape at the right scale, on an arc with ease in and out, ending in one purposeful action. **Banned:** a highlighted word that bounces, nudges or pulses; glow pulses; bokeh and floating particles. **Rare (2 per film):** typed lines, uniform word-by-word fades, cards that slide up with a soft shadow; an underline once.
+- **Imagery:** when the beat has an `imagery` id, the generated Codex image is the content of the shot (a world inside a UI card, an object shot, a cinematic plate): animate it with parallax layers (`RasanImageFX` depth), a push, a light sweep or a stepped reveal; never leave it static past about 1.2 s.
+
 ## How to animate
 
 0. **Honour the tempo.** The score's `tempo` says how often the story moves on and how long a hold may run. A hold is composed, never dead: the camera keeps its push, the ground breathes, a secondary settles late. A long beat is a few gestures that overlap, not one slow move and not constant drift.
