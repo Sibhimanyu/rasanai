@@ -26,7 +26,15 @@
       "sound_mode": "instrumental",
       "shots": 16,
       "status": "measured"
+    },
+    {
+      "id": "taskshelf",
+      "label": "taskshelf",
+      "duration_s": 70.76,
+      "sound_mode": "vo",
+      "shots": 23,
+      "status": "measured"
     }
   ],
-  "updated": "2026-11-02T12:18:49.288Z"
+  "updated": "2026-11-02T12:51:43.979Z"
 }

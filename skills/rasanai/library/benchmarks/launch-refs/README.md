@@ -1,12 +1,13 @@
 # House reference films for launch films
 
-Three launch films the owner supplied, analysed with `scripts/refs.mjs` (Node + ffmpeg) and read by hand. Only breakdowns and small contact sheets are kept: no video, no audio, no frames beyond one 1 fps contact sheet each. They inform, never copy (SOURCES.md: analysed only, not redistributed).
+Four launch films the owner supplied, analysed with `scripts/refs.mjs` (Node + ffmpeg) and read by hand. Only breakdowns and small contact sheets are kept: no video, no audio, no frames beyond one 1 fps contact sheet each. They inform, never copy (SOURCES.md: analysed only, not redistributed).
 
 | id | film | length | sound | logo | carrier |
 |---|---|---|---|---|---|
 | `minase` | Minase launch (Video-4679) | 41.5 s | voice-over + bed | 3 | UI cards + an up-arrow chip |
 | `kinso` | Kinso launch (Video-78313) | 46.4 s | instrumental, no voice | 3 | a coral orb (local) |
 | `sovra` | Sovra.fm launch (Video-75914) | 52.2 s | instrumental | 1 (end card) | none: ribbons bookend, a DJ orb is a product character |
+| `taskshelf` | TaskShelf launch (Video-67152) | 70.8 s | voice-over + readable on-screen copy | 3 | none: radical treatment change cut to cut, quick cuts (median 2 s) |
 
 Each folder: `breakdown.md` / `breakdown.json` (the reference-analyst shape, plus `corrections`), `beats.json` (the beat table: copy, carrier state, transition in, density, logo), `stats.json` (refs.mjs output), `words.json`, `music-map.json`, `thumbs/1fps-contact-sheet.jpg` (one cell per second, 8 per row). `summary.json` is `refs.mjs summarize` over both.
 

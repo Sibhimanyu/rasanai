@@ -1,7 +1,10 @@
 /* global gsap */
 /* RasanTexture: motion-texture and reference-move helpers for launch films. Original code, RasanAI MIT. (references/launch-grammar.md "Motion texture", references/launch-moves.md)
  *
- * Texture contrast (smooth / stepped / flicker / glitch):
+ * Texture contrast (smooth / stepped / flicker / glitch). STEPPED IS FOR DISCRETE MOTION: pieces arriving or assembling in a collage, pop-ins and state changes, montage bursts, hits on the beat,
+ * things that jump between positions. NEVER on a continuous single-direction move (scroll, pan, camera push, long glide, orbit rotation, slide-across): those stay fluid.
+ * FLICKER is a flash-frame burst: one varying element in a locked layout, 2-3 frames per flash, 8-24 frames in all, landing on a held readable `final` (12+ frames) on the downbeat;
+ * never unrelated metrics, 1-2 per film, and photosensitivity-safe (<= 3 high-contrast full-frame flashes per second; keep the ground constant, no black/white alternation, no saturated red).
  *   RasanTexture.stepped(tl, at, { build: function (inner) { inner.to(card, { x: -900, duration: 2 }) }, duration: 2, fps: 12 })   // a section that moves on twos/threes
  *   RasanTexture.stepsEase(12, 2)                                  // "steps(24)": a GSAP ease for ONE tween that should stutter (tl.to(el, { x: 400, duration: 2, ease: ... }))
  *   RasanTexture.flicker(tl, at, { target: stage, items: [elA, elB, "<div>stat</div>"], duration: 1.4, every: 2, fps: 30, final: 0 })   // a card/image swap burst, a new item every `every` frames

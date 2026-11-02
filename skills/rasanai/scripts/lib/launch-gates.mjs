@@ -30,6 +30,8 @@ export const LAUNCH_GATE = {
   hook_warn: 0.25, hook_error: 0.35,
   // texture (native fps, 160x90 gray). Minase: ~160 held-jumps in 41 s (about 39 per 10 s), flicker 6.5-9 s, ~40% of its runtime non-smooth by this measure
   tex_W: 160, tex_H: 90, tex_dup: 0.1, tex_jump: 1.0, tex_big: 8, tex_hold_s: 0.1, tex_bin_s: 0.5, tex_stepped_min: 2, tex_flicker_frac: 0.4,
+  // photosensitivity (WCAG 2.3.1 / Ofcom): a large swing of the whole frame's mean luma (>= flash_swing of 255, opposite directions) is a flash; more than 3 flashes in any second warns
+  flash_swing: 50, flash_max_per_s: 3,
   // atmosphere: lit when ANY of: saturated light is strong on the busiest frames, the median frame carries colour, or the colour of the film changes a lot over time
   lit_sat_p90: 0.05, lit_chroma_med: 6, lit_chroma_sd: 5, tail_lit_max_s: 3.0, tail_ambient_min: 0.4,
   nonsmooth_min: 0.15, nonsmooth_max: 0.6, // the doctrine aims at 15-40%; the render measure warns only past 60% (it also counts footage that is genuinely busy)
@@ -154,9 +156,16 @@ function textureMeasure(video, G) {
   const { tex_W: W, tex_H: H } = G, P = W * H;
   const r = spawnSync("ffmpeg", ["-v", "error", "-i", video, "-vf", `scale=${W}:${H}:flags=area,format=gray`, "-f", "rawvideo", "-"], { maxBuffer: 1 << 30 });
   if (r.error || r.status !== 0 || !r.stdout || r.stdout.length < P * 3) return null;
-  const buf = r.stdout, n = Math.floor(buf.length / P), d = new Float64Array(n);
+  const buf = r.stdout, n = Math.floor(buf.length / P), d = new Float64Array(n), mean = new Float64Array(n);
+  for (let i = 0; i < n; i++) { let s = 0; const o = i * P; for (let k = 0; k < P; k++) s += buf[o + k]; mean[i] = s / P; }
   for (let i = 1; i < n; i++) { let t = 0; const o = i * P, p = o - P; for (let k = 0; k < P; k++) t += Math.abs(buf[o + k] - buf[p + k]); d[i] = t / P; }
-  return textureOf(d, fps, G);
+  const tx = textureOf(d, fps, G);
+  // flashes: a big mean-luma step then a big step back the other way, counted per sliding 1 s window (only swings of the WHOLE frame move the mean this much)
+  const sw = []; for (let i = 1; i < n; i++) { const dl = mean[i] - mean[i - 1]; if (Math.abs(dl) >= G.flash_swing) sw.push({ i, s: Math.sign(dl) }); }
+  const fl = []; for (let k = 1; k < sw.length; k++) if (sw[k].s !== sw[k - 1].s) fl.push(sw[k].i);
+  let worst = 0, at = 0; for (let a = 0, b = 0; b < fl.length; b++) { while (fl[b] - fl[a] >= fps) a++; if (b - a + 1 > worst) { worst = b - a + 1; at = fl[a] / fps; } }
+  tx.max_flashes_per_s = worst; tx.flash_at_s = r2(at);
+  return tx;
 }
 
 export function beatsOf(score) {
@@ -234,6 +243,7 @@ export async function launchGates({ video, project = null, score = null, textRow
     const tx = textureMeasure(path.resolve(video), G);
     if (tx) {
       measured.texture = tx;
+      if (tx.max_flashes_per_s > G.flash_max_per_s) add("photosensitivity-flash", "warning", `${tx.max_flashes_per_s} large full-frame luminance flashes within one second near ${tx.flash_at_s} s (${G.flash_max_per_s} per second at most, WCAG 2.3.1 / Ofcom)`, "keep a flicker burst's ground constant and change only part of the frame, keep the luminance swing small, never alternate full-frame black and white or flash saturated red");
       if (dur >= 20 && tx.nonsmooth_share === 0) add("texture-all-smooth", "warning", "recommendation: no stepped or flicker section found in the render, every beat moves smoothly. A crisp smooth film can be right; a stepped collage or a flicker burst usually adds energy, with the calm beats kept smooth");
       else if (tx.nonsmooth_share > G.nonsmooth_max) add("texture-all-stutter", "warning", `${Math.round(tx.nonsmooth_share * 100)}% of the film is stepped or flicker (about 15-40% is the target): let the calm beats (meet, payoff, end) move smoothly`);
     }

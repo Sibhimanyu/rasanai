@@ -47,6 +47,7 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { parseArgs, normalizeAspect, ASPECTS } from "./lib/common.mjs";
+import { imageryPromptRisk, IMAGERY_STYLE, IMAGERY_AVOID } from "./lib/launch-beats.mjs";
 import { findCodex, codexHome, imageModels, loginStatus, rememberModel, forgetModel, rememberedModel } from "./lib/codex.mjs";
 
 const args = parseArgs();
@@ -338,9 +339,14 @@ function cmdPlanFromScore() {
   const images = ids.map((id) => { const e = bank.find((x) => x && String(x.id) === id); if (!e || !String(e.prompt || "").trim()) { problems.push(`beat imagery "${id}" has no entry with a prompt in score.imagery_plan[]`); return null; }
     return { id, prompt: String(e.prompt), out: `${id}.png`, ...(e.aspect ? { aspect: String(e.aspect) } : {}), ...(e.transparent ? { transparent: true } : {}) }; }).filter(Boolean);
   if (images.length > 4) problems.push(`${images.length} images (1 to 4 per launch film: only where they add meaning)`);
-  const plan = { aspect: String(args.aspect || sc.aspect || "16:9"), style: String(args.style || sc.imagery_style || ""), avoid: "text, letters, logos, watermarks, UI chrome", images };
+  // style direction + negative guidance for launch imagery: editorial still life, no people, no neon or blue-glow AI look (references/imagery.md "Launch imagery")
+  const peopleOk = sc.imagery_people === true || sc.brief_requires_people === true || sc.people_ok === true || !!args["allow-people"];
+  const warnings = peopleOk ? [] : images.map((i) => { const r = imageryPromptRisk(i.prompt); return r.length ? `image "${i.id}" prompt mentions ${r.join(", ")}: people or a neon/glow look reads as AI-generated; draw still-life objects, props, places without people, materials or printed matter (imagery_people: true when the brief requires people)` : ""; }).filter(Boolean);
+  warnings.forEach((m) => process.stderr.write(`imagegen: WARNING ${m}\n`));
+  const style = [String(args.style || sc.imagery_style || ""), IMAGERY_STYLE].filter(Boolean).join(" ");
+  const plan = { aspect: String(args.aspect || sc.aspect || "16:9"), style, avoid: `${peopleOk ? "text, letters, logos, watermarks, UI chrome, neon, blue or purple glow gradients, holograms" : IMAGERY_AVOID + ", watermarks, UI chrome"}`, images };
   if (args.out && args.out !== true && images.length) { fs.mkdirSync(path.dirname(path.resolve(args.out)), { recursive: true }); fs.writeFileSync(path.resolve(args.out), JSON.stringify(plan, null, 2)); }
-  out({ ok: !problems.length, images: images.map((i) => i.id), plan: args.out && args.out !== true ? args.out : null, problems, next: images.length ? `node imagegen.mjs batch --plan ${args.out || "<plan>"}` : "no beat asks for an image: nothing to generate" });
+  out({ ok: !problems.length, images: images.map((i) => i.id), warnings, plan: args.out && args.out !== true ? args.out : null, problems, next: images.length ? `node imagegen.mjs batch --plan ${args.out || "<plan>"}` : "no beat asks for an image: nothing to generate" });
   if (problems.length) process.exit(2);
 }
 

@@ -29,7 +29,7 @@ const OVERSHOOT_EASE = /back|elastic|spring|bounce/i;
 export const SCENE_TYPES = ["type-slate", "type-collage", "ui-proof", "ui-collage", "cinematic-image", "diagram", "data", "kinetic-list", "object-shot", "typed-prompt", "footage", "logo-end"];
 export const TEXTURES = ["smooth", "stepped", "flicker", "glitch"];
 // the reference moves watched frame by frame in Minase and Kinso (references/launch-moves.md); an unknown id is allowed and counts as its own move
-export const REF_MOVES = ["object-splits-word", "redaction-slash", "glass-shelf", "scale-as-transition", "iris-through-object", "logo-builds-itself", "oversized-type-bleed", "restraint-slate", "persistent-type-over-cuts", "footage-word-by-word", "stepped-dashboard-scroll", "orbit-diagram", "slot-list", "mixed-type-collage", "stepped-collage-flicker", "metaphor-from-copy", "product-flow-demo", "product-character", "line-lighting", "border-light-trace"];
+export const REF_MOVES = ["object-splits-word", "redaction-slash", "glass-shelf", "scale-as-transition", "iris-through-object", "logo-builds-itself", "oversized-type-bleed", "restraint-slate", "persistent-type-over-cuts", "footage-word-by-word", "dashboard-scroll", "orbit-diagram", "slot-list", "mixed-type-collage", "stepped-collage-flicker", "metaphor-from-copy", "product-flow-demo", "product-character", "line-lighting", "border-light-trace", "readable-copy-quick-cuts", "inline-icon-chips", "ui-as-typography", "cost-pain-stacked-prices", "halftone-display-type", "stepped-blocks-across-type", "tilted-ui-dolly", "hand-drawn-annotation", "logo-on-photo-plate", "typed-cta-end", "type-motion-smear", "redaction-pill-live-number", "glass-pane-refraction-wipe", "corner-selection-brackets", "oversized-emerging-type"];
 // AI cliches (references/launch-moves.md "AI cliches"): BANNED = glow pulses, bokeh and particle atmosphere, and a highlighted word that nudges/bounces/pops/pulses as the emphasis.
 // RARE (capped, not banned): a travelling cursor or caret (once per film, with a declared story reason: scenes[].cursor_reason), typed lines, uniform word fades, slide-up cards, underline.
 export const CLICHE = {
@@ -41,7 +41,32 @@ export const CLICHE = {
   glowParticle: /glow|bloom|bokeh|particle|dust/i,
   cursorEl: /cursor|caret/i,
 };
-export const CLICHE_CAPS = { cursor_travel: 1, typed_lines: 2, word_fade_lines: 2, slide_up_cards: 2, underline: 1, move_beats: 2 };
+// owner 2026-11-02 (v3 film): word-by-word rise+fade is the standard AI entrance (once per film at most); counting numbers and rolling slot lists are rare (once, a real hero number);
+// stepped motion never goes on a continuous single-direction move; generated images carry no people and no neon/glow tech look.
+CLICHE.wordRise = /word[-_ ]?(by[-_ ]?word)?[-_ ]?(rise|fade[-_ ]?up|appear[-_ ]?from[-_ ]?bottom|stagger[-_ ]?up)|(rise|appear)[-_ ]?(and[-_ ]?)?(fade)[-_ ]?(per|each|by)?[-_ ]?word|appear[-_ ]?from[-_ ]?(the[-_ ]?)?bottom|rise[-_ ]?\+[-_ ]?fade/i;
+CLICHE.countUp = /count[-_ ]?(up|ing)|counters?(?![-_ ]?drift)|odometer|ticker|tick(s|ing)?\b|rolling[-_ ]?(number|digit)|streak[-_ ]?counter|number[-_ ]?roll|digit[-_ ]?roll/i;
+CLICHE.zoomFade = /zoom[-_ ]?(in|out)?[-_ ]?(and[-_ ]?|\+[-_ ]?)?fade|scale[-_ ]?(up|down|in|out)?[-_ ]?(and[-_ ]?|\+[-_ ]?)?fade|fade[-_ ]?(and[-_ ]?|\+[-_ ]?)?(zoom|scale)|fade[-_ ]?(in|out)[-_ ]?(and[-_ ]?)?(zoom|scale)/i;
+CLICHE.ticker = /ticker|dashboard[-_ ]?tick|decorative[-_ ]?(count|number)/i;
+CLICHE.slot = /slot[-_ ]?(list|machine|scroll)|rolling[-_ ]?list/i;
+CLICHE.fluidMove = /scroll|\bpan\b|pan[-_ ]|[-_ ]pan\b|push|glide|gliding|orbit|slide[-_ ]?across|long[-_ ]?glide|dolly|track(ing)?[-_ ]?shot/i;
+export const CLICHE_CAPS = { cursor_travel: 1, typed_lines: 2, word_fade_lines: 2, word_rise_lines: 1, count_up: 1, slot_list: 1, zoom_fade: 1, slide_up_cards: 2, underline: 1, move_beats: 2 };
+
+// imagery prompts (references/imagery.md "Launch imagery"): the references use editorial, tactile still-life (objects, props, places without people, materials, printed matter), natural light, warm or neutral palettes.
+// A prompt that asks for people or a neon/glow tech look reads as AI-generated. Negations ("no people", "without faces") are not counted.
+export const IMAGERY_RISK = /\b(people|persons?|man|men|woman|women|boy|girl|child(ren)?|human(s)?|faces?|hands?|fingers?|silhouettes?|crowds?|portraits?|figures?)\b|\b(neon|glow(s|ing)?|hologra(m|ms|phic)|cyberpunk|futuristic)\b/i;
+export const IMAGERY_STYLE = "Editorial, tactile still life: real objects, props, materials, printed matter or a place with no people, natural light, a warm or neutral palette, photographic or print feel, as if cut out or collaged into a card.";
+export const IMAGERY_AVOID = "people, faces, hands, figures, silhouettes, crowds, neon, blue or purple glow gradients, glowing screens, holograms, cinematic AI mood, sci-fi tech scenes, text, logos";
+export function imageryPromptRisk(prompt) {
+  const clean = String(prompt == null ? "" : prompt).replace(/\b(no|not|never|without|avoid|avoiding|nor|exclude|excluding)\b[^.;\n]*/gi, " ");
+  const m = clean.match(new RegExp(IMAGERY_RISK.source, "gi"));
+  return m ? [...new Set(m.map((x) => x.toLowerCase()))] : [];
+}
+export function imageryPromptFindings(plan, see = "references/imagery.md") {
+  const bank = plan && Array.isArray(plan.imagery_plan) ? plan.imagery_plan : [];
+  if (plan && (plan.imagery_people === true || plan.brief_requires_people === true || plan.people_ok === true)) return [];
+  const hits = bank.map((e) => ({ id: e && e.id, risk: e && !(e.people_ok === true || e.brief_requires_people === true) ? imageryPromptRisk(e.prompt) : [] })).filter((x) => x.risk.length);
+  return hits.length ? [{ severity: "warning", check: "imagery-people-or-glow", message: `imagery prompt(s) ${hits.map((h) => `${h.id} (${h.risk.join(", ")})`).join("; ")} ask for people or a neon/glow look: it reads as AI-generated`, fix: `draw still-life objects, props, places without people, materials and printed matter in natural light and a warm or neutral palette, used as content inside a card or collage; people only when the brief asks (imagery_people: true); ${see}`, basis: "score" }] : [];
+}
 const PLAIN = /^(cut|hard[- ]?cut|plain[- ]?cut|smash[- ]?cut|jump[- ]?cut|none|no)$/i;
 // a hard cut that names the music hit it lands on is a motivated transition (the references cut on the beat), not a plain cut
 const ON_HIT = /(hit|beat|drop|downbeat|accent|music|bar)/i;
@@ -134,6 +159,7 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
   // 3d. imagery: Codex stills used where they add meaning (1 to 4 per film)
   { const refs = [...new Set(rows.map((r) => r.imagery).filter((v) => v && !/^(none|no|-|n\/a)$/i.test(v)))];
     if (refs.length > LB.imagery_max) F.push({ severity: "warning", check: "imagery-count", message: `${refs.length} distinct Codex images (${LB.imagery_max} at most): use imagery only where it adds meaning, never as wallpaper`, fix: `keep the images that carry meaning (a world inside a UI card, an object shot, a cinematic plate); ${see}`, basis: "score" }); }
+  F.push(...imageryPromptFindings(plan));
   // 4. copy: one thought per beat; lines over about 9 words on screen at once
   const long = rows.map((r) => ({ r, n: words(r.line) })).filter((x) => x.n > LB.max_words_line);
   if (long.length) add("warning", "copy-line-long", `${long.length} beat(s) hold more than ${LB.max_words_line} words on screen at once (${long.slice(0, 4).map((x) => `${x.r.id}: ${x.n}`).join(", ")}): one thought per beat`, `split the line into two beats, or build it word by word so only a few words are new at a time; ${see}`);
@@ -184,6 +210,26 @@ export function textureFindings(plan, rows, see = "references/launch-grammar.md"
   if (calm.length) F.push({ severity: "warning", check: "texture-calm-beat", message: `calm beat(s) ${calm.map((r) => r.id).join(", ")} (meet, payoff, end) are not smooth`, fix: `keep the meet, the payoff line and the end smooth; ${see}`, basis: "score" });
   const nofps = rows.filter((r) => r.texture === "stepped" && !(r.fps >= 4 && r.fps <= 15));
   if (nofps.length) F.push({ severity: "warning", check: "texture-fps", message: `stepped beat(s) ${nofps.map((r) => r.id).join(", ")} lack a usable fps (4 to 15; 12 or 8 typical)`, fix: `set fps: 12 (on twos at 24) or 8 on each stepped beat; ${see}`, basis: "score" });
+  // flash-frame bursts (a flicker beat): one varying element in a locked layout, 8 to 24 frames, landing on a held readable frame on the downbeat; 1 to 2 per film, never back to back
+  { const sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
+    const fl = rows.filter((r) => r.texture === "flicker"), why = [];
+    fl.forEach((r) => { const b = sc[r.i] || {}, miss = [], bad = [];
+      const bc = String(b.burst_content == null ? "" : b.burst_content).toLowerCase().trim(), bf = Number(b.burst_frames), lo = String(b.lands_on == null ? "" : b.lands_on).trim();
+      if (!bc) miss.push("burst_content"); else if (!/^single[-_ ]?element$/.test(bc)) bad.push(`burst_content "${bc}" (must be single-element: one varying element in a locked layout, never unrelated metrics or messages)`);
+      if (b.burst_frames == null) miss.push("burst_frames"); else if (!(bf >= 8 && bf <= 24)) bad.push(`burst_frames ${b.burst_frames} (8 to 24, about 0.3 to 0.8 s)`);
+      if (!lo) miss.push("lands_on");
+      if (b.lands_hold_frames != null && !(Number(b.lands_hold_frames) >= 12)) bad.push(`lands_hold_frames ${b.lands_hold_frames} (the landing frame is held 12 frames or more)`);
+      if (miss.length || bad.length) why.push(`beat ${r.id}: ${[miss.length ? "missing " + miss.join(", ") : "", ...bad].filter(Boolean).join("; ")}`); });
+    if (why.length) F.push({ severity: "warning", check: "flicker-burst-fields", message: `flash-frame burst not declared correctly (${why.join(" | ")})`, fix: `a flicker beat declares burst_content: "single-element", burst_frames (8 to 24) and lands_on (the held readable frame on the downbeat that carries the real message); never use a burst to carry information the viewer must read; ${see}`, basis: "score" });
+    if (fl.length > 2) F.push({ severity: "warning", check: "flicker-burst-count", message: `${fl.length} flicker beats (1 to 2 bursts per film at most)`, fix: `keep one or two bursts, as a build-up before a reveal, drop or beat hit; ${see}`, basis: "score" });
+    if (fl.some((r, k) => k && r.i - fl[k - 1].i === 1)) F.push({ severity: "warning", check: "flicker-burst-adjacent", message: "flicker bursts back to back", fix: `separate bursts by smooth beats; ${see}`, basis: "score" }); }
+  // stepped motion never goes on a continuous single-direction move (scroll, pan, push, glide, orbit, slide-across): those stay fluid
+  { const sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
+    const bad = rows.filter((r, i) => { const b = sc[i] || {}; if (r.texture !== "stepped") return false;
+      const recs = Array.isArray(b.moves) ? b.moves.filter((m) => m && typeof m === "object") : [];
+      const txt = moveNamesOf(b).concat([b.move_note, b.entrance, b.line_build], recs.map((m) => [m.kind, m.effect, m.what, m.id].filter((v) => v != null).join(" "))).filter((v) => v != null).join(" ");
+      return CLICHE.fluidMove.test(txt); });
+    if (bad.length) F.push({ severity: "warning", check: "stepped-fluid-move", message: `stepped motion on a fluid single-direction move (beat(s) ${bad.map((r) => r.id).slice(0, 6).join(", ")}: scroll, pan, push, glide, orbit or slide-across): those stay smooth`, fix: `keep scrolls, pans, pushes, glides and orbits fluid; use stepped for pieces arriving or assembling in a collage, pop-ins, discrete state changes, montage bursts and hits on the beat; ${see}`, basis: "score" }); }
   return F;
 }
 
@@ -223,6 +269,11 @@ export function clicheFindings(plan, rows, see = "references/launch-moves.md") {
   const typed = per.filter((p) => p.typed); if (typed.length > CLICHE_CAPS.typed_lines) w("cliche-typed-lines", `${typed.length} typed lines (beats ${ids(typed)}; ${CLICHE_CAPS.typed_lines} at most): a typewriter on every line is a cliche`, "type at most two lines (a prompt or a closing caption); build the others by slot scroll, word swap, split, slash or scale-zoom");
   const wf = per.filter((p) => CLICHE.wordFade.test(p.text) || CLICHE.wordFade.test(p.recText)); if (wf.length > CLICHE_CAPS.word_fade_lines) w("cliche-word-fade", `${wf.length} lines build by the same word-by-word fade (beats ${ids(wf)}; ${CLICHE_CAPS.word_fade_lines} at most)`, "vary the line builds: slot scroll, in-place swap, split, slash, scale-zoom, persistent type over cuts");
   const su = per.filter((p) => CLICHE.slideUp.test(p.text) || CLICHE.slideUp.test(p.recText) || p.recs.some((m) => /slide-?up|rise/i.test(String(m.entrance || "")) && /card/i.test(String(m.element || m.target || m.what || "")))); if (su.length > CLICHE_CAPS.slide_up_cards) w("cliche-slide-up-cards", `cards slide up with a soft shadow in ${su.length} beats (${ids(su)}; ${CLICHE_CAPS.slide_up_cards} at most)`, "bring cards in by a stepped collage, a flicker swap, a glitch pop, a mask or a fly-in over footage");
+  const wr = per.filter((p) => CLICHE.wordRise.test(p.text) || CLICHE.wordRise.test(p.recText) || p.recs.some((m) => /^(word[-_ ]?(rise|fade[-_ ]?up)|word[-_ ]?stagger[-_ ]?up)$/i.test(String(m.entrance || m.kind || "")))); if (wr.length > CLICHE_CAPS.word_rise_lines) w("cliche-word-rise", `word-by-word rise-and-fade (appear from the bottom) in ${wr.length} beats (${ids(wr)}; ${CLICHE_CAPS.word_rise_lines} at most): it is the standard AI entrance`, "use the reference vocabulary: a swap in place, an object splitting a word, a slash, a scale-zoom, persistent type over cuts, a typed line used rarely, a hard cut on the beat, a mask wipe or a stepped pop");
+  const zf = per.filter((p) => CLICHE.zoomFade.test(p.text) || CLICHE.zoomFade.test(p.recText) || p.names.some((n) => CLICHE.zoomFade.test(n)) || String((sc[per.indexOf(p)] || {}).transition_in || "").match(CLICHE.zoomFade)); if (zf.length > CLICHE_CAPS.zoom_fade) w("cliche-zoom-fade", `the standard zoom-in plus fade (scale up or down combined with an opacity fade) as an entrance or transition in ${zf.length} beats (${ids(zf)}; ${CLICHE_CAPS.zoom_fade} at most)`, "use a mask, a swap in place, an object splitting the word, a hard cut on the beat, a stepped pop, or a scale-zoom that is the transition itself (scale-as-transition) rather than a scale plus opacity fade");
+  const cu = per.filter((p) => CLICHE.countUp.test(p.text) || CLICHE.countUp.test(p.recText) || p.names.some((n) => CLICHE.countUp.test(n)) || p.recs.some((m) => /count|odometer|ticker/i.test(String(m.kind || m.entrance || m.effect || "")))); if (cu.length > CLICHE_CAPS.count_up) w("cliche-count-up", `counting numbers (count-up, odometer, ticker) in ${cu.length} beats (${ids(cu)}; ${CLICHE_CAPS.count_up} at most): editors rarely count`, "allow one count-up, for a real hero number that matters to the story (social proof such as Join 27,300 others); show every other number as a static value, a swap or a hard cut");
+  const tk = per.filter((p) => CLICHE.ticker.test(p.text) || CLICHE.ticker.test(p.recText) || p.names.some((n) => CLICHE.ticker.test(n))); if (tk.length) w("cliche-ticker", `decorative ticker or ticking numbers in beat(s) ${ids(tk)}: banned`, "remove the ticker; a number is either the hero number (one count-up per film) or a static value");
+  const sl = per.filter((p) => CLICHE.slot.test(p.text) || CLICHE.slot.test(p.recText) || p.names.some((n) => CLICHE.slot.test(n))); if (sl.length > CLICHE_CAPS.slot_list) w("cliche-slot-list", `rolling slot list in ${sl.length} beats (${ids(sl)}; ${CLICHE_CAPS.slot_list} at most)`, "use one slot list, then vary: swap in place, split, slash, scale-zoom");
   const ul = per.filter((p) => CLICHE.underline.test(p.text) || CLICHE.underline.test(p.recText)); if (ul.length > CLICHE_CAPS.underline) w("cliche-underline", `underline used as emphasis in ${ul.length} beats (${ids(ul)}; ${CLICHE_CAPS.underline} at most, and never as the highlight beat)`, "emphasise by an object acting on the word, a colour or serif/sans swap, a rack focus or a scale-zoom");
   const gp = per.filter((p) => CLICHE.glowParticle.test(p.recText) || p.names.some((n) => CLICHE.glowParticle.test(n))); const bud = plan && Array.isArray(plan.budget) ? plan.budget.filter((b) => b && /particle|bokeh|dust|pulse|breath/i.test(String(b.effect || ""))) : [];
   if (gp.length || bud.length) w("cliche-glow-particles", `glow, pulse or particle/bokeh layers in ${gp.length ? `beat(s) ${ids(gp)}` : "the score's budget"}: they read as AI atmosphere`, "atmosphere comes from a brand-gradient ground, real material (footage, a hex texture, glass, generated imagery)");
