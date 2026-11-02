@@ -2,6 +2,15 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- The latest preview now sits in a still speech bubble beside the crew character on every working screen, instead of a block under the status line, so the character keeps its full size. Click it to open the file. When Chitra or Rasika already hold that picture on their easel, no bubble repeats it.
+- A stuck film is visible: after five minutes with no progress the character freezes, dims and frowns, a bubble says "No progress for N min", and the status line offers Retry step and Restart Rasan. A new pill in the bottom bar always shows the director's state (Working, Thinking, Stuck, Retrying, Restarting, Paused, Waiting on you).
+- Rasan follows up in the chat without being asked: when a stall starts, after Retry or Restart ("Running again: ..." or "Still no movement"), and after you ask whether it is running.
+- Rasan's chat is one ongoing Haiku conversation per film that streams as it types and can act: pass an instruction to the director, retry, resume, or offer Restart and Pause as buttons. It says honestly when the director has not read your message yet.
+- The crew line no longer repeats the character's name ("Laya · Laya · ...").
+- **Bundles RasanAI 1.37.0.**
+
 ## 0.29.2 (build 79) — 2026-11-02
 
 - Launch films move with one signature curve and follow ten motion laws (momentum-gated bounce, arcs on long moves, tight cascades, calm heavy elements, counter-moving backgrounds and more), checked as warnings while the film is built.
