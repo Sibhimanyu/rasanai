@@ -189,7 +189,7 @@ function styleWorldOfLabel(run, label) {
 }
 
 // LAUNCH films (references/launch-grammar.md): the three Looks are three treatments of the launch grammar, not three art worlds.
-// A treatment is blend.json.treatment { ground: soft-gradient|white|near-black, type_pairing, scene_mix, density }; the three must differ in ground, type pairing and scene mix (which scene types and where the texture accents fall; a carrier is optional and no longer an axis).
+// A treatment is blend.json.treatment { ground: soft-gradient|white|near-black, light: gradient|glow|lit-white|none, type_pairing, scene_mix, density }; the three must be distinct treatments (ground, type pairing, scene mix and light treatment differ as a set; type pairing and scene mix differ on every look). At least one must be a lit atmosphere (soft-gradient ground, OR a coloured glow/light on dark, OR a lit white). Three different grounds are only a recommendation (a one-ground lit film like Sovra is legitimate).
 function isLaunchRun(run) {
   const J = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")) || {}; } catch { return {}; } };
   const dec = J(path.join(run, "decisions.json")), br = J(path.join(run, "brief.json")), plan = J(path.join(run, "crew", "plan.json"));
@@ -198,7 +198,7 @@ function isLaunchRun(run) {
 }
 const normGround = (t) => /grad|atmos|aurora|mesh|blur/.test(t) ? "soft-gradient" : /black|dark|ink|charcoal|night|midnight/.test(t) ? "near-black" : /white|neutral|light|cream|paper|slate/.test(t) ? "white" : t;
 function launchTreatmentOf(run, label) {
-  try { const b = JSON.parse(fs.readFileSync(path.join(run, "design", label, "blend.json"), "utf8")); const t = (b && (b.treatment || b.launch_treatment)) || {}; const n = (v) => String(v && typeof v === "object" ? v.id || v.what || v.name || "" : v || "").trim().toLowerCase(); return { ground: normGround(n(t.ground)), type_pairing: n(t.type_pairing || t.type), scene_mix: n(t.scene_mix || t.scene_plan || t.carrier), density: n(t.density) }; } catch { return { ground: "", type_pairing: "", scene_mix: "", density: "" }; }
+  try { const b = JSON.parse(fs.readFileSync(path.join(run, "design", label, "blend.json"), "utf8")); const t = (b && (b.treatment || b.launch_treatment)) || {}; const n = (v) => String(v && typeof v === "object" ? v.id || v.what || v.name || "" : v || "").trim().toLowerCase(); return { ground: normGround(n(t.ground)), type_pairing: n(t.type_pairing || t.type), scene_mix: n(t.scene_mix || t.scene_plan || t.carrier), density: n(t.density), light: n(t.light || t.lighting || t.light_treatment) }; } catch { return { ground: "", type_pairing: "", scene_mix: "", density: "", light: "" }; }
 }
 
 // A presenter film (route "presenter") has generated images, so its design systems must carry the art direction
@@ -440,10 +440,10 @@ if (cmd === "style-worlds") {
     for (const st of pl.styles) { st.treatment = launchTreatmentOf(runAbs, st.label); st.style_world = styleWorldOfLabel(runAbs, st.label); }
     const miss = pl.styles.filter((st) => !st.treatment.ground || !st.treatment.type_pairing || !st.treatment.scene_mix).map((st) => st.label);
     if (miss.length) die(`launch film: ${miss.join(", ")} name no treatment in design/<label>/blend.json: { "treatment": { "ground": "soft-gradient|white|near-black", "type_pairing": "...", "scene_mix": "e.g. slates + UI collage + cinematic image + diagram, stepped collage in the hook", "density": "..." } } (references/launch-grammar.md section 9)`);
-    const T = pl.styles.map((st) => st.treatment), tup = T.map((t) => `${t.ground}|${t.type_pairing}|${t.scene_mix}`);
-    const axes = ["ground", "type_pairing", "scene_mix"].filter((k) => new Set(T.map((t) => t[k])).size < 2);
-    { const g = T.map((t) => t.ground); if (new Set(g).size < 3) die(`the Look must use 3 different grounds (soft-gradient, white, near-black; near-black, dark and black count as one): got ${g.join(", ")}`); if (!g.includes("soft-gradient")) die("at least one Look must be a soft brand-gradient ground built from the brand palette (Kinso-style atmosphere)"); }
-    if (new Set(tup).size < 3 || axes.length) die(`the Look must offer three distinct launch treatments (ground, type pairing and scene mix differ across the three; same on every Look: ${axes.join(", ") || "none, but two Looks are identical"}): ${pl.styles.map((st, i) => st.label + "=" + tup[i]).join(", ")}`);
+    const T = pl.styles.map((st) => st.treatment), tup = T.map((t) => `${t.ground}|${t.type_pairing}|${t.scene_mix}|${t.light}`);
+    const axes = ["type_pairing", "scene_mix"].filter((k) => new Set(T.map((t) => t[k])).size < 2);
+    { const lit = (t) => t.ground === "soft-gradient" || /glow|gradient|lit|beam|spot|aurora|halo|bloom/.test(t.light || ""); if (!T.some((t) => lit(t) && !/^(none|flat|off)$/.test(t.light || "x"))) die("at least one Look must have a lit atmosphere: a soft brand-gradient ground, OR a coloured light/glow on dark, OR a lit white (set treatment.light to gradient|glow|lit-white)"); const g = T.map((t) => t.ground); if (new Set(g).size < 3) console.error(`note: the three Looks share ${new Set(g).size} ground(s) (${g.join(", ")}); three different grounds are recommended, not required, when ground, type pairing, scene mix and light differ.`); }
+    if (new Set(tup).size < 3 || axes.length) die(`the Look must offer three distinct launch treatments (ground, type pairing, scene mix and light treatment differ as a set; type pairing and scene mix differ on every look; same on every Look: ${axes.join(", ") || "none, but two Looks are identical"}): ${pl.styles.map((st, i) => st.label + "=" + tup[i]).join(", ")}`);
   } else { const runAbs = path.resolve(String(args.run)), locked = !!runBrand(runAbs);
     for (const st of pl.styles) st.style_world = styleWorldOfLabel(runAbs, st.label);
     const ids = pl.styles.map((st) => st.style_world.id).filter(Boolean);

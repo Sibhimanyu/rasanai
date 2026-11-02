@@ -187,10 +187,11 @@ export function textureFindings(plan, rows, see = "references/launch-grammar.md"
   return F;
 }
 
-// the catalogue names a beat declares: strings in moves[] (objects there are the per-tween records), plus move_names[] / reference_moves[]
+// the catalogue names a beat declares: `moves_named` (the canonical field: a string or an array of strings), plus, for older scores, strings in moves[] (objects there are the per-tween records) and move_names[] / reference_moves[]. Never throws on a mixed array.
 export const moveNamesOf = (s) => {
   const out = [], push = (v) => { const t = sceneKey(v); if (t) out.push(t); };
-  for (const k of ["moves", "move_names", "reference_moves"]) if (Array.isArray(s && s[k])) s[k].forEach((m) => { if (typeof m === "string") push(m); else if (m && typeof m === "object" && (m.move || m.name_ref)) push(m.move || m.name_ref); });
+  if (s && typeof s.moves_named === "string") push(s.moves_named);
+  for (const k of ["moves_named", "moves", "move_names", "reference_moves"]) if (Array.isArray(s && s[k])) s[k].forEach((m) => { if (typeof m === "string") push(m); else if (m && typeof m === "object" && (m.move || m.name_ref)) push(m.move || m.name_ref); });
   return out;
 };
 
@@ -227,7 +228,7 @@ export function clicheFindings(plan, rows, see = "references/launch-moves.md") {
   if (gp.length || bud.length) w("cliche-glow-particles", `glow, pulse or particle/bokeh layers in ${gp.length ? `beat(s) ${ids(gp)}` : "the score's budget"}: they read as AI atmosphere`, "atmosphere comes from a brand-gradient ground, real material (footage, a hex texture, glass, generated imagery)");
   // 3. move variety: named from the catalogue, no move in more than 2 beats
   const declared = per.filter((p) => p.names.length);
-  if (rows.length >= 6 && declared.length < Math.ceil(rows.length / 2)) w("moves-undeclared", "beats do not name their reference moves (scenes[].moves: strings from the catalogue): move variety cannot be counted", `name each beat's move(s): ${REF_MOVES.join(", ")}`);
+  if (rows.length >= 6 && declared.length < Math.ceil(rows.length / 2)) w("moves-undeclared", "beats do not name their reference moves (scenes[].moves_named: strings from the catalogue): move variety cannot be counted", `name each beat's move(s): ${REF_MOVES.join(", ")}`);
   else { const n = {}; declared.forEach((p) => [...new Set(p.names)].forEach((m) => { n[m] = (n[m] || 0) + 1; })); const over = Object.entries(n).filter(([, c]) => c > CLICHE_CAPS.move_beats);
     if (over.length) w("move-repeat", `${over.map(([m, c]) => `${m} in ${c} beats`).join(", ")} (${CLICHE_CAPS.move_beats} at most): each scene has its own idea`, "give the later beats a different move from the catalogue"); }
   return F;

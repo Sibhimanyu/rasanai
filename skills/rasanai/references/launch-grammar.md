@@ -128,7 +128,7 @@ When a beat would otherwise be an empty card or abstract shapes, the concept, th
 
 ### 4e. Reference moves and AI cliches
 
-Each scene has its own idea, taken from the **15 reference moves** (`launch-moves.md`: the object splits the word, the redaction slash, the glass shelf, scale as transition, an iris through an object, persistent type over cuts, the slot list, a stepped dashboard scroll, an orbit diagram, a mixed type collage, oversized type bleeding off the frame...). The score names them per beat in `moves[]`; **no move is used in more than 2 beats** (`move-repeat`). Emphasis is an **object acting on the word**, not a pointer at it.
+Each scene has its own idea, taken from the **15 reference moves** (`launch-moves.md`: the object splits the word, the redaction slash, the glass shelf, scale as transition, an iris through an object, persistent type over cuts, the slot list, a stepped dashboard scroll, an orbit diagram, a mixed type collage, oversized type bleeding off the frame...). The score names them per beat in `moves_named[]`; **no move is used in more than 2 beats** (`move-repeat`). Emphasis is an **object acting on the word**, not a pointer at it.
 
 The standard AI moves are **rare tools or banned** (`launch-moves.md`, "AI cliches"):
 - **Banned**: glow pulses and breathing glow, bokeh and floating particle atmosphere, and a highlighted word that scales, bounces, nudges, wiggles or pulses as the emphasis.
@@ -164,7 +164,7 @@ Every beat change is one of these, named in the beat's `transition_in`:
 
 - **Dense and sparse alternate.** A dense moment (a collage of cards, app icons, a dashboard, a stack of lines) is always followed by a sparse one (a single small line on an empty ground) and the reverse. No more than 2 dense or 2 sparse beats in a row (the launch-beats gate warns on more than 2 dense in a row: `dense-run`).
 - The tempo is locked to the music: seams and hard cuts land on its hits, drops and break edges (`audio/music-map.json`); the turn lands on the drop.
-- Grounds are neutral or brand atmosphere: clean white, a soft brand gradient, a brand-colour slate, or near-black. Never a gimmick ground. **Use at least 2 ground families and alternate them with the beats** (section 12); one grey ground for the whole film is a defect.
+- Grounds are neutral or brand atmosphere: clean white, a soft brand gradient, a brand-colour slate, or near-black. Never a gimmick ground. **Alternate 2 or more ground families with the beats (section 12), OR keep one ground that is visibly lit and moving (Sovra.fm: dark ground, moving purple light)**; one flat grey ground for the whole film is a defect.
 - Type scale swings: full-frame type, then small centred type. A film that keeps the same type size for 5 s is wrong.
 - **One signature curve** for the smooth beats. A launch film declares one `signature_ease` in its score (a custom cubic-bezier or an expo.out family) and 70 to 85 percent of its (smooth) moves use it; stepped and flicker beats set their own timing by fps. Other curves are accents, reserved for contrast: a whip, the signature transition, the payoff hit. The gate warns under 60 percent or with none declared (`signature-share-low`, `signature-ease-missing`). The 40 percent variety cap applies to non-launch films only (`craft.md`, "A curve per role").
 - **Cascades are short** (3 to 7 items inside 0.5 s; a set piece 1.2 s) and **ambient layers counter-drift** at 20 to 30 percent of hero speed (`craft.md`).
@@ -179,7 +179,7 @@ Diversity across ideas and across the 3 jury picks means a different hook, a dif
 
 ## 9. The three looks of a launch film
 
-The Look step makes three treatments of this grammar, not three art worlds. Axes: **ground** (soft brand gradient, clean white, near-black), **type pairing** (serif-italic plus sans, grotesk, mono accents), **scene plan** (which scene types and where the texture accents fall), **density**. The three differ in ground, type and scene plan together. Each uses the brand palette as atmosphere and keeps the logo small.
+The Look step makes three treatments of this grammar, not three art worlds. Axes: **ground** (soft brand gradient, clean white, near-black), **type pairing** (serif-italic plus sans, grotesk, mono accents), **scene plan** (which scene types and where the texture accents fall), **light treatment** (`gradient`, `glow` on dark, `lit-white`, `none`), **density**. The three must be distinct treatments: ground, type pairing, scene plan and light differ as a set (type pairing and scene plan differ on every look). At least one Look has a lit atmosphere: a soft brand gradient, OR a coloured light/glow on dark (Sovra.fm: one dark ground lit by moving purple light), OR a lit white. Three different grounds are a recommendation, not a rule. Each uses the brand palette as atmosphere and keeps the logo small.
 
 ## 10. Critic checklist
 
@@ -201,7 +201,7 @@ Related: `launch-moves.md` (the 15 reference moves and the AI cliche table), `la
 ## 11. Chrome, carrier and look rules
 
 - **Chrome rule.** No fake HUD or instrument labels (timecodes, "LINE 01", "VARISPEED", tick rulers, coordinates) unless the product is that kind of tool. The references use clean type and simplified UI, not dashboard decoration.
-- **Looks: contrast and atmosphere.** The 3 looks use 3 different grounds (soft-gradient, white, near-black; near-black, dark and black are one ground), and at least one is a soft brand-gradient ground built from the brand palette (Kinso-style atmosphere).
+- **Looks: contrast and atmosphere.** The 3 looks are distinct treatments (ground, type pairing, scene mix and light differ as a set). At least one has a lit atmosphere: a soft brand gradient (Kinso), OR a coloured glow on dark (Sovra.fm: one dark ground lit by moving purple light), OR a lit white. Three different grounds are recommended, not required.
 
 - **Launch concept props rule.** Any carrier and the props come from the product, its UI and the brand (a card, chip, pill, notification, an orb in the brand colour, the user's own text), not from an outside metaphor world (a Tetris tank, a letterpress, a courtroom, karaoke, a nature doc). A caret or cursor is a rare tool (`launch-moves.md`), never the carrier of the whole film. At most ONE wild-lane idea may use an outside metaphor, and the jury may not recommend it. A concept whose carrier.kind is "object" gets a schema warning.
 
@@ -230,7 +230,7 @@ A film made on engine 1.36 passed every gate and still looked like a slide deck 
 
 **3D renders.** A dull grey 3D render is not a hero. 3D may be used only if it is lit in the brand atmosphere (brand-colour key and rim light, a gradient ground, no neutral grey studio) and earns its time: it moves, it becomes something (the next scene), and it is not on screen for more than a quarter of the hook. A flat 2D card or kinetic type beats a grey keyboard every time.
 
-**The score fields** (all required on a launch film; `crew.mjs check` refuses a launch score without them): per beat `ground`, `role` (hook | turn | meet | capability | payoff), `hero_scale` (cap height of the biggest line, % of frame height), `ui_scale` (the UI proof's % of frame area, 0 if none) and `hold_s` (longest static hold, s); plus `line`, `scene_type`, `texture` (+ `fps` when stepped), `transition_in`, `density`, `logo`; optional `carrier_state`, `moves[]` (catalogue names), `imagery`, `cursor_reason` (section 4).
+**The score fields** (all required on a launch film; `crew.mjs check` refuses a launch score without them): per beat `ground`, `role` (hook | turn | meet | capability | payoff), `hero_scale` (cap height of the biggest line, % of frame height), `ui_scale` (the UI proof's % of frame area, 0 if none) and `hold_s` (longest static hold, s); plus `line`, `scene_type`, `texture` (+ `fps` when stepped), `transition_in`, `density`, `logo`; optional `carrier_state`, `moves_named[]` (catalogue names; `moves[]` is the per-tween records), `imagery`, `cursor_reason` (section 4).
 
 **The reference jury.** After the draft render and the critics' fixes, and before the Final call, the `reference-juror` (`agents/reference-juror.md`) looks at the film's 1.5 fps contact sheet (`crew.mjs refsheet`) beside the three house reference sheets and scores 1 to 10 on story clarity, typography scale and craft, ground and atmosphere rhythm, motion choreography, **scene variety**, **motion texture contrast**, brand-light presence and pacing. **Any score under 7 triggers ONE targeted fix round** (a concrete fix per beat), then a re-check; the scores go in the Final push. It compares against the references, not against the film itself.
 

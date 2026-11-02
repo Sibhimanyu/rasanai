@@ -37,7 +37,7 @@ What makes these feel designed, not AI:
 
 ## The 15 reference moves
 
-Ids are what the score's `moves[]` names.
+Ids are what the score's per-beat `moves_named[]` names.
 
 **Kinso**
 

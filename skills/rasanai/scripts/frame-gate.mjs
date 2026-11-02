@@ -66,7 +66,7 @@ import { loadIntent, intentBeats } from "./lib/emphasis.mjs";
 import { craftProfile } from "./lib/frames-lib.mjs";
 import { shotLimits } from "./lib/ref-targets.mjs";
 import { grammarWaivers, parseWaiversArg, GATE_PROFILES } from "./lib/gate-profile.mjs";
-import { spikeFinding } from "./lib/launch-beats.mjs";
+import { spikeFinding, beatRows } from "./lib/launch-beats.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -562,7 +562,11 @@ export async function measureFrames(opts = {}) {
     if (film.shotMedianS > RT.err && waived["median-shot"]) add("note", "shot-length", `waived by the concept (${waived["median-shot"]}): median shot ${film.shotMedianS} s (the launch default is about ${RT.lo} to ${RT.hi} s, error above ${RT.err} s; ${sg})`, `none: the concept waived the launch grammar's median-shot rule`, { value: film.shotMedianS, limit: RT.err, waived: true });
     else if (film.shotMedianS > RT.err) add("warning", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg}): the frame is not being remade often enough`, `change the composition about every 2 s: a hard cut is one way (rare is fine); so is a morph of the carrier, an in-place word swap, a colour-world flip or a push-in to a new scale; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
     else if (film.shotMedianS > RT.hi || film.shotMedianS < RT.lo) add("warning", "shot-length", `median shot ${film.shotMedianS} s (about ${RT.lo} to ${RT.hi} s; ${sg})`, `the favourites sit at a median of 1.9 s; ${seeLaunch}`, { value: film.shotMedianS, limit: RT.hi });
-    if (film.shotP10S < RT.p10) add("warning", "shot-length-short", `p10 shot ${film.shotP10S} s (at least ${RT.p10} s): too many flicker shots; one burst of 5 to 6 short shots per film is the most the favourites use`, `merge the flicker pairs or hold the shot; ${seeLaunch}`, { value: film.shotP10S, limit: RT.p10 });
+    // a flicker or stepped beat the score declares is a deliberate burst of short shots: its time range is left out of the p10 statistic (the shots in the other beats still count)
+    { let spans = []; try { const pl0 = opts.plan ? readJ(path.resolve(opts.plan)) : null; spans = pl0 ? beatRows(pl0).filter((r) => /^(flicker|stepped|glitch)$/.test(r.texture || "") && Number.isFinite(r.t0) && Number.isFinite(r.t1)).map((r) => [r.t0, r.t1]) : []; } catch {}
+      let p10 = film.shotP10S, kept = film.shotLens.length;
+      if (spans.length) { let acc = 0; const lens = film.shotLens, rest = lens.filter((l, i) => { const s0 = acc, s1 = acc + l; acc = s1; const mid = (s0 + s1) / 2; return !spans.some(([a, b]) => mid >= a && mid <= b); }); if (rest.length >= 3) { p10 = r2(pct(rest, 10)); kept = rest.length; film.shotP10ExFlickerS = p10; } }
+      if (p10 < RT.p10) add("warning", "shot-length-short", `p10 shot ${p10} s${spans.length ? ` (${kept} shots, declared flicker/stepped beats excluded)` : ""} (at least ${RT.p10} s): too many flicker shots; one burst of 5 to 6 short shots per film is the most the favourites use`, `merge the flicker pairs or hold the shot, or declare the burst as a flicker/stepped beat in the score (beat.texture); ${seeLaunch}`, { value: p10, limit: RT.p10 }); }
     if (film.shotP90S > RT.p90 && film.hardCuts > 3) add("warning", "shot-length-long", `p90 shot ${film.shotP90S} s (at most about ${RT.p90} s)`, `break the long shots up unless they are UI proof (a typed input, a state change) or the end card; ${seeLaunch}`, { value: film.shotP90S, limit: RT.p90 });
     // one-take launch films (the references: 1 to 3 frame-difference spikes per 10 s, all ground flips) have long "shots": the beat table of the score is measured instead (lib/launch-beats.mjs); only a spike rate far above the references is reported
     { let pl = null; try { pl = opts.plan ? readJ(path.resolve(opts.plan)) : null; } catch {} const sp = spikeFinding({ hardCuts: film.hardCuts, dur, plan: pl }); if (sp) add(sp.severity, sp.check, sp.message, sp.fix, { value: film.hardCuts }); }
