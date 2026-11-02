@@ -667,7 +667,7 @@ function applyAction(s, action) {
 // lock. Every line is validated like a POST would be; a bad one is consumed with its reason in rejected.json, never thrown on.
 // A line the console server wrote on POST carries `applied: true` (its effects are already in session.json) and is only
 // consumed; every other line (RasanAI Studio, another app, an older server's) gets applyAction here.
-function nextAction(step) {
+function nextAction(step, only = null) {
   let found = null;
   withLock(F.actionsLock, () => {
     let text = "";
@@ -694,6 +694,7 @@ function nextAction(step) {
         continue;
       }
       if (step && v.step !== step && v.step !== "*") continue;
+      if (only && !only.includes(v.type)) continue; // `inbox` takes only the person's chat messages; every other action stays for `wait`
       const action = { id: rid, ts: typeof raw.ts === "string" ? raw.ts : now(), step: v.step, type: v.type, value: v.value, note: v.note, source: cleanSource(raw.source) };
       if (raw.applied !== true) {
         try {
@@ -717,6 +718,24 @@ function nextAction(step) {
     }
   });
   return found;
+}
+
+// The person's chat instructions Studio queued (`revision-request`) that nothing has read yet: a read-only peek, consumes nothing. `wait` and `inbox` both consume
+// through nextAction, so a message one handled is never handed out by the other; consumed.json is also what Studio's queue (RunTransport.pending) reads as seen.
+const INBOX_TYPES = ["revision-request"];
+function unreadMessages() {
+  let text = "";
+  try { text = fs.readFileSync(F.actions, "utf8"); } catch { return 0; }
+  const done = new Set(readJSON(F.consumed, []));
+  const lines = text.split("\n");
+  if (!text.endsWith("\n")) lines.pop();
+  const ids = new Set();
+  for (const line of lines) {
+    let a = null;
+    try { a = JSON.parse(line); } catch { continue; }
+    if (a && typeof a.id === "string" && INBOX_TYPES.includes(a.type) && !done.has(a.id)) ids.add(a.id);
+  }
+  return ids.size;
 }
 
 // start the server in the background on a known address (same port and token as before when there was one)
@@ -755,6 +774,13 @@ if (!HEADLESS && ["push", "log", "activity", "reply", "ask", "downgrade"].includ
 if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade", "relock"].includes(cmd)) {
   acquire(F.sessionLock, 8000);
   process.on("exit", () => release(F.sessionLock));
+}
+// the commands the director calls while working: one stderr line when the person has written and nothing has read it (stdout stays the command's JSON)
+if (["push", "record", "activity", "log"].includes(cmd)) {
+  try {
+    const n = unreadMessages();
+    if (n) console.error(`NOTE: ${n} new message${n > 1 ? "s" : ""} from the person ${n > 1 ? "are" : "is"} waiting. Read ${n > 1 ? "them" : "it"} now: console.mjs inbox --run ${RUN}`);
+  } catch {}
 }
 if (cmd === "push") {
   if (!args.step || !STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);
@@ -1024,6 +1050,17 @@ if (cmd === "push") {
     });
   }
   console.log(JSON.stringify(a));
+} else if (cmd === "inbox") {
+  // the person's unread chat messages, each handled exactly as `wait` would (applyAction -> revisionHook) and marked consumed, which is what Studio reads as seen by the director
+  const messages = [];
+  for (let i = 0; i < 50; i++) {
+    let m = null;
+    try { m = nextAction(null, INBOX_TYPES); } catch {}
+    if (!m) break;
+    messages.push({ id: m.id, text: m.note, step: m.step, ts: m.ts, source: m.source });
+  }
+  const rr = session().revision_requests || [];
+  console.log(JSON.stringify({ ok: true, count: messages.length, messages, revisions: messages.length ? rr.slice(-messages.length) : [] }));
 } else if (cmd === "wait") {
   const timeout = Number(args.timeout || 3000) * 1000;
   const start = Date.now();

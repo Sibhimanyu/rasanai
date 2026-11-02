@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **The director reads the person's chat mid-run.** `console.mjs push`, `record`, `activity` and `log` print one `NOTE: N new messages from the person ...` line on stderr when Studio-queued chat instructions are unread (stdout unchanged), and the new `console.mjs inbox` prints them, handles them exactly as `wait` does and marks them consumed so Studio shows them read. SKILL.md: run `inbox` on the NOTE and between phases and scenes, apply what fits, brief helpers, `reply`.
+
 ## 1.36.0 (2026-11-02): Motion laws and one signature curve for launch films
 
 - **Motion laws and one signature curve for launch films.** A launch film declares one `signature_ease` in its score and runs 70-85% of its moves on it (accents only for a whip, the signature transition and the payoff hit); `obey` and `launch-beats` warn under 60% or with none declared, and `dominant-ease` / `few-curves` no longer judge launch films (every other film keeps the 40% cap). New craft rules with warning gates: momentum-gated bounce (`unmotivated-overshoot`), springs as duration + bounce (cap 0.4), weight classes for overshoot, no ease-in or opacity-only entrances, arcs on long travel (`long-straight-travel`), cascade span cap (`cascade-span`), counter-moving ambient layers (`ambient-speed`, `ambient-not-counter`, `layers-missing`), a per-beat motion profile (`beat-profile`) and carrier velocity at handoffs (`handoff-velocity`). New score fields (`signature_ease`, `beat`, `hold_s`, `moves[]` with `weight`, `travel_px`, `path`, `layer`, `entrance`, `set_piece`) are in `references/score.md`; the motion-director and scene-animator briefs carry them.
