@@ -38,7 +38,7 @@ struct FilmPage: View {
                                onPause: store.canPause ? { store.pauseDirector() } : nil,
                                onShowLog: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
                                pace: shownPace, autoResume: store.runtime.autoResume, onResumeNow: store.runtime.autoResume != nil ? { store.resumeDirector() } : nil,
-                               onResume: store.canResume && !store.runtime.isRunning ? { store.resumeDirector() } : nil, paused: store.runtime.isFrozen || store.runtime.stopRequested)
+                               onResume: store.canResume && !store.runtime.isRunning ? { store.resumeDirector() } : nil, paused: store.runtime.isFrozen || store.runtime.stopRequested, stuck: store.stuckNotice)
             } else if store.runtime.isRunning || store.runtime.isPreparing {
                 StartingView(runtime: store.runtime)
             } else {
@@ -102,7 +102,7 @@ struct FilmPage: View {
                                   onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
                                   onPause: store.canPause ? { store.pauseDirector() } : nil,
                                   onResume: store.canResume ? { store.resumeDirector() } : nil,
-                                  usage: { StatusPill(store: store) }) {
+                                  usage: { HStack(spacing: 8) { DirectorStatePill(store: store); StatusPill(store: store) } }) {
                     VStack(spacing: 0) {
                         topChrome
                         DecisionsHost(model: film, page: StagePanelHost { pageContent })

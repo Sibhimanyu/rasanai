@@ -18,6 +18,9 @@ struct FilmProgressView: View {
     var onResume: (() -> Void)?
     /// The director is stopped by the person: the crew on stage snooze (as they do while a usage limit is waited out).
     var paused = false
+    /// The health stall (`DirectorHealth.stalled`): the director runs but has made no progress for the threshold. With the idle case below,
+    /// the one "stuck" signal of the working screen.
+    var stuck: StuckNotice?
 
     /// "View activity" opens the list of what has happened as a sheet; a card's "View details" opens that one event.
     @State private var showActivity = false
@@ -31,6 +34,9 @@ struct FilmProgressView: View {
 
     /// The film is unfinished, nothing runs, and the person did not pause it: the director stopped and waits for Resume.
     private var stalled: Bool { progress.snapshot.directorIdle && !paused && autoResume == nil && !progress.isReplay }
+
+    /// The director is alive but quiet past the stall threshold: the crew stands still, frowns, and says how long.
+    private var healthStuck: Bool { stuck != nil && !paused && !progress.isReplay }
 
     private var snapshot: FilmProgressSnapshot {
         var s = progress.snapshot
@@ -162,14 +168,35 @@ struct FilmProgressView: View {
                 }
                 VStack(spacing: 4) {
                     Text(Self.crewLine(lead, s)).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(1).multilineTextAlignment(.center)
-                    Text(s.now.text)
-                        .font(.system(size: 26, weight: .semibold)).tracking(-0.3)
-                        .lineLimit(2).minimumScaleFactor(0.8).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                        .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
-                        .accessibilityAddTraits(.isHeader)
+                    if let stuck, healthStuck {
+                        stuckLine(stuck, doing: s.now.text)
+                    } else {
+                        Text(s.now.text)
+                            .font(.system(size: 26, weight: .semibold)).tracking(-0.3)
+                            .lineLimit(2).minimumScaleFactor(0.8).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                            .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
+                            .accessibilityAddTraits(.isHeader)
+                    }
                     timing
                 }
                 .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    /// The plain stuck line under the stage, in orange, with the two ways out. What it was doing stays as one quiet line.
+    private func stuckLine(_ stuck: StuckNotice, doing: String) -> some View {
+        VStack(spacing: 8) {
+            Text("Stuck: no progress for \(ChatFollowUps.span(stuck.quietFor))")
+                .font(.system(size: 26, weight: .semibold)).tracking(-0.3).foregroundStyle(Color.orange)
+                .lineLimit(2).minimumScaleFactor(0.8).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            if !doing.isEmpty { Text("Last: \(doing)").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1) }
+            HStack(spacing: 10) {
+                Button("Retry step", action: stuck.onRetry).buttonStyle(.rasanSecondary).controlSize(.regular)
+                    .help("Tells Rasan to try the current step again.")
+                Button("Restart Rasan", action: stuck.onRestart).buttonStyle(.rasanPrimary).controlSize(.regular)
+                    .help("Stops the director and starts it again from your saved film.")
             }
         }
     }
@@ -179,6 +206,7 @@ struct FilmProgressView: View {
         let headroom = min(150, h * 0.32)
         let unit = max(40, min(320, h - headroom))
         return CrewStage(character: lead, thoughts: CrewThoughts.make(s, lead: lead), asleep: asleep,
+                         stuck: stuck.flatMap { healthStuck ? "No progress for \(ChatFollowUps.span($0.quietFor))" : nil },
                          lines: lead == .kavi ? CrewThoughts.finishedSteps(s) : 0,
                          picture: lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil, unit: unit,
                          stageHeight: min(h, unit + headroom))
@@ -296,6 +324,8 @@ struct FilmProgressView: View {
     @ViewBuilder private func estimate(_ s: FilmProgressSnapshot) -> some View {
         if s.isWaitingForYou {
             Label("Waiting for you", systemImage: "person.fill.questionmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(.orange)
+        } else if healthStuck {
+            Label("Stuck", systemImage: "exclamationmark.triangle.fill").font(.system(size: 12, weight: .semibold)).foregroundStyle(.orange)
         } else if s.directorIdle {
             if paused {
                 Label("Paused", systemImage: "pause.circle").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)

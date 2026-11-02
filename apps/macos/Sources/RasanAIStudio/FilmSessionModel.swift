@@ -95,6 +95,9 @@ final class FilmSessionModel {
     var answering = 0
     var chatTail: Task<Void, Never>?
     var lastChatReply: (at: Date, facts: [String])?
+    /// Rasan's unprompted chat follow-ups (stall, retry outcome, status watch), and the last tick they read (not observed: it changes every tick).
+    var followUps = ChatFollowUps()
+    @ObservationIgnored var followUpLast: ChatFollowUps.Input?
     /// Texts being sent right now (normalized), so a second Return cannot send the same words twice.
     private var inFlight: Set<String> = []
     /// Where the stage's player is (set by the review player while it is on screen), so feedback can carry a moment and a scene.
@@ -305,6 +308,7 @@ final class FilmSessionModel {
         // A question to Rasan is answered in the chat by the model from the film's real state (the plain status line only if it can't).
         if ChatAnswerer.classify(text) == .statusQuestion || ChatAnswerer.isConversational(text) {
             addLocal(step, fromUser: true, text)
+            if ChatAnswerer.classify(text) == .statusQuestion { followUpStatusAsked() }
             let quick = ChatAnswerer.quickStatus(text, context)
             converse(text, step: step, fallback: quick.text, actions: quick.actions)
             return true
@@ -453,6 +457,7 @@ final class FilmSessionModel {
         let step = shownStep
         let question = "Why did Rasan stop?"
         addLocal(step, fromUser: true, question)
+        followUpStatusAsked()
         let quick = ChatAnswerer.quickStatus(question, chatContext())
         converse(question, step: step, fallback: quick.text, actions: quick.actions)
     }
