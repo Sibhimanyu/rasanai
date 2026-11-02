@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.37.0 (2026-11-02): The director reads your chat mid-run
 
 - **The director reads the person's chat mid-run.** `console.mjs push`, `record`, `activity` and `log` print one `NOTE: N new messages from the person ...` line on stderr when Studio-queued chat instructions are unread (stdout unchanged), and the new `console.mjs inbox` prints them, handles them exactly as `wait` does and marks them consumed so Studio shows them read. SKILL.md: run `inbox` on the NOTE and between phases and scenes, apply what fits, brief helpers, `reply`.
 
