@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.29.2 beta 1</title>
+      <pubDate>Mon, 02 Nov 2026 04:49:00 GMT</pubDate>
+      <description><![CDATA[<ul><li>Launch films move with one signature curve and follow ten motion laws (momentum-gated bounce, arcs on long moves, tight cascades, calm heavy elements, counter-moving backgrounds and more), checked as warnings while the film is built.</li></ul>]]></description>
+      <sparkle:version>79</sparkle:version>
+      <sparkle:shortVersionString>0.29.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.29.2-beta.1/RasanAI-Studio-0.29.2.dmg" sparkle:edSignature="dVzRGI8kWVfRTZ8t7NauOZs1szGTvXA9kkwq2kEE9ReldVOHjy/cE4nW4rKJAUSGGUyI6h5ymGiguQVCbSlnCQ==" length="98577059" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.29.1 beta 1</title>
       <pubDate>Sun, 01 Nov 2026 18:21:19 GMT</pubDate>
       <description><![CDATA[<ul><li>Launch films now follow the house launch grammar: a short copy-led story (hook, turn, meet, two or three capabilities, payoff), one carrier motif that travels the whole film, transitions that flow as one take, and a light touch of brand.</li></ul>]]></description>
