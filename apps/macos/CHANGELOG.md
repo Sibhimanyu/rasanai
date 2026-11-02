@@ -4,6 +4,7 @@ Desktop releases are separate from RasanAI skill releases.
 
 ## Unreleased
 
+- Launch films are made the way the house reference films are: a variety of scenes, stepped and flicker texture where it helps, reference moves instead of stock AI animation, editorial imagery without generated people, and a reference jury that checks each draft before the Final.
 - The latest-preview bubble opens the video in the app's own player (every control, true full screen, Space/arrows/Esc) instead of the system player, with a play glyph, a hover state and an expand button. Small inline players (the preview tile on the asking screen and anywhere else under 480 pt wide) now show one slim row (play, scrubber, time, full screen) over a picture that fills the tile, instead of a transport clipped by it.
 
 ## 0.30.0 (build 80) — 2026-11-02
