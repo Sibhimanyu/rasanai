@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.29.2 (build 79) — 2026-11-02
 
 - Launch films move with one signature curve and follow ten motion laws (momentum-gated bounce, arcs on long moves, tight cascades, calm heavy elements, counter-moving backgrounds and more), checked as warnings while the film is built.
+- **Bundles RasanAI 1.36.0.**
 
 ## 0.29.1 (build 78) — 2026-11-01
 
