@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.30.0 (build 80) — 2026-11-02
 
 - The latest preview now sits in a still speech bubble beside the crew character on every working screen, instead of a block under the status line, so the character keeps its full size. Click it to open the file. When Chitra or Rasika already hold that picture on their easel, no bubble repeats it.
 - A stuck film is visible: after five minutes with no progress the character freezes, dims and frowns, a bubble says "No progress for N min", and the status line offers Retry step and Restart Rasan. A new pill in the bottom bar always shows the director's state (Working, Thinking, Stuck, Retrying, Restarting, Paused, Waiting on you).
