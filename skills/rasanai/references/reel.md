@@ -1,5 +1,12 @@
 # Footage reels: `reel.mjs`
 
+## Contents
+
+- [scan](#scan)
+- [reel.json (input to build)](#reeljson-input-to-build)
+- [build](#build)
+- [Console](#console)
+
 Cut a folder of raw clips into a reel or edit: segments in any order, motion-graphics **cards between clips**, **overlays on top** (names, places, callouts), **captions** from what's said, and a music bed that ducks under speech. `reel.mjs` writes a HyperFrames composition; HyperFrames lints and renders it; `obey.mjs` checks every card, overlay and transition against motion.md.
 
 Needs FFmpeg (ffmpeg + ffprobe), the HyperFrames CLI (`npx hyperframes`), and Chrome (as for previews).

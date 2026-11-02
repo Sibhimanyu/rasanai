@@ -36,7 +36,7 @@ These are original proposals for the product category in the failed draft. They 
 
 **What differs:** A proves transfer, B proves precision, C proves usable breadth. These are different communication ideas, not the same six cards with different titles.
 
-## 2. Three Look options for ONE approved beat
+## 2. Three Look options for one approved beat
 
 Assume Story A was selected and the representative beat is a correction plus its reason. Keep exact source, correction and required explanation identical in all three options.
 

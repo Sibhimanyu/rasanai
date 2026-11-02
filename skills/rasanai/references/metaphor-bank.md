@@ -1,6 +1,6 @@
 # Metaphor bank for explainers (abstract words to images)
 
-FOR EXPLAINERS ONLY (faceless explainers, concept films, narrated scripts with abstract nouns). A product-first launch film shows the real product and never swaps it for a metaphor (`references/product-first.md`); do not use this bank there.
+For explainers only (faceless explainers, concept films, narrated scripts with abstract nouns). A product-first launch film shows the real product and never swaps it for a metaphor (`references/product-first.md`); do not use this bank there.
 
 Ask what the word looks like, or what it is the opposite of. Use each metaphor ONCE per film; reusing a visual reads as padding. Take props from the audience's own culture (a snack pouch, a group chat, a muddy running shoe at dawn), not the category's clip-art (rockets for launch, shields for security, lightbulbs for ideas).
 

@@ -1,5 +1,17 @@
 # Director's Console
 
+## Contents
+
+- [The page](#the-page)
+- [Staying connected](#staying-connected)
+- [Headless mode (RasanAI Studio)](#headless-mode-rasanai-studio)
+- [Security](#security)
+- [Commands](#commands)
+- [Common payload fields (any step)](#common-payload-fields-any-step)
+- [Per-step payloads](#per-step-payloads)
+- [Notes are answered before a revision goes out](#notes-are-answered-before-a-revision-goes-out)
+- [Actions (what wait returns)](#actions-what-wait-returns)
+
 `scripts/console.mjs` runs a local page with one panel per step. The agent pushes each step's payload into `<run>/session.json`; the user's clicks are appended to `<run>/actions.jsonl`; `wait` hands the next one to the agent. The page updates live (server-sent events), so pushes appear without a reload.
 
 ## The page
@@ -42,7 +54,7 @@ Studio writes the user's brief to `rasanai-brief.json` in the project folder (`F
 
 ### What are you making? (the format picker)
 
-The brief's first question, inside call 1 (never a sixth call): it asks WHAT the user is making, never how. `library/formats.json` is the single source of truth (console, Studio, the Director); `scripts/formats.mjs` reads it (`list`, `match`, `resolve`, `check`).
+The brief's first question, inside call 1 (never a sixth call): it asks what the user is making, never how. `library/formats.json` is the single source of truth (console, Studio, the Director); `scripts/formats.mjs` reads it (`list`, `match`, `resolve`, `check`).
 
 - **Payload** (`brief`): `formats: {version, scopes, tiles: [{id, title, description, thumbnail, group: motion|footage, default, options: [{id, title, description, kind, status: ready|partial|soon, length_s, aspect, input: {id, prompt, accepts}, partial?, soon?, nearest?: {id, title, tile}, scope_question?}]}]}` and `format: {tile, option, why, scope?}` (or none).
 - **Page**: with a pre-selected `format`, one chip ("Launch or promo › Feature launch", the `why` under it, Change); without one, the 12 tiles open (title and one line each); a tile shows its options with their one line. `soon` options carry a **Coming soon** badge and are not picked (a note names what's missing and the nearest option that works); a pre-selected `soon` option shows the badge, the note and "Use <nearest> instead". `partial` options show their one-line caveat once picked. An option with a `scope_question` (feature launches: "Is this feature for many kinds of uses, or one job?") shows its three answers plus "Not sure"; the answer goes in `format.scope` (`universal | category | single-task`; none = the research decides). Picking an option sets `kind` to its noun and, unless the user changed them, `length_s` and `aspect` to its defaults; the "What's the video about?" box takes the option's input prompt ("The folder with your clips..."). The sentence's kind word opens the picker. `choices.kind` still narrows the noun to a menu, and a brief pushed without `formats` keeps the old six-item menu.

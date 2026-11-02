@@ -1,6 +1,6 @@
 # Motion handoffs
 
-A handoff is a DECLARED boundary where one piece of motion continues into the next scene, shot or composition. Declare it only when the viewer should read one movement. A cut, snap or impact is also declared, as a deliberate break. Status of everything here: implemented, unvalidated; nothing has been played back.
+A handoff is a declared boundary where one piece of motion continues into the next scene, shot or composition. Declare it only when the viewer should read one movement. A cut, snap or impact is also declared, as a deliberate break. Status of everything here: implemented, unvalidated; nothing has been played back.
 
 Pieces: the record (`scripts/lib/sequence-contract.mjs normalizeHandoff`, stored in `creative/beat-plans.json beats.<id>.handoff`), the math (`scripts/lib/motion-handoff.mjs`: `toScreenSpace`, `wrapAngle`, `seamTolerances`, `seamReport`, `planHandoff`), and the runtime helper (`RasanMotion.continueFrom`, `RasanMotion.stateAt` in `runtime/rasan-motion.js`).
 
@@ -16,11 +16,11 @@ Name only what survives; `carry` is exact. Everything not carried is free to cha
 | `rotation`, `angular` | degrees, deg/s | degrees, wrapped to (-180, 180] | start at the same angle (359 and -1 are one angle), same spin |
 | `camera_relation` | named relation (locked, following, framed on X) | any, compared exactly | keep the same camera relation |
 | `mask_state` | named or numeric mask state | any, compared exactly | start with the layer masked the same way |
-| `settle` | declared resting target and character | any, compared exactly | settle on that target once; never start a second ease |
+| `settle` | declared resting target and character | any, compared exactly | settle on that target once, without a second ease |
 
 Position without velocity means "same place, starts at rest". Add `velocity` for one continuous movement. A continued action carries its own `action_id` and `progress` so the ease is not reset (`seamReport` flags `easing_reset`).
 
-**A carrier never restarts from rest.** When the carrier changes role at a seam (an orb becomes a cursor, a card becomes the UI frame), the incoming motion starts with the outgoing velocity vector (`carry` includes `velocity`): no stop, no re-launch from zero, no second ease (WWDC18: motion keeps tracking through handoffs). Gate (partial): on a launch film the `handoff-velocity` warning flags a scene whose `handoff` carries no `velocity` and declares no discontinuity; the numeric check stays `seamReport`.
+**Carry the velocity so a carrier never restarts from rest.** When the carrier changes role at a seam (an orb becomes a cursor, a card becomes the UI frame), the incoming motion starts with the outgoing velocity vector (`carry` includes `velocity`): no stop, no re-launch from zero, no second ease (WWDC18: motion keeps tracking through handoffs). Gate (partial): on a launch film the `handoff-velocity` warning flags a scene whose `handoff` carries no `velocity` and declares no discontinuity; the numeric check stays `seamReport`.
 
 ## One coordinate space
 
@@ -28,11 +28,11 @@ Seams compare in `final_screen`: pixels at the output size (or frame fraction), 
 
 ## Intentional discontinuities
 
-A `cut`, `snap` or `impact` handoff carries no continuity and says why in `intentional_discontinuity.reason` (and optionally which `properties`). `seamReport` marks those properties `exempt`: derivative continuity is not forced on a hit or a snap. Do not declare `continuous` and then list the same property as both carried and discontinuous (the contract rejects it).
+A `cut`, `snap` or `impact` handoff carries no continuity and says why in `intentional_discontinuity.reason` (and optionally which `properties`). `seamReport` marks those properties `exempt`: derivative continuity is not forced on a hit or a snap. Declare a property as carried or as discontinuous, not both under `continuous` (the contract rejects it).
 
 ## Time, units, tolerances
 
-Boundary time is the score's (`boundary.time_s` and tick, with the score's own frame): never assume 30 fps, never keep a second clock. The boundary frame belongs to the INCOMING side (end exclusive); `planHandoff().frame_policy` gives `outgoing_last_frame = frame - 1`, so no endpoint frame is drawn twice. Tolerances come from `seamTolerances(output, overrides)`: relative to the output diagonal and never below the output's precision (position about 0.15% of the diagonal, velocity about 2% per second or 10% of the faster side, scale 0.5%, rotation 0.25 degrees, spin 2 deg/s or 10%). Pass `output {width,height,precision_px}`; without it a 1920x1080 frame is assumed and the report says so.
+Boundary time is the score's (`boundary.time_s` and tick, with the score's own frame): take the frame rate from the score and keep one clock, because a second clock drifts. The boundary frame belongs to the incoming side (end exclusive); `planHandoff().frame_policy` gives `outgoing_last_frame = frame - 1`, so no endpoint frame is drawn twice. Tolerances come from `seamTolerances(output, overrides)`: relative to the output diagonal and never below the output's precision (position about 0.15% of the diagonal, velocity about 2% per second or 10% of the faster side, scale 0.5%, rotation 0.25 degrees, spin 2 deg/s or 10%). Pass `output {width,height,precision_px}`; without it a 1920x1080 frame is assumed and the report says so.
 
 ## Making the incoming motion start from the outgoing state
 
@@ -40,4 +40,4 @@ Boundary time is the score's (`boundary.time_s` and tick, with the score's own f
 
 ## Review obligation
 
-`seamReport` is mathematical: it reports pass, fail, exempt, not_carried or not_assessable per property, with units and the tolerance used. It always returns `visual_acceptance: "unreviewed"` and `playback_review_required: true`. A passing report does not show that the seam reads as one movement, and a failing report on a deliberate break is not a defect. Only playback of the seam (watching the frames around the boundary at the output size) settles it; static checks never substitute. Missing state is `not_assessable`, never a pass.
+`seamReport` is mathematical: it reports pass, fail, exempt, not_carried or not_assessable per property, with units and the tolerance used. It always returns `visual_acceptance: "unreviewed"` and `playback_review_required: true`. A passing report does not show that the seam reads as one movement, and a failing report on a deliberate break is not a defect. Only playback of the seam (watching the frames around the boundary at the output size) settles it; static checks do not substitute. Report missing state as `not_assessable`, not as a pass.

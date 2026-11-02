@@ -23,7 +23,7 @@ Time is score time (`basis: "score"`), never an assumed frame rate.
 |---|---|---|
 | Ordinary click / toggle / small accent | unchanged. `ordinary_sfx_duck` is always `false`; a reduction request on a non-prominent cue is ignored with flag `ordinary-reduction-ignored` | `busPlan` |
 | Movement effects | balanced by cue selection, gain, timing and tonal range (AUD-SFX lane), not by a music dip | outside this lane |
-| Prominent reveal / impact | optional bounded reduction (cap 4 dB, short attack/hold/release) ONLY with a stated reason (`reduce_music.reason`), else flag `reduction-reason-missing` | `busPlan` |
+| Prominent reveal / impact | optional bounded reduction (cap 4 dB, short attack/hold/release) only with a stated reason (`reduce_music.reason`), else flag `reduction-reason-missing` | `busPlan` |
 | Voiceover | smooth space: depth from the measured bed-to-voice gap when `music.baseline_gap_db` is given (target gap 12 dB, `target_gap_db` overridable), otherwise 5 dB (3 dB for a music-led direction, 4 dB sparse); merged short gaps, attack 0.3 s, hold 0.4 s, release 0.8 s via `duckEnvelope`; a bed already at the target gets no extra reduction | `busPlan` |
 | Dramatic silence | only an authored interval (`silence_windows[]` with `authored: true` and `reason`); otherwise ignored with flag `silence-not-authored` | `busPlan` |
 | Several effects at once | handled on the effects bus and by overlap; the music sees at most the deepest single reduction | `aggregateReductions` |
@@ -42,7 +42,7 @@ Assumed mixer branch (stated, not controlled): ffmpeg routes use `amix ... norma
 
 `mixInputs` gains optional `source` ({id, file_digest, section}), `stem_identity` ({name: "stem" | "stereo_file"}), `processor` ({renderer, version, filter_graph_digest}) and `html_audio` (digest of the audio attributes of `index.html`, from `audioAttributesDigest`). A key exists only when given, so legacy inputs keep their old digest byte for byte and old receipts stay readable. `receiptMatches` compares the new keys too; a cached filename never establishes currentness (`reuseDecision` still needs receipt match and the recorded file). `receipt()` optionally records `processor` detail (incl. `ffmpeg_version`) and `audio_file`.
 
-Single automation path: `audio/automation.json`, written by ENG-INT-2 as `automationRecord(busPlan(...))`; `currentInputs` reads it and does NOT read `audio/mix-state.json` (mute/solo is audition-only and never reaches delivery). `currentInputs(run, {processor, html_audio:true, source, stem_identity})` is opt-in for the new fields.
+Single automation path: `audio/automation.json`, written by ENG-INT-2 as `automationRecord(busPlan(...))`; `currentInputs` reads it and does not read `audio/mix-state.json` (mute/solo is audition-only and never reaches delivery). `currentInputs(run, {processor, html_audio:true, source, stem_identity})` is opt-in for the new fields.
 
 ## Route coverage after this lane
 

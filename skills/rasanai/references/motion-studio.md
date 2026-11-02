@@ -1,5 +1,13 @@
 # Motion Studio: reference motion, the motion kit, the element index and edits
 
+## Contents
+
+- [1. Reference motion](#1-reference-motion)
+- [2. Motion kit](#2-motion-kit)
+- [3. Element index](#3-element-index)
+- [4. Edits](#4-edits)
+- [5. Worked examples](#5-worked-examples)
+
 Brief for the move-inventor, move-juror, styleframe-designer, Motion Director, scene-animator and film-builder.
 
 **Load this only when** (a) the run has `<run>/reference-motion.json` or the owner linked a reference video, (b) the film uses `data-motion-kit` or the owner asked for kit moves, (c) the owner asks to edit a finished film (`motion/edits.jsonl` has a `requested` line, or an edit packet exists), or (d) scenes are authored with `data-el` ids. **Do not load for caption-only runs** (embedded or plain captions on an existing video), quick films with no reference and no edits, or Studio-only UI work.

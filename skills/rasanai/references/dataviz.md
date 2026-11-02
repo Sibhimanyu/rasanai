@@ -12,7 +12,7 @@ Rules for any chart, count-up or number on screen in a film. They are about tell
 
 ## 2. Honest axes
 
-- Bars start at ZERO. A truncated bar axis is a lie; if the change is small, show the change as its own number.
+- Bars start at zero. A truncated bar axis is a lie; if the change is small, show the change as its own number.
 - One y axis. No dual axes (two scales on one frame let you make any two lines cross). No 3D, no tilt, no perspective on a chart.
 - A line chart may start off zero only if the baseline is labelled and the film says what it is.
 - Do not stretch a colour ramp to exaggerate: pale values stay pale. A diverging ramp is centred on a meaningful reference, a sequential ramp has one hue.

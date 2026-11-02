@@ -1,25 +1,70 @@
 # The score: every field, the format, the seam pass
 
+## Contents
+
+- [1. Fields from the intent (new in the rebuild; warnings until calibrated)](#1-fields-from-the-intent-new-in-the-rebuild-warnings-until-calibrated)
+- [2. The plan fields (required on a direct film and every product-first film)](#2-the-plan-fields-required-on-a-direct-film-and-every-product-first-film)
+- [3. Field by field](#3-field-by-field)
+- [3b. Launch beats (launch and promo films)](#3b-launch-beats-launch-and-promo-films)
+- [4. The format](#4-the-format)
+- [5. The film's shape](#5-the-films-shape)
+- [6. Lyric video](#6-lyric-video)
+- [7. Seam pass](#7-seam-pass)
+- [8. Storyboard timing: one authority (Plan 05)](#8-storyboard-timing-one-authority-plan-05)
+
 The Motion Director's reference. `agents/motion-director.md` is the procedure (intent → hero, verb, transition per beat → spend the budget → seams); this file holds every field the score carries, what `crew.mjs check --role motion-director` reads in it, and the details the procedure points to. Consult it; don't recite it.
 
-The score (`motion/score.json`) is the one contract: the builder reads it and a short BUILD.md generated from it; STORYBOARD.md, MOTION-SCORE.md, BUILD.md and (on a direct film) DISPATCH.md are generated from it, and DIRECTION.md defers to it. `motion/score.md` is generated from the JSON on every check; never write it by hand.
+The score (`motion/score.json`) is the one contract: the builder reads it and a short BUILD.md generated from it; STORYBOARD.md, MOTION-SCORE.md, BUILD.md and (on a direct film) DISPATCH.md are generated from it, and DIRECTION.md defers to it. `motion/score.md` is generated from the JSON on every check; write it only through the check, never by hand, because the JSON is the source.
 
 ## 1. Fields from the intent (new in the rebuild; warnings until calibrated)
 
-- `argument`: the proposition in the Director's words: the one thing the motion must make obvious.
-- Per scene: `beat` = the intent beat's 1-based position in `beats[]` (its `name` may be the scene's `id`); `buys`, `importance` (1–3), `relation`, `peak` copied from `story/intent.json`; `hero` (what the viewer must notice to get `buys`) and `verb` (what the hero does, from the meaning).
-- Per seam: `relation` (the incoming beat's relation word) and `why` (the relation in words).
-- `big_moments: [{beat, t0, t1, fills}]` (`beat`: the scene id): the emphasis budget, about 2 to 4 per 30 s, on the peak and the importance-3 beats (`lib/emphasis.mjs` `budgetChecks`: `budget-none`, `budget-over`, `budget-minor-beat`).
+Copy these from `story/intent.json` so the picture serves the argument.
+
+| Field | Type | Required for | Why |
+|---|---|---|---|
+| `argument` | string | every scored film | States the one thing the motion must make obvious, in the Director's words. |
+| scene `beat` | int | every scene | The intent beat's 1-based position in `beats[]` (its `name` may be the scene's `id`), so each scene traces to a purpose. |
+| scene `buys`, `importance` (1-3), `relation`, `peak` | string, int, string, bool | every scene | Copied from `story/intent.json` so emphasis follows meaning. |
+| scene `hero` | string | every scene | Names what the viewer must notice to get `buys`. |
+| scene `verb` | string | every scene | Names what the hero does, taken from the meaning. |
+| seam `relation` | string | every seam | The incoming beat's relation word, so the seam says how beats connect. |
+| seam `why` | string | every seam | The relation in words. |
+| `big_moments` | `[{beat, t0, t1, fills}]` (`beat`: the scene id) | every scored film | The emphasis budget: about 2 to 4 per 30 s, on the peak and the importance-3 beats (`lib/emphasis.mjs` `budgetChecks`: `budget-none`, `budget-over`, `budget-minor-beat`). |
 
 ## 2. The plan fields (required on a direct film and every product-first film)
 
-Film level: `duration` (s), `brand`, `feature` (`name`, `url`, `viewer`, `task`, `before`, `after`, from the chosen script; a ladder film carries a refrain instead), `ground` (the ONE background hex, painted only by the root), `ink`, `current` (the film's one direction: `left` by default), `brandReveal` (the one beat id where the mark is revealed), optionally `end_hold_s` (only when the brief asks for more than 1.4 s).
+Film level:
 
-Per beat (each `scenes[]` entry): `id`, `start` and `end` in film seconds (they follow the durations), `line` ("" for none), `picture` (what the viewer sees happen), `moment` and `take` (a reference moment's id and the ONE mechanic taken from it; on the peak and importance-3 beats, `take` also says which of the three candidates won and why), `ui` (the literal cause and effect on screen, two steps or more in the proof), `exit` (`carrier` or `cut`) and `carrier`; on a scene route `board`, `size`, `hero`, `peak_t` (when in the beat the frame matches its board). At least two beats exit on a carrier.
+| Field | Type | Required for | Why |
+|---|---|---|---|
+| `duration` | seconds | direct and product-first films | Every `start` and `end` follows from it. |
+| `brand` | string | direct and product-first films | Names whose film this is. |
+| `feature` | `{name, url, viewer, task, before, after}` from the chosen script (a ladder film carries a refrain instead) | direct and product-first films | Keeps the film about one real task. |
+| `ground` | hex | direct and product-first films | The one background hex, painted only by the root, so the ground never shifts under a scene. |
+| `ink` | hex | direct and product-first films | The one text colour. |
+| `current` | `left` (default) \| other direction | direct and product-first films | The film's one direction of travel. |
+| `brandReveal` | scene id | direct and product-first films | The one beat where the mark is revealed. |
+| `end_hold_s` | seconds | only when the brief asks for more than 1.4 s | Overrides the end card's still-hold limit. |
+| `ground_motion` | string, from the grammar's and the card's | films of 15 s or more (`no-living-ground`) | Says how the ground lives. |
+| `accent` | `{colour, marks}` | every film (`no-accent-signal`) | Makes one colour the signal. |
+| `breaths` | `[[t0,t1]]`, at most 2, each 1.0 s or less | optional | Places the rest before the peak. |
+| `lines_type` | a size class per line | every film (`type-rhythm-flat` when all lines fall within 15%) | Puts the giant size on the importance-3 lines. |
 
-A beat may carry `hero_id` (the hero element's DOM id) so `subject-lost` can follow it; `data-hero` on the element does the same with no score. Per scene also `hero_box: [x, y, w, h]` (0..1 of the frame; where the viewer must look at the beat's peak) and optional `hero_box_end` (the box at the scene's end; the focus follows it linearly). `finish.mjs grade|all --focus-follow --run <run>` puts the soft field outside it; a scene without a box stays sharp.
+Per beat (each `scenes[]` entry):
 
-Film level also: `ground_motion` (how the ground lives, from the grammar's and the card's; `no-living-ground` on films of 15 s or more), `accent: {colour, marks}` (`no-accent-signal`), `breaths: [[t0,t1]]` (at most 2, each 1.0 s or less, at the rest before the peak), `lines_type` (a size class per line; the giant size on the importance-3 lines; `type-rhythm-flat` when all within 15%).
+| Field | Type | Required for | Why |
+|---|---|---|---|
+| `id` | string | every beat | Names the beat for seams and checks. |
+| `start`, `end` | film seconds | every beat | They follow the durations. |
+| `line` | string ("" for none) | every beat | The copy on screen. |
+| `picture` | string | every beat | What the viewer sees happen. |
+| `moment`, `take` | reference-moment id; the one mechanic taken from it (on the peak and importance-3 beats, `take` also says which of the three candidates won and why) | beats that use a reference moment | Takes a mechanic, never the moment's film. |
+| `ui` | string | the proof beats | The literal cause and effect on screen, two steps or more. |
+| `exit`, `carrier` | `carrier` or `cut`; carrier name | every beat (at least two beats exit on a carrier) | Gives seams something that moves. |
+| `board`, `size`, `hero`, `peak_t` | scene routes only | scene routes | `peak_t` is when in the beat the frame matches its board. |
+| `hero_id` | DOM id | optional (`data-hero` on the element does the same with no score) | Lets `subject-lost` follow the hero. |
+| `hero_box` | `[x, y, w, h]`, 0..1 of the frame | every scene | Where the viewer must look at the beat's peak. |
+| `hero_box_end` | `[x, y, w, h]` | optional | The box at the scene's end; the focus follows it linearly. `finish.mjs grade\|all --focus-follow --run <run>` puts the soft field outside it; a scene without a box stays sharp. |
 
 ## 3. Field by field
 
@@ -49,7 +94,7 @@ Film level also: `ground_motion` (how the ground lives, from the grammar's and t
 - **Budget.** Hero effects (`budget: [{effect, scene, target, reason}]`, 2 under 30 s, 3 from 30 s, per effect) on the peak or importance-3 heroes only.
 - **Echo.** `echo: {opening, ending, change}` from `ending_first.echo`: the same object, frame or shape, changed by the story (`no-echo`, `echo-identical`).
 - **Music arc.** `music_arc: {intro_until, drop_at, break: [t0,t1] | null, payoff_at, button_at}`: the drop on the peak, the break on the rest before it, the button on the logo. If they are off, the Director re-runs `sound.mjs fit --reveal <peak start> --logo <logo start>`.
-- **Blur grammar.** `blur_grammar: "shutter" | "smear" | "stepped" | "crisp"`, one per film. `shutter` is the delivery finish's real motion blur (the default for smooth, eased languages); `smear` is stretched duplicates, directional blur or `blurTrail` (the finish must NOT add a shutter); `stepped` is on twos or threes, `steps()` eases, cel; `crisp` is crisp steps with no blur. `finish.mjs blur|all --run <run>` (or `--score`, or `blur_grammar:` in motion.md) refuses a shutter over smear, stepped or crisp.
+- **Blur grammar.** `blur_grammar: "shutter" | "smear" | "stepped" | "crisp"`, one per film. `shutter` is the delivery finish's real motion blur (the default for smooth, eased languages); `smear` is stretched duplicates, directional blur or `blurTrail` (the finish adds no shutter); `stepped` is on twos or threes, `steps()` eases, cel; `crisp` is crisp steps with no blur. `finish.mjs blur|all --run <run>` (or `--score`, or `blur_grammar:` in motion.md) refuses a shutter over smear, stepped or crisp.
 - **Sound hand-offs.** Export `curves.json` beside the project index (`<project>/curves.json`, or `<run>/motion/curves.json` and pass `--curves`): `{"curves":[{"id":"cam-zoom","kind":"zoom","points":[[t,scale],...]},{"id":"brush","kind":"brush","points":[[t,x],...]}]}` in film seconds; kinds zoom|scale|dive (the derivative of ln v), pan|speed|scroll (the derivative of v), brush|draw|stroke, shake|impact|rumble; sample at 10 to 30 Hz from the camera, `__zoomVel` or `__brush`. `sound.mjs sfx-plan` renders one texture bed per curve. Also export `hits: [{t, kind, treatment?}]` so `music.mjs` picks its BPM from the picture (it reads `score.hits`, events, seams, or a real `music_arc`). An event in `events.json` may carry `word` (the spoken word it lands on), `name: true` (a name reveal: 5 frames of lead), `on_word: true` (a sound that lands with a word on purpose), `x` (0..1 or px, for `--pan`) and `treatment`.
 - **Tempo.** `tempo` in `story/chosen.json` (`change_every_s`, `longest_hold_s`) is a floor: something meaningful changes inside a take often enough and nothing holds past `longest_hold_s`. It never adds beats or big moments; a hold is reading time with a living layer.
 - **Brand film.** The look is the chosen concept's `style_world` (its grammar, finish and palette); the card (`brand-film/FILM-STYLE.md`) is a reference, and `film_style` is cited only in strict brand mode (`decisions.strict_brand_film`), where `video_direction` names which card moves each scene uses and easing comes from the card's `Easing:` line. At most 3 distinct motion types and one ease family (`references/launch-film.md` rule 9). Each `Not seen (allowed on a budget)` effect is a `budget` entry (2 under 30 s, 3 from 30 s). The finish layer follows the world's finish (the card's measured `Finish:` only in strict mode). The ground may change on the story's turns, inside the world's palette with the brand accent as the signal. Cut rate and transitions follow the world's grammar; the end card is the logo and the brand face.
@@ -57,21 +102,25 @@ Film level also: `ground_motion` (how the ground lives, from the grammar's and t
 
 ## 3b. Launch beats (launch and promo films)
 
-The gates read these per-beat fields (`lib/launch-beats.mjs`; the rules are in `references/launch-grammar.md`; `library/benchmarks/launch-refs/<id>/beats.json` shows the shape on three real films). Each `scenes[]` row carries:
+The gates read these per-beat fields (`lib/launch-beats.mjs`; the rules are in `references/launch-grammar.md`; `library/benchmarks/launch-refs/<id>/beats.json` shows the shape on three real films). Each `scenes[]` row carries these fields. The rules the checks enforce are in `references/launch-grammar.md` (grounds, logo count, scene variety) and `references/launch-moves.md` (texture, moves, clichés); this table lists the field, its type and the check that reads it.
 
-- `line`: the copy on screen (one thought; about 9 words at most at once, a line that builds word by word counts its final state: `copy-line-long` warns).
-- `scene_type`: the beat's scene from the palette (`type-slate | type-collage | ui-proof | ui-collage | cinematic-image | diagram | data | kinetic-list | object-shot | typed-prompt | footage | logo-end`). 5+ types in a 45 s film, none over about 30% of the runtime, neighbours differ unless `continues: true` (`scene-variety`, `scene-share`, `scene-neighbours`: warnings; `scene-type-undeclared`).
-- `texture`: `smooth | stepped | flicker | glitch`, with `fps` (12 or 8) on a stepped beat. At least one non-smooth beat; non-smooth about 15 to 40% of the runtime; the meet, payoff and end stay smooth (`texture-all-smooth`, `texture-mix`, `texture-calm-beat`, `texture-fps`: warnings).
-- `moves_named`: the beat's catalogue move names, an array of strings (`references/launch-moves.md`); no move in more than 2 beats (`move-repeat`). `moves[]` holds only the per-tween records of "Motion laws" (objects); strings there (an older score) are still read as names, and every consumer ignores the shape it does not need. `cursor_reason`: required where a cursor or caret travels (once per film at most). AI-cliche warnings: `cliche-banned-move`, `cliche-cursor-repeat`, `cliche-cursor-reason`, `cliche-typed-lines`, `cliche-word-fade`, `cliche-slide-up-cards`, `cliche-underline`, `cliche-glow-particles`.
-- `imagery`: an id from the score-level `imagery_plan[]` (`{id, prompt, aspect?, transparent?}`) or `"none"`: the Codex image the beat uses (1 to 4 per film, `imagery-count`). `node scripts/imagegen.mjs plan-from-score --score <score> --out <plan.json>` turns the plan into the batch step.
-- `carrier_state` (**optional**): what a local carrier is doing in the beat ("none" when absent). A carrier links 2 or 3 neighbouring beats or bookends the film; more than 40% of the beats warns (`carrier-overuse`). No carrier is fine.
-- `transition_in`: hard-cut-on-hit (name the music hit) | stepped-smash | flicker-cut | mask-wipe | push | pull | whip | morph | match-cut | type-morph | carried-element | zoom-through | iris | flip. The seam into the scene is read when absent. A cut on a music hit is fine; a bare undeclared `cut` is a `hard-cuts` warning. No family on more than about 30% of the seams (`transition-variety`). Frame-difference spikes in the render (`frame-spikes`) only warn, and only well above the references' 1 to 3 per 10 s.
-- `density`: dense (3+ elements, a collage, a full UI, a full-frame object) | sparse (one small line or object on an empty ground). At least two alternations (`rhythm`, an error; waivable).
-- `logo`: true where the mark is on screen; more than 3 beats warns (`logo-count`).
-- `ground`: the beat's ground family, `brand-gradient | dark | white | brand-slate`. At least 2 families across the film, alternating, with brand-colour atmosphere in at least about 30% of the runtime. `crew.mjs check` requires it on a launch score.
-- `role`: `hook | turn | meet | capability | payoff` (the hook's beats together are at most 25% of `duration`; `crew.mjs check` errors above).
-- `hero_scale`: cap height of the beat's biggest line as a percentage of frame height (9 to 20 at least once per beat; the largest in the film must reach 9). `ui_scale`: the UI proof's share of the frame, percent of area (35 to 60 when it is the proof; 0 when none).
-- `hold_s`: the longest static hold in the beat, seconds (about 1.2 at most; filled with secondary motion). These four fields and `ground` are what the reference jury (`agents/reference-juror.md`) compares with the contact sheet: a declared number the sheet does not show is a finding.
+| Field | Type | Required for | Why (and the check) |
+|---|---|---|---|
+| `line` | string, one thought | every launch beat | The copy on screen: about 9 words at most at once; a line that builds word by word counts its final state (`copy-line-long` warns). |
+| `scene_type` | `type-slate \| type-collage \| ui-proof \| ui-collage \| cinematic-image \| diagram \| data \| kinetic-list \| object-shot \| typed-prompt \| footage \| logo-end` | every launch beat | Gives the film scene variety: 5+ types in a 45 s film, none over about 30% of the runtime, neighbours differ unless `continues: true` (`scene-variety`, `scene-share`, `scene-neighbours`: warnings; `scene-type-undeclared`). |
+| `texture` | `smooth \| stepped \| flicker \| glitch`, with `fps` (12 or 8) on a stepped beat | every launch beat | Places motion texture: at least one non-smooth beat, non-smooth about 15 to 40% of the runtime, and the meet, payoff and end smooth (`texture-all-smooth`, `texture-mix`, `texture-calm-beat`, `texture-fps`: warnings). |
+| `moves_named` | array of strings | launch beats | Names the beat's catalogue moves (`references/launch-moves.md`); no move in more than 2 beats (`move-repeat`). `moves[]` holds only the per-tween records of "Motion laws" (objects); strings there (an older score) are still read as names, and every consumer ignores the shape it does not need. |
+| `cursor_reason` | string | where a cursor or caret travels (once per film at most) | Justifies the cursor. AI-cliche warnings: `cliche-banned-move`, `cliche-cursor-repeat`, `cliche-cursor-reason`, `cliche-typed-lines`, `cliche-word-fade`, `cliche-slide-up-cards`, `cliche-underline`, `cliche-glow-particles`. |
+| `imagery` | an id from the score-level `imagery_plan[]` (`{id, prompt, aspect?, transparent?}`) or `"none"` | beats that use a Codex image (1 to 4 per film, `imagery-count`) | Links the beat to its image; `node scripts/imagegen.mjs plan-from-score --score <score> --out <plan.json>` turns the plan into the batch step. |
+| `carrier_state` | string (`"none"` when absent) | optional | Says what a local carrier is doing in the beat. A carrier links 2 or 3 neighbouring beats or bookends the film; more than 40% of the beats warns (`carrier-overuse`). No carrier is fine. |
+| `transition_in` | `hard-cut-on-hit` (name the music hit) \| `stepped-smash` \| `flicker-cut` \| `mask-wipe` \| `push` \| `pull` \| `whip` \| `morph` \| `match-cut` \| `type-morph` \| `carried-element` \| `zoom-through` \| `iris` \| `flip` | optional (the seam into the scene is read when absent) | Declares the seam. A cut on a music hit is fine; a bare undeclared `cut` is a `hard-cuts` warning. Keep any family to about 30% of the seams (`transition-variety`). Frame-difference spikes in the render (`frame-spikes`) only warn, and only well above the references' 1 to 3 per 10 s. |
+| `density` | `dense` (3+ elements, a collage, a full UI, a full-frame object) \| `sparse` (one small line or object on an empty ground) | every launch beat | Gives rhythm: at least two alternations (`rhythm`, an error; waivable). |
+| `logo` | bool | every launch beat | True where the mark is on screen; more than 3 beats warns (`logo-count`). |
+| `ground` | `brand-gradient \| dark \| white \| brand-slate` | every launch beat (`crew.mjs check` requires it) | Alternates at least 2 families across the film, with brand-colour atmosphere in at least about 30% of the runtime. |
+| `role` | `hook \| turn \| meet \| capability \| payoff` | every launch beat | Shapes the arc; the hook's beats together are at most 25% of `duration` (`crew.mjs check` errors above). |
+| `hero_scale` | percent of frame height | every launch beat | Cap height of the beat's biggest line: 9 to 20 at least once per beat; the largest in the film must reach 9. |
+| `ui_scale` | percent of frame area | every launch beat | The UI proof's share of the frame: 35 to 60 when it is the proof; 0 when none. |
+| `hold_s` | seconds | every launch beat | The longest static hold in the beat, about 1.2 at most, filled with secondary motion. With `ground`, `role`, `hero_scale` and `ui_scale` it is what the reference jury (`agents/reference-juror.md`) compares with the contact sheet: a declared number the sheet does not show is a finding. |
 
 ### Motion laws (launch films; any film may carry `moves`)
 

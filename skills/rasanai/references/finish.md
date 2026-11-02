@@ -1,5 +1,18 @@
 # Finish: film-wide motion blur and one grade
 
+## Contents
+
+- [Commands](#commands)
+- [Blur: how the window is aligned](#blur-how-the-window-is-aligned)
+- [Linear light, cuts, one grammar, render slots](#linear-light-cuts-one-grammar-render-slots)
+- [White flash cap](#white-flash-cap)
+- [Draft blur (--draft): motion blur on drafts and review strips](#draft-blur---draft-motion-blur-on-drafts-and-review-strips)
+- [Stepped scenes stay sharp (per-scene blur opt-out)](#stepped-scenes-stay-sharp-per-scene-blur-opt-out)
+- [Grade: what each part is](#grade-what-each-part-is)
+- [Lens and print extras (all off by default)](#lens-and-print-extras-all-off-by-default)
+- [Cost (measured, 1080p, 30 fps, a busy shared machine)](#cost-measured-1080p-30-fps-a-busy-shared-machine)
+- [Rasan3D scenes and the finish](#rasan3d-scenes-and-the-finish)
+
 `scripts/finish.mjs` is the last step of a delivery render. It does two things to the whole film, whatever made each scene (DOM, GSAP, CSS, Lottie, Three, Rasan3D):
 
 1. **Blur**: real motion blur on every scene. HyperFrames renders at fps x samples (the oversampled render), then ffmpeg averages each frame's sub-frames across a shutter window centred on the frame time. Today only Rasan3D scenes blur (inside the stage); this makes a 2D card whip, a type slide and a 3D orbit all share one 180 degree shutter.
@@ -39,7 +52,7 @@ Checked: sub-frame 8n of the oversampled render is pixel-identical to the normal
 
 HyperFrames has no time-offset or frame-range option (checked `render --help` and the sub-composition docs), and it snaps its own seek time to the render-fps grid. So pass k (k = 0 .. K-1) renders a temporary copy of the project (top-level entries symlinked, only `index.html` rewritten) with a small script at the top of `<head>` that wraps every GSAP timeline registered in `window.__timelines` (the host's, every sub-composition's, and Rasan3D's clock tween) so its `seek/time/totalTime` get `+ k / (R x K)` seconds, applied after HyperFrames' snap. R = fps x per-pass samples. The passes are then interleaved with ffmpeg `interleave` (pass k frame i is sub-frame i x K + k, time (i x K + k) / (R x K)) into one stream at R x K and averaged exactly as before. Verified: a +0.1 s shift makes frame n show frame n+3.
 
-What is NOT shifted: CSS keyframe / WAAPI / Lottie / Anime animations, video and audio elements. Those still sample on the 240 fps grid in every pass, so a pass with only those moving gives duplicated sub-frames (no harm, no extra smoothness). GSAP-driven motion, the common case, and Rasan3D scenes are shifted.
+What is not shifted: CSS keyframe / WAAPI / Lottie / Anime animations, video and audio elements. Those still sample on the 240 fps grid in every pass, so a pass with only those moving gives duplicated sub-frames (no harm, no extra smoothness). GSAP-driven motion, the common case, and Rasan3D scenes are shifted.
 
 Measured on the whip test (card at about 10 000 px/s, 1080p): 32 samples = 4 passes, window 16 sub-frames, 17 taps. The streak is a continuous ramp (R values 16 31 40 51 68 ... 254 ... 62 47 32, no plateaus), centroids 1165.8 / 1738.7 / 1883.1 at frames 38 / 40 / 42 against the sharp frames' 1167.1 / 1740.6 / 1884.0, 90 of 90 frames, audio kept. hfdemo (sub-compositions plus a 3D scene) at 16 samples renders 225 of 225 frames with no judder or doubling.
 
@@ -51,7 +64,7 @@ Cost: render time is K x the single-pass oversampled render, and tmix gets longe
 
 **Cuts keep the frame-time side.** After the oversampled render, `finish.mjs` finds hard cuts (a jump between two consecutive sub-frames far above the 240 fps motion floor) and the one output frame per cut whose shutter window would hold both shots. That frame is laid from its own centre sub-frame (the same overlay the sharp windows use), so nothing of the other shot leaks into a cut frame. Reported as `window.cut_frames_sharp` and a note. `--no-cut-aware` skips it. Dissolves and wipes are not cuts: the shutter averages across them as it should.
 
-**One blur grammar per film.** A film's blur is ONE of: `shutter` (this finish), `smear` (stretched duplicates, directional blur, `blurTrail`, RasanShape smear), `stepped` (on twos, `steps()`), `crisp` (crisp steps, no blur). The Motion Director names it in the score (`score.json` `blur_grammar`, or `blur_grammar:` in motion.md). `finish.mjs blur|all` refuses to put the shutter over a declared smear / stepped / crisp grammar (a smear blurred twice, steps turned into dissolves): run `grade` on the plain render, or change the declaration to `shutter` if the shutter really is the film's blur, or pass `--shutter-over-smear`. `--draft` is never refused (it prints the warning). Per-scene exceptions stay `data-finish-blur="off"`.
+**One blur grammar per film.** A film's blur is one of: `shutter` (this finish), `smear` (stretched duplicates, directional blur, `blurTrail`, RasanShape smear), `stepped` (on twos, `steps()`), `crisp` (crisp steps, no blur). The Motion Director names it in the score (`score.json` `blur_grammar`, or `blur_grammar:` in motion.md). `finish.mjs blur|all` refuses to put the shutter over a declared smear / stepped / crisp grammar (a smear blurred twice, steps turned into dissolves): run `grade` on the plain render, or change the declaration to `shutter` if the shutter really is the film's blur, or pass `--shutter-over-smear`. `--draft` is never refused (it prints the warning). Per-scene exceptions stay `data-finish-blur="off"`.
 
 **Render slots.** Every `hyperframes render` the skill starts goes through `lib/slot.mjs`: at most `RASANAI_RENDER_SLOTS` run at once on the machine (default 2 on 8+ cores and 16+ GB, else 1; `0` turns the limiter off), across processes (PID-lock files in the temp folder; a slot whose holder is gone is taken over at once, an async holder's slot not beaten for 10 minutes too, any slot older than 6 hours), and a new render waits until `RASANAI_RENDER_MIN_FREE_MB` (default 1500) is free (macOS: free + inactive + speculative pages). It never deadlocks a film: after 5 minutes of waiting for memory it renders anyway and says so. `finish.mjs` holds one slot for its pre-pass and all its passes. For any other command: `node scripts/lib/slot.mjs run --label reel -- npx --yes hyperframes render ...`; `node scripts/lib/slot.mjs status` shows holders and free memory. `--no-slot` skips it for one finish.
 

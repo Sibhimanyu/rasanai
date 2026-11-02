@@ -6,4 +6,6 @@ For a new single motion unit (title, sting, stat hit, lower third) follow [route
 
 ## Revise an existing video
 
-Push the current film to the Final (its render, markers from STORYBOARD.md) and take notes there. After applying notes, record the ones that name a mistake any film could repeat with `lessons.mjs add` (see Notes, above). Notes that change the story or the style reopen the Story or the Look or Animatic in a new `$RUN` (scenes.json can be rebuilt from STORYBOARD.md), then `video.mjs write --project-dir videos/<name> --decisions … --revise` (it moves the built frames, audio and renders into `.superseded/<stamp>/` and rewrites the plan). A different aspect needs a new project. Single units revise with `handoff.mjs --revise --reopen <steps>`.
+Push the current film to the Final (its render, markers from STORYBOARD.md) and take notes there. After applying notes, record the ones that name a mistake any film could repeat with `lessons.mjs add` (see Notes, above).
+Notes that change the story or the style reopen the Story or the Look or Animatic in a new `$RUN` (scenes.json can be rebuilt from STORYBOARD.md), then `video.mjs write --project-dir videos/<name> --decisions … --revise` (it moves the built frames, audio and renders into `.superseded/<stamp>/` and rewrites the plan).
+A different aspect needs a new project. Single units revise with `handoff.mjs --revise --reopen <steps>`.

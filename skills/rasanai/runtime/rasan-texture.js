@@ -1,5 +1,5 @@
 /* global gsap */
-/* RasanTexture: motion-texture and reference-move helpers for launch films. Original code, RasanAI MIT. (references/launch-grammar.md "Motion texture", references/launch-moves.md)
+/* RasanTexture: motion-texture and reference-move helpers for launch films. Original code, RasanAI MIT. (references/launch-moves.md "Motion texture" and the reference moves)
  *
  * Texture contrast (smooth / stepped / flicker / glitch). STEPPED IS FOR DISCRETE MOTION: pieces arriving or assembling in a collage, pop-ins and state changes, montage bursts, hits on the beat,
  * things that jump between positions. NEVER on a continuous single-direction move (scroll, pan, camera push, long glide, orbit rotation, slide-across): those stay fluid.

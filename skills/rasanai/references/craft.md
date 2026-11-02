@@ -1,5 +1,20 @@
 # Craft: the playbook for every decision Claude makes without asking
 
+## Contents
+
+- [1. Principles](#1-principles)
+- [2. Timing, pacing and readability](#2-timing-pacing-and-readability)
+- [3. Motion](#3-motion)
+- [4. Transitions](#4-transitions)
+- [5. Composition and type](#5-composition-and-type)
+- [6. Camera, lighting and texture](#6-camera-lighting-and-texture)
+- [7. Sound (the rules in brief; full playbook in references/sound.md)](#7-sound-the-rules-in-brief-full-playbook-in-referencessoundmd)
+- [8. Story (the concept engine in references/story.md; the writing in references/script.md)](#8-story-the-concept-engine-in-referencesstorymd-the-writing-in-referencesscriptmd)
+- [9. Anti-slop](#9-anti-slop)
+- [10. Quality gates](#10-quality-gates)
+- [11. Reporting decisions](#11-reporting-decisions)
+- [Related guides (one source of truth each; this file links, it does not repeat)](#related-guides-one-source-of-truth-each-this-file-links-it-does-not-repeat)
+
 The user decides **taste**: the brief, the film (its style and its story), notes on the animatic, and the final. Everything else is **craft**, and Claude decides it the way a senior motion designer would: without a question, following this file, and reporting each call in one plain line (see **Reporting decisions**) so any of it can be changed with a note. If a decision would need expertise to answer (which ease, which transition, how long a scene runs), it is not a question.
 
 **Precedence.** The project's brand (DESIGN.md) wins, then the chosen style (its `stack`, `recipe`, `DIRECTION.md` and `motion.md`), then this file. When the style overrides a rule here (a stop-motion style wants stepped cuts; a neon style wants glow), follow the style and say so in the decision's reason. Never override a rule silently. **One exception: momentum.** The motion gate (`motion-gate.mjs`) wins over every style card, brand film card and direction: a hold a style asks for ("hold 2 s", "long holds", "nothing moves") is reading time, and it still carries secondary motion; no still stretch reaches 0.8 s, nothing creeps, and the end card holds at most 1.4 s still.
@@ -32,15 +47,44 @@ The user decides **taste**: the brief, the film (its style and its story), notes
 | What | Rule |
 |---|---|
 | Frame 0 | Already designed and postable (it is also the thumbnail). No fade from black, no empty frame, no lone dot. First visible motion within 0.2 s of the film's start and of every scene's start. |
-| Reading time | Every line stays fully on screen and readable for **0.6 s + 0.3 s per word, 1.2 s minimum** (4 words: 1.8 s, so held 2.0 s; 6 words: 2.4 s). This is the one formula (`scripts/lib/reading.mjs` `readTime`): the plan-level checks (`slop.mjs` on scenes.json, `story.mjs` on the beats) take it as is; the render-level check (`textfit.mjs` `text-too-brief`, on the frames) allows 15% slack (x 0.85), so a line a few frames short reads and one held half its time does not. The key message reads for at least 2 s. A small label meant to be read: at least 0.8 s. Never ask for more than 3 words per second. While a line is read the frame around it stays alive (the camera layer, a secondary settling late) and its letters never re-animate. Only one text block enters at a time. If it doesn't fit, cut words; never speed the text up. (`slop.mjs` `unreadable` flags a scene under the formula; `textfit.mjs` `text-too-brief` a rendered line under it.)  For what a scene's viewer must notice and in what order, with each read's own hold, see `references/reads.md` (timed `reads[]`; `scripts/reads.mjs check`). |
+| Reading time | Hold every line for 0.6 s + 0.3 s per word, 1.2 s minimum; the rules are listed under "Reading time" below. |
 | Fast in, then carry | An entrance completes in 0.3–0.6 s, then the element keeps moving the way it will leave (a slow slide toward the film's direction, or a steady recede) while it is read, and its exit continues that move. Never re-animate the letters of a line being read. |
 | No dead air | The story moves on at the score's tempo, and no dead stretch reaches 0.8 s anywhere outside the end card (`motion-gate.mjs` freeze; `slop.mjs` dead-air). A meaningful change: a new element, a state change, a cursor action, a live data tick, a camera move. Holds are composed: reading time with a living layer (the camera's push, the ground, a late settle), never a dead frame and never constant mechanical drift. Idle loops on content (breathing, bobbing, pulsing) are not life. The end card holds at most 1.4 s still after its last move. |
 | Not too busy | The opposite failure is "pause is lava": plan an **energy curve** with at least one calm stretch (a shot of 3 s or more with one mover) and one peak. At most 3 elements in motion at any instant, background included. |
 | Sequential reveal | Each element appears when the voiceover reaches it or on its beat, one cue per element, nothing before its cue. Spread reveals across the scene so the last lands in its back half. Front-loading (the whole layout on screen in the first 25% of the scene, then it sits) is the PowerPoint failure. |
 | Beat grid | With music, work on the track's analysed bar grid (sound.md); before a track exists, plan at 120 BPM. Structural cuts on downbeats or up to 2 frames early; most cuts on a beat, never every beat (evenly spaced cuts feel off). Change shot or state every 2–4 beats in launch films, every 2–3 in reels; something visibly moves on most beats. |
-| Rhythm | Declare it before building ("fast-fast-SLOW-fast-SIGNATURE-hold"). Never uniform: the coefficient of variation of shot lengths is at least 0.35 (`slop.mjs` warns `uniform-shots` under 0.2); and the longest shot is at least 4x the shortest (`narrow-rhythm`, 5+ shots, the end card and flashes under 0.4 s left out; also measured on the render's hard cuts), never a metronome even when the lengths differ; no 3 consecutive shots within ±10% of each other; the slowest scene is about 3× the fastest; a film over 20 s has at least one shot of 3 s or more and one of 0.6 s or less. The peak and the payoff hold longest; the beats just before the turn are the shortest (`lib/intent.mjs` `planDurations`: peak about 1.5x, payoff 1.4x, pre-turn 0.9x). |
+| Rhythm | Declare the rhythm before building and keep shot lengths varied: see "Shot length" below for the numbers. |
 | First second | Picture designed and moving at frame 0; audio already at bed level in second 0–1 (never −30 dBFS or quieter). Trim quiet music intros. |
 | End card | Name, product, one call to action (a URL or "available today"), in the style's calmest composition. The beat runs 2–3 s: its elements land in sequence (the mark, then the name, then the action), and after the last one lands it holds **at most 1.4 s still** (`motion-gate.mjs` measures it; a brief that asks for a longer hold sets `end_hold_s` in the plan). The music's button and an audio tail of 0.5 s or more. Never longer than 3 s; no black or silent tail; no "thanks for watching" or social-icon walls. |
+
+### Reading time
+
+- Hold every line fully on screen for **0.6 s + 0.3 s per word, 1.2 s minimum** (4 words: 1.8 s, so held 2.0 s; 6 words: 2.4 s), because viewers read at about 3 words per second.
+- Take the formula from `scripts/lib/reading.mjs` `readTime`, the one source: the plan-level checks (`slop.mjs` on scenes.json, `story.mjs` on the beats) use it as is; the render-level check (`textfit.mjs` `text-too-brief`, on the frames) allows 15% slack (x 0.85), so a line a few frames short reads and one held half its time does not.
+- Hold the key message for at least 2 s, and a small label meant to be read for at least 0.8 s, so the point lands.
+- Ask for at most 3 words per second; if a line does not fit, cut words instead of speeding the text up, because speed breaks reading.
+- Keep the frame around a read line alive (the camera layer, a secondary settling late) and keep its letters still, because re-animating letters pulls the eye off the words.
+- Bring in one text block at a time, so the eye has one place to go.
+- `slop.mjs` `unreadable` flags a scene under the formula; `textfit.mjs` `text-too-brief` flags a rendered line under it.
+- For what a scene's viewer must notice and in what order, with each read's own hold, see `references/reads.md` (timed `reads[]`; `scripts/reads.mjs check`).
+
+### Shot length
+
+This is the canonical home of the shot-length numbers. A shot runs between two changes of the frame (a cut, a morph, a word swap, a colour flip, a push-in). The gate is what `frame-gate.mjs` enforces; the target is what the three favourite films measure and what to aim at. Other files link here instead of restating them.
+
+| Number | Gate (enforced) | Target (favourites) | Why |
+|---|---|---|---|
+| Median shot | about 1.5-2.5 s (`shot_median_lo/hi`; error above 3.5 s) | 1.9 s | Launch films read as fast without being frantic. |
+| p10 (shortest tenth) | at least 0.5 s (`shot_p10_min`) | 0.67 s | Short shots are accents; a floor keeps them readable. |
+| p90 (longest tenth) | at most 5 s (`shot_p90_max`) | 4.5 s | One long shot is the calm; more than that reads as a stall. |
+
+- Shape the lengths before building ("fast-fast-SLOW-fast-SIGNATURE-hold"), because a declared rhythm survives the build; uniform lengths read as a metronome.
+- Keep the coefficient of variation of shot lengths at 0.35 or more (`slop.mjs` warns `uniform-shots` under 0.2), so the film has contrast.
+- Make the longest shot at least 4x the shortest (`narrow-rhythm`: 5+ shots, the end card and flashes under 0.4 s left out; also measured on the render's hard cuts).
+- Vary neighbours: no 3 consecutive shots within +-10% of each other, and the slowest scene about 3x the fastest.
+- Give a film over 20 s at least one shot of 3 s or more and one of 0.6 s or less.
+- Give the peak and the payoff the longest holds and the beats just before the turn the shortest (`lib/intent.mjs` `planDurations`: peak about 1.5x, payoff 1.4x, pre-turn 0.9x).
+- A flicker or stepped beat the score declares is a deliberate burst: its time range is left out of the p10 statistic.
 
 **Length by format**
 
@@ -65,11 +109,16 @@ Anything over 90 s needs a character or world bible. Too long for the idea is a 
 
 Everything obeys `motion.md` (the style's motion language: its signature curves, a curve per role, the duration formula, the settle budget, holds, bans; `references/motion-md-contract.md`). The vocabulary `RasanMotion` (`runtime/rasan-motion.js`, `scripts/motionkit.mjs`) writes these rules for you. R5 (`.context/night/R5-motion-fluency.md`) measured what separates our films from the references: one curve on every move, snap-and-die moves, one thing at a time, nothing settling, durations on a grid, straight paths, dead frames. Every rule below answers one of those.
 
-**A curve per role, never one ease for all.** At least 4 curve families per film, no single curve on more than 40% of moves (`obey.mjs`: dominant-ease, few-curves). **A launch film is the exception: one signature curve.** It declares `signature_ease` in the score (a measured cubic-bezier or an expo.out family, often the Launch row below) and 70-85% of its moves use it, so the film reads as one take. The other roles become accents, reserved for contrast moments: a whip, the signature transition, the payoff hit. `obey` and `launch-beats` warn under 60% (`signature-share-low`) or with none declared (`signature-ease-missing`); `dominant-ease` and `few-curves` are not judged on a launch film. Why: brand systems run one curve for about 80% of moves, and one family is what makes a continuous take cohere (owner call, 2026-11-02). Every other film keeps the 40% cap:
+**A curve per role.**
+- Use at least 4 curve families per film and keep any single curve under 40% of moves (`obey.mjs`: dominant-ease, few-curves), because one ease on everything reads as a template.
+- A launch film is the exception and runs one signature curve: declare `signature_ease` in the score (a measured cubic-bezier or an expo.out family, often the Launch row below) and put 70-85% of its moves on it, because brand systems run one curve for about 80% of moves and one family is what makes a continuous take cohere.
+- Reserve the other roles for contrast moments on a launch film: a whip, the signature transition, the payoff hit.
+- `obey` and `launch-beats` warn under 60% (`signature-share-low`) or with none declared (`signature-ease-missing`); `dominant-ease` and `few-curves` are not judged on a launch film.
+- Every other film keeps the 40% cap. Pick the curve by role:
 
 | Role | Curve | Notes |
 |---|---|---|
-| Launch (entrances, hero arrivals) | `cubic-bezier(0.05,0.7,0.1,1)` | A hard launch and a long visible glide (40% of the distance in the first 17% of the time). 0.7–1.1 s for a hero. Entrances are ease-out only: never an ease-in on an entrance, it reads as lag (`ease-in-enter`, warning). |
+| Launch (entrances, hero arrivals) | `cubic-bezier(0.05,0.7,0.1,1)` | A hard launch and a long visible glide (40% of the distance in the first 17% of the time). 0.7–1.1 s for a hero. Make entrances ease-out only, because an ease-in on an entrance reads as lag (`ease-in-enter`, warning). |
 | Glide (repositions) | `cubic-bezier(0.2,0,0,1)` | A soft start, a long settle. 0.5–0.9 s. |
 | Expressive (big travels) | `cubic-bezier(0.4,0.14,0.3,1)` | Felt mass: a real ease-in before the travel. |
 | Settle (hero landings) | `spring(0.68,12)` | 3–8% past the target and back, about 1 landing in 8; never body text or numbers. Only where the element arrives with momentum, sized by its weight ("Settles"). |
@@ -86,9 +135,15 @@ Everything obeys `motion.md` (the style's motion language: its signature curves,
 
 **Reference moments: the take rule.** A reference moment (`scripts/moments.mjs`: a credited slice of a real launch film with its measured spec and code, fetched read-only into `$RUN/references/moments/<id>/`) is a finished piece of someone else's film, with its own opening, background, logo ending and frame-traced motion. Copy it in and you get its film, not yours. From each moment take **one mechanic**, written as one sentence: what moves, on which axis and in which direction, for how long, and what in it never stops moving (that continuous motion is usually why it holds attention). That sentence is the beat's `take` in the plan, and it is all you take. Build it fresh, with this film's content, in this beat's own timeline. Leave behind its copy, its brand and colours, its background, its bookends (logo openers, end plates, hard-cut tails) and its frame tables (read those only for timing: how many frames a move takes and where its speed peaks; a traced track is one move with one ease, never a replay). One storyline on one ground, with moving seams. The user's picked moments win; otherwise the Director picks 2 to 4, one per role, by mechanic fit for the scenario. Moments are used for technique only: no footage, frames, code, copy, brand or audio from one ships in the film, and every moment used is credited in `references/moments/credits.json` and in the Final's notes.
 
-**Settles are a budget, not a ban.** The references overshoot and return on 8–17% of moves; ours on 1–5%, because the doctrine banned it. A hero landing settles 3–8% past its target with one visible return (`spring(0.68,12)`, or `RasanMotion.land`); `motion.md`'s `overshoot` sets the share and the largest overshoot (precise and editorial: 15% of moves at 8%; soft languages 12% at 4%; elastic, springy, playful and character: half the moves at 25%; rigid languages, mechanical, robotic, stepped: none). Never on type being read, logos or numbers (a counter never passes its final value), never multi-bounce outside the bouncy languages, never on every element (`overshoot-over-budget`).
+**Settles are a budget.** The references overshoot and return on 8-17% of moves; ours were at 1-5%, so spend the budget.
+- Settle a hero landing 3-8% past its target with one visible return (`spring(0.68,12)`, or `RasanMotion.land`), because the return is what reads as weight.
+- Take the share and the largest overshoot from `motion.md`'s `overshoot`: precise and editorial 15% of moves at 8%; soft languages 12% at 4%; elastic, springy, playful and character half the moves at 25%; rigid languages (mechanical, robotic, stepped) none.
+- Land type being read, logos and numbers critically damped (a counter never passes its final value), because an overshoot there costs legibility.
+- Keep to one return outside the bouncy languages and settle only the hero landings, not every element (`overshoot-over-budget`).
 
-**Overshoot needs momentum.** An element settles past its mark only where it arrives with momentum: a thrown card, a carrier whip landing. An element that simply appears, scales in place or is tapped lands critically damped (bounce 0). `unmotivated-overshoot` (warning) flags an entrance that overshoots with no travel of its own (under 4% of the frame width) and no `travel_px` or `path: whip` in the score.
+**Overshoot needs momentum.**
+- Settle past the mark only where the element arrives with momentum (a thrown card, a carrier whip landing), because overshoot without travel looks like a wobble.
+- Land an element that simply appears, scales in place or is tapped critically damped (bounce 0). `unmotivated-overshoot` (warning) flags an entrance that overshoots with no travel of its own (under 4% of the frame width) and no `travel_px` or `path: whip` in the score.
 
 **Weight classes.** Each moving thing is `heavy` (large area: panels, modals, the hero mockup), `medium` or `light` (chips, icons, pills), written as `weight` per move in the score. Heavy: 0% overshoot and a longer duration (about 1.25x the formula). Medium: 3-5%. Light: up to 8-15%, and only when thrown. `heavy-overshoot` and `weight-overshoot` (warnings) read the score's `weight` against the tween's measured overshoot (`motion.md` `weights` can move the limits). An overshoot bigger than the language allows (a 15% hero bounce in a precise film) is a hero effect: a `score.budget` entry on that target ("Finish and budgets", section 6).
 
@@ -122,13 +177,13 @@ Everything obeys `motion.md` (the style's motion language: its signature curves,
 **Exits.** Faster than entrances (60–70% of the duration, `.in` eases). Prefer no exits mid-film: the cut or the transition is the exit. The last element to leave dies exactly at the cut; a gap with nothing moving reads as dead air.
 
 **Stagger: irregular cascades.**
-- Offsets fall on a curve (`gsap.utils.distribute` with an ease, or `amount * (i/n)^1.35`) plus +-1 frame, 2–4 frames apart on average between levels, 1–3 inside a group; durations vary +-10% so the group does not land on one frame. A constant `stagger: 0.08` or four identical tweens at even spacing is the metronome (`even-stagger`, `uniform-cascade`).
-- A group's total spread stays under 0.5 s regardless of count.
+- Offsets fall on a curve (`gsap.utils.distribute` with an ease, or `amount * (i/n)^1.35`) plus +-1 frame, 2–4 frames apart on average between levels, 1–3 inside a group; durations vary +-10% so the group does not land on one frame. Use irregular offsets instead of a constant `stagger: 0.08` or four identical tweens at even spacing, which read as a metronome (`even-stagger`, `uniform-cascade`).
+- Keep a group's total spread under 0.5 s regardless of count, so the group reads as one gesture.
 - Order by reading order or outward from the cause; the hero leads when it is the subject, or lands last with a settle when it is the payoff.
 - A cascade of 3-7 items finishes (first start to last end) within 0.5 s; a declared set piece (`set_piece: true` in the score; 8 or more items) within 1.2 s. `cascade-span` (warning).
-- Never stagger things that already exist. Random order is seeded and precomputed.
-- A visible cascade (5 or more items) is a set piece: once per film. Swarms and particles get their own seeded delays (0–0.6 s), durations +-25%, one of three curves and curved paths: a field on one ease and a straight lerp is the purest machine signature R5 found.
-- Word-by-word builds follow the voiceover or the beat, not a fixed stagger.
+- Stagger only things that arrive; things already on screen stay put. Seed and precompute any random order so renders repeat.
+- Treat a visible cascade (5 or more items) as a set piece: once per film. Give swarms and particles their own seeded delays (0-0.6 s), durations +-25%, one of three curves and curved paths, because a field on one ease and a straight lerp is the purest machine signature.
+- Time word-by-word builds to the voiceover or the beat instead of a fixed stagger, so words land with what is said.
 
 **Motion blur.** Direction-matched, on fast moves only (a smear frame, or 4–6 averaged subframes if the renderer supports it); never blended across a cut. Blur peaks at 10 px on text and 18–20 px on full-frame surfaces (at 20 px text smears into illegibility).
 
@@ -272,7 +327,7 @@ A hero move is judged at the frame, not at the second. Before building, render 4
 - **The cut is the baseline:** a clean hard cut on a strong frame, on the beat or up to 2 frames early. Every other transition must carry information.
 - **Scene-born transitions first.** The outgoing scene makes the incoming one: a match cut (shared shape, position or color), a shared-element morph (the pill grows into the next card), a carried object (the square holds its position across a background cut), a flood that contracts into the next scene (overscaling past the corners, about 0.3 s), an iris or mask cut from an element, a camera push into a UI tile that becomes the next scene, a mask line the next words rise from. **At least half of all scene changes are continuity (scene-born) or hard cuts**, never preset swaps. This is the cure for the slideshow.
 - **2–3 transition types per film:** the cut, the scene-born family, and at most one signature transition. A different transition on every seam reads as chaos.
-- **A carrier chain is one idea.** Several continuity seams carried by **one carrier** (one shape evolving: a circle that is a letter, then a dot, then a pupil, then the next page) read as one continuous idea, not as a different transition on every seam. The "2–3 transition types" rule above and the "chaos" warning are about **unrelated techniques**; a chain whose every seam hands the same object on, with a named constant (position, silhouette, vector, colour) and a bridge frame where both scenes are true, counts as one. It also counts as ONE idea for the "one signature" rule below: the signature may be a chain of 6 to 10 transformations of one carrier, a new idea about every 1.2 s, and that density is the point (the house bar: one circle carried letter, dot, pupil, eye, page, full frame, nine ideas in 11 s). Plan it as a chain (`references/moves.md`: the carrier, the ledger, the bridge frames), not as a list of seam kinds; when `story/moves.json` exists the Motion Director's seams come from it.
+- **A carrier chain is one idea.** Several continuity seams carried by **one carrier** (one shape evolving: a circle that is a letter, then a dot, then a pupil, then the next page) read as one continuous idea, not as a different transition on every seam. The "2–3 transition types" rule above and the "chaos" warning are about **unrelated techniques**; a chain whose every seam hands the same object on, with a named constant (position, silhouette, vector, colour) and a bridge frame where both scenes are true, counts as one. It also counts as one idea for the "one signature" rule below: the signature may be a chain of 6 to 10 transformations of one carrier, a new idea about every 1.2 s, and that density is the point (the house bar: one circle carried letter, dot, pupil, eye, page, full frame, nine ideas in 11 s). Plan it as a chain (`references/moves.md`: the carrier, the ledger, the bridge frames), not as a list of seam kinds; when `story/moves.json` exists the Motion Director's seams come from it.
 - **One signature technique, used once** (twice at most in films over 60 s), at the peak (the intent's `peak: true` beat: usually problem → solution, the reveal), and it belongs to the style:
 
   | Style family | Signature |
@@ -336,7 +391,7 @@ Kinso's launch runs about 20 distinct mechanics in 46 s (type that splits, a bou
 
 ### Grammar: one per film, a technique per beat
 
-A film commits to **ONE motion grammar** (`library/grammars/<id>.json`; `node scripts/grammar.mjs list`): a frame device that is always on screen and moves on the beat (rules that re-divide, a viewfinder HUD, a carried dot, a drafting sheet, a glowing panel, a dot lattice), type and image behaviour that stay fixed, and 8 to 12 techniques with build routes. The story stays plain; the grammar is where the film shows off. Rules:
+A film commits to **one motion grammar** (`library/grammars/<id>.json`; `node scripts/grammar.mjs list`): a frame device that is always on screen and moves on the beat (rules that re-divide, a viewfinder HUD, a carried dot, a drafting sheet, a glowing panel, a dot lattice), type and image behaviour that stay fixed, and 8 to 12 techniques with build routes. The story stays plain; the grammar is where the film shows off. Rules:
 
 - **One grammar, never two.** The frame device is the same from the first frame to the end card. A second frame device is a different film.
 - **The technique comes from the beat's verb.** Every scene names the technique of the grammar that expresses what its hero does, and what the frame device does in it. Beats that mean different things spend different techniques; a refrain repeats one on purpose. A grammar spent on one or two tricks across the whole film reads as a template (`technique-thin`, a warning).

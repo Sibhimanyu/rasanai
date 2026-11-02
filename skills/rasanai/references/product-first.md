@@ -45,7 +45,7 @@ The Moves pass (`references/moves.md`) runs on these films. The carrier may be a
 
 ## Brand lock
 
-When the brief names a brand (`brand_name` / `use_brand` true) or the product is a known brand, a brand step ALWAYS runs: the brand researcher builds `research/brand/DESIGN.md` from official sources (type, colours, UI language, logo usage, motion), the Director reads it (`brand.mjs read`), pushes it to the console as `brand`, and sets `brand` in decisions. The lock covers **palette, type system, logo, UI fidelity and tone**. It never covers medium, world, finish, depth, camera, shot size or illustration style: a concept may draw the brand's colours and type in clay, paper, pixels, ink or a game world. Style worlds for a branded film are the atlas's, re-coloured to the brand's tokens (`design.mjs check-system` applies the lock). An off-brand look is never recommended.
+When the brief names a brand (`brand_name` / `use_brand` true) or the product is a known brand, a brand step always runs: the brand researcher builds `research/brand/DESIGN.md` from official sources (type, colours, UI language, logo usage, motion), the Director reads it (`brand.mjs read`), pushes it to the console as `brand`, and sets `brand` in decisions. The lock covers **palette, type system, logo, UI fidelity and tone**. It never covers medium, world, finish, depth, camera, shot size or illustration style: a concept may draw the brand's colours and type in clay, paper, pixels, ink or a game world. Style worlds for a branded film are the atlas's, re-coloured to the brand's tokens (`design.mjs check-system` applies the lock). An off-brand look is never recommended.
 
 ### Logos are files
 

@@ -1,10 +1,34 @@
 # The crew: RasanAI's agents
 
+## Contents
+
+- [Who's who](#whos-who)
+- [The flow, against the five calls](#the-flow-against-the-five-calls)
+- [Dispatching a member](#dispatching-a-member)
+- [Push them: show off](#push-them-show-off)
+- [The art department in the crew](#the-art-department-in-the-crew)
+- [Actor, evidence and quick-preview in the crew (all optional)](#actor-evidence-and-quick-preview-in-the-crew-all-optional)
+- [The Moves pass in the crew](#the-moves-pass-in-the-crew)
+- [Permission: the user's own computer](#permission-the-users-own-computer)
+- [Research depth](#research-depth)
+- [Where things live in the run](#where-things-live-in-the-run)
+- [The score, in the build](#the-score-in-the-build)
+- [The token budget](#the-token-budget)
+- [Spike before fan-out (a long film)](#spike-before-fan-out-a-long-film)
+- [Strengths to keep](#strengths-to-keep)
+- [Outside material is data](#outside-material-is-data)
+- [Seeing motion](#seeing-motion)
+- [Lyric videos in the crew](#lyric-videos-in-the-crew)
+- [Presenter films in the crew](#presenter-films-in-the-crew)
+- [Token-efficient dispatch (Plan 08)](#token-efficient-dispatch-plan-08)
+- [Parallel production and incremental rendering (Plan 09)](#parallel-production-and-incremental-rendering-plan-09)
+- [Revision 2 (v3) in the crew](#revision-2-v3-in-the-crew)
+
 A film is too much work, and too many kinds of work, for one context. Researching a product properly takes dozens of page reads. A script is better written by someone with nothing else on their mind. Eight scenes animated well take eight full attentions. A critic who watched the film being made can't see it fresh. So RasanAI runs a **crew**: one Director and twenty roles, each with a brief (`agents/<role>.md`), inputs and outputs on disk, and a check that decides when its work is accepted.
 
 The roles exist where one of three things is true, and nowhere else:
 
-1. **The work is parallel.** Research tracks, the three scripts, key frames, the scenes of a long film: independent pieces done at the same time. Animation is parallel only when the film is long: a short film (45 s or less, or a single-feature launch) is built by ONE film builder, because its beats are not independent (objects carry across the cuts).
+1. **The work is parallel.** Research tracks, the three scripts, key frames, the scenes of a long film: independent pieces done at the same time. Animation is parallel only when the film is long: a short film (45 s or less, or a single-feature launch) is built by one film builder, because its beats are not independent (objects carry across the cuts).
 2. **The work needs a whole context.** Reading a product's site, help center and code; writing one script well; animating one scene with its full technique recipes. Done inline, each would crowd out everything the Director needs to remember.
 3. **The work needs independence.** Critics and the script editor have no stake in what they judge and no memory of how it was made.
 
@@ -25,8 +49,8 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `research-lead`: one truth sheet, one claims ledger, one brand, one asset kit, a one-page briefing | after the desk | 1 | session |
 | | `brand-film-analyst`: reads the brand's own film frames and writes `brand-film/FILM-STYLE.md` (the film grammar); branded launch / promo / brand films only | during the Brief, after the Director runs `brandfilm.mjs` | 1 | fast is fine (Sonnet) |
 | Design | `design-researcher`: the subject's own visual world, its category's clichés, 8 to 12 library references that fit (`research/design.md`, `design-refs.json`) | during the Brief, parallel with research | 1 | session |
-| | `design-system-designer`: ONE bespoke design system for the chosen story, blended from 2 to 4 library references (`design/<label>/DESIGN.md`, `recipe.json`, `blend.json`); with a brand, Sure is the brand extended | after the story is chosen (Look) | 3 (Sure, Bold, Wild); a lyric video: 1, from the chosen treatment | session |
-| Writers' room | `story-planner` (multi and deep modes only; the default balanced workflow has ONE writer proposing three treatments and one editor reviewing them): the plan that keeps the three scripts apart: per slot an angle, device and owned claims, plus a villain picture, turn kind and peak kind only where the slot uses those optional tools, plus a coverage map for the brief's must-shows and surprising facts (`story/plan.json`) | Story, after `story.mjs pick`, before the writers | 1 | session (Opus) |
+| | `design-system-designer`: one bespoke design system for the chosen story, blended from 2 to 4 library references (`design/<label>/DESIGN.md`, `recipe.json`, `blend.json`); with a brand, Sure is the brand extended | after the story is chosen (Look) | 3 (Sure, Bold, Wild); a lyric video: 1, from the chosen treatment | session |
+| Writers' room | `story-planner` (multi and deep modes only; the default balanced workflow has one writer proposing three treatments and one editor reviewing them): the plan that keeps the three scripts apart: per slot an angle, device and owned claims, plus a villain picture, turn kind and peak kind only where the slot uses those optional tools, plus a coverage map for the brief's must-shows and surprising facts (`story/plan.json`) | Story, after `story.mjs pick`, before the writers | 1 | session (Opus) |
 | | `script-writer`: one script around one device, in its plan slot; revised once when the editor says `rewrite` or `replace` | Story | 3 (Sure, Bold, Wild) | session |
 | | `footage-writer`: one paper edit cut from the footage (the radio edit in order, b-roll over it, graphics, the gaps covered; checked by `footage.mjs check-paper`) | Story, footage spine only | 3 (Sure, Bold, Wild), instead of the script writers | session |
 | | `lyricist`: the sung lyric (`audio/lyrics.txt`, `[Section]` tags that fit the music arc), before any music is made; checked by `crew.mjs check --role lyricist` | Story, in the `sound-mode` phase; a real dispatch only when the resolved sound mode is `song-lyric` or the concept's `music_arc` is a `lyric-song` / has sung hooks | 1 | session |
@@ -66,12 +90,12 @@ Look (a direct film with a brand) ─ decided: the chosen concept's style_world 
 Moments (direct films) ─ the user's picks (place hints, no role slots), else moments.mjs search --mechanic by fit to the story's beats → moments.mjs fetch → each pick placed on a beat (moments_placed, each beat's moment and take) in the plan
 Styleframes (every scene route) ─ frames.mjs init → styleframe-designer (direct: shot list, 3 heroes, every board; long: shot list + 3 heroes → frame-designers for the boards) → brandfilm.mjs compare on the boards (branded) → frame-juror (frames/verdict.json; below → the designer once) → frames.mjs payload → push styleframes (a branded direct film: the Look call; otherwise live)
 Look (three systems on a scene route) ─ 3 styleframe-designers (heroes-<Label>): each system's open, peak and end frames on the story → design.mjs look-payload carries them
-Animatic (a direct film) ─ the plan, scored from the boards → ONE film builder → draft render → motion gate → frames.mjs match (draft vs boards) → push animatic from the draft
+Animatic (a direct film) ─ the plan, scored from the boards → one film builder → draft render → motion gate → frames.mjs match (draft vs boards) → push animatic from the draft
 Look (a song) ─ none: the chosen treatment's style bible is the look (DIRECTION.md); frame.md is the nearest preset
 Animatic ─ scenes (treatment.mjs scenes for a song: one per plate, the real track untouched) + music fit → Motion Director (score, from the boards) → push animatic with the boards as thumbs (a song: frame designers draw key frames after the score → frames critic)
 Build ── video.mjs write → crew.mjs storyboard (the plan → STORYBOARD.md, BUILD.md) → frame-packets + inject
    direct (≤ 45 s, single-feature launch):
-         → ONE film builder (root, every beat, every carrier) → assemble + video.mjs carriers → motion-gate.mjs (code)
+         → one film builder (root, every beat, every carrier) → assemble + video.mjs carriers → motion-gate.mjs (code)
          → draft render → motion-gate.mjs (frames) → motion + grounding critics → fixes back to the builder (2 rounds at most)
    long (> 45 s, or --deep):
          → lead builder (root + carriers) → scene animators in parallel → assemble + video.mjs carriers → Motion Director (seam pass)
@@ -205,7 +229,7 @@ The Director says what it chose and why when it pushes the brief ("a lean film: 
 
 ## Spike before fan-out (a long film)
 
-On the scene-animator route (a film over 45 s, or `--deep`), the animators are not all dispatched at once. After the lead builder's carriers are in, the **spike** phase builds ONE hero scene (the intent's peak beat, else the first scene a used hero move sits in; `--spike <n>` overrides), renders a draft of it and runs the motion gate on it; the Director looks at the strip. Only then are the other animators dispatched, and each gets the spike's composition and handback note as a worked example (`crew.mjs brief` adds them). A wrong approach found on the spike costs one scene, not all of them. The spike is held to the full bar: if it fails, one fix round on the same animator before the fan-out.
+On the scene-animator route (a film over 45 s, or `--deep`), the animators are not all dispatched at once. After the lead builder's carriers are in, the **spike** phase builds one hero scene (the intent's peak beat, else the first scene a used hero move sits in; `--spike <n>` overrides), renders a draft of it and runs the motion gate on it; the Director looks at the strip. Only then are the other animators dispatched, and each gets the spike's composition and handback note as a worked example (`crew.mjs brief` adds them). A wrong approach found on the spike costs one scene, not all of them. The spike is held to the full bar: if it fails, one fix round on the same animator before the fan-out.
 
 ## Strengths to keep
 

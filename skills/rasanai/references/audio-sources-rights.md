@@ -4,7 +4,7 @@ Status: implemented_unvalidated; metadata and policy only. Nothing here was down
 
 ## Three source lanes
 
-1. **Distributable core**: original or appropriately licensed assets that RasanAI may ship and serve itself. Today: the 190 CC0 SFX in `library/sfx/` and the 27 CC0 / CC BY tracks of `library/music/catalog.json` that are `host: self`. The Mixkit rows (`host: upstream`) are NOT in this lane: they are metadata plus a fetch from Mixkit's own URL when the user picks one.
+1. **Distributable core**: original or appropriately licensed assets that RasanAI may ship and serve itself. Today: the 190 CC0 SFX in `library/sfx/` and the 27 CC0 / CC BY tracks of `library/music/catalog.json` that are `host: self`. The Mixkit rows (`host: upstream`) are not in this lane: they are metadata plus a fetch from Mixkit's own URL when the user picks one.
 2. **Private user-imported libraries and tracks**: the user's own files (`music.mjs --track`, `--library`). The rights are the user's declaration, recorded as theirs (`trackRecord`, `declared_by: "user"`); the app uses them for that user's film and never bundles, mirrors or uploads them elsewhere.
 3. **Optional provider integrations**: only with suitable access, storage, preview, editing and product-use terms for the exact intended use. A provider is never a default and no new provider or purchased pack is required for the core mix fix.
 

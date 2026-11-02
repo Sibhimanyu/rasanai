@@ -1,5 +1,14 @@
 # Entire videos: how RasanAI plugs into each HyperFrames workflow
 
+## Contents
+
+- [Route table](#route-table)
+- [scenes.json (input to scenes.mjs; also the Scenes panel's payload)](#scenesjson-input-to-scenesmjs-also-the-scenes-panels-payload)
+- [video-decisions.json (input to video.mjs write)](#video-decisionsjson-input-to-videomjs-write)
+- [What write produces](#what-write-produces)
+- [Build-time commands](#build-time-commands)
+- [Footage editing](#footage-editing)
+
 RasanAI decides everything creative; the HyperFrames workflow builds. The workflows ask nothing when `BRIEF.md` exists (the state row in `/hyperframes`), so RasanAI pre-writes the files each workflow reads and names the remaining hook points in BRIEF.md's **Customizations**. Scripts: `scenes.mjs` (scene list → STORYBOARD.md / SCRIPT.md), `video.mjs` (`init`, `capture`, `write`, `inject`, `audio-lock`), plus the preview scripts (`tasting.mjs --scenes`, `transition-menu.mjs`, `voice.mjs`, `music.mjs`) and `obey.mjs`.
 
 ## Route table

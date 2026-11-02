@@ -1,5 +1,14 @@
 # Direction: the stack of decisions, in proper terms
 
+## Contents
+
+- [The taxonomy](#the-taxonomy)
+- [decisions.json](#decisionsjson)
+- [direction.mjs](#directionmjs)
+- [What builders receive](#what-builders-receive)
+- [Style presets (the library)](#style-presets-the-library)
+- [Design directions (looks)](#design-directions-looks)
+
 A motion-graphics style is never one style. It is a stack of design decisions: format, UI treatment, visual style, illustration, typography, color, shape, stroke, shadow, material, texture, depth, motion language, transitions, camera, effects, pacing, narrative, sound, production. RasanAI holds that vocabulary as data (the taxonomy), lets the user decide any dimension or hand it to Claude, and compiles the stack into `DIRECTION.md`, the art-direction brief Claude designs and animates from.
 
 ## The taxonomy

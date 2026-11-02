@@ -1,5 +1,20 @@
 # Cinematography: the camera kit and the recipe catalogue
 
+## Contents
+
+- [Setup](#setup)
+- [A. Staging and framing](#a-staging-and-framing)
+- [B. Depth and lens](#b-depth-and-lens)
+- [C. Light and ground](#c-light-and-ground)
+- [D. Surfaces and content](#d-surfaces-and-content)
+- [E. Type](#e-type)
+- [F. Motion grammar](#f-motion-grammar)
+- [G. Abstract plates](#g-abstract-plates)
+- [H. Camera from meaning, and the echo](#h-camera-from-meaning-and-the-echo)
+- [Budgets](#budgets)
+- [The demo, and what it proves](#the-demo-and-what-it-proves)
+- [Limits](#limits)
+
 Flat films fail on light, depth and focus, not on timing. `RasanCamera` (`runtime/rasan-camera.js`) gives a composition a real camera: a 3D world built from a focal length, camera moves, depth of field by distance with rack focus, contact shadows, glass, rim light, a key light on a tinted ground that never stands still, speed trails, and grain. It is one browser file with no build step. It is deterministic and seek-safe on the scene's paused GSAP timeline, and it works in stills (styleframes and design boards use the same calls).
 
 This page is the catalogue: each recipe as calls, with the numbers and the reference film that shows it. The numbers come from the measured reference films (R1: Kinso, Sovra, Google "AI Mode", OpenAI "Refreshed", mexicat p(doom), Video-98327). Use them as defaults, not as ceilings.

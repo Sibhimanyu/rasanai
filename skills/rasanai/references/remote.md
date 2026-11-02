@@ -1,5 +1,18 @@
 # Remote: answering a RasanAI film from another app
 
+## Contents
+
+- [Versions to check](#versions-to-check)
+- [Finding the run](#finding-the-run)
+- [Who may write what](#who-may-write-what)
+- [Is the user needed now (the waiting rule)](#is-the-user-needed-now-the-waiting-rule)
+- [Steps and the five calls](#steps-and-the-five-calls)
+- [Writing an answer](#writing-an-answer)
+- [Contract v2 (external_actions: 2)](#contract-v2-external_actions-2)
+- [The director: liveness, resume, stop](#the-director-liveness-resume-stop)
+- [Pictures and video for a phone](#pictures-and-video-for-a-phone)
+- [What another app must not do](#what-another-app-must-not-do)
+
 RasanAI waits on the user five times (the five calls) and whenever the director asks a question. This page is the
 published contract for an app that shows those calls somewhere else and sends the answer back: a phone pager such as
 Squeak, a menu-bar app, a chat bot. It needs no server and no token: an app on the same Mac reads one file and appends
