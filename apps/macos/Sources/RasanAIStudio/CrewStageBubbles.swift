@@ -471,3 +471,91 @@ extension Color {
         return Color(nsColor: color)
     }
 }
+
+// MARK: Pinned preview bubble
+
+extension ProgressPreviewItem {
+    var title: String { switch self { case .video(_, let t, _), .image(_, let t): t } }
+    var openURL: URL { switch self { case .video(let u, _, _), .image(let u, _): u } }
+    /// What to draw: a poster or the image itself, else a frame pulled from the video.
+    var thumb: (url: URL, isVideo: Bool) {
+        switch self {
+        case .video(let u, _, let poster): poster.map { ($0, false) } ?? (u, true)
+        case .image(let u, _): (u, false)
+        }
+    }
+    var isVideo: Bool { if case .video = self { true } else { false } }
+}
+
+/// The latest preview in one static speech card on the stage: the same glass skin and tail as the thought cards, but it never
+/// floats, types or fades; it only crossfades when the picture changes. The stage's art is hidden from accessibility, so this
+/// card is a separate element with its own label.
+struct CrewPreviewBubble: View {
+    let item: ProgressPreviewItem
+    let aspect: Double
+    let size: CGSize
+    let dark: Bool
+    @State private var image: NSImage?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Padding, the caption block and the tail: everything in the card that is not the picture.
+    private static let pad: CGFloat = 8
+    private static let chrome: CGFloat = 8 + 4 + 15 + 1 + 12 + 8 + BubbleMetrics.tailHeight
+
+    /// The card's rect on the stage: left of the head with its tail toward the face, as wide as `unit` allows (about 180 to 260 pt),
+    /// shrunk until it fits beside the head and above the shoulders; nil when even the smallest does not.
+    static func frame(layout: StageLayout, pose: StagePose, aspect: Double) -> CGRect? {
+        let a = CGFloat(min(3, max(0.4, aspect)))
+        let s = layout.s
+        let faceTop = layout.origin.y + pose.head.top * s
+        let eyeBottom = pose.eyes.map { $0.cy + $0.ry }.max() ?? pose.head.y
+        let faceBottom = layout.origin.y + (max(pose.head.y, eyeBottom) + 24) * s
+        let right = layout.origin.x + pose.head.l * s - 14
+        func height(_ w: CGFloat) -> CGFloat { (w - 2 * pad) / a + chrome }
+        var w = min(260, max(180, layout.unit * 0.7), right - 12)
+        while w >= 110, height(w) > faceBottom - 8 { w -= 10 }
+        guard w >= 110, w <= right - 12 else { return nil }
+        let h = height(w)
+        return CGRect(x: right - w, y: max(8, faceTop + (faceBottom - faceTop) * 0.3 - h), width: w, height: h)
+    }
+
+    var body: some View {
+        let shape = SpeechCardShape(tail: true, flip: true)
+        let tw = size.width - 2 * Self.pad
+        let ink = dark ? StageColors.darkInk : StageColors.ink
+        Button { NSWorkspace.shared.open(item.openURL) } label: {
+            VStack(spacing: 4) {
+                ZStack {
+                    Color(nsColor: .underPageBackgroundColor)
+                    if let image { Image(nsImage: image).resizable().scaledToFill().frame(width: tw, height: tw / CGFloat(max(0.1, aspect))).clipped().id(ObjectIdentifier(image)).transition(.opacity) }
+                    if item.isVideo { Image(systemName: "play.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 30, height: 30).background(.black.opacity(0.5), in: Circle()) }
+                }
+                .frame(width: tw, height: (size.height - Self.chrome) + 0)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                VStack(spacing: 1) {
+                    Text(item.title).font(.system(size: 12, weight: .medium)).foregroundStyle(ink).lineLimit(1).truncationMode(.tail)
+                        .contentTransition(.opacity)
+                    Text("Latest preview").font(.system(size: 10)).foregroundStyle(StageColors.quiet).lineLimit(1)
+                }
+                .frame(width: tw)
+            }
+            .padding(Self.pad)
+            .padding(.bottom, BubbleMetrics.tailHeight)
+            .frame(width: size.width, height: size.height, alignment: .top)
+            .glassPanel(in: shape)
+            .overlay { shape.strokeBorder(Color.white.opacity(dark ? 0.08 : 0.5), lineWidth: 0.5) }
+            .shadow(color: .black.opacity(dark ? 0.35 : 0.12), radius: 10, y: 4)
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: image)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: item.title)
+        .task(id: item.thumb.url) { if let loaded = await VideoPosters.image(for: item.thumb.url, isVideo: item.thumb.isVideo) { image = loaded } }
+        .help("Open \(item.title)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Latest preview: \(item.title)")
+        .accessibilityHint("Opens the \(item.isVideo ? "video" : "image")")
+        .accessibilityAddTraits(.isButton)
+    }
+}

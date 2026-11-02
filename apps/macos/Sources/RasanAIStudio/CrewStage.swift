@@ -57,6 +57,8 @@ final class CrewStageEngine {
         var motion: Bool
         var lines: Int
         var picture: URL?
+        /// The pinned preview bubble's rect: scattered cards keep clear of it.
+        var reserved: CGRect?
     }
 
     private(set) var bubbles: [Vis] = []
@@ -156,6 +158,7 @@ final class CrewStageEngine {
             let r = CGRect(origin: o, size: size)
             if r.minY < 8 || r.maxY > H - 10 || r.minX < 11.5 || r.maxX > W - 11.5 { return false }
             if r.intersects(face) { return false }
+            if let reserved = input.reserved, r.insetBy(dx: -10, dy: -10).intersects(reserved) { return false }
             let padded = r.insetBy(dx: -10, dy: -10)
             return !others.contains { padded.intersects($0) }
         }
@@ -598,6 +601,9 @@ struct CrewStage: View {
     var unit: CGFloat = 320
     /// The stage's own height when the screen sizes it (the character and the bubble room scale to fit); nil keeps the design height.
     var stageHeight: CGFloat?
+    /// The newest real preview, pinned in one static bubble beside the head (work mode only); nil shows no bubble.
+    var preview: ProgressPreviewItem?
+    var previewAspect: Double = 16.0 / 9
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
@@ -624,7 +630,6 @@ struct CrewStage: View {
             .task(id: picture) { pictureImage = await loadPicture(picture) }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didChangeOcclusionStateNotification)) { _ in refreshVisibility() }
             .onChange(of: scenePhase) { _, phase in renderLog.notice("crew stage scenePhase \(String(describing: phase), privacy: .public)") }
-            .accessibilityHidden(true)
         }
     }
 
@@ -643,10 +648,13 @@ struct CrewStage: View {
         let layout = StageLayout.make(pose: pose, character: character, mode: mode, size: size, unit: mode == .ask ? askUnit(pose) : unit)
         let motion = !reduceMotion
         let dark = scheme == .dark
+        // The pinned preview bubble: laid out once here (not per frame) and reserved in the engine so the scattered cards avoid it.
+        let previewRect = mode == .work && preview != nil ? CrewPreviewBubble.frame(layout: layout, pose: pose, aspect: previewAspect) : nil
+        ZStack(alignment: .topLeading) {
         TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || scenePhase != .active || !windowVisible)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             let _ = engine.advance(t: t, .init(layout: layout, pose: pose, character: character, mode: mode, thoughts: thoughts, asleep: asleep,
-                                              motion: motion, lines: lines, picture: picture))
+                                              motion: motion, lines: lines, picture: picture, reserved: previewRect))
             let body = CrewStageArt.image(motion ? "\(character.rawValue)-\(mode.rawValue)" : "\(character.rawValue)-\(mode.rawValue)-faced")
                 ?? CrewStageArt.image("\(character.rawValue)-\(mode.rawValue)-faced")
             let overlay = pose.overlay.flatMap { CrewStageArt.image($0) }
@@ -670,6 +678,13 @@ struct CrewStage: View {
             }
             .frame(width: size.width, height: size.height)
         }
+        .accessibilityHidden(true)
+        if let preview, let previewRect {
+            CrewPreviewBubble(item: preview, aspect: previewAspect, size: previewRect.size, dark: dark)
+                .position(x: previewRect.midX, y: previewRect.midY)
+        }
+        }
+        .frame(width: size.width, height: size.height)
     }
 
     private static func ago(_ thought: CrewThought, index: Int, now: Date) -> String {
