@@ -179,10 +179,13 @@ struct FilmProgressView: View {
     private func stageArt(_ s: FilmProgressSnapshot, lead: CrewCharacter, asleep: Bool, height h: CGFloat) -> some View {
         let headroom = min(150, h * 0.32)
         let unit = max(40, min(320, h - headroom))
+        let picture = lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil
+        // The easel already holds this picture: the bubble would only repeat it.
+        let preview = ProgressPreviewItem.latest(in: s).flatMap { $0.openURL == picture ? nil : $0 }
         return CrewStage(character: lead, thoughts: CrewThoughts.make(s, lead: lead), asleep: asleep,
                          lines: lead == .kavi ? CrewThoughts.finishedSteps(s) : 0,
-                         picture: lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil, unit: unit,
-                         stageHeight: min(h, unit + headroom), preview: ProgressPreviewItem.latest(in: s), previewAspect: model.snapshot.aspectRatio)
+                         picture: picture, unit: unit,
+                         stageHeight: min(h, unit + headroom), preview: preview, previewAspect: model.snapshot.aspectRatio)
             .id(lead)
             .frame(maxWidth: .infinity)
             .help("\(lead.displayName), \(lead.roleTitle)")
