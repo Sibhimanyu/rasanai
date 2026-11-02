@@ -37,6 +37,8 @@ extension StudioStore {
         case .restartRasan: restartRasan()
         case .viewActivity: film?.requestActivity()
         case .copyDetails: copyBlockDetails()
+        case .pauseRun: pauseDirector(); film?.systemLine("Paused the run.")
+        case .resumeRun: resumeDirector(); film?.systemLine("Resuming the run.")
         }
     }
 

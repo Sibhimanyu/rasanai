@@ -360,7 +360,8 @@ extension StudioStore {
     }
 
     /// "Retry step": a note to a live director to try its current step again (and not to repeat a refused command); a restart if it is gone.
-    func retryStep(friendly: String = "You pressed Retry step. Rasan is trying the step again.") {
+    /// `friendly` is the chat's line for the instruction; empty hides it (the "Retrying the step…" ack from `followUpAction` already says it).
+    func retryStep(friendly: String = "") {
         guard let film, runURL != nil else { return }
         guard runtime.isRunning, !runtime.isFrozen else { restartRasan(); return }
         film.followUpAction(.retry)
@@ -378,7 +379,7 @@ extension StudioStore {
     func fixBlock() {
         if fixRestarts { restartRasan(); return }
         if let block = monitor.openBlock ?? monitor.health?.blocked { monitor.noteFixAttempt(block) }
-        retryStep(friendly: "You pressed Fix it. Rasan is trying another way.")
+        retryStep()
     }
 
     /// Fix it means Restart Rasan right now.

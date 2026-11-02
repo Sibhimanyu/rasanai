@@ -95,6 +95,10 @@ final class FilmSessionModel {
     var answering = 0
     var chatTail: Task<Void, Never>?
     var lastChatReply: (at: Date, facts: [String])?
+    /// The reply being typed right now ("" before the first word, nil when none), shown live in the chat.
+    var streamingText: String?
+    /// What Studio itself said in the chat (a status, a follow-up, an action line) since Rasan's last reply: told to the model next turn, so it remembers.
+    @ObservationIgnored var studioSaid: [String] = []
     /// Rasan's unprompted chat follow-ups (stall, retry outcome, status watch), and the last tick they read (not observed: it changes every tick).
     var followUps = ChatFollowUps()
     @ObservationIgnored var followUpLast: ChatFollowUps.Input?
@@ -120,6 +124,8 @@ final class FilmSessionModel {
     /// The last `session.json` bytes and queued action ids shown, so an unchanged folder event costs nothing.
     private var lastData: Data?
     private var lastQueued: [String] = []
+    /// Actions written for the director that it has not read yet (it reads them only at its next `console.mjs wait`).
+    var unreadByDirector: Int { lastQueued.count }
     /// Ids of the actions this model sent, to report one the director refused.
     private var sentIDs: Set<String> = []
     private var reportedRejections: Set<String> = []
@@ -343,7 +349,7 @@ final class FilmSessionModel {
     static let studioWindow: TimeInterval = 60
     private var studioSent: [String: Date] = [:]
     /// The short line the chat shows for a Studio instruction, by its normalized text.
-    private var studioLines: [String: String] = [:]
+    var studioLines: [String: String] = [:]
 
     /// What the chat shows for Studio's instruction: the line saved when it was sent, else a plain reading of it. Never the raw instruction.
     func studioLine(for message: ThreadMessage) -> String {
@@ -463,7 +469,7 @@ final class FilmSessionModel {
     }
 
     /// What is true about the request just queued: it is on the director's queue, and whether anything is running to read it.
-    private func transportLine() -> String {
+    func transportLine() -> String {
         let state = snapshot.raw["run_status"]["state"].string
         switch state {
         case "paused": return "Queued, not applied yet: the run is paused, so nothing reads this until you resume."
@@ -496,7 +502,8 @@ final class FilmSessionModel {
         if !accept { beginTell(step: p.step, prefill: p.text) }
     }
 
-    func addLocal(_ step: String, fromUser: Bool, _ text: String, after: TimeInterval = 0, actions: [ChatQuickAction]? = nil) {
+    func addLocal(_ step: String, fromUser: Bool, _ text: String, after: TimeInterval = 0, actions: [ChatQuickAction]? = nil, byModel: Bool = false) {
+        if !fromUser, !byModel { studioSaid = Array((studioSaid + [text]).suffix(8)) }
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         localThreads[step, default: []].append(.local(step: step, fromUser: fromUser, text: text, time: f.string(from: Date().addingTimeInterval(after)), quickActions: actions))
