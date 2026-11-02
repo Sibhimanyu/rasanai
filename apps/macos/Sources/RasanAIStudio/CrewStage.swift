@@ -57,6 +57,8 @@ final class CrewStageEngine {
         var motion: Bool
         var lines: Int
         var picture: URL?
+        /// The director is stuck: thoughts fade, the gaze drops, brows knit, no blinking.
+        var stuck = false
         /// The pinned preview bubble's rect: scattered cards keep clear of it.
         var reserved: CGRect?
     }
@@ -101,7 +103,7 @@ final class CrewStageEngine {
     func advance(t: Double, _ input: Input) {
         let dt = started ? min(0.1, max(0, t - lastT)) : 0
         lastT = t
-        let live = !input.asleep
+        let live = !input.asleep && !input.stuck
         let motion = input.motion
         if !started {
             started = true
@@ -269,7 +271,7 @@ final class CrewStageEngine {
 
         // Brows: lift when a thought starts, knit while a critic's note is live.
         let revising = bubbles.first(where: { $0.index == 0 && !$0.leaving }).map { $0.thought.revising && t - $0.born < 2.5 } ?? false
-        let liftTarget: CGFloat = t < liftUntil && motion ? 1 : 0, knitTarget: CGFloat = revising && motion ? 1 : 0
+        let liftTarget: CGFloat = t < liftUntil && motion ? 1 : 0, knitTarget: CGFloat = (revising || input.stuck) && motion ? 1 : 0
         let browStep = Self.ease(dt, 7.8)
         browLift += (liftTarget - browLift) * browStep
         browKnit += (knitTarget - browKnit) * browStep
@@ -314,6 +316,8 @@ struct StageFrame {
     var t: Double
     var dark: Bool
     var asleep: Bool
+    /// Stuck: drawn dimmer and greyer, no glow, no lift in the brows.
+    var stuck = false
     var motion: Bool
     var look: CGPoint
     var lid: CGFloat
@@ -329,7 +333,7 @@ struct StageFrame {
 
     // The one entry point: the stage floor, the character with her live parts, then the trails and the snoozing z's.
     func draw(_ context: inout GraphicsContext, body: NSImage?, overlay: NSImage?) {
-        if mode == .work { drawGlow(&context) }
+        if mode == .work, !stuck { drawGlow(&context) }
         drawShadow(&context)
         drawFigure(&context, body: body, overlay: overlay)
         drawTrails(&context)
@@ -362,6 +366,7 @@ struct StageFrame {
     private func drawFigure(_ context: inout GraphicsContext, body: NSImage?, overlay: NSImage?) {
         let rect = layout.rect
         context.drawLayer { l in
+            if stuck { l.addFilter(.saturation(0.25)); l.opacity = 0.82 }
             // Only Laya moves her body: breathing, a float and a nod on the beat. Everyone else stands still.
             if character == .laya, motion, !asleep {
                 let br = 1 + 0.012 * sin(t / 3.6 * 2 * .pi)
@@ -594,6 +599,9 @@ struct CrewStage: View {
     var thoughts: [CrewThought] = []
     /// The director is paused or waiting out a usage limit: everyone snoozes.
     var asleep = false
+    /// Set while the director is stuck (quiet past the stall threshold): the text of the one static bubble ("No progress for 6 min").
+    /// The crew stands still, dimmed, brows knit, and the thought bubbles fade. Different from asleep (paused) and from working.
+    var stuck: String?
     /// How many lines of handwriting Kavi's page carries.
     var lines = 0
     var picture: URL?
@@ -654,12 +662,12 @@ struct CrewStage: View {
         TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || scenePhase != .active || !windowVisible)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             let _ = engine.advance(t: t, .init(layout: layout, pose: pose, character: character, mode: mode, thoughts: thoughts, asleep: asleep,
-                                              motion: motion, lines: lines, picture: picture, reserved: previewRect))
+                                              motion: motion, lines: lines, picture: picture, stuck: stuck != nil, reserved: previewRect))
             let body = CrewStageArt.image(motion ? "\(character.rawValue)-\(mode.rawValue)" : "\(character.rawValue)-\(mode.rawValue)-faced")
                 ?? CrewStageArt.image("\(character.rawValue)-\(mode.rawValue)-faced")
             let overlay = pose.overlay.flatMap { CrewStageArt.image($0) }
             let bubbles = engine.bubbles
-            let frame = StageFrame(layout: layout, pose: pose, character: character, mode: mode, t: t, dark: dark, asleep: asleep, motion: motion,
+            let frame = StageFrame(layout: layout, pose: pose, character: character, mode: mode, t: t, dark: dark, asleep: asleep, stuck: stuck != nil, motion: motion,
                                    look: engine.look, lid: engine.lid, focus: engine.focus, browLift: engine.browLift, browKnit: engine.browKnit,
                                    lineBorn: engine.lineBorn, picture: pictureImage,
                                    pictureAlpha: motion ? CGFloat(min(1, max(0, (t - engine.pictureSince) / 1.2))) : 1,
@@ -673,7 +681,21 @@ struct CrewStage: View {
                         .scaleEffect(max(0.01, b.k), anchor: UnitPoint(x: b.side < 0 ? 1 - BubbleMetrics.tailX / max(1, b.size.width) : BubbleMetrics.tailX / max(1, b.size.width), y: 1))
                         .opacity(Double(max(0, min(1, b.op))))
                         .zIndex(Double(-b.index))
-                        .position(x: b.x + b.size.width / 2, y: b.y + b.size.height / 2 + (motion && !asleep ? CGFloat(sin(t * 1.6 + b.phase)) * 3 : 0))
+                        .position(x: b.x + b.size.width / 2, y: b.y + b.size.height / 2 + (motion && !asleep && stuck == nil ? CGFloat(sin(t * 1.6 + b.phase)) * 3 : 0))
+                }
+                if let stuck {
+                    // One static bubble over the head: where it is stuck, in words, not moving.
+                    let w = CGFloat(stuck.count) * 6.6 + 30, h: CGFloat = 26
+                    let eyeXs = pose.eyes.map(\.cx), eyeMean = eyeXs.isEmpty ? pose.width / 2 : eyeXs.reduce(0, +) / CGFloat(eyeXs.count)
+                    let cx = min(max(layout.origin.x + eyeMean * layout.s, w / 2 + 12), max(w / 2 + 12, size.width - w / 2 - 12))
+                    let top = layout.origin.y + pose.head.top * layout.s
+                    Text(stuck)
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(nsColor: .systemOrange)).lineLimit(1).fixedSize()
+                        .frame(width: w, height: h)
+                        .background(dark ? StageColors.darkGlass : Color.white, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color(nsColor: .systemOrange).opacity(0.55), lineWidth: 1))
+                        .position(x: cx, y: max(h / 2 + 8, top - h / 2 - 14))
+                        .transition(.opacity)
                 }
             }
             .frame(width: size.width, height: size.height)

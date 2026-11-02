@@ -91,8 +91,9 @@ struct NotesInspector: View {
             Spacer(minLength: 4)
             if model.isReplying || model.isConnected {
                 HStack(spacing: 5) {
-                    Circle().fill(model.isReplying ? Color.orange : Color.green).frame(width: 6, height: 6)
-                    Text(model.isReplying ? "Thinking…" : "Listening").font(.system(size: 11)).foregroundStyle(.secondary)
+                    let note = model.isReplying ? nil : model.followUpNote
+                    Circle().fill(model.isReplying || note?.warn == true ? Color.orange : Color.green).frame(width: 6, height: 6)
+                    Text(model.isReplying ? "Thinking…" : (note?.text ?? "Listening")).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
             }

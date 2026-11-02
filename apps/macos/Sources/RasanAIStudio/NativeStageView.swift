@@ -18,6 +18,8 @@ struct NativeStageView: View {
     var onResume: (() -> Void)?
     /// The director is stopped: the working view says where it stopped and stops moving.
     var paused = false
+    /// The director runs but nothing has moved for the stall threshold (`StudioStore.stuckNotice`).
+    var stuck: StuckNotice?
 
     /// True when this route is drawn by Film progress (so the stage cross-fade does not flash between working and build).
     private var showsProgress: Bool {
@@ -59,7 +61,7 @@ struct NativeStageView: View {
 
     @ViewBuilder private func stage(_ route: StageRoute) -> some View {
         if showsProgress, let progress {
-            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, onResume: onResume, paused: paused)
+            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, onResume: onResume, paused: paused, stuck: stuck)
         } else { classic(route) }
     }
 
@@ -114,7 +116,8 @@ struct NativeFilmView: View {
     var onResumeNow: (() -> Void)?
     var onResume: (() -> Void)?
     var paused = false
+    var stuck: StuckNotice?
     var body: some View {
-        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, onResume: onResume, paused: paused)
+        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, onResume: onResume, paused: paused, stuck: stuck)
     }
 }

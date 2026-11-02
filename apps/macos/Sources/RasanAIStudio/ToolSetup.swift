@@ -354,6 +354,7 @@ extension StudioStore {
             }
             guard !runtime.isRunning else { errorMessage = "Rasan has not stopped yet. Wait a moment and press Restart Rasan again."; return }
             monitor.acknowledgeBlock(); monitor.noteResumed()
+            film?.followUpAction(.restart)
             resumeDirector()
         }
     }
@@ -362,6 +363,7 @@ extension StudioStore {
     func retryStep(friendly: String = "You pressed Retry step. Rasan is trying the step again.") {
         guard let film, runURL != nil else { return }
         guard runtime.isRunning, !runtime.isFrozen else { restartRasan(); return }
+        film.followUpAction(.retry)
         let block = monitor.openBlock ?? monitor.health?.blocked
         // Never empty backticks: the refused request in plain words ("run a command" when the command is not known).
         let blocked = block.map { " Your request to \($0.action) was refused: do not run it again. Do the step a different, allowed way instead (the console scripts and the file tools work). If a program is missing, stop and ask with console.mjs ask using an install-tool:<tool> option." } ?? ""

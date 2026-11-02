@@ -163,6 +163,7 @@ final class DirectorMonitor {
         checkBudget(store: store)
         checkLoop(store: store)
         checkBlock(store: store)
+        store.tickFollowUps()
         if dirty, now.timeIntervalSince(lastSave) > 8 || !running { save() }
     }
 
