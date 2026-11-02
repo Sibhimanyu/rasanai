@@ -20,6 +20,8 @@ Name only what survives; `carry` is exact. Everything not carried is free to cha
 
 Position without velocity means "same place, starts at rest". Add `velocity` for one continuous movement. A continued action carries its own `action_id` and `progress` so the ease is not reset (`seamReport` flags `easing_reset`).
 
+**A carrier never restarts from rest.** When the carrier changes role at a seam (an orb becomes a cursor, a card becomes the UI frame), the incoming motion starts with the outgoing velocity vector (`carry` includes `velocity`): no stop, no re-launch from zero, no second ease (WWDC18: motion keeps tracking through handoffs). Gate (partial): on a launch film the `handoff-velocity` warning flags a scene whose `handoff` carries no `velocity` and declares no discontinuity; the numeric check stays `seamReport`.
+
 ## One coordinate space
 
 Seams compare in `final_screen`: pixels at the output size (or frame fraction), origin top-left, y down, degrees, scale ratio. Scene-local, parent, world and camera values are converted first with `toScreenSpace(state, chain, {output})`. `chain` lists transform levels from the object outward; each level `{id, kind, translate, scale, rotate, origin, velocity, scale_rate, angular, inverse?, applied?}` keeps its own origin (rotation and scale act about it). Mark `applied:true` for a level the state already contains (a position read from the DOM after the camera moved includes the camera), and give a camera `inverse:true` when the world reaches the screen through the inverse of the camera's own transform. `toScreenSpace` skips applied or repeated levels and reports them, so parent or camera motion is never added twice. The chain is bounded (16 levels).

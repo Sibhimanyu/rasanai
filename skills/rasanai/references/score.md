@@ -65,6 +65,22 @@ The gates read these per-beat fields (`lib/launch-beats.mjs`; the rules are in `
 - `density`: dense (3+ elements, a collage, a full UI, a full-frame object) | sparse (one small line or object on an empty ground). At least two alternations (`rhythm`, an error; waivable).
 - `logo`: true where the mark is on screen; more than 3 beats warns (`logo-count`).
 
+### Motion laws (launch films; any film may carry `moves`)
+
+Film level: `signature_ease` (a curve name from `motion.md` `curves`, or a curve string such as `cubic-bezier(0.05,0.7,0.1,1)` or `expo.out`). Launch films only: 70-85% of moves use it (`signature-ease-missing`, `signature-share-low`).
+
+Per beat, besides the fields above: `beat` (`hook | turn | meet | capability | payoff`; first and last row by default) and optionally `hold_s` (the longest hold of the beat's line). `moves[]` lists the beat's notable moves; the checks read only the fields given:
+
+- `target` (the id or class the tween animates; `obey` matches it to the tween), `at` (s), `dur` (s), `ease` (the curve name or string).
+- `weight`: `heavy` (panels, modals, hero UI) | `medium` | `light` (chips, icons, pills): overshoot limits 0 / 3-5% / up to 15% (`heavy-overshoot`, `weight-overshoot`).
+- `travel_px` and `path` (`straight | arc | whip`): a travel over a third of the frame needs an arc or a declared whip (`long-straight-travel`); `travel_px` above 0 or `whip` counts as momentum for a settle (`unmotivated-overshoot`).
+- `layer`: `hero | support | ambient` (`ambient-speed`, `ambient-not-counter`, `layers-missing`).
+- `entrance`: `mask-rise | scale-from-origin | draw-on | clip-reveal | travel-fade | cut | fade` (`fade` is opacity-only: `entrance-fade-only`, warning).
+- `set_piece: true`: a declared cascade set piece (`cascade-span` allows 1.2 s).
+- `handoff` on a beat: `{carry: [position, velocity, ...]}` or `{intentional_discontinuity}` (`handoff-velocity`).
+
+Measured from the built tweens where `obey` can see them, from these fields where it cannot; all warnings. `beat-profile` (hook has no overshoot and is tighter than the film's mean; the meet holds the longest entrance; the payoff's `hold_s` is the longest) reads `moves[]`, `beat` and `hold_s`.
+
 The full-frame-type scale, a second scale, the 50% UI hero and the old shot-length median no longer apply to the default launch grammar: a launch film is judged on its beats and, with no stated gate profile, as `flat`.
 
 ## 4. The format

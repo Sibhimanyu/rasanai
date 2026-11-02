@@ -11,10 +11,26 @@
 //   logo            true when the mark or wordmark is on screen in the beat
 export const LB = { max_plain_cuts_warn: 0, max_plain_cuts_error: 2, max_logo: 3, carrier_share_min: 0.6, max_words_line: 9, min_density_alternations: 2, max_dense_run: 2, beat_median_warn_s: 5 };
 
+// signature curve (references/craft.md "A curve per role"): a launch film puts 70-85% of its moves on one declared curve; the gates warn under 60%
+export const SIG = { share_warn: 0.6, share_aim: [0.7, 0.85], min_moves: 10 };
+export const sigNorm = (e) => String(e == null ? "" : e).replace(/^rasan:/i, "").replace(/\s+/g, "").toLowerCase();
+// a curve matches the signature when they are the same string, or the signature names only a family ("expo") and the curve is in it ("expo.out")
+export const sigMatch = (ease, sig) => { const a = sigNorm(ease), b = sigNorm(sig); if (!a || !b) return false; return a === b || (!/[.(]/.test(b) && a.startsWith(b + ".")); };
+const OVERSHOOT_EASE = /back|elastic|spring|bounce/i;
+
 const PLAIN = /^(cut|hard[- ]?cut|plain[- ]?cut|smash[- ]?cut|jump[- ]?cut|none|no)$/i;
 const words = (t) => String(t || "").replace(/[—–]/g, " ").split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
 const truthy = (v) => v === true || /^(true|yes|1|present)$/i.test(String(v || ""));
 const carrierOn = (v) => { const s = String(v == null ? "" : v).trim(); return !!s && !/^(none|no|absent|-|n\/a)$/i.test(s); };
+
+// the per-beat `moves[]` the score declares (references/score.md "Motion laws"), with the beat role: scenes[].beat, else the first row is the hook and the last the payoff
+export function beatMoves(plan) {
+  const sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
+  return sc.map((s, i) => {
+    const role = String(s.beat || s.role || (i === 0 ? "hook" : i === sc.length - 1 ? "payoff" : "")).toLowerCase();
+    return { id: String(s.id != null ? s.id : i + 1), role, hold: Number(s.hold_s), moves: Array.isArray(s.moves) ? s.moves.filter((m) => m && typeof m === "object") : [], handoff: s.handoff && typeof s.handoff === "object" ? s.handoff : null, transition: s.transition_in };
+  });
+}
 
 export function beatRows(plan) {
   const sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
@@ -77,6 +93,57 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
   // 6. beats, not shots: a one-take film has long "shots"; a beat that runs long is the thing to watch
   const durs = rows.map((r) => r.dur).filter((d) => d != null && d > 0).sort((a, b) => a - b);
   if (durs.length >= 4) { const med = durs[Math.floor(durs.length / 2)]; if (med > LB.beat_median_warn_s) F.push({ severity: "warning", check: "beat-length", message: `median beat ${Math.round(med * 10) / 10} s (the references run 2.8 to 3.7 s): the film changes thought too slowly`, fix: `split long beats: one thought each; ${see}`, basis: "score" }); }
+  F.push(...motionLawFindings(plan, rows));
+  return F;
+}
+
+// Motion laws read from the score's own fields (all warnings; the tween-level versions live in obey.mjs). Doc: references/craft.md, launch-grammar.md "Motion profile per beat", score.md "Motion laws".
+function motionLawFindings(plan, rows) {
+  const F = [], see = "references/score.md \"Motion laws\"";
+  const w = (check, message, fix) => F.push({ severity: "warning", check, message, fix, basis: "score" });
+  const B = beatMoves(plan), all = B.flatMap((b) => b.moves.map((m) => ({ ...m, _beat: b.id })));
+  // signature curve
+  const sig = plan.signature_ease || (plan.motion && plan.motion.signature_ease);
+  if (!sig) w("signature-ease-missing", "the score declares no signature_ease: a launch film puts 70 to 85 percent of its moves on one curve (the accents are for a whip, the signature transition and the payoff hit)", `name it (score.signature_ease: a custom cubic-bezier or an expo.out family); ${see}`);
+  else {
+    const eased = all.filter((m) => m.ease);
+    if (eased.length >= SIG.min_moves) {
+      const share = eased.filter((m) => sigMatch(m.ease, sig)).length / eased.length;
+      if (share < SIG.share_warn) w("signature-share-low", `${Math.round(share * 100)}% of the ${eased.length} declared moves use the signature curve (${sig}); a launch film runs 70 to 85%, ${Math.round(SIG.share_warn * 100)}% at least`, `move the ordinary moves onto the signature curve and keep the others for a whip, the signature transition and the payoff hit; ${see}`);
+    }
+  }
+  // entrances that are opacity-only
+  const fades = all.filter((m) => /^(fade|opacity|opacity-only|scale-from-zero|scale0)$/i.test(String(m.entrance || "")));
+  if (fades.length) w("entrance-fade-only", `${fades.length} declared entrance(s) are opacity-only or grow from scale 0 (beats ${[...new Set(fades.map((m) => m._beat))].slice(0, 6).join(", ")}): pair the fade with travel or scale, and start a card at 0.92 to 0.95 or above`, `use mask-rise, scale-from-origin, travel-fade or clip-reveal; ${see}`);
+  // three layers on the meet and capability beats
+  if (all.some((m) => m.layer)) {
+    const thin = B.filter((b) => /^(meet|capabilit)/.test(b.role) && b.moves.length >= 3).filter((b) => ["hero", "support", "ambient"].some((l) => !b.moves.some((m) => String(m.layer || "").toLowerCase() === l)));
+    if (thin.length) w("layers-missing", `beat(s) ${thin.map((b) => b.id).join(", ")} lack one of the three motion layers (hero, support, ambient)`, `give each showcase beat a primary, a secondary and an ambient layer drifting at 20 to 30 percent of the hero's speed against it; ${see}`);
+  }
+  // per-beat motion profile: hook tight, meet calm, payoff longest holds
+  if (all.filter((m) => Number(m.dur) > 0).length >= 6) {
+    const dur = (m) => Number(m.dur), mean = (l) => (l.length ? l.reduce((a, m) => a + dur(m), 0) / l.length : null);
+    const timed = all.filter((m) => dur(m) > 0), filmMean = mean(timed), over = (m) => OVERSHOOT_EASE.test(String(m.ease || "")) || Number(m.overshoot_pct) > 0.5;
+    const hook = B.find((b) => b.role === "hook"), meet = B.find((b) => b.role === "meet"), pay = B.find((b) => b.role === "payoff");
+    if (hook) {
+      const hm = mean(hook.moves.filter((m) => dur(m) > 0));
+      if (hook.moves.some(over)) w("beat-profile", "the hook has an overshooting move: the hook is tight and urgent, ease-out with no overshoot", `land the hook's moves critically damped on the signature curve; ${see}`);
+      if (hm != null && hm > filmMean) w("beat-profile", `the hook's moves average ${hm.toFixed(2)} s, longer than the film's ${filmMean.toFixed(2)} s: the hook is the tightest beat`, `shorten the hook's durations; ${see}`);
+    }
+    if (meet) {
+      const longest = (b) => Math.max(0, ...b.moves.filter((m) => m.entrance || /enter|in/i.test(String(m.kind || ""))).map(dur).concat(b.moves.map(dur)));
+      const others = Math.max(0, ...B.filter((b) => b !== meet).map(longest));
+      if (meet.moves.some(over)) w("beat-profile", "the meet has an overshooting move: the reveal is calm and slow", `land the meet critically damped; ${see}`);
+      if (meet.moves.length && longest(meet) < others) w("beat-profile", `the meet's longest entrance (${longest(meet).toFixed(2)} s) is shorter than another beat's (${others.toFixed(2)} s): the meet is the calmest, slowest beat of the film`, `give the reveal the longest entrance (sine or a long ease-out); ${see}`);
+    }
+    if (pay && Number.isFinite(pay.hold)) {
+      const other = Math.max(0, ...B.filter((b) => b !== pay && Number.isFinite(b.hold)).map((b) => b.hold));
+      if (other > pay.hold) w("beat-profile", `the payoff holds its line ${pay.hold} s, less than another beat's ${other} s: the payoff has the longest holds`, `lengthen the payoff's hold (hold_s); ${see}`);
+    }
+  }
+  // a carrier handoff keeps its incoming velocity (references/motion-handoffs.md)
+  const lost = B.filter((b) => b.handoff && /carried|carrier|whip|push|zoom/i.test(String(b.transition || "")) && !b.handoff.intentional_discontinuity && !/^(cut|snap|impact)$/i.test(String(b.handoff.handoff_kind || b.handoff.kind || "")) && !(Array.isArray(b.handoff.carry) ? b.handoff.carry : String(b.handoff.carry || "").split(/[,\s]+/)).includes("velocity"));
+  if (lost.length) w("handoff-velocity", `the handoff into beat(s) ${lost.map((b) => b.id).join(", ")} does not carry velocity: a carrier that changes role keeps its incoming velocity vector, it never restarts from rest`, "add velocity to the handoff's carry, or declare the break (intentional_discontinuity); references/motion-handoffs.md");
   return F;
 }
 

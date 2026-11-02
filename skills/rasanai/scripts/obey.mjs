@@ -29,7 +29,8 @@ import { readBudget, budgetLimit, effectOf } from "./lib/budget.mjs";
 import { track } from "./lib/report.mjs";
 import { readOpticsPlans, opticsOwns } from "./lib/optical-treatments.mjs";
 import { scoreRate } from "./lib/timing.mjs";
-import { doctrineFindings } from "./lib/launch-grammar.mjs";
+import { doctrineFindings, filmKind, isLaunchKind } from "./lib/launch-grammar.mjs";
+import { sigMatch, sigNorm, SIG } from "./lib/launch-beats.mjs";
 
 const args = parseArgs();
 track("Checking the motion against your motion rules", "Motion check done");
@@ -239,6 +240,16 @@ function onBudget(b, t) {
   return budgetUsed[eff] <= LIMIT;
 }
 const budgeted = [];
+// a launch film runs on ONE signature curve (references/craft.md "A curve per role"): dominant-ease and few-curves are not judged there; the signature share is
+const IS_LAUNCH = (() => { try { return isLaunchKind(filmKind({ kind: args.kind && args.kind !== true ? String(args.kind) : null, plan: SCORE, project, run: args.run && args.run !== true ? args.run : null })); } catch { return false; } })();
+// the score's per-move fields (references/score.md "Motion laws"): weight, path, layer, travel_px, set_piece. A tween is matched to its move by target (nearest "at" when several).
+const SCORE_MOVES = SCORE && Array.isArray(SCORE.scenes) ? SCORE.scenes.flatMap((s) => (Array.isArray(s.moves) ? s.moves.filter((m) => m && typeof m === "object") : [])) : [];
+function moveFor(t) {
+  const a = String(t.target || "").toLowerCase();
+  const hits = SCORE_MOVES.filter((m) => { const b = String(m.target || "").toLowerCase().replace(/^[#.]/, ""); return b && (a === "#" + b || a.includes("." + b) || a.includes(b)); });
+  if (hits.length < 2) return hits[0] || null;
+  return hits.sort((p, q) => Math.abs((Number(p.at) || 0) - t.start) - Math.abs((Number(q.at) || 0) - t.start))[0];
+}
 
 function waived(rule, target) {
   return waivers.some((w) => (typeof w === "string" ? w === rule : w.rule === rule && (!w.target || w.target === target)));
@@ -396,9 +407,20 @@ else {
   mix.dominant_share = shaped.length ? +(top.length / shaped.length).toFixed(2) : null;
   mix.families = byFam;
   const names = [...new Set(top.map((g) => easeLabel(g)))].slice(0, 3).join(", ");
-  if (shaped.length && top.length / shaped.length > MIX.max_share) add({ severity: "error", rule: "dominant-ease", file: top[0].rel, message: `one curve (${names}) moves ${top.length} of ${shaped.length} gestures (${Math.round((top.length / shaped.length) * 100)}%; ${Math.round(MIX.max_share * 100)}% at most): every move has the same shape, the strongest machine tell`, fix: `give each kind of move its own curve: launch for entrances, glide or expressive for repositions, settle for hero landings, exit for leaves, drift for the camera (motion.md curves; RasanMotion picks them by role)` });
+  if (!IS_LAUNCH && shaped.length && top.length / shaped.length > MIX.max_share) add({ severity: "error", rule: "dominant-ease", file: top[0].rel, message: `one curve (${names}) moves ${top.length} of ${shaped.length} gestures (${Math.round((top.length / shaped.length) * 100)}%; ${Math.round(MIX.max_share * 100)}% at most): every move has the same shape, the strongest machine tell`, fix: `give each kind of move its own curve: launch for entrances, glide or expressive for repositions, settle for hero landings, exit for leaves, drift for the camera (motion.md curves; RasanMotion picks them by role)` });
   const fams = Object.keys(byFam).length;
-  if (fams < MIX.min_families) add({ severity: NEW_POLICY && !PROFILES.includes("curve-families") ? "warning" : "error", rule: "few-curves", file: gestures[0].rel, message: `${fams} curve families in the film (${Object.entries(byFam).map(([k, v]) => `${k} ${v}`).join(", ")}); ${MIX.min_families} at least`, fix: "add the missing roles: a long-tailed launch, a soft-start glide, a settle on a hero landing, an accelerating exit, a sine drift on the camera" });
+  if (IS_LAUNCH) {
+    const sigRaw = (SCORE && (SCORE.signature_ease || (SCORE.motion && SCORE.motion.signature_ease))) || M.signature_ease || null;
+    const roleOf = (e) => { const n = sigNorm(e), k = Object.keys(M.curves || {}).find((c) => sigNorm(c) === n); return k ? M.curves[k] : e; };
+    if (!sigRaw) add({ severity: "warning", rule: "signature-ease-missing", file: gestures[0].rel, message: "a launch film declares one signature_ease in its score: 70 to 85 percent of its moves use it (the other curves are accents for a whip, the signature transition and the payoff hit)", fix: "set score.signature_ease (a curve name from motion.md curves, a cubic-bezier or an expo.out family); references/craft.md" });
+    else {
+      const sig = roleOf(sigRaw), eased = gestures.filter((g) => g.ease), hit = eased.filter((g) => sigMatch(roleOf(g.ease), sig) || sigMatch(g.ease, sig));
+      mix.signature = String(sigRaw);
+      mix.signature_share = eased.length ? +(hit.length / eased.length).toFixed(2) : null;
+      if (eased.length && hit.length / eased.length < SIG.share_warn) add({ severity: "warning", rule: "signature-share-low", file: gestures[0].rel, message: `${hit.length} of ${eased.length} tweens use the signature curve (${sigRaw}): ${Math.round((hit.length / eased.length) * 100)}%; a launch film runs 70 to 85%, ${Math.round(SIG.share_warn * 100)}% at least (a CustomEase function is not matched by name: build the curve with RasanMotion)`, fix: "move the ordinary moves onto the signature curve; keep the others for a whip, the signature transition and the payoff hit" });
+    }
+  }
+  if (!IS_LAUNCH && fams < MIX.min_families) add({ severity: NEW_POLICY && !PROFILES.includes("curve-families") ? "warning" : "error", rule: "few-curves", file: gestures[0].rel, message: `${fams} curve families in the film (${Object.entries(byFam).map(([k, v]) => `${k} ${v}`).join(", ")}); ${MIX.min_families} at least`, fix: "add the missing roles: a long-tailed launch, a soft-start glide, a settle on a hero landing, an accelerating exit, a sine drift on the camera" });
   // role curves (motionmaxxing: about 58% of landings are ease-out, ease-in is the commonest exit): an entrance that accelerates in or an exit that decelerates out
   const ENTER_BAD = new Set(["accelerate", "linear"]), EXIT_BAD = new Set(["snap", "decelerate", "glide"]);
   for (const [cls, bad, rule, msg, fix] of [
@@ -449,6 +471,44 @@ else {
   const travels = gestures.filter((g) => { const dx = (num(g.to.x) ?? 0) - (num(g.from.x) ?? 0), dy = (num(g.to.y) ?? 0) - (num(g.from.y) ?? 0); return Math.hypot(dx, dy) >= width * 0.1; });
   const fast = travels.filter((g) => g.dur < 0.5);
   if (travels.length >= 3 && fast.length / travels.length > 0.25) add({ severity: "warning", rule: "snap-and-die", file: fast[0].rel, target: fast[0].target, message: `${fast.length} of ${travels.length} travels over 10% of the frame take under 0.5 s: they snap and die (references keep the median move visible 0.4-0.5 s)`, fix: "0.7-1.2 s for big travels, on a long-tailed curve (motion.md durations)" });
+}
+
+// ---- motion laws (WARNINGS; references/craft.md, launch-grammar.md): read from the real tweens and the score's per-move fields where it has them. A preview page (data-obey-mix="off") is not judged.
+if (!mixOff) {
+  const emit = (list, rule, msg, fix) => {
+    list.slice(0, 5).forEach((g) => add({ severity: "warning", rule, ...g.where, message: msg(g), fix }));
+    if (list.length > 5) add({ severity: "warning", rule, file: list[0].rel, message: `${list.length - 5} more tween(s) with the same problem (first 5 listed)`, fix });
+  };
+  const ov = (g) => (g.shape ? g.shape.overshoot_pct : 0);
+  const dist = (g) => Math.hypot((num(g.to.x) ?? 0) - (num(g.from.x) ?? 0), (num(g.to.y) ?? 0) - (num(g.from.y) ?? 0));
+  const enters = gestures.filter((g) => g.cls === "enter");
+  // no ease-in on an entrance (it reads as lag)
+  emit(enters.filter((g) => g.shape && g.shape.family === "accelerate" && g.dur >= 0.1), "ease-in-enter", (g) => `an entrance on an ease-in curve (${easeLabel(g)}): it accelerates in and reads as lag`, "land entrances on a decelerating curve (the launch, glide or signature curve); ease-in is for exits");
+  // opacity-only entrances (ambient fades on ground, glow and overlay targets are fine)
+  emit(enters.filter((g) => g.keys.length && g.keys.every((k) => /^(opacity|autoAlpha)$/.test(k)) && !/bg|ground|glow|overlay|vignette|grain|scrim|backdrop/i.test(String(g.target))), "opacity-only-enter", () => "an entrance that animates only opacity", "pair the fade with travel or scale (a rise through a mask, a 0.92 to 1 scale from its origin), or make it a cut");
+  // overshoot needs momentum: a settle on an entrance with no travel of its own and no declared travel or whip
+  emit(enters.filter((g) => ov(g) > 0.5 && dist(g) < width * 0.04 && !(moveFor(g) && (Number(moveFor(g).travel_px) > 0 || /whip/i.test(String(moveFor(g).path || ""))))), "unmotivated-overshoot", (g) => `overshoots ${ov(g)}% but arrives at rest (no travel of its own): only an element that arrives with momentum, a thrown card or a whip landing, settles past its mark`, "land it critically damped (bounce 0), or give it the travel that earns the settle");
+  // weight classes for overshoot (the score's per-move weight)
+  const WL = { heavy: 0.5, medium: 6, light: 15, ...Object.fromEntries(Object.entries(M.weights || {}).map(([k, v]) => [k, v && Number.isFinite(Number(v.overshoot_pct)) ? Number(v.overshoot_pct) + (k === "heavy" ? 0.5 : 1) : null]).filter(([, v]) => v !== null)) };
+  const weighted = gestures.map((g) => ({ g, w: String((moveFor(g) || {}).weight || "").toLowerCase() })).filter((x) => WL[x.w] !== undefined && ov(x.g) > WL[x.w]);
+  emit(weighted.filter((x) => x.w === "heavy").map((x) => x.g), "heavy-overshoot", (g) => `a heavy element (a panel, modal or hero UI) overshoots ${ov(g)}%: heavy things land with no overshoot`, "land it critically damped and give it a longer duration");
+  emit(weighted.filter((x) => x.w !== "heavy").map((x) => x.g), "weight-overshoot", (g) => `a ${String(moveFor(g).weight).toLowerCase()} element overshoots ${ov(g)}%: medium settles 3 to 5%, light up to 15%`, "shrink the settle to its weight class (references/craft.md, \"Weight classes\")");
+  // cascade span: 3 to 7 items inside 0.5 s, a set piece (or 8 or more) inside 1.2 s
+  emit(gestures.filter((g) => g.stagger != null && g.nTargets >= 3).filter((g) => { const span = g.stagger * (g.nTargets - 1) + g.dur, setPiece = g.nTargets >= 8 || (moveFor(g) && moveFor(g).set_piece); return span > (setPiece ? 1.2 : 0.5) + 0.02; }), "cascade-span", (g) => `a cascade of ${g.nTargets} runs ${(g.stagger * (g.nTargets - 1) + g.dur).toFixed(2)} s from the first start to the last end (3 to 7 items finish within 0.5 s, a set piece within 1.2 s)`, "tighten the stagger amount or the durations, or mark the one cascade set piece (set_piece: true)");
+  // long travel needs an arc unless it is a declared whip
+  emit(gestures.filter((g) => g.cls !== "exit" && g.dur > 0 && dist(g) >= width / 3 && !/arc|whip/i.test(String((moveFor(g) || {}).path || ""))), "long-straight-travel", (g) => `crosses ${Math.round((dist(g) / width) * 100)}% of the frame width in one straight tween`, "bend it (an arc, a nested wrapper on another curve, an intermediate keyframe) or declare it a whip (path: whip in the score)");
+  // three motion layers: the ambient layer drifts slowly and against the hero (needs the score's layer tags)
+  {
+    const lay = (name) => gestures.filter((g) => g.dur > 0 && String((moveFor(g) || {}).layer || "").toLowerCase() === name).map((g) => ({ g, v: [(num(g.to.x) ?? 0) - (num(g.from.x) ?? 0), (num(g.to.y) ?? 0) - (num(g.from.y) ?? 0)].map((c) => c / g.dur) }));
+    const hero = lay("hero").filter((x) => Math.hypot(...x.v) > 0), amb = lay("ambient").filter((x) => Math.hypot(...x.v) > 0);
+    if (hero.length >= 2 && amb.length >= 2) {
+      const mean = (l, f) => l.reduce((a, x) => a + f(x), 0) / l.length;
+      const hs = mean(hero, (x) => Math.hypot(...x.v)), as = mean(amb, (x) => Math.hypot(...x.v));
+      const dot = [0, 1].reduce((a, i) => a + mean(hero, (x) => x.v[i]) * mean(amb, (x) => x.v[i]), 0);
+      if (as > hs * 0.4) add({ severity: "warning", rule: "ambient-speed", file: amb[0].g.rel, message: `the ambient layer averages ${Math.round(as)} px/s, ${Math.round((as / hs) * 100)}% of the hero's ${Math.round(hs)} px/s (20 to 30%, never over 40%)`, fix: "slow the ambient drift to a quarter of the hero's speed" });
+      if (dot > 0) add({ severity: "warning", rule: "ambient-not-counter", file: amb[0].g.rel, message: "the ambient layer drifts the hero's way: counter-motion (the ground drifts against the hero) is what makes depth read", fix: "drift the ambient layer in the opposite direction" });
+    }
+  }
 }
 
 // ---- avoid twinning (WARNING, uncalibrated; ClaudeAnimationBase): two or three different elements that make the same spatial move with the same timing and curve, each by its own tween

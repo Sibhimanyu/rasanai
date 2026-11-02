@@ -43,11 +43,12 @@ waivers: []
 | `durations` | the distance formula: `base + travel x sqrt(travel / frame diagonal) + area x sqrt(area / frame area)`, clamped to `min`..`max` ms, jittered ±`jitter`, exits x`exit_k`. `pace` = the middle `scale_ms` value / 500 ms |
 | `easing` | the language's signature curves (enter, exit, move). They stay in the family as `snap`, `exit` and `move` |
 | `blur_grammar` | one per film: `shutter` (the finish's real motion blur), `smear` (stretched duplicates, directional blur, `blurTrail`), `stepped` (on twos or threes, `steps()`) or `crisp` (steps, no blur); `finish.mjs` refuses a shutter over the other three |
-| `curves` | a curve per role: `launch`, `glide`, `expressive`, `exit`, `settle`, `snap`, `drift`, `move`. GSAP names, `cubic-bezier(x1,y1,x2,y2)` or `spring(damping, omega)`; `RasanMotion.ease(name)` turns any of them into an ease function (no CustomEase needed); the twelve measured eases (`softLand`, `snapSettle`, `accelExit`, `measured.glide` ... : `references/craft.md`, "Frame budgets") are valid curve names too |
+| `curves` | a curve per role: `launch`, `glide`, `expressive`, `exit`, `settle`, `snap`, `drift`, `move`. GSAP names, `cubic-bezier(x1,y1,x2,y2)` or `spring(damping, omega)`; `RasanMotion.ease(name)` turns any of them into an ease function (no CustomEase needed); the twelve measured eases (`softLand`, `snapSettle`, `accelExit`, `measured.glide` ... : `references/craft.md`, "Frame budgets") are valid curve names too. A launch film also names its `signature_ease` (a curve name from this list or a curve string; in the score or here): 70-85% of its moves use it |
 | `mix` | what obey enforces once a film has `min_gestures` gestures: at least `min_families` curve families, no curve on more than `max_share` of gestures, no duration (to the frame) on more than `max_duration_share` |
 | `overlap` | the next gesture starts at 55–75% of the last; secondaries trail by 2–4 frames |
 | `stagger` | the average spacing, the largest total spread, the distribution curve and ±1 frame of jitter. Never a constant step |
 | `overshoot` | the settle budget: the share of gestures that may overshoot and the largest overshoot in % of the travel. `{share: 0}` = landings are exact (rigid languages) |
+| `weights` | optional: overshoot limits per weight class, `{heavy: {overshoot_pct: 0}, medium: {overshoot_pct: 5}, light: {overshoot_pct: 15}}` (these are the defaults); `weight-overshoot` reads the score's per-move `weight` against them. Duration: heavy about 1.25x the formula |
 | `arcs` | travels longer than `min_travel_pct` of the frame bend by `bow_pct` of their length (100 = straight paths, rigid languages) |
 | `camera` | the living frame: a push of `push_pct` over a shot, or a drift of `drift_pct_s` of the frame a second |
 | `holds.min_ms` | reading time between an element arriving and leaving |
@@ -85,8 +86,10 @@ Enter, exit and move tweens are the film's **gestures**. A staggered tween is on
 | Rule | Severity | Check |
 |---|---|---|
 | `implicit-ease` | error | no ease given (GSAP's default power1.out, the generic look). Timeline `defaults: {ease}` counts as given |
-| `dominant-ease` | error | one curve shape moves more than `mix.max_share` (40%) of the film's gestures |
-| `few-curves` | error | fewer than `mix.min_families` (4) curve families in the film |
+| `dominant-ease` | error | one curve shape moves more than `mix.max_share` (40%) of the film's gestures. Not judged on a launch film (see `signature-share-low`) |
+| `few-curves` | error | fewer than `mix.min_families` (4) curve families in the film. Not judged on a launch film |
+| `signature-ease-missing` | warning | a launch film whose score declares no `signature_ease` |
+| `signature-share-low` | warning | a launch film where under 60% of the eased tweens use its `signature_ease` (aim 70-85%; a CustomEase function is not matched: build it with `RasanMotion`) |
 | `duration-grid` | error / warning | one duration (the same frame count at 30 fps) on more than `mix.max_duration_share` (40%) of gestures; a warning when three durations cover over 60% |
 | `even-stagger` | error | a constant GSAP stagger (a number, or `each`/`amount` with no ease, not random, not a grid) over 4 or more elements |
 | `uniform-cascade` | error | 4 or more tweens in one file with the same properties, curve and duration (±1 frame) starting at an even spacing (±1 frame): a metronome of one gesture |
@@ -99,6 +102,13 @@ Enter, exit and move tweens are the film's **gestures**. A staggered tween is on
 | `entrance-too-long` | warning | an entrance (a fade, scale, mask, wipe or blur-in) over 1.2 s, or over the language's own `durations.max_ms` when that is longer (a slow language keeps its pace) |
 | `entrance-too-short` | warning | an entrance under 3 frames at 30 fps |
 | `scale-from-zero` | warning | an entrance that scales a whole element from 0.05x or less to full size (right only when the growth is the content; waive it there; skipped when the language's own `entrances` are pops or scales, such as `char-pop`) |
+| `ease-in-enter` | warning | an entrance on an ease-in (accelerating) curve: it reads as lag |
+| `opacity-only-enter` | warning | an entrance that animates only opacity (ground, glow and overlay targets skipped) |
+| `unmotivated-overshoot` | warning | an entrance that overshoots with no travel (under 4% of the frame width) and no `travel_px` / `path: whip` in the score |
+| `heavy-overshoot` / `weight-overshoot` | warning | a move whose score `weight` is heavy and that overshoots over 0.5%, or medium over 6% / light over 15% |
+| `cascade-span` | warning | a stagger of 3-7 items spanning over 0.5 s (a `set_piece` or 8+ items: 1.2 s) |
+| `long-straight-travel` | warning | one straight tween over a third of the frame width, with no `path: arc \| whip` in the score |
+| `ambient-speed` / `ambient-not-counter` | warning | tweens tagged `layer: ambient` average over 40% of the `hero` layer's speed, or drift the hero's way |
 | `opaque-motion` | warning | a file whose motion lives in a `render(t)` function driven by one clock tween: obey cannot see it, the fluency gate on the draft judges it |
 | `banned:<name>` | error | the tween matches a banned signature (below) |
 | `non-gsap` | error | CSS `@keyframes`, anime.js, or WAAPI `animate([...])` in a composition file |
