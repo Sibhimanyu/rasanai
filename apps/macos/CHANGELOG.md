@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.31.1 (build 82) — 2026-11-03
 
 - Launch films say what the product is and who it is for early, show the real product doing its job, avoid buzzwords, keep to one message and end on a clear call to action; the reference jury now does a five-second cold read of every draft.
+- **Bundles RasanAI 1.39.0.**
 
 ## 0.31.0 (build 81) — 2026-11-02
 
