@@ -20,6 +20,10 @@ Applies to every launch, promo, feature-reveal and product-launch film (`product
 - 13. The three house references
 - 14. Clarity, proof, benefit and call to action (what it is and for whom, UI by 40%, one message, CTA, the claim-to-proof map)
 - 15. Motion purpose (distinct reveal and CTA, mood follows story)
+- 16. Structure options (the arc is the default candidate)
+- 17. Craft research rules (readable exposure, product-state truth, bridges, intensity, endings, the fresh viewer)
+- 18. Brand-derived motifs and the logo-swap test
+- 19. Calibration profile (starting values to test, not sourced standards)
 
 ## Target and scope
 
@@ -29,7 +33,28 @@ Applies to every launch, promo, feature-reveal and product-launch film (`product
 - Treat style worlds (pixel, clay, paper, voxel...) as an optional flavour when the brief asks for one, because they are the exception and never how ideas differ.
 - Build on scene variety, designed texture contrast, optional local carriers and varied transitions, because the owner's verdict on a Kinso-style rebuild was "too smooth" and "one concept (a caret line) through every scene and every transition is repetitive". Use Codex imagery where a scene needs meaning, and treat the standard AI moves (a cursor pointing at a word, a highlight that nudges) as rare tools (`launch-moves.md`).
 
-## 1. The arc (fixed; the content changes every time)
+## Defaults you can leave
+
+The numbers below came from the house references and the owner's reviews. The professional research (`.context/motion-craft-research.md`, 3 Nov 2026) found no source behind them, so they are starting values: a film that leaves one explains why, in the score's `departures: [{rule, why}]`, and the finding is then a note. Without a why the finding is a warning that asks for the explanation. Measured defects stay hard failures: an unlit, empty or low-coverage frame, meaningful stillness, photosensitivity, unreadable text and claim truth.
+
+| Default | Starting value | Rule id | Why it is only a default |
+|---|---|---|---|
+| Scene types and share | 5 or more types in a 45 s film, none over about 30% | `scene-variety` | no source fixes a count of scenes or shots |
+| One transition family | at most about 30% of the designed seams (hard cuts are not counted) | `transition-variety` | a cut is a valid choice; three transition types is not a professional standard |
+| Texture share | stepped, flicker and glitch about 15 to 40% of the runtime | `texture` | stepped motion is a per-track choice, and no source sets its share |
+| Display-scale type | cap height 9% of the frame at least once | `display-scale` | no source supports a minimum type size; crowded copy is cured by editing first |
+| Plain cuts | a bare cut names what it lands on | `hard-cuts` | cutting on the beat is neither always right nor always wrong |
+| Dense and sparse | two alternations | `rhythm` | no source gives a dense:sparse ratio |
+| Designed SFX per 10 s | the band for the sound mode (`sound.md`) | `sfx-density` | no source sets an SFX-per-second target |
+
+- Leave a default when the concept gives a reason, and write the reason where the reviewer reads it (`departures` in the score, `concept.departures` in the concept), because a departure with a reason is design and one without is drift.
+- Keep the score's intensity map (section 17) as the place where each major change is explained, because the pacing reason belongs next to the numbers.
+- Source: the research's unsupported-claims list (no fixed shot count, no three-transition law, no minimum font size, no SFX-per-second target, no always-or-never cut on the beat). Studio and practitioner citations sit on each rule in sections 16 to 19.
+
+## 1. The arc (the default structure; the content changes every time)
+
+The hook, turn, meet, capabilities, payoff arc is the default candidate and not the only structure (section 16 lists the others); the clarity rules of section 14 hold in every structure.
+
 
 Order every film hook, turn, meet, 2 to 3 capabilities, payoff, with one thought per beat and on-screen type carrying the story. A voiceover is optional and reads only the on-screen lines (Minase reads its lines; Kinso is music only); a song may be asked for, and the type then carries the same lines.
 
@@ -119,7 +144,7 @@ Plan the film as a sequence of distinct scene types, chosen from this palette (t
 | `footage` | moody stock footage with type persisting over its cuts |
 | `logo-end` | the logo, the tagline, the call to action |
 
-Checked by `launch-beats` as warnings (`scene-variety`, `scene-share`, `scene-neighbours`):
+Checked by `launch-beats` as guidance (`scene-variety`, `scene-share`, `scene-neighbours`; the counts are defaults, see "Defaults you can leave"):
 
 | Rule | Number | Why |
 |---|---|---|
@@ -183,14 +208,15 @@ Name one of these in the beat's `transition_in` for every beat change:
 9. **Type morph**: a word or line turns into the next (letters re-form, a word swaps in place, a word splits to admit an object).
 10. **Carried element** (optional, local): a card or object crosses one or two seams.
 
-- Keep any one transition family to about 30% of the seams at most (`transition-variety`), because one family across the film reads as a gimmick.
+- Keep any one designed transition family to about 30% of the designed seams (`transition-variety`, a default; hard cuts are not counted), because one family across the film can read as a gimmick.
+- Give each designed transition a `bridge_reason`: what it conveys that a hard cut would lose (a shared object, a continued motion, a move through space), and cut when the answer is nothing, because a cut is a valid choice and costs less to revise (`bridge-reason-missing`, `bridge-hard-cut-candidate`; the critic may replace the bridge with a cut). Source: Sander van Dijk with Joey Korenman, School of Motion podcast (single practitioner), https://schoolofmotion.com/blog/sander-van-dijk-podcast.
 - Name one signature transition per concept and repeat it 2 to 3 times as the film's rhythm, using the rest as supporting seams.
 - Allow a footage or dark interlude when the concept calls for it.
 - Apply the shot-length distribution checks, with one exception: a declared flicker burst or stepped section may exceed the usual cut rate (`frame-spikes` allows 14 per 10 s when the score declares non-smooth textures).
 
 ## 7. Rhythm rules
 
-- Alternate dense and sparse: follow a dense moment (a collage of cards, app icons, a dashboard, a stack of lines) with a sparse one (a single small line on an empty ground) and the reverse, with no more than 2 dense or 2 sparse beats in a row, because the contrast makes each read (the launch-beats gate warns on more than 2 dense in a row: `dense-run`).
+- Alternate dense and sparse (a default, `rhythm`): follow a dense moment (a collage of cards, app icons, a dashboard, a stack of lines) with a sparse one (a single small line on an empty ground) and the reverse, with no more than 2 dense or 2 sparse beats in a row, because the contrast makes each read (the launch-beats gate warns on more than 2 dense in a row: `dense-run`).
 - Lock the tempo to the music: land seams and hard cuts on its hits, drops and break edges (`audio/music-map.json`) and the turn on the drop, because picture on the beat feels intentional.
 - Take grounds from neutral or brand atmosphere (clean white, a soft brand gradient, a brand-colour slate, near-black) and skip gimmick grounds; the ground-family and light rules are in section 12.
 - Swing the type scale (full-frame type, then small centred type), because a film that keeps the same type size for 5 s is wrong.
@@ -240,9 +266,10 @@ Each item points to the section that holds the rule.
 9. Every claim is real (section 2).
 10. One signature curve covers 70 to 85 percent of the moves, accents are limited to a whip, the signature transition and the payoff hit, and the hook, meet and payoff move as the profile table says (sections 1, 7).
 11. No AI-cliche emphasis: the limits in `launch-moves.md` § AI cliches hold, with no people or neon or glow in generated images (4d).
-12. Section 12 holds: hero cap height 9 to 20% in every beat, UI proof 35 to 60%, 2 or more ground families with brand atmosphere in 30% or more of the film, no hold over about 1.2 s, no plain fade or blur transition, hook at most 25%, no grey 3D hero.
+12. Section 12 holds: hero cap height 9 to 20% in a beat (a default: a departure needs its why), UI proof 35 to 60%, 2 or more ground families with brand atmosphere in 30% or more of the film, no hold over about 1.2 s, no plain fade or blur transition, hook at most 25%, no grey 3D hero.
 13. Section 14 holds: category and audience clear by the end of the turn, first UI proof by about 40% with the core job shown, benefit lines with a true specific number where one exists, no buzzwords, one message, a held CTA, and every claim in the copy proven by a beat.
 14. Section 15 and the arc hold: a named peak, catalogue moves on the hook, peak and end, a distinct meet and CTA, a mood per beat that the ground follows, and one `motion_language` the whole film obeys (sections 1, 9, 15).
+15. Sections 16 to 18 hold: a declared structure with its reason, readable exposure for the essential lines, product states that stay true, each major intensity change explained, a resolved ending, motifs with a source and a film that fails the logo-swap test (it could not advertise any other product).
 
 Related: `launch-moves.md` (the 35 reference moves and the AI cliche table), `launch-film.md` (timings, measurement, red flags), `product-first.md`, `ui-rebuild.md`, `motion-handoffs.md`, `composition-transitions.md`.
 
@@ -260,7 +287,7 @@ This section is the home of ground and light. It exists because a film made on e
 
 | Rule | Number | Why |
 |---|---|---|
-| Set hero lines at display scale | cap height 9 to 20% of frame height at least once per beat | Kinso's "here", "One inbox" and "for every conversation" are 10 to 25%; Minase's slate words about 12% |
+| Set hero lines at display scale (a default, `display-scale`) | cap height 9 to 20% of frame height at least once per beat | Kinso's "here", "One inbox" and "for every conversation" are 10 to 25%; Minase's slate words about 12% |
 | Fill the frame width with the big line, built word by word | words span 40 to 90% of the frame width | display type needs the frame |
 | Keep ordinary small lines | 4 to 6%, only as the quiet half of a dense/sparse pair | small type belongs to the sparse side |
 | Size a UI proof | 35 to 60% of the frame by area of its bounding card, cropped or tilted if you like | under 25% is a chip or an accent, never a proof |
@@ -282,7 +309,7 @@ This section is the home of ground and light. It exists because a film made on e
 
 **Pacing**
 
-- Keep the hook at 20 to 25% of the film at most (6 to 10 s at 45 s; 7 s at 30 s) and meet the brand by about 30 to 40%; a hook of 30% or more is an error.
+- Keep the hook at 20 to 25% of the film at most (6 to 10 s at 45 s; 7 s at 30 s) and meet the brand by about 30 to 40%; a hook of 30% or more is an error (the viewer needs the product early). This applies to the hook, turn, meet arc; another structure maps its beats onto the roles (section 16).
 - Build the hook as 2 to 4 lines on changing images, with one thing changing every 1 to 2 s, because a single hold reads as stalled.
 
 **3D renders.** Use 3D only when it is lit in the brand atmosphere (brand-colour key and rim light, a gradient ground, no neutral grey studio) and earns its time: it moves, it becomes something (the next scene), and it stays on screen for at most a quarter of the hook. A flat 2D card or kinetic type beats a grey keyboard every time.
@@ -374,3 +401,101 @@ This section is the home of the distinct reveal and the mood rules. The hero, pu
 
 - Declare a `light` per beat next to `ground`, because problem and solution beats that declare the same ground and light read as one mood (`mood-flat`).
 - Check: `distinct-missing`, `distinct-repeat`, `mood-missing`, `mood-flat` in `scripts/lib/launch-beats.mjs`.
+
+## 16. Structure options
+
+The hook, turn, meet, capabilities, payoff arc (sections 1 and 2) is the default candidate. A concept declares `structure: {kind, why}` and the why fits the product and where the film is shown. Every structure keeps the clarity rules of section 14: what the product is and who it is for, one message and a held CTA.
+
+| `kind` | Fits | Shape | Source |
+|---|---|---|---|
+| `hook-turn-meet` | a felt problem and a product that resolves it | hook, turn, meet, 2 or 3 capabilities, payoff (sections 1 to 2) | the three house references (Minase, Kinso, Sovra.fm) |
+| `sung-script` | a product whose voice or audio is the product | the script is written to be sung; picture accents follow the sung syntax, not only the kick grid; every essential claim survives the performance | Sovra.fm maker's production thread (single practitioner), https://www.linkedin.com/posts/abdullah4204k_one-of-our-best-videos-this-month-most-activity-7464873763453698050-8Ycn |
+| `teaser-reveal` | a campaign where a later demo carries the explanation | essence first, then the reveal; the concept names the destination demo, and a standalone film never defers its only explanation to an absent demo | Tendril, Figure F.02 production case (studio practice), https://tendril.studio/work/figure02/ |
+| `parts-assembly` | an invisible or complex system | behaviour, then components, then the assembled whole; the parts introduced early resolve into the final assembly | Tendril, IBM z17 production case (studio practice), https://tendril.studio/work/ibm-z17/ |
+| `before-after` | a visible transformation of a state | the before state, the operation, the after state, both states literal UI | a RasanAI pattern: the research does not source it, and the claim-to-proof map already names before and after as proof |
+| `feature-led` | one feature is the news | the feature, its operation and its result, with a benefit headline | a RasanAI pattern: the research does not source it |
+| `medium-as-proof` | the product's own medium can show the product | the film is made in, or with, the product's medium | Ordinary Folk, Introducing Spline (studio practice), https://www.ordinaryfolk.co/project/introducing-spline |
+
+- Declare the structure in the concept (`structure: {kind, why}`) and carry it onto the score, because the jury, the critic and the juror judge a film against the structure it chose (`launchConceptWarnings` warns on a missing or reasonless structure).
+- Map each beat of a non-default structure to the nearest role (`hook`, `turn`, `meet`, `capability`, `payoff`) in the score, because the gates read roles.
+- Pick the structure the product and its distribution call for, and keep the default when nothing calls for another, because a structure chosen for novelty is the logo-swappable film of section 18.
+- Source for the principle: the research's contradiction table, "Is a single launch structure best?" (IBM z17, Sovra.fm and Figure F.02 differ on purpose).
+
+<example>
+good: concept for a voice-clone app, `structure: {kind: "sung-script", why: "the product is a voice; a script written to be sung shows it in the first second and the claims are sung, then repeated on screen"}`.
+good: concept for a design tool, `structure: {kind: "medium-as-proof", why: "the film is built in the tool's own canvas, so every shot is evidence"}`.
+bad: `structure: {kind: "teaser-reveal", why: "it feels exciting"}` for a film that is the only asset and never names its demo.
+</example>
+
+## 17. Craft research rules
+
+This section holds the rules the professional research added (`.context/motion-craft-research.md`, its Top 15). Fields are in `score.md` "Craft research fields"; type, cursor, blur and boundary rules are in `craft.md` "Craft research"; sound rules are in `sound.md`. Every check is a warning.
+
+### Readable exposure (the render)
+
+- Measure each essential line's settled, unoccluded time from the composition, not the lifetime of its layer, because the entrance and a card on top both eat the reading window. The render gate samples the DOM (`frame-gate.mjs` text blocks) and reports `readable-exposure` (`lib/readable-exposure.mjs`).
+- Start at about 2.7 to 3 words per second of settled time for an essential line, add about 0.5 s per figure and 0.3 s per long term, and read the result as a starting value to test (section 19).
+- Allow a single familiar word as a 0.25 to 0.75 s accent, because a rhythmic word is not a sentence.
+- Shorten or reschedule before speeding up: cut words, move the line to a longer beat, let it stop moving earlier. The existing reading-time rule (`craft.md` "Reading time") covers the plan; this budget covers the render.
+- Source: BBC Subtitle Guidelines, 160 to 180 words per minute (studio practice, an adaptation and not a kinetic-type standard), https://www.dejavu.org/cgi-bin/get.cgi?url=https%3A%2F%2Fwww.bbc.co.uk%2Faccessibility%2Fforproducts%2Fguides%2Fsubtitles%2F&ver=93; Netflix English timed-text guide, 20 characters per second for adults, https://partnerhelp.netflixstudios.com/hc/en-us/articles/217350977-English-USA-Timed-Text-Style-Guide; Screen Studio on stabilising the screen sooner when viewers must read, https://preview.screen.studio/guide/animations.
+
+### The animatic gate
+
+- Block the whole film as an animatic before polishing any shot, because a timing revision is cheap before animation and expensive after. The animatic step already does this (`SKILL.md` step 4, `references/workflows/music-animatic-build.md` section 4): every scene's key frame at its real duration, with the real music and voice, judged whole.
+- Review the full-film timing and the concept there, and treat a timing note after Build as a sign the animatic was skimmed.
+- Source: Giant Ant, Slack Traffic production breakdown (studio practice), https://www.giantant.ca/slack-traffic.
+
+### Product-state truth
+
+- Use literal UI for proof and abstract UI for sensation, and tag each UI beat `ui_mode: literal | abstract`: an abstract shot never counts as proof, and the claim-to-proof map accepts only literal beats (`proof-abstract`). Source: Genpilot (studio practice), https://liandankeji.com/work/projects/p010/index.en.html, against the abstract UI of Oddfellows' Spotify film, https://oddfellows.tv/work/spotify-premium.
+- Record each UI beat's state as `ui_state: {id, labels, figures, action, result}`, because the same state id must show the same labels and figures in every shot (`ui-state-drift`) and every shown action is followed by its result in order (`ui-action-no-result`, `ui-result-before-action`).
+- Keep UI words and numbers deterministic and render them from approved state data, because generative imagery mutates text; a compressed demo still shows a real operation with true causality. Source: Genpilot, as above; MHF Creative, Awin brand-film case (studio practice), https://mhf-creative.com/work/awin-brand-evolution-film/.
+
+<example>
+good: beat 4 `ui_state: {id: "inbox-12", labels: ["Follow-ups", "12 sent"], action: "tap Send all", result: "list empties to 12 sent"}` and beat 7 reuses `inbox-12` with identical labels.
+bad: beat 4 shows "12 sent" and beat 7, the same state, shows "11 sent"; or a tap with no list change after it.
+</example>
+
+### Intensity map
+
+- Declare per beat `intensity: {cut_rate, movement, proximity, camera}`, each `low | med | high`, because pacing is four separate things: how often it cuts, how much moves, how close the subject is and how the camera moves. No published score combines them (`intensity-missing`).
+- Give every major change (an axis jumping low to high or back) an `intensity.why`, the reason (the drop, the reveal, the breath) (`intensity-change-unexplained`).
+- Alternate on purpose, and explain a deliberately relentless or serene film in the concept, because a map that is the same on every beat means nothing speeds up, closes in or calms down (`intensity-flat`, a warning to review, never a rejection).
+- Source: Paddy Bird, Inside the Edit, pacing (single practitioner), https://www.insidetheedit.com/blog/pacing-in-video-editing; Walter Murch, In the Blink of an Eye (single practitioner), https://bpb-us-w2.wpmucdn.com/portfolio.newschool.edu/dist/2/14941/files/2017/06/Murch-Walter-in-the-blink-of-an-eye-RULEofSIX-1tly3uz.pdf.
+
+### A resolved ending
+
+- Resolve picture and music together on a deliberate musical endpoint (a final chord, a controlled ringout, a sting or a clean hard stop), because an arbitrary cut or a generic fade sounds interrupted. Declare `ending: {music: resolve | ringout | sting | hard-stop | none, settled_s}` (`ending-missing`, `ending-unresolved`).
+- Hold a settled end frame of 2 to 4 s (starting values to test), and longer for a URL or several calls to action, because the product name, the action and the URL still have to be read (`end-frame-short`; the CTA hold of section 14 is the floor).
+- Source: Ben Haslup, Frame.io, Make Any Music Track Fit Your Video (single practitioner), https://blog.frame.io/2017/11/08/make-music-fit-your-video/; Chris Salters, Frame.io, stretch music tracks (single practitioner), https://blog.frame.io/2023/06/07/insider-tips-stretch-music-tracks-in-premiere-pro/; School of Motion, 10 Tiny Typography Decisions on the final lockup (studio practice), https://schoolofmotion.com/blog/tiny-typography-decisions-motion-graphics.
+
+### The viewing-size pass and the fresh viewer
+
+- Check the film at phone size, because most viewers watch small: `crew.mjs refsheet` writes `phone-sheet.jpg` (every frame 390 px wide, 4 tiles a row), and the reference juror and the critic judge readability, crop and hierarchy on it.
+- Run a fresh-viewer pass on the full contact sheet before the brief or the score is opened: record unaided recall of the product, the benefit and the CTA, and the moments that could not be followed. A fresh viewer who cannot recall them overrules a passing internal score (`agents/reference-juror.md`). Source: Jorge Canedo Estrada, Creativity & Detail interview (single practitioner), https://medium.com/creativityand/creativity-detail-jorge-canedo-estrada-60cc605d2098.
+
+## 18. Brand-derived motifs and the logo-swap test
+
+- Give each major motif a provenance, `motif_source`: a brand element (its grid, dots, type, transparency), a product verb (what the product does) or the customer's material, because recurring brand details give identity without a big logo (`motif-source-missing`). Source: BUCK, Nothing Playground (studio practice), https://buck.co/work/nothing-playground; ManvsMachine for Squarespace, digital gestures as physical actions (studio practice), https://www.squarespace.com/press-coverage/2017/9/25/manvsmachine-creates-films-for-squarespace-showing-three-creatives-practice-and-personalities.
+- Ask the logo-swap question of every film: could this film advertise any SaaS product after a logo swap? A yes is a sub-7 trigger for the reference juror and a finding for the critic, because motifs and metaphors built from the specific brand and product verbs cannot be swapped.
+- Make an object transition enact a product gesture where one exists (a swipe is a physical swipe, a share is a hand-off), because the bridge then explains the product.
+- Link beats causally (`set_up` on a beat that plants something, `pays_off` on the beat that cashes it in), because a beautiful middle with no cumulative progression or payoff is the film Claude makes when nobody links the shots (`progression-missing`, `set-up-dangling`). Source: Tendril, Coinbase CB1 process (studio practice), https://tendril.studio/work/coinbase/.
+
+<example>
+good: motif `{what: "dot grid", source: "brand-element", ref: "the Nothing site's dot matrix"}`; the card carrier is a product verb (`source: "product-verb"`, the user's own Send).
+bad: soft gradients, floating cards and an orb with no source: swap the logo and the film sells any other app.
+</example>
+
+## 19. Calibration profile
+
+These are starting values for a copy-led 30 to 60 s RasanAI film, to test on RasanAI's own output. They are proposals and not sourced standards, and nothing here is a hard constraint: compare alternative cuts with unfamiliar viewers and keep the timing metadata so the next revision is evidence-led. Source: `.context/motion-craft-research.md` "Practical calibration profile".
+
+| Purpose | Starting value | Override when | Measure |
+|---|---|---|---|
+| Familiar single-word accent | 0.25 to 0.75 s of exposure | it carries an unfamiliar claim or an essential instruction | unaided recognition; the range does not support reading a sentence |
+| Essential short line | 2.67 to 3 words per second of readable exposure (BBC subtitle practice, a conservative reference) | new terms, detailed visuals or a non-native audience: add time | effective words per second and real comprehension |
+| One UI operation and its result | 3 to 6 s as a shot budget | the operation is simpler, or a new mechanism needs longer | can an unfamiliar viewer name the input, the action and the result |
+| Breath after an intense run | 0.5 to 1.5 s with less information arriving | a musical phrase or a reading window needs more | the change in information, motion and sound; a breath need not be blank |
+| Hero or UI end frame | 2 to 4 s settled | several calls to action or a URL; a familiar logo-only sting needs less | product-name and CTA recall at viewing size |
+| Transitions | hard cuts plus 2 to 3 bridge families | the concept needs another with a role | consistency, and whether exceptions add meaning |
+| Sound-event density | no global hits-per-second target | build density locally for a designed texture | foreground role, masking, repetition and phrasing |

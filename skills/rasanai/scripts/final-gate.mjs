@@ -3,7 +3,7 @@
 // the delivery folder) unless this passed on exactly that render. It only CALLS the existing gates (their rules are theirs); any error, any
 // "could not run" and any skipped step blocks.
 //
-//   node final-gate.mjs --run <run> --project videos/<name> --video <final.mp4> [--kind launch|brand|explainer] [--end-hold 1.4] [--json]
+//   node final-gate.mjs --run <run> --project videos/<name> --video <final.mp4> [--kind launch|brand|explainer] [--end-hold 1.4 (4 on a launch film)] [--json]
 //   node crew.mjs final-gate ...   (the same)
 //
 // Steps (all on <project>/index.html and the render, never on capture/ pages or a draft):
@@ -128,15 +128,15 @@ export function main(args) {
     };
     const fg = run1("frame-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), ...(kind ? ["--kind", kind] : []), ...profArgs, ...waiveArgs, "--json"]);
     rec("frame-gate", fg);
-    const mg = run1("motion-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), "--end-hold", String(args["end-hold"] || 1.4), ...(kind ? ["--kind", kind] : []), "--run", run, ...profArgs, ...waiveArgs, "--json"]);
+    const mg = run1("motion-gate.mjs", ["--video", video, "--project", project, ...(hasScore ? ["--plan", score] : []), "--end-hold", String(args["end-hold"] || (launchKind ? 4 : 1.4)), ...(kind ? ["--kind", kind] : []), "--run", run, ...profArgs, ...waiveArgs, "--json"]);
     try { fs.mkdirSync(path.join(run, "motion"), { recursive: true }); fs.writeFileSync(path.join(run, "motion", "motion-gate.json"), mg.json ? JSON.stringify(mg.json, null, 2) : JSON.stringify({ ok: false, exit: mg.code, stdout: mg.stdout.slice(0, 4000) })); } catch {}
     rec("motion-gate", mg, { saved: "motion/motion-gate.json" });
     // launch gates on the rendered video (lib/launch-gates.mjs): scale, ground variety, meaningful stillness, hook length. Text size reuses frame-gate's DOM rows.
     if (launchKind) {
       const rowsF = path.join(run, "motion", "launch-text-rows.json");
-      const rows = ((fg.json && fg.json.frames) || []).filter((f) => f && typeof f.t === "number" && typeof f.bigPct === "number").map((f) => ({ t: f.t, bigPct: f.bigPct }));
+      const rows = ((fg.json && fg.json.frames) || []).filter((f) => f && typeof f.t === "number" && typeof f.bigPct === "number").map((f) => ({ t: f.t, bigPct: f.bigPct, ...(f.blocks ? { blocks: f.blocks } : {}) }));
       try { fs.mkdirSync(path.dirname(rowsF), { recursive: true }); fs.writeFileSync(rowsF, JSON.stringify(rows)); } catch {}
-      const lg = run1("lib/launch-gates.mjs", ["--video", video, ...(rows.length ? ["--text-rows", rowsF] : ["--project", project]), ...(hasScore ? ["--score", score] : []), "--end-hold", String(args["end-hold"] || 1.4)]);
+      const lg = run1("lib/launch-gates.mjs", ["--video", video, ...(rows.length ? ["--text-rows", rowsF] : ["--project", project]), ...(hasScore ? ["--score", score] : []), "--end-hold", String(args["launch-end-hold"] || 4)]);
       const fnd = (lg.json && lg.json.findings) || [];
       if (!lg.json) { steps.push({ step: "launch-gates", ok: false, exit: lg.code }); blocked.push(`launch-gates: could not run (never a pass) ${lg.stderr.replace(/\s+/g, " ").slice(-200)}`); }
       else {

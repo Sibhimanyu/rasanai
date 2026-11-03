@@ -189,8 +189,10 @@ function chain(el){var op=1,clips=[],a=el,blur=0;
 function clip(r,clips){var v={left:r.left,right:r.right,top:r.top,bottom:r.bottom};
   clips.forEach(function(c){v.left=Math.max(v.left,c.left);v.right=Math.min(v.right,c.right);v.top=Math.max(v.top,c.top);v.bottom=Math.min(v.bottom,c.bottom);});
   v.left=Math.max(v.left,0);v.top=Math.max(v.top,0);v.right=Math.min(v.right,CFG.W);v.bottom=Math.min(v.bottom,CFG.H);return v;}
+// an element on top of a line only occludes it when it paints: some opacity, a background, an image or text of its own (an invisible overlay or an opacity-0 layer does not)
+window.__fgPaints=function(h){var c=getComputedStyle(h),k=chain(h);if(!k||k.op<0.3)return false;if(/^(IMG|CANVAS|VIDEO|SVG|PICTURE)$/i.test(h.tagName))return true;if(alpha(c.backgroundColor)>0.3||(c.backgroundImage&&c.backgroundImage!=='none'))return true;for(var q=h.firstChild;q;q=q.nextSibling)if(q.nodeType===3&&String(q.nodeValue||'').trim())return alpha(c.webkitTextFillColor||c.color)>0.05;return false;};
 window.__fgMeasure=function(){
-  var W=CFG.W,H=CFG.H,minPx=H*CFG.minPct/100,chars=0,lines=0,big=0,bigText='',minInk=0,minText='',els=[],walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
+  var W=CFG.W,H=CFG.H,minPx=H*CFG.minPct/100,chars=0,lines=0,big=0,bigText='',minInk=0,minText='',els=[],blocks=new Map(),walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
   while((n=walker.nextNode())){
     var txt=String(n.nodeValue||'').replace(/\\s+/g,' ').trim();if(!txt)continue;
     var el=n.parentElement;if(!el||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TITLE)$/.test(el.tagName)||el.closest('template'))continue;
@@ -209,12 +211,15 @@ window.__fgMeasure=function(){
     if(total&&ok)chars+=txt.replace(/\\s/g,'').length*ok/total;
     if(nb){var q=el,bk=el;while(q&&q!==document.body){var dd=getComputedStyle(q).display;if(dd!=='inline'&&dd!=='contents'){bk=q;break;}q=q.parentElement;}
       var ex=null;for(var e2=0;e2<els.length;e2++)if(els[e2].k===bk)ex=els[e2];
-      if(ex){ex.l=Math.min(ex.l,nb.l);ex.t=Math.min(ex.t,nb.t);ex.r=Math.max(ex.r,nb.r);ex.b=Math.max(ex.b,nb.b);ex.s=Math.max(ex.s,nb.s);}else{nb.k=bk;nb.text=1;els.push(nb);}}}
+      if(ex){ex.l=Math.min(ex.l,nb.l);ex.t=Math.min(ex.t,nb.t);ex.r=Math.max(ex.r,nb.r);ex.b=Math.max(ex.b,nb.b);ex.s=Math.max(ex.s,nb.s);}else{nb.k=bk;nb.text=1;els.push(nb);}
+      var BK=blocks.get(bk);if(!BK){BK={id:(bk.__fgid||(bk.__fgid=(window.__fgN=(window.__fgN||0)+1))),parts:[],op:1,l:nb.l,t:nb.t,r:nb.r,b:nb.b,occ:false};blocks.set(bk,BK);}
+      BK.parts.push(txt);BK.op=Math.min(BK.op,ch.op);BK.l=Math.min(BK.l,nb.l);BK.t=Math.min(BK.t,nb.t);BK.r=Math.max(BK.r,nb.r);BK.b=Math.max(BK.b,nb.b);
+      try{var hit=document.elementFromPoint((nb.l+nb.r)/2,(nb.t+nb.b)/2);if(hit&&hit!==document.documentElement&&hit!==document.body&&!bk.contains(hit)&&!hit.contains(bk)&&window.__fgPaints(hit))BK.occ=true;}catch(e0){}}}
   var obj=0,objs=document.querySelectorAll('img,canvas,video,svg,picture');
   for(var j=0;j<objs.length;j++){var o=objs[j];if(o.closest('template')||(o.tagName!=='svg'&&o.parentElement&&o.parentElement.closest('svg')))continue;if(o.tagName==='svg'&&o.parentElement&&o.parentElement.closest('svg'))continue;
     var c2=chain(o);if(!c2||!(c2.op>=CFG.minOp))continue;var b=o.getBoundingClientRect();if(!(b.width>1&&b.height>1))continue;var vv=clip(b,c2.clips),w2=vv.right-vv.left,h2=vv.bottom-vv.top;if(!(w2>1&&h2>1))continue;
     if(w2>=0.9*W&&h2>=0.9*H)continue;if(h2>obj)obj=h2;els.push({l:vv.left,t:vv.top,r:vv.right,b:vv.bottom,s:0});}
-  return {chars:Math.round(chars),lines:lines,bigPct:100*big/H,bigText:bigText,minInk:minInk,minText:minText,objPct:100*obj/H,heroes:window.__fgHeroes(els,W,H)};};
+  return {chars:Math.round(chars),lines:lines,bigPct:100*big/H,bigText:bigText,minInk:minInk,minText:minText,objPct:100*obj/H,heroes:window.__fgHeroes(els,W,H),blocks:Array.from(blocks.values()).map(function(B){var w=B.parts.join(' ');return {id:B.id,text:w,words:w.split(/\\s+/).filter(Boolean).length,l:B.l/W,t:B.t/H,r:B.r/W,b:B.b/H,op:B.op,occ:B.occ};})};};
 // the two largest elements by area (% of the frame): stacked text blocks of one size are one headline; an element inside a larger one is part of it
 window.__fgHeroes=function(els,W,H){var a=els.map(function(e){return {l:e.l,t:e.t,r:e.r,b:e.b,s:e.s,text:!!e.text};}),m=true,i,j;
   while(m){m=false;for(i=0;i<a.length&&!m;i++)for(j=i+1;j<a.length&&!m;j++){var x=a[i],y=a[j];if(!x.text||!y.text||!x.s||!y.s)continue;
@@ -256,7 +261,7 @@ export async function domTextProject(project, times) {
   const noChrome = haveChrome();
   if (noChrome) { out.could_not_run.push(`DOM metrics: ${noChrome}`); return out; }
   const { W, H } = sizeOf(root);
-  const rows = times.map(() => ({ chars: 0, lines: 0, bigPct: 0, objPct: 0, bigText: "", heroes: [], minPct: null, minText: "" }));
+  const rows = times.map(() => ({ chars: 0, lines: 0, bigPct: 0, objPct: 0, bigText: "", heroes: [], minPct: null, minText: "", blocks: [] })); // blocks: the settled-and-unoccluded text blocks per sample (lib/readable-exposure.mjs)
   let b, srv; const tmps = [];
   try {
     srv = await serve(root);
@@ -264,6 +269,7 @@ export async function domTextProject(project, times) {
     for (const pg of pages) {
       const { tmp } = pageFor(pg.file, root, srv.url, W, H);
       tmps.push(tmp);
+      const pgi = pages.indexOf(pg);
       try {
         await b.open(`${srv.url}/${path.relative(root, tmp).split(path.sep).join("/")}`, { waitMs: 30000 });
         await b.eval("document.fonts && document.fonts.ready ? document.fonts.ready.then(function(){return true;}) : true", { await: true });
@@ -275,6 +281,7 @@ export async function domTextProject(project, times) {
           res.forEach((m, j) => {
             const row = rows[part[j]];
             row.chars += m.chars; row.lines += m.lines; row.objPct = Math.max(row.objPct, m.objPct);
+            for (const bl of m.blocks || []) row.blocks.push({ ...bl, id: `${pgi}:${bl.id}` });
             row.heroes = row.heroes.concat(m.heroes || []).sort((a, b) => b - a).slice(0, 2);
             if (m.bigPct > row.bigPct) { row.bigPct = m.bigPct; row.bigText = m.bigText; }
             if (m.minInk > 0 && (row.minPct == null || 100 * m.minInk / H < row.minPct)) { row.minPct = 100 * m.minInk / H; row.minText = m.minText; }
@@ -401,7 +408,7 @@ export async function measureFrames(opts = {}) {
   }
 
   // per-frame rows
-  res.frames = feats.map((f, i) => ({ ...(res.kind === "stills" ? { name: names[i] } : { t: r2(f.t) }), ...slim(f), ...(text && text[i] ? { chars: text[i].chars, lines: text[i].lines, bigPct: r1(text[i].bigPct), objPct: r1(text[i].objPct), bigText: text[i].bigText, ...(text[i].minPct != null ? { minPct: r2(text[i].minPct), minText: text[i].minText } : {}) } : {}) }));
+  res.frames = feats.map((f, i) => ({ ...(res.kind === "stills" ? { name: names[i] } : { t: r2(f.t) }), ...slim(f), ...(text && text[i] ? { chars: text[i].chars, lines: text[i].lines, bigPct: r1(text[i].bigPct), objPct: r1(text[i].objPct), bigText: text[i].bigText, ...(text[i].blocks && text[i].blocks.length ? { blocks: text[i].blocks } : {}), ...(text[i].minPct != null ? { minPct: r2(text[i].minPct), minText: text[i].minText } : {}) } : {}) }));
 
   // film metrics
   const film = { frames: feats.length };

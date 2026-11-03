@@ -107,20 +107,52 @@ The gates read these per-beat fields (`lib/launch-beats.mjs`; the rules are in `
 | Field | Type | Required for | Why (and the check) |
 |---|---|---|---|
 | `line` | string, one thought | every launch beat | The copy on screen: about 9 words at most at once; a line that builds word by word counts its final state (`copy-line-long` warns). |
-| `scene_type` | `type-slate \| type-collage \| ui-proof \| ui-collage \| cinematic-image \| diagram \| data \| kinetic-list \| object-shot \| typed-prompt \| footage \| logo-end` | every launch beat | Gives the film scene variety: 5+ types in a 45 s film, none over about 30% of the runtime, neighbours differ unless `continues: true` (`scene-variety`, `scene-share`, `scene-neighbours`: warnings; `scene-type-undeclared`). |
+| `scene_type` | `type-slate \| type-collage \| ui-proof \| ui-collage \| cinematic-image \| diagram \| data \| kinetic-list \| object-shot \| typed-prompt \| footage \| logo-end` | every launch beat | Gives the film scene variety: 5+ types in a 45 s film, none over about 30% of the runtime, neighbours differ unless `continues: true` (`scene-variety`, `scene-share`, `scene-neighbours`: warnings, defaults you can leave with a `departures` why; `scene-type-undeclared`). |
 | `texture` | `smooth \| stepped \| flicker \| glitch`, with `fps` (12 or 8) on a stepped beat | every launch beat | Places motion texture: at least one non-smooth beat, non-smooth about 15 to 40% of the runtime, and the meet, payoff and end smooth (`texture-all-smooth`, `texture-mix`, `texture-calm-beat`, `texture-fps`: warnings). |
 | `moves_named` | array of strings | launch beats | Names the beat's catalogue moves (`references/launch-moves.md`); no move in more than 2 beats (`move-repeat`). `moves[]` holds only the per-tween records of "Motion laws" (objects); strings there (an older score) are still read as names, and every consumer ignores the shape it does not need. |
 | `cursor_reason` | string | where a cursor or caret travels (once per film at most) | Justifies the cursor. AI-cliche warnings: `cliche-banned-move`, `cliche-cursor-repeat`, `cliche-cursor-reason`, `cliche-typed-lines`, `cliche-word-fade`, `cliche-slide-up-cards`, `cliche-underline`, `cliche-glow-particles`. |
 | `imagery` | an id from the score-level `imagery_plan[]` (`{id, prompt, aspect?, transparent?}`) or `"none"` | beats that use a Codex image (1 to 4 per film, `imagery-count`) | Links the beat to its image; `node scripts/imagegen.mjs plan-from-score --score <score> --out <plan.json>` turns the plan into the batch step. |
 | `carrier_state` | string (`"none"` when absent) | optional | Says what a local carrier is doing in the beat. A carrier links 2 or 3 neighbouring beats or bookends the film; more than 40% of the beats warns (`carrier-overuse`). No carrier is fine. |
 | `transition_in` | `hard-cut-on-hit` (name the music hit) \| `stepped-smash` \| `flicker-cut` \| `mask-wipe` \| `push` \| `pull` \| `whip` \| `morph` \| `match-cut` \| `type-morph` \| `carried-element` \| `zoom-through` \| `iris` \| `flip` | optional (the seam into the scene is read when absent) | Declares the seam. A cut on a music hit is fine; a bare undeclared `cut` is a `hard-cuts` warning. Keep any family to about 30% of the seams (`transition-variety`). Frame-difference spikes in the render (`frame-spikes`) only warn, and only well above the references' 1 to 3 per 10 s. |
-| `density` | `dense` (3+ elements, a collage, a full UI, a full-frame object) \| `sparse` (one small line or object on an empty ground) | every launch beat | Gives rhythm: at least two alternations (`rhythm`, an error; waivable). |
+| `density` | `dense` (3+ elements, a collage, a full UI, a full-frame object) \| `sparse` (one small line or object on an empty ground) | every launch beat | Gives rhythm: at least two alternations (`rhythm`, a default: a warning that asks for a `departures` why, a note once given). |
 | `logo` | bool | every launch beat | True where the mark is on screen; more than 3 beats warns (`logo-count`). |
 | `ground` | `brand-gradient \| dark \| white \| brand-slate` | every launch beat (`crew.mjs check` requires it) | Alternates at least 2 families across the film, with brand-colour atmosphere in at least about 30% of the runtime. |
 | `role` | `hook \| turn \| meet \| capability \| payoff` | every launch beat | Shapes the arc; the hook's beats together are at most 25% of `duration` (`crew.mjs check` errors above). |
-| `hero_scale` | percent of frame height | every launch beat | Cap height of the beat's biggest line: 9 to 20 at least once per beat; the largest in the film must reach 9. |
+| `hero_scale` | percent of frame height | every launch beat | Cap height of the beat's biggest line: 9 to 20 is the default for a beat, and the largest in the film reaching 9 is checked as guidance (`display-scale` in `departures` explains a smaller film). |
 | `ui_scale` | percent of frame area | every launch beat | The UI proof's share of the frame: 35 to 60 when it is the proof; 0 when none. |
 | `hold_s` | seconds | every launch beat | The longest static hold in the beat, about 1.2 at most, filled with secondary motion. With `ground`, `role`, `hero_scale` and `ui_scale` it is what the reference jury (`agents/reference-juror.md`) compares with the contact sheet: a declared number the sheet does not show is a finding. |
+
+### Departures (launch and promo films)
+
+| Field | Type | Why (and the check) |
+|---|---|---|
+| `departures` | `[{rule, why}]` (`grammar_waivers` is the older name) | Records where the film leaves a default on purpose. Rules: `scene-variety`, `transition-variety`, `texture`, `display-scale`, `hard-cuts`, `rhythm`, `sfx-density`. A rule with a why turns its warning into a note; a rule with no why is ignored and the warning stays (`references/launch-grammar.md` "Defaults you can leave"). |
+| `structure` | `{kind, why}` | The declared structure: `hook-turn-meet` (default) \| `sung-script` \| `teaser-reveal` \| `parts-assembly` \| `before-after` \| `feature-led` \| `medium-as-proof` (`references/launch-grammar.md` section 16). |
+
+### Craft research fields (launch and promo films)
+
+The rules are in `references/launch-grammar.md` sections 16 to 18, `references/craft.md` "Craft research" and `references/sound.md`; every check is a warning in `scripts/lib/launch-beats.mjs` (`craftResearchFindings`). Per beat unless marked film-level.
+
+| Field | Type | Why (and the check) |
+|---|---|---|
+| `ui_mode` | `literal \| abstract` | Literal UI is proof, abstract UI is sensation, and an abstract beat never counts in the claim-to-proof map (`ui-mode-missing`, `proof-abstract`). |
+| `ui_state` | `{id, labels, figures, action, result, action_at?, result_at?}` | The same `id` shows the same labels and figures in every shot; an action carries its result in order (`ui-state-missing`, `ui-state-drift`, `ui-action-no-result`, `ui-result-before-action`). |
+| `persists` | `["pill → the next card's header"]` or `[{element, to}]` | Objects that keep a role and a destination across the cut (`persists-no-destination`, `persists-last-beat`, `boundary-reset` when no beat carries anything). |
+| `bridge_reason` | string | What a designed transition conveys that a hard cut would lose (`bridge-reason-missing`, `bridge-reason-weak`, `bridge-hard-cut-candidate`). |
+| `type_motion` | `{unit: letter \| word \| line \| block, behaviour, meaning}` | Each hero line's animation unit and behaviour come from the word's meaning (`type-motion-missing`, `type-motion-unit`, `type-motion-same`). |
+| `line_breaks` | array of strings | Where large type breaks; a break after a function word warns (`type-break`). |
+| `intensity` | `{cut_rate, movement, proximity, camera, why?}`, levels `low \| med \| high` | The intensity map; a jump of two levels needs `why`; a flat map warns (`intensity-missing`, `intensity-change-unexplained`, `intensity-flat`). |
+| `lead`, `phrase`, `counterpoint` | `vo \| music \| sound \| picture`; the musical phrase the section follows; `true` with `counterpoint_why` | Which medium leads each passage (`lead-missing`, `music-wallpaper`, `lead-phrase-missing`, `counterpoint-why`). |
+| `motifs` (film), `motif` + `motif_source` (beat) | `[{what, source, ref}]`; source `brand-element \| product-verb \| customer-material` | Where each major motif comes from; a named `carrier` takes `source` too (`motif-source-missing`). |
+| `set_up`, `pays_off` | arrays of ids | Causal links between beats (`progression-missing`, `set-up-dangling`, `pays-off-orphan`, `payoff-late-missing`). |
+| `new_info` | string | What new fact, state or result the beat brings; 10 s with none warns (`no-new-info`). |
+| `entrance`, `exit` | strings (or on `moves[]`) | A pattern shared by 70% or more of 5 or more beats warns (`same-entrance-exit`). |
+| `cursor_track` | `{source: own-track, frames_on: result}` | The pointer path is its own jitter-free data and framing follows the result (`cursor-track-missing`, `cursor-framing-click`, `cursor-baked`). |
+| `sfx_role` | `signature \| support \| none` | A sound hierarchy: a few signature sounds, room for the score (`sound-anchor-missing`, `sound-hierarchy-flat`). |
+| move `blur_kind` | `temporal \| smear \| css \| none` | A constant CSS blur as the only motion blur warns (`blur-css-motion`). Move `ease` is also read: an ease steep enough to hide the action warns (`easing-extreme`). |
+| `ending` (film) | `{music: resolve \| ringout \| sting \| hard-stop \| none, settled_s, why?}` | A resolved ending and a settled end frame of 2 to 4 s (`ending-missing`, `ending-unresolved`, `end-frame-short`). |
+
+The readable-exposure budget needs no field: the render gate measures it from the composition (`launch-gates.mjs`, `readable-exposure`).
 
 ### Clarity, proof and CTA (launch and promo films)
 

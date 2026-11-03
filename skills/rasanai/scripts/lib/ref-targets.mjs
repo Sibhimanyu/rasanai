@@ -2,6 +2,7 @@
 // Reference numbers only ever NUDGE a gate inside sane bounds: one odd reference cannot turn a gate off or make it absurd.
 import fs from "node:fs";
 import path from "node:path";
+import { grammarWaivers } from "./gate-profile.mjs";
 
 export const SOUND_ATLAS = { vo: "vo-kinetic", song: "song-lyric", instrumental: "instrumental-arc", "sfx-led": "sfx-led" };
 const rd = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } };
@@ -105,9 +106,15 @@ export function sfxCapPerSec(run, modePerSec) {
   return Math.min(modePerSec, Math.max(BOUNDS.sfx_cap_per_s[0], t.sfx_cap_per_s));
 }
 
-// designed-SFX density band (per 10 s): warn outside lo-hi, error above err. Keyed to the sound mode (audio/mode.json, or the `mode` argument): sfx-led carries the whole film, about 4-8 per 10 s (error above 12);
+// designed-SFX density band (per 10 s): a default; warn outside lo-hi (the old error above err is a warning too: `err` marks where to explain). Keyed to the sound mode (audio/mode.json, or the `mode` argument): sfx-led carries the whole film, about 4-8 per 10 s (error above 12);
 // silent or sparse (a voice-led film, no music) is lower; music-led (instrumental-arc, song-lyric, no mode) keeps 1.5-2.2 / 3, and the run's own reference density moves THAT band, inside BOUNDS
 export const SFX_BANDS = { "sfx-led": { lo: 4, hi: 8, err: 12 }, "vo-kinetic": { lo: 1, hi: 2, err: 3 }, silent: { lo: 0.5, hi: 1.5, err: 2.5 }, sparse: { lo: 0.5, hi: 1.5, err: 2.5 } };
+// The band is a SOFT DEFAULT (no source sets an SFX-per-second target; .context/motion-craft-research.md): outside it is a warning that asks for a why. The score records the departure as
+// departures [{ rule: "sfx-density", why }]; sfxDepartureWhy(run) returns that why, or null.
+export function sfxDepartureWhy(run) {
+  if (!run) return null;
+  try { return grammarWaivers(JSON.parse(fs.readFileSync(path.join(run, "motion", "score.json"), "utf8"))).waived["sfx-density"] || null; } catch { return null; }
+}
 export function sfxDensityBand(run, mode) {
   let m = mode || null;
   if (!m && run) { try { m = JSON.parse(fs.readFileSync(path.join(run, "audio", "mode.json"), "utf8")).mode || null; } catch {} }

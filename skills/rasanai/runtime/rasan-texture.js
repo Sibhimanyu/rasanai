@@ -16,6 +16,8 @@
  *   RasanTexture.scaleTransition(tl, at, { el, from: 6, to: 0.4, duration: 0.9, next: sceneElBehind })
  *   RasanTexture.irisThrough(tl, at, { target, keep: objectEl, cx: 0.5, cy: 0.5, color: "#0b0d12" })
  *   RasanTexture.cutsUnder(tl, at, { layers: [shotA, shotB, shotC], times: [0, 0.9, 1.7], end: 2.6 })   // persistent type over cuts: the type sits on a higher track
+ * Motion blur (references/craft.md "Craft research"):
+ *   RasanTexture.motionBlur(tl, at, { el: card, dx: 900, dy: 0, duration: 0.6, ease: "expo.out", fps: 24, shutter: 0.5 })   // a directional blur that follows the SPEED of your own move (same dx, dy, duration, ease); 0 at rest
  *
  * Seek-safety (HyperFrames renders by seeking a paused timeline): every state is a tween on `tl`, or a DOM write inside a tween setter that is a PURE
  * function of that tween's progress (no Math.random: seeded hashes; no clock, no rAF, no timers). `stepped` drives a DETACHED paused helper timeline
@@ -163,6 +165,28 @@
     need(layers.length && layers.length === times.length, "cutsUnder needs layers[] and times[] of the same length");
     layers.forEach(function (l, i) { tl.set(l, { autoAlpha: 0 }, 0); tl.set(l, { autoAlpha: 1 }, at + times[i]); tl.set(l, { autoAlpha: 0 }, at + (i + 1 < times.length ? times[i + 1] : end)); });
     return { end: at + end };
+  };
+
+  // ------------------------------------------------------------ velocity-linked motion blur
+  // A DIRECTIONAL blur (an SVG feGaussianBlur with one axis) whose streak length is speed x shutter, the 180 degree convention (shutter 0.5 of a frame: 1/48 s at 24 fps). The helper never moves the
+  // element: tween it yourself with the same dx, dy, duration and ease, and the blur follows that speed. It is exactly 0 at rest and before the move, so no fog or ghost copy is left behind.
+  // It is a pure function of the tween's progress (seek-safe). A stepped section needs no blur: stepped motion is its own texture.
+  var NS = "http://www.w3.org/2000/svg", mbCount = 0;
+  API.motionBlur = function (tl, at, o) {
+    var el = R(o.el); need(el && el.parentNode, "motionBlur needs opts.el inside the DOM"); need(typeof gsap !== "undefined", "gsap is not loaded");
+    var dx = +o.dx || 0, dy = +o.dy || 0, dist = Math.sqrt(dx * dx + dy * dy), d = Math.max(1e-4, o.duration || 0.6), fps = o.fps || 24, shutter = o.shutter == null ? 0.5 : o.shutter, max = o.max == null ? 40 : o.max, id = "rt-motion-blur-" + (++mbCount);
+    need(dist > 0, "motionBlur needs opts.dx or opts.dy (the move's travel in px)");
+    var ease = gsap.parseEase(o.ease || "none"), ux = Math.abs(dx) / dist, uy = Math.abs(dy) / dist;
+    var svg = document.createElementNS(NS, "svg"); svg.setAttribute("width", "0"); svg.setAttribute("height", "0"); svg.style.cssText = "position:absolute;width:0;height:0;pointer-events:none";
+    var flt = document.createElementNS(NS, "filter"); flt.setAttribute("id", id); flt.setAttribute("x", "-30%"); flt.setAttribute("y", "-30%"); flt.setAttribute("width", "160%"); flt.setAttribute("height", "160%"); flt.setAttribute("color-interpolation-filters", "sRGB");
+    var gb = document.createElementNS(NS, "feGaussianBlur"); gb.setAttribute("stdDeviation", "0 0"); flt.appendChild(gb); svg.appendChild(flt); (document.body || el.parentNode).appendChild(svg);
+    function speed(t) { var h = 0.01, a = Math.max(0, t - h), b = Math.min(1, t + h); return Math.abs(ease(b) - ease(a)) / ((b - a) * d) * dist; } // px per second
+    prog(tl, at, d, "none", function (p) {
+      var sd = p <= 0 || p >= 1 ? 0 : Math.min(max, (speed(p) * shutter / fps) / 2);
+      if (sd < 0.25) { el.style.filter = ""; return; }
+      gb.setAttribute("stdDeviation", (sd * ux).toFixed(2) + " " + (sd * uy).toFixed(2)); el.style.filter = "url(#" + id + ")";
+    });
+    return { end: at + d, id: id };
   };
 
   return API;

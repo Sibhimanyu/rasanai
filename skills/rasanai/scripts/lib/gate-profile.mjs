@@ -19,8 +19,14 @@ export const WAIVABLE = {
   "scene-variety": "5+ scene types, none over 30% (launch-beats scene-variety)",
   "texture": "a stepped or flicker section, 15-40% non-smooth (launch-beats texture-mix)",
   "rhythm": "two dense/sparse alternations (launch-beats rhythm)",
+  "transition-variety": "no designed transition family on more than 30% of the designed seams (launch-beats transition-variety)",
+  "display-scale": "display-scale type: cap height 9% of the frame at least once (launch-gates scale-display-type, crew.mjs hero_scale)",
+  "sfx-density": "the designed-SFX band per 10 s for the sound mode (sound.mjs, slop.mjs sfx-density)",
 };
-const ALIAS = { "hook-3s": ["hook-address"], "object-by-2s": ["hook-object"], "no-brand-before-3s": ["hook-logo"], "hook": ["hook-address", "hook-object", "hook-logo"], "shot-length": ["median-shot"], "plain-cuts": ["hard-cuts"], "cuts": ["hard-cuts"], "carrier-share": ["carrier"], "dense-sparse": ["rhythm"], "median-shot-length": ["median-shot"], "type-full": ["full-frame-type"] };
+// The rules above are SOFT DEFAULTS (references/launch-grammar.md "Defaults you can leave"): no source supports a fixed count of scene types or transitions, a dense:sparse ratio,
+// a minimum type size or an SFX-per-second target (.context/motion-craft-research.md). A film that leaves one records { rule, why } in score.departures (or grammar_waivers, the older name);
+// without a why the finding stays a warning ("explain the change"), with one it is a note.
+const ALIAS = { "scene-types": ["scene-variety"], "scene-share": ["scene-variety"], "transitions": ["transition-variety"], "hero-scale": ["display-scale"], "type-scale": ["display-scale"], "sfx": ["sfx-density"], "texture-share": ["texture"], "hook-3s": ["hook-address"], "object-by-2s": ["hook-object"], "no-brand-before-3s": ["hook-logo"], "hook": ["hook-address", "hook-object", "hook-logo"], "shot-length": ["median-shot"], "plain-cuts": ["hard-cuts"], "cuts": ["hard-cuts"], "carrier-share": ["carrier"], "dense-sparse": ["rhythm"], "median-shot-length": ["median-shot"], "type-full": ["full-frame-type"] };
 const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
 const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
 const S = (v) => (v == null ? "" : String(v).trim());
@@ -65,7 +71,8 @@ export function runGateProfile(run) {
 // grammar_waivers from the score and the chosen concept: [{rule, why}] with canonical rule ids; a waiver with no why is NOT honoured (reported in `ignored`)
 export function grammarWaivers(...docs) {
   const waived = new Map(), ignored = [];
-  for (const d of docs) for (const w of (isObj(d) && Array.isArray(d.grammar_waivers) ? d.grammar_waivers : [])) {
+  const listOf = (d) => [...(isObj(d) && Array.isArray(d.grammar_waivers) ? d.grammar_waivers : []), ...(isObj(d) && Array.isArray(d.departures) ? d.departures : []), ...(isObj(d) && isObj(d.departures) ? Object.entries(d.departures).map(([rule, why]) => ({ rule, why })) : [])];
+  for (const d of docs) for (const w of listOf(d)) {
     const rule = S(isObj(w) ? w.rule : w).toLowerCase(), why = S(isObj(w) ? w.why || w.reason : "");
     const ids = WAIVABLE[rule] ? [rule] : ALIAS[rule] || [];
     if (!ids.length) { ignored.push(`${rule || "(no rule)"}: not a waivable rule (${Object.keys(WAIVABLE).join(", ")})`); continue; }
@@ -141,27 +148,31 @@ export function launchJuryProblems(picks) {
 export function launchConceptProblems(x, id) {
   const P = [], has = (v) => (Array.isArray(v) ? v.length > 0 : !!S(v && typeof v === "object" ? v.what || v.line || v.text || v.beat || v.see || v.cta || "" : v));
   const caps = Array.isArray(x && x.capabilities) ? x.capabilities : [];
-  if (!has(x && x.hook_lines)) P.push(`concept ${id}: no hook_lines (2 to 4 lines, the viewer's problem)`);
-  if (!has(x && x.turn_line)) P.push(`concept ${id}: no turn_line`);
-  if (!has(x && x.meet)) P.push(`concept ${id}: no meet beat (the small, calm brand reveal)`);
-  if (caps.length < 2 || caps.length > 3 || caps.some((c) => !c || !S(c.line) || !S(c.ui_proof))) P.push(`concept ${id}: capabilities needs 2 or 3 beats, each { line, ui_proof }`);
+  // the hook > turn > meet > capabilities > payoff arc is the default structure; another declared structure (sung-script, teaser-reveal, ...) brings its own beats in scene_plan[]
+  const st = x && x.structure, skind = _lw(st && typeof st === "object" ? st.kind || st.id || st.name : st).replace(/ /g, "-"), arc = !skind || skind === "hook-turn-meet";
+  if (arc) {
+    if (!has(x && x.hook_lines)) P.push(`concept ${id}: no hook_lines (2 to 4 lines, the viewer's problem)`);
+    if (!has(x && x.turn_line)) P.push(`concept ${id}: no turn_line`);
+    if (!has(x && x.meet)) P.push(`concept ${id}: no meet beat (the small, calm brand reveal)`);
+    if (caps.length < 2 || caps.length > 3 || caps.some((c) => !c || !S(c.line) || !S(c.ui_proof))) P.push(`concept ${id}: capabilities needs 2 or 3 beats, each { line, ui_proof }`);
+  } else if (caps.length && caps.some((c) => !c || !S(c.line) || !S(c.ui_proof))) P.push(`concept ${id}: each capability needs { line, ui_proof }`);
   if (!has(x && x.payoff)) P.push(`concept ${id}: no payoff / CTA`);
   // a carrier is OPTIONAL and local (a few neighbouring beats, at most 40%); when one is named it says where it lives and how it hands off
   if (x && x.carrier && (typeof x.carrier !== "object" || S(x.carrier.what || x.carrier.name)) && !(typeof x.carrier === "object" && S(x.carrier.handoff))) P.push(`concept ${id}: a named carrier needs { what, kind, beats, handoff } (which 2 or 3 beats it links, and how it hands off); or drop it: carriers are optional`);
   // the scene plan (references/launch-grammar.md section 2): the backbone of a launch film
   { const plan = Array.isArray(x && x.scene_plan) ? x.scene_plan : [], types = scenePlanTypes(x);
-    if (plan.length < 5 || types.length < plan.length) P.push(`concept ${id}: scene_plan needs one entry per beat ({beat, scene_type, texture, move?, imagery?}, 5 or more beats)`);
+    if (plan.length < (arc ? 5 : 3) || types.length < plan.length) P.push(`concept ${id}: scene_plan needs one entry per beat ({beat, scene_type, texture, move?, imagery?}, ${arc ? 5 : 3} or more beats)`);
     else {
-      const distinct = new Set(types); if (distinct.size < 5) P.push(`concept ${id}: scene_plan has ${distinct.size} scene type(s) (5 or more different types in a 45 s film: type-slate, type-collage, ui-proof, ui-collage, cinematic-image, diagram, data, kinetic-list, object-shot, typed-prompt, footage, logo-end)`);
-      const cnt = {}; types.forEach((t) => { cnt[t] = (cnt[t] || 0) + 1; }); const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
-      if (top[1] / types.length > 0.34) P.push(`concept ${id}: scene type "${top[0]}" is ${top[1]} of ${types.length} beats (about 30% at most)`);
-      const tx = plan.map((b) => _lw(b && b.texture)); if (!tx.some((t) => /step|flicker|glitch/.test(t)) && !(Array.isArray(x.texture_accents) && x.texture_accents.length)) P.push(`concept ${id}: no stepped, flicker or glitch accent (texture_accents[] or scene_plan[].texture): a launch film is never all smooth`);
+      /* scene variety, the 30% share and a texture accent are soft defaults (launchConceptWarnings) */
     } }
   if (!has(x && x.signature_transition)) P.push(`concept ${id}: no signature_transition`);
   if (!["neutral", "brand-gradient", "dark"].includes(S(x && x.ground).toLowerCase())) P.push(`concept ${id}: ground is neutral, brand-gradient or dark`);
   if (!has(x && x.type_pairing)) P.push(`concept ${id}: no type_pairing`);
   return P;
 }
+
+// the launch structures a concept may declare (references/launch-grammar.md section 16); the first is the default candidate, not the only one
+export const STRUCTURES = ["hook-turn-meet", "sung-script", "teaser-reveal", "parts-assembly", "before-after", "feature-led", "medium-as-proof"];
 
 // Launch-concept WARNINGS (references/launch-grammar.md sections 8 and 14): clarity, one message, CTA shape, buzzwords in the copy. [warning strings]
 export function launchConceptWarnings(x, id) {
@@ -173,6 +184,19 @@ export function launchConceptWarnings(x, id) {
   if (!S(typeof cta === "object" && cta ? cta.text : cta)) W.push(`concept ${id}: no cta (a verb plus a destination, held 2 s or more: "Download for macOS")`);
   else for (const p of ctaProblems(typeof cta === "object" ? cta : { text: cta })) W.push(`concept ${id}: ${p}`);
   const lines = [...(Array.isArray(x && x.hook_lines) ? x.hook_lines : [x && x.hook_lines]), x && x.turn_line, x && x.meet, ...(Array.isArray(x && x.capabilities) ? x.capabilities.map((c) => c && c.line) : []), payoff, x && x.one_message].map(t).filter(Boolean);
+  // soft defaults: say why when the plan leaves them (concept.departures [{rule, why}])
+  { const dep = grammarWaivers(x).waived, plan = Array.isArray(x && x.scene_plan) ? x.scene_plan : [], types = scenePlanTypes(x), soft = (rule, msg) => { if (!dep[rule]) W.push(`concept ${id}: ${msg} (a default, not a law: keep it and record { rule: "${rule}", why } in departures)`); };
+    if (plan.length >= 5) {
+      const distinct = new Set(types); if (distinct.size < 5) soft("scene-variety", `scene_plan has ${distinct.size} scene type(s) (5 or more is the default in a 45 s film: type-slate, type-collage, ui-proof, ui-collage, cinematic-image, diagram, data, kinetic-list, object-shot, typed-prompt, footage, logo-end)`);
+      const cnt = {}; types.forEach((t) => { cnt[t] = (cnt[t] || 0) + 1; }); const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+      if (top && top[1] / types.length > 0.34) soft("scene-variety", `scene type "${top[0]}" is ${top[1]} of ${types.length} beats (about 30% is the default ceiling)`);
+      const tx = plan.map((b) => _lw(b && b.texture)); if (!tx.some((t) => /step|flicker|glitch/.test(t)) && !(Array.isArray(x.texture_accents) && x.texture_accents.length)) soft("texture", "no stepped, flicker or glitch accent (texture_accents[] or scene_plan[].texture): an all-smooth film is a choice to explain");
+    }
+    // the structure: the hook > turn > meet > capabilities > payoff arc is the default candidate, one of several (references/launch-grammar.md section 16)
+    const st = x && x.structure, kind = _lw(st && typeof st === "object" ? st.kind || st.id || st.name : st).replace(/ /g, "-"), why = S(st && typeof st === "object" ? st.why || st.reason : "");
+    if (!kind) W.push(`concept ${id}: no structure { kind, why } (${STRUCTURES.join(" | ")}): name the structure and say why it fits the product and its distribution (launch-grammar.md section 16)`);
+    else { if (!STRUCTURES.includes(kind)) W.push(`concept ${id}: structure "${kind}" is not one of ${STRUCTURES.join(", ")}`); if (why.length < 15) W.push(`concept ${id}: structure "${kind}" has no why: say why it fits the product and where the film is shown`); }
+  }
   const hits = [...new Set(lines.flatMap(buzzwordHits))];
   if (hits.length) W.push(`concept ${id}: ${buzzwordMessage("the copy", hits)}; ${BUZZWORD_FIX}`);
   return W;

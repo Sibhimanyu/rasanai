@@ -145,7 +145,7 @@ import { currentInputs, reuseDecision, readReceipt } from "./lib/mix-receipt.mjs
 import { resolveSound, readSoundChoices } from "./lib/sound-choices.mjs";
 import { attentionPacket, compareAttention } from "./lib/blind-review.mjs";
 import { shapeOf, shapeId, shapeNamed } from "./lib/music-shapes.mjs"; // the named music arc shapes (drop, slow-burn, ambient-bed, cold-open, stinger, pulse-loop, lyric-song)
-import { worldSpreadProblems, isCalmWorld, launchSpreadProblems, launchJuryProblems, launchConceptProblems, launchConceptWarnings } from "./lib/gate-profile.mjs"; // the calm / bold world families and the pool's spread rule
+import { grammarWaivers, worldSpreadProblems, isCalmWorld, launchSpreadProblems, launchJuryProblems, launchConceptProblems, launchConceptWarnings } from "./lib/gate-profile.mjs"; // the calm / bold world families and the pool's spread rule
 import { launchBeatFindings } from "./lib/launch-beats.mjs";
 import { styleWorldId, carrierOf, signatureOf, soundModeOf } from "./lib/concept-schema.mjs"; // the canonical concept reader (references/concept-schema.md)
 import { normalizeReads } from "./lib/storyboard.mjs"; // Plan 07: the audio direction (roles, intentional silence, a silent deliverable)
@@ -1455,7 +1455,8 @@ function contextFor(run, role, key, plan) {
       const rj = Number(String(key || "jury-1").split("-").pop()) || 1, hdir = path.join(SKILL_DIR, "library", "benchmarks", "launch-refs");
       Object.assign(ctx, { round: rj, sheet_cmd: `node "${path.join(SKILL_DIR, "scripts", "crew.mjs")}" refsheet --run ${rel(run)} --video <draft.mp4>`, bar: "the house references (Minase, Kinso), not the film itself: blunt, per-beat, numbers" });
       I("FIRST, the five-second cold read: ONLY the first 5 s of the film, 2 fps, 5 tiles a row (crew.mjs refsheet writes it). Open it before anything else, write cold_read in the verdict, then open the rest (agents/reference-juror.md, The five-second cold read)", R(run, "crew", "ref-jury", "first5s-sheet.jpg"));
-      I("THE FILM: contact sheet, 1.5 fps, 8 tiles a row (crew.mjs refsheet writes it; read at 100%)", R(run, "crew", "ref-jury", "film-sheet.jpg"));
+      I("THE FRESH-VIEWER PASS (after the cold read, before the brief and the score): the whole film sheet alone. Write fresh_viewer: what you recall of the product, the benefit and the CTA unaided, and the moments you could not follow (agents/reference-juror.md, The fresh-viewer pass)", R(run, "crew", "ref-jury", "film-sheet.jpg"));
+      I("THE PHONE SHEET: every frame at 390 px wide, 1 fps, 4 tiles a row (crew.mjs refsheet writes it; read at 100%, never zoomed): readability, crop and hierarchy at phone size", R(run, "crew", "ref-jury", "phone-sheet.jpg"));
       I("the brief and the briefing (what the product is and who it is for: compare your cold read with it only AFTER writing the cold read; the concept's one_message sits in story/chosen.json)", R(run, "research", "BRIEFING.md"));
       for (const id of ["kinso", "minase", "sovra"]) I(`house reference ${id}: 1 fps contact sheet (8 tiles a row; look at it BEFORE the film)`, path.join(hdir, id, "thumbs", "1fps-contact-sheet.jpg"));
       for (const id of ["kinso", "minase", "sovra"]) I(`house reference ${id}: beat table`, path.join(hdir, id, "beats.json"));
@@ -3130,12 +3131,12 @@ async function checkRole(run, role, key) {
         const lack = (k) => rows.map((r, i) => (r && (k === "logo" ? r.logo == null : !String(r[k] == null ? "" : r[k]).trim()) ? String(r.id != null ? r.id : r.n != null ? r.n : i + 1) : null)).filter(Boolean);
         for (const k of ["ground", "role", "hero_scale", "ui_scale", "hold_s"]) { const m = lack(k); if (m.length) P.push(`launch film: scenes[].${k} missing on beat(s) ${m.slice(0, 8).join(", ")} (references/launch-grammar.md section 12: ground family, role hook|turn|meet|capability|payoff, hero_scale = cap height % of frame height, ui_scale = UI % of frame area (0 when none), hold_s = longest static hold in s)`); }
         { const gs = new Set(rows.map((r) => String(r && r.ground || "").toLowerCase().trim()).filter(Boolean)); if (rows.length >= 6 && gs.size < 2) P.push(`launch film: only ${gs.size} ground family across ${rows.length} beats (at least 2, alternating: brand-gradient, dark, white)`);
-          const hs = rows.map((r) => Number(r && r.hero_scale)).filter((n) => Number.isFinite(n)); if (hs.length && Math.max(...hs) < 9) P.push(`launch film: the largest hero_scale is ${Math.max(...hs)}% of frame height; hero lines need 9 to 20% at least once per beat`);
+          const hs = rows.map((r) => Number(r && r.hero_scale)).filter((n) => Number.isFinite(n)); if (hs.length && Math.max(...hs) < 9 && !grammarWaivers(sj).waived["display-scale"]) W.push(`launch film: the largest hero_scale is ${Math.max(...hs)}% of frame height (9 to 20% in a beat is the default, not a law): make a hero line big, or record { rule: "display-scale", why } in score.departures`);
           const hl = rows.map((r) => Number(r && r.hold_s)).filter((n) => Number.isFinite(n)); if (hl.length && Math.max(...hl) > 1.5) W.push(`launch film: a beat declares a hold of ${Math.max(...hl)} s (about 1.2 s at most; fill it with a word swap, carrier drift or count-up)`);
           const hook = rows.find((r) => r && String(r.role || "").toLowerCase() === "hook"), dur0 = Number(sj.duration) || 0; if (hook && dur0 && Array.isArray(rows) && rows.length > 1) { const hs0 = rows.filter((r) => String(r && r.role || "").toLowerCase() === "hook").reduce((a, r) => a + (Number(r.duration != null ? r.duration : r.duration_s) || 0), 0); if (hs0 && hs0 / dur0 > 0.25) P.push(`launch film: the hook runs ${hs0.toFixed(1)} s, ${Math.round(100 * hs0 / dur0)}% of the film (at most 25%)`); } }
         for (const k of ["line", "scene_type", "texture", "transition_in", "density", "logo"]) { const m = lack(k); if (m.length) P.push(`launch film: scenes[].${k} missing on beat(s) ${m.slice(0, 8).join(", ")} (the launch-beats gate reads line, scene_type, texture, transition_in, density and logo per beat; carrier_state, moves and imagery are optional but counted when declared)`); }
         // variety, texture, transition, carrier, cliche and move checks (launch-beats.mjs): warnings, shown here so the Director fixes the score before the build
-        try { for (const fd of launchBeatFindings({ plan: sj })) if (fd.severity !== "note" && /^(scene-|texture|transition-variety|carrier-overuse|cliche-|move|imagery-count|clarity-|ui-proof-|core-job|one-message|cta-|copy-buzzword|proof-map|claim-unproven|peak-|distinct-|mood-|hero-missing|motion-language|move-purpose|exit-longer)/.test(fd.check)) W.push(`launch film (${fd.check}): ${fd.message}`); } catch {}
+        try { for (const fd of launchBeatFindings({ plan: sj })) if (fd.severity !== "note" && /^(scene-|texture|transition-variety|hard-cuts|rhythm|bridge-|carrier-overuse|cliche-|move|imagery-count|clarity-|ui-|core-job|one-message|cta-|copy-buzzword|proof-|claim-unproven|peak-|distinct-|mood-|hero-missing|motion-language|move-purpose|exit-longer|persists-|boundary-reset|type-motion|type-break|intensity-|lead-|music-wallpaper|counterpoint|motif-|progression-|set-up|pays-off|payoff-late|same-entrance|easing-|no-new-info|cursor-|sound-|blur-css|ending-|end-frame)/.test(fd.check)) W.push(`launch film (${fd.check}): ${fd.message}`); } catch {}
       }
       if (sj) writeFile(R(run, "motion", "score.md"), renderScoreMd(sj));
       P.push(...s.P);
@@ -3217,9 +3218,19 @@ async function checkRole(run, role, key) {
         if (!om || typeof om !== "object" || !String(om.one_message || "").trim() || typeof om.film_says_it !== "boolean") P.push('"one_message_check" needs { one_message, film_says_it: true|false, extras: [] } (the concept\'s one_message against what the film says)');
         else if ((om.film_says_it === false || (Array.isArray(om.extras) && om.extras.length)) && !(sc < 7)) P.push("one_message_check shows the film misses its one message or says more than it: scores.story_clarity must be under 7, which triggers the fix round");
       }
-      if (v.trigger_fix_round !== (low.length > 0)) P.push('"trigger_fix_round" must be true exactly when any score is under 7');
+      { // the fresh-viewer pass (agents/reference-juror.md): unaided recall of the product, the benefit and the CTA, and the moments it could not follow; it can overrule passing scores
+        const fv = v.fresh_viewer, rc = fv && fv.recall, miss = rc && typeof rc === "object" ? ["product", "benefit", "cta"].filter((k) => !String(rc[k] || "").trim() || /^(none|unclear|no idea|not sure|\?)/i.test(String(rc[k]).trim())) : [];
+        if (!fv || typeof fv !== "object" || !rc || typeof rc !== "object" || !Array.isArray(fv.lost_moments) || typeof fv.overrules_scores !== "boolean") P.push('"fresh_viewer" needs { recall: {product, benefit, cta}, lost_moments: [{t, what}], overrules_scores: true|false } written from the full film sheet alone (agents/reference-juror.md)');
+        else if (miss.length && fv.overrules_scores !== true) P.push(`fresh_viewer.recall is empty or unclear for ${miss.join(", ")}: overrules_scores must be true, because a viewer who cannot recall the product, the benefit or the CTA overrules a passing internal score`);
+        else if (fv.overrules_scores === true && v.trigger_fix_round !== true) P.push('fresh_viewer.overrules_scores is true: "trigger_fix_round" must be true even when every score is 7 or more');
+        const ls = v.logo_swap_test; if (!ls || typeof ls !== "object" || typeof ls.could_advertise_any_saas !== "boolean" || !String(ls.why || "").trim()) P.push('"logo_swap_test" needs { could_advertise_any_saas: true|false, why }: could this film advertise any SaaS product after a logo swap?');
+        else if (ls.could_advertise_any_saas === true && !(Number(v.scores && v.scores.story_clarity) < 7 || Number(v.scores && v.scores.brand_light) < 7)) P.push("logo_swap_test says the film could advertise any SaaS product: story_clarity or brand_light must be under 7, which triggers the fix round (build the motifs from the brand and the product verbs)");
+        if (!v.phone_read || typeof v.phone_read !== "object" || !String(v.phone_read.readability || "").trim()) W.push('"phone_read" is missing: judge readability, crop and hierarchy on crew/ref-jury/phone-sheet.jpg ({ readability, crop, hierarchy })'); }
+      const overrule = !!(v.fresh_viewer && v.fresh_viewer.overrules_scores === true) || !!(v.logo_swap_test && v.logo_swap_test.could_advertise_any_saas === true);
+      if (v.trigger_fix_round !== (low.length > 0 || overrule)) P.push('"trigger_fix_round" must be true exactly when any score is under 7, the fresh viewer overrules the scores or the logo-swap test says yes');
+      if (overrule && !low.length && fixes.filter((x) => x && String(x.beat || "").trim() && String(x.fix || "").trim().length > 20).length < 1) P.push('the fresh viewer or the logo-swap test overrules the scores: "fixes" needs a concrete per-beat fix for the moments it could not follow or the motif that is not the brand\'s');
       if (rj >= 2 && low.length) W.push(`still under 7 after the one fix round (${low.join(", ")}): no third round; name it in the Final as a stated weakness`);
-      if (!P.length) CHECK_EXTRA = { ...(CHECK_EXTRA || {}), reference_jury: { round: rj, scores: v.scores, below_7: low, fix_round: low.length > 0 && rj === 1 ? "ONE targeted fix round, then re-run refsheet and reference-juror jury-2" : "none" } };
+      if (!P.length) CHECK_EXTRA = { ...(CHECK_EXTRA || {}), reference_jury: { round: rj, scores: v.scores, below_7: low, fix_round: (low.length > 0 || overrule) && rj === 1 ? "ONE targeted fix round, then re-run refsheet and reference-juror jury-2" : "none" } };
       break;
     }
     case "frame-juror": {
@@ -4587,7 +4598,11 @@ if (cmd === "plan") {
   const first5 = path.join(dir, "first5s-sheet.jpg");
   const r5 = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-t", "5", "-i", file, "-vf", "fps=2,scale=360:-2,tile=5x2", "-frames:v", "1", "-q:v", "4", first5], { encoding: "utf8" });
   if (r5.status !== 0 || !exists(first5)) die("ffmpeg could not draw the first-5-seconds sheet: " + String(r5.stderr || "").slice(0, 200));
-  out({ ok: true, sheet: rel(sheetPath), first5s_sheet: rel(first5), duration_s: Math.round(dur * 10) / 10, tiles: Math.round(dur * 1.5), seconds_per_tile: 0.667, next: "dispatch the reference-juror (crew.mjs brief --role reference-juror --key jury-1)" });
+  // the viewing-size pass: every frame at phone width (390 px, 1 fps, 4 tiles a row; 0.5 fps over 90 s), read at 100% for readability, crop and hierarchy at the size most viewers watch
+  const phone = path.join(dir, "phone-sheet.jpg"), pfps = dur > 90 ? 0.5 : 1, prow = Math.max(1, Math.ceil(dur * pfps / 4));
+  const rp = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", file, "-vf", `fps=${pfps},scale=390:-2,tile=4x${prow}`, "-frames:v", "1", "-q:v", "4", phone], { encoding: "utf8" });
+  if (rp.status !== 0 || !exists(phone)) die("ffmpeg could not draw the phone-size sheet: " + String(rp.stderr || "").slice(0, 200));
+  out({ ok: true, sheet: rel(sheetPath), first5s_sheet: rel(first5), phone_sheet: rel(phone), phone_tile_width_px: 390, duration_s: Math.round(dur * 10) / 10, tiles: Math.round(dur * 1.5), seconds_per_tile: 0.667, next: "dispatch the reference-juror (crew.mjs brief --role reference-juror --key jury-1)" });
 } else if (cmd === "marks") {
   const run = runDir();
   const file = args.file && args.file !== true ? path.resolve(String(args.file)) : die("--file <draft.mp4 | composition.html> required (the render the notes were left on)");

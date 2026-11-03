@@ -31,7 +31,9 @@ Read `references/launch-grammar.md` (sections 4, 8 and 12). On a launch, promo o
 - Judge clarity (`launch-grammar.md` section 14): the hook or turn makes the category and the audience clear before the logo, each capability line states the viewer's outcome and not the mechanism, and the concept declares a `one_message` that the beats say and nothing else.
 - Drop or rank down an idea whose `cta` has no verb or destination, or whose copy leans on buzzwords from `scripts/lib/copy-lint.mjs`.
 - Judge how the hook lands: the problem is felt in the first lines, no logo.
-- Judge scene variety: 5+ scene types in 45 s, none over 30%, neighbours differ, each scene its own reference move. Reward it, and penalise a one-gimmick film whose one carrier, move or transition runs through every scene, or whose emphasis is an AI cliche from `launch-moves.md`.
+- Judge the declared `structure` (`launch-grammar.md` section 16): the arc is the default candidate, and a sung script, teaser then reveal, parts to assembly, before and after, feature-led or medium-as-proof is better when the `why` fits the product and its distribution; drop an idea whose structure has no reason or defers its only explanation to an absent demo, and keep the clarity rules for every structure.
+- Ask the logo-swap question of each idea: could it advertise any SaaS product after a logo swap? Rank down an idea whose motifs have no brand, product-verb or customer-material source (`motif_source`).
+- Judge scene variety (a default: an idea that records a `departures` why for it is not marked down): 5+ scene types in 45 s, none over 30%, neighbours differ, each scene its own reference move. Reward it, and penalise a one-gimmick film whose one carrier, move or transition runs through every scene, or whose emphasis is an AI cliche from `launch-moves.md`.
 - Judge texture contrast: a stepped or flicker section, calm beats smooth; an all-smooth plan is weaker.
 - Judge imagery with meaning: Codex images only where a scene needs them.
 - Judge motion choreography potential: the signature transition is specific and can be drawn.

@@ -62,7 +62,7 @@ The user decides **taste**: the brief, the film (its style and its story), notes
 - Hold every line fully on screen for **0.6 s + 0.3 s per word, 1.2 s minimum** (4 words: 1.8 s, so held 2.0 s; 6 words: 2.4 s), because viewers read at about 3 words per second.
 - Take the formula from `scripts/lib/reading.mjs` `readTime`, the one source: the plan-level checks (`slop.mjs` on scenes.json, `story.mjs` on the beats) use it as is; the render-level check (`textfit.mjs` `text-too-brief`, on the frames) allows 15% slack (x 0.85), so a line a few frames short reads and one held half its time does not.
 - Hold the key message for at least 2 s, and a small label meant to be read for at least 0.8 s, so the point lands.
-- Ask for at most 3 words per second; if a line does not fit, cut words instead of speeding the text up, because speed breaks reading.
+- Ask for at most 3 words per second; if a line does not fit, cut words instead of speeding the text up, because speed breaks reading. The render-level twin counts only settled, unoccluded time against about 2.7 to 3 words per second, with extra time for figures and long terms (`launch-grammar.md` section 17, `readable-exposure`).
 - Keep the frame around a read line alive (the camera layer, a secondary settling late) and keep its letters still, because re-animating letters pulls the eye off the words.
 - Bring in one text block at a time, so the eye has one place to go.
 - `slop.mjs` `unreadable` flags a scene under the formula; `textfit.mjs` `text-too-brief` flags a rendered line under it.
@@ -203,8 +203,42 @@ Everything obeys `motion.md` (the style's motion language: its signature curves,
 - **The UI answers every action live.** Either the camera follows what the cursor touches (a focus zoom per target, see §6) or the camera stays locked and the UI moves (a panel slides in, a table fills row by row); never both in one scene.
 - **Typing** at 12–18 characters/s with at most 2 natural micro-pauses, one typing sound per burst.
 - **Has somewhere to go:** calm arcs toward its next target, the next leg starting before this one lands, or it leaves through the frame edge; it rests on a target before it clicks, never hovers aimlessly.
+- **Its own track:** keep the pointer path as separate, jitter-free data (a recorded or authored path with no operator shake and no travel after the last action), and draw the cursor from it, never baked into a capture, so travel, size and visibility stay editable (`cursor_track`; `Craft research` below).
 
 **Seek-safety (HyperFrames).** No infinite tweens, no `Math.random` or `requestAnimationFrame`, `fromTo` for entrances, seeded noise sampled on the integer frame index, every tween on the paused timeline.
+
+### Craft research
+
+Rules added from the professional research (`.context/motion-craft-research.md`); the launch-film rules sit in `launch-grammar.md` sections 16 to 19, and every check is a warning. Each line carries its source and its evidence type; a community opinion is marked as one.
+
+**Motion across boundaries**
+- Plan objects across the whole sequence before connecting pairs of boards: an object keeps a role and a destination across the cut, and no shot resets the scene automatically. Record it as `persists: ["element → role in the next beat"]` beside the handoff and carrier fields (`motion-handoffs.md`); `persists-no-destination` and `boundary-reset` check it lightly. Source: Sander van Dijk with Joey Korenman (single practitioner), https://schoolofmotion.com/blog/sander-van-dijk-podcast.
+- Place the next focal point near where the viewer was just looking, because attention carries across a cut. Source: Walter Murch, eye-trace, 7% of his priorities (single practitioner), https://bpb-us-w2.wpmucdn.com/portfolio.newschool.edu/dist/2/14941/files/2017/06/Murch-Walter-in-the-blink-of-an-eye-RULEofSIX-1tly3uz.pdf.
+
+**Meaning to motion for hero type**
+- Choose each hero line's animation unit (`letter | word | line | block`) and its behaviour from what the word means and how it is laid out, and record `type_motion: {unit, behaviour, meaning}`, because a preset applied to unlike words reads as default. Source: Ordinary Folk, Google Gemini case (studio practice), https://www.ordinaryfolk.co/project/gemini; School of Motion editorial, 10 Tiny Typography Decisions (studio practice), https://schoolofmotion.com/blog/tiny-typography-decisions-motion-graphics.
+- Stretch or smear type in proportion to its speed, and return to the exact glyph outlines before the readable hold. Source: Nol Honig, Stretch and Smear Text (single practitioner), https://schoolofmotion.com/blog/stretch-and-smear-text-tutorial.
+- Break large type at grammatical units and kern it optically, art-directing the actual words and their movement together, because careless gaps and breaks are the tell of default type (`type-break`). Source: Mike Frederick, School of Motion (single practitioner), https://schoolofmotion.com/blog/4-simple-tips-to-design-with-contrast-and-type; Netflix timed-text general requirements (studio practice, for subtitles), https://partnerhelp.netflixstudios.com/hc/en-us/articles/215758617-Timed-Text-Style-Guide-General-Requirements.
+
+<example>
+good: "Split" in the hook: unit `letter`, behaviour "the word cracks along its middle and the halves slide apart", meaning "the problem is a break"; "Together" in the payoff: unit `word`, behaviour "two words slide into one line and lock", meaning "joining".
+good: "Instantly": unit `block`, behaviour "the block lands in one frame with a 1 to 2 frame smear and no bounce", meaning "speed".
+bad: every hero line "fades up word by word", whatever it says (`type-motion-same`); "the" alone on a line of large type (`type-break`).
+</example>
+
+**Cursor and framing**
+- Frame the result an action causes, not the click, and use a manual framing target where the click and the result differ, because a click location is not always what the viewer must see. Source: Screen Studio, adding and editing zooms (studio practice), https://preview.screen.studio/guide/adding-editing-zooms.
+- Keep the cursor's data separate from the capture, remove jitter and stop-recording travel, and hide or scale the pointer by its instructional role. Source: Screen Studio product-demo recording method and cursor guide (studio practice), https://screen.studio/create/product-demo-videos and https://preview.screen.studio/guide/cursor.
+
+**Exposure cadence and real motion blur**
+- Step motion only on named tracks (`texture: stepped` per beat, an exposure of twos or threes per layer), keep the camera fluid under stepped art, and never confuse exposure with the export frame rate. Source: D'Source exposure-sheet conventions (studio practice), https://www.dsource.in/course/exposure-sheet/conventions; Danni Fisher-Shin, School of Motion (single practitioner), https://schoolofmotion.com/blog/newer-software-for-2d-character-animation-danni-fisher-shin.
+- Link motion blur to velocity: a directional blur whose length is speed times a half-frame shutter (180 degrees: 1/48 s at 24 fps), exactly zero at rest. `RasanTexture.motionBlur(tl, at, {el, dx, dy, duration, ease})` does this and is seek-safe (`runtime/rasan-texture.js`); a constant CSS blur is a defocus effect and not motion blur (`blur-css-motion`). Source: Adobe After Effects documentation on motion blur and Adobe Learn, pixel motion blur (studio practice), https://helpx.adobe.com/after-effects/desktop/animate-in-after-effects/assorted-animation-tools/assorted-animation-tools.html and https://www.adobe.com/learn/after-effects/web/aftereffects-pixel-motion-blur-cc.
+- Use a smear for a brief transit pose only: 1 to 2 frames at the fastest displacement, with the normal shape back before the readable hold. Source: Steve Savalle, School of Motion (single practitioner), https://schoolofmotion.com/blog/how-to-squash-and-stretch-animations-more-efficiently.
+- Inspect fast sections for fog and ghost copies: a blur that persists on a held frame, or a repeated silhouette from too few samples, is a defect. Raise the temporal samples or shorten the smear, and keep post-blur away from overlapping foregrounds that have no hidden pixels. The render gate reports `ghost-copies` when the same text shows twice in overlapping boxes. Source: Adobe, as above; Joey Korenman, depth-of-field compositing (single practitioner), https://schoolofmotion.com/blog/depth-of-field-cinema-4d-nuke-after-effects.
+
+**AI tells to inspect in craft**
+- Keep easing readable: a curve so steep that an important object's action cannot be followed needs a softer curve or more time (`easing-extreme`). Source: a community critique of a wheel arrival (opinion), https://www.reddit.com/r/MotionDesign/comments/1hwj5w1/.
+- Keep shadows and glows below the UI's own hierarchy: check them against the actual interface, because deep shadows and glows overpower it. Source: a community critique (opinion), https://www.reddit.com/r/MotionDesign/comments/1swdixt/.
 
 ### Frame budgets and the measured eases
 
@@ -412,7 +446,7 @@ Kinso's next element arrives before the previous one leaves; its frame is never 
 
 - **Overlap on continuity seams.** (Plan 05: a hard cut or a stated hold owes no overlap.) The incoming element starts 0.2 to 0.4 s before the outgoing one has fully left (its first word, its card edge, the next rung's title), so for a moment both are on screen. `crew.mjs checkScore` warns `no-overlap` when the `in` element starts after the `out` element has gone.
 - **No clear-to-ground between beats.** A beat never ends on the bare ground and then starts again; the ground always carries something (the carrier, a settling word, the next card arriving).
-- **Breaths are declared.** The one deliberate near-empty moment is a breath at the rest before the peak (the intent's `rest_after`): `score.breaths: [[t0,t1]]`, each 1.0 s or shorter, two at most. The end hold (last 1.4 s) is exempt. `motion-gate.mjs` fails `empty-frames` (more than 10% of sampled frames near-empty) and `gap-between-beats` (a near-empty stretch over 0.3 s between two beats) outside them.
+- **Breaths are declared.** The one deliberate near-empty moment is a breath at the rest before the peak (the intent's `rest_after`): `score.breaths: [[t0,t1]]`, each 1.0 s or shorter, two at most. The end hold is exempt (the last 1.4 s of a general film; a launch film settles its end frame for 2 to 4 s, `launch-grammar.md` section 17). `motion-gate.mjs` fails `empty-frames` (more than 10% of sampled frames near-empty) and `gap-between-beats` (a near-empty stretch over 0.3 s between two beats) outside them.
 
 ### A living ground
 
@@ -737,7 +771,7 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | A sound for every motion (Mickey-Mousing), machine-gun clicks [sfx-overload] | Causal events only, on the budget, ≥ ⅓ unsounded, ≥ 3 variants. |
 | Looping music, a bed shorter than the film, an audible seam [music-loop] | A longer track or an edit by structure on bar lines. |
 | Silent films, quiet openings (−30 dBFS in the first seconds) [loudness] | Full bed level in second 0–1; −14 LUFS. |
-| Abrupt endings mid-phrase, long generic fades, black or silent tails [no-end-hold] | The track's own ending or a button on a 2–3 s end card (at most 1.4 s of it still) with a tail. |
+| Abrupt endings mid-phrase, long generic fades, black or silent tails [no-end-hold] | The track's own ending or a button on a 2–3 s end card (at most 1.4 s of it still; a launch film settles 2 to 4 s) with a tail. |
 | Ukulele, whistles, claps, glockenspiel, "inspirational" piano, keynote minimal house | A music brief naming genre, instrumentation, BPM and a reason. |
 | Music over the voice; a robotic TTS read; a voice that contradicts the picture | VO −12 LU; see-and-say sync; TTS checked by ear, or no voice. |
 
