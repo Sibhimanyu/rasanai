@@ -10,13 +10,18 @@
 //                  readout and two warnings (never all smooth, never all stutter), not a failure: stepped motion is a designed contrast
 //                  (references/launch-grammar.md "Motion texture"). Stepped holds of 3 frames or less count as motion in the stillness measure.
 //   hook           the hook + turn beats (up to the reveal) as a share of the film
+// MEASURED DEFECTS stay hard: an unlit, empty or low-coverage frame (scale-coverage), meaningful stillness, photosensitivity and unreadable text. Everything the research found unsourced
+// (a minimum display-scale type size, a texture share, an end-card length) is guidance: a warning that asks the score to explain the change (departures [{rule, why}]), a note once it does.
+//   readable exposure  each essential line's SETTLED, UNOCCLUDED time against about 2.7 to 3 words per second (lib/readable-exposure.mjs): a warning from the composition's DOM, never a failure
 // Text size comes from the HTML composition's DOM (frame-gate's domTextProject), passed in as textRows [{t, bigPct}] (bigPct = the
 // tallest visible ink as % of frame height) or measured here when the project is given and no rows were passed.
-//   node lib/launch-gates.mjs --video <mp4> [--project <dir>] [--score <score.json>] [--text-rows <json>] [--end-hold 1.4] [--json]
+//   node lib/launch-gates.mjs --video <mp4> [--project <dir>] [--score <score.json>] [--text-rows <json>] [--end-hold 4.0] [--json]
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { grammarWaivers } from "./gate-profile.mjs";
+import { readableExposure } from "./readable-exposure.mjs";
 
 export const LAUNCH_GATE = {
   fps: 4, W: 640, H: 360,
@@ -33,7 +38,7 @@ export const LAUNCH_GATE = {
   // photosensitivity (WCAG 2.3.1 / Ofcom): a large swing of the whole frame's mean luma (>= flash_swing of 255, opposite directions) is a flash; more than 3 flashes in any second warns
   flash_swing: 50, flash_max_per_s: 3,
   // atmosphere: lit when ANY of: saturated light is strong on the busiest frames, the median frame carries colour, or the colour of the film changes a lot over time
-  lit_sat_p90: 0.05, lit_chroma_med: 6, lit_chroma_sd: 5, tail_lit_max_s: 3.0, tail_ambient_min: 0.4,
+  lit_sat_p90: 0.05, lit_chroma_med: 6, lit_chroma_sd: 5, tail_lit_max_s: 4.0, tail_ambient_min: 0.4,
   nonsmooth_min: 0.15, nonsmooth_max: 0.6, // the doctrine aims at 15-40%; the render measure warns only past 60% (it also counts footage that is genuinely busy)
 };
 
@@ -173,11 +178,11 @@ export function beatsOf(score) {
   return sc.filter((s) => Number.isFinite(+s.start) && Number.isFinite(+s.end)).map((s) => ({ id: s.id, role: String(s.beat || s.role || ""), start: +s.start, end: +s.end }));
 }
 
-export async function launchGates({ video, project = null, score = null, textRows = null, endHold = 1.4, opts = {} } = {}) {
+export async function launchGates({ video, project = null, score = null, textRows = null, endHold = 4.0, opts = {} } = {}) {
   const G = { ...LAUNCH_GATE, ...opts }, findings = [], measured = {};
   const add = (check, severity, message) => findings.push({ check, severity, message });
   const dec = decode(path.resolve(video), G), dur = dec.n / G.fps;
-  const sc = typeof score === "string" ? jr(score) : score, beats = beatsOf(sc);
+  const sc = typeof score === "string" ? jr(score) : score, beats = beatsOf(sc), dep = grammarWaivers(sc || {}).waived;
   const accentHex = sc && ((sc.style && sc.style.palette && sc.style.palette.accent) || (sc.accent && sc.accent.colour) || (sc.accent && sc.accent.color) || null);
   const ac = hexRgb(accentHex), accentHue = ac ? hueOf(...ac)[0] : null;
   let { rows, autoHue } = pixelMeasures(dec, G, accentHue);
@@ -202,7 +207,7 @@ export async function launchGates({ video, project = null, score = null, textRow
     try {
       const { domTextProject } = await import("../frame-gate.mjs");
       const times = rows.map((r) => r.t), d = await domTextProject(project, times);
-      if (d.rows) textRows = d.rows.map((x, i) => ({ t: times[i], bigPct: x.bigPct })); else measured.text_unmeasured = d.could_not_run;
+      if (d.rows) textRows = d.rows.map((x, i) => ({ t: times[i], bigPct: x.bigPct, blocks: x.blocks })); else measured.text_unmeasured = d.could_not_run;
     } catch (e) { measured.text_unmeasured = [String(e.message).slice(0, 120)]; }
   }
   if (textRows && textRows.length) {
@@ -211,7 +216,10 @@ export async function launchGates({ video, project = null, score = null, textRow
     measured.type_tallest_pct = r2(Math.max(0, ...perBeat.map((b) => b.max_pct)));
     const small = perBeat.filter((b) => b.max_pct < G.small_pct).length;
     measured.beats_small_type_share = r2(small / perBeat.length);
-    if (measured.type_tallest_pct < G.giant_pct) add("scale-display-type", "error", `no beat has display-scale type: the tallest type is ${measured.type_tallest_pct}% of the frame height (at least ${G.giant_pct}% in one beat); make the key line big`);
+    if (measured.type_tallest_pct < G.giant_pct) { const why = dep["display-scale"]; // no source sets a minimum type size: a default with a reason, not a failure
+      if (why) add("scale-display-type", "note", `departs by choice (${why}): the tallest type is ${measured.type_tallest_pct}% of the frame height (${G.giant_pct}% is the default for one beat)`);
+      else add("scale-display-type", "warning", `no beat has display-scale type: the tallest type is ${measured.type_tallest_pct}% of the frame height (${G.giant_pct}% in one beat is the default, not a law): make the key line big, or record { rule: "display-scale", why } in score.departures`); }
+    if (textRows.some((r) => r.blocks)) { const ts = textRows.map((r) => r.t).filter(Number.isFinite), step = ts.length > 1 ? Math.max(1e-3, (ts[ts.length - 1] - ts[0]) / (ts.length - 1)) : 1 / G.fps, ex = readableExposure(textRows, step); measured.readable_exposure = ex.summary; for (const fd of ex.findings) add(fd.check, fd.severity, fd.message); }
     if (small / perBeat.length > G.small_share) add("scale-small-type", "warning", `${small} of ${perBeat.length} beats have their largest type under ${G.small_pct}% of the frame height`);
   } else measured.type_skipped = "no DOM text measure (no --project)";
 
@@ -235,7 +243,7 @@ export async function launchGates({ video, project = null, score = null, textRow
   if (longest.s > G.still_error_s) add("meaningful-stillness", "error", `${longest.s} s from ${longest.at} s has no meaningful change (only drift, blur or creep; ${G.still_error_s} s at most): give that beat a real event (a new element, a word swap, a camera move)`);
   else if (longest.s > G.still_warn_s) add("meaningful-stillness", "warning", `${longest.s} s from ${longest.at} s has no meaningful change (${G.still_warn_s} s is the comfortable limit)`);
   { const amb = tail_s > 0 ? tailAmbient(dec, G, G.fps, tail_s) : 0; measured.tail_ambient = amb;
-    const okLit = tail_s <= G.tail_lit_max_s + 1 / G.fps && amb >= G.tail_ambient_min; // a logo end card holds up to ~3 s while light keeps moving
+    const okLit = tail_s <= G.tail_lit_max_s + 1 / G.fps && amb >= G.tail_ambient_min; // a settled end frame of 2 to 4 s is the starting value (more for a URL or several calls to action)
     if (tail_s > endHold + 1 / G.fps && !okLit) add("meaningful-stillness-tail", "warning", `the film is unchanged for its last ${tail_s} s (an end-card hold is ${endHold} s at most, about ${G.tail_lit_max_s} s when ambient light keeps moving)`); }
 
   // 3b texture: a readout, with two warnings. Stepped motion is never a stillness failure (its holds are <= 3 frames; the 0.5 s novelty lag above sees the jumps).
@@ -244,8 +252,9 @@ export async function launchGates({ video, project = null, score = null, textRow
     if (tx) {
       measured.texture = tx;
       if (tx.max_flashes_per_s > G.flash_max_per_s) add("photosensitivity-flash", "warning", `${tx.max_flashes_per_s} large full-frame luminance flashes within one second near ${tx.flash_at_s} s (${G.flash_max_per_s} per second at most, WCAG 2.3.1 / Ofcom)`, "keep a flicker burst's ground constant and change only part of the frame, keep the luminance swing small, never alternate full-frame black and white or flash saturated red");
-      if (dur >= 20 && tx.nonsmooth_share === 0) add("texture-all-smooth", "warning", "recommendation: no stepped or flicker section found in the render, every beat moves smoothly. A crisp smooth film can be right; a stepped collage or a flicker burst usually adds energy, with the calm beats kept smooth");
-      else if (tx.nonsmooth_share > G.nonsmooth_max) add("texture-all-stutter", "warning", `${Math.round(tx.nonsmooth_share * 100)}% of the film is stepped or flicker (about 15-40% is the target): let the calm beats (meet, payoff, end) move smoothly`);
+      const soft = (check, msg) => (dep.texture ? add(check, "note", `departs by choice (${dep.texture}): ${msg}`) : add(check, "warning", `${msg} (a default, not a law: record { rule: "texture", why } in score.departures to keep it)`));
+      if (dur >= 20 && tx.nonsmooth_share === 0) soft("texture-all-smooth", "no stepped or flicker section found in the render, every beat moves smoothly. A crisp smooth film can be right; a stepped collage or a flicker burst usually adds energy, with the calm beats kept smooth");
+      else if (tx.nonsmooth_share > G.nonsmooth_max) soft("texture-all-stutter", `${Math.round(tx.nonsmooth_share * 100)}% of the film is stepped or flicker (about 15-40% is the starting value): let the calm beats (meet, payoff, end) move smoothly`);
     }
   } catch (e) { measured.texture_unmeasured = String(e.message).slice(0, 120); }
 
@@ -267,7 +276,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const a = parseArgs();
   if (!a.video) { console.error("usage: node lib/launch-gates.mjs --video <mp4> [--project <dir>] [--score <score.json>] [--text-rows <json>]"); process.exit(1); }
   const rows = a["text-rows"] ? jr(String(a["text-rows"])) : null; // [{t, bigPct}] from frame-gate's --json frames (saves a second DOM pass)
-  const res = await launchGates({ video: String(a.video), project: a.project ? path.resolve(String(a.project)) : null, score: a.score ? String(a.score) : null, textRows: Array.isArray(rows) && rows.length ? rows : null, endHold: Number(a["end-hold"]) || 1.4 });
+  const res = await launchGates({ video: String(a.video), project: a.project ? path.resolve(String(a.project)) : null, score: a.score ? String(a.score) : null, textRows: Array.isArray(rows) && rows.length ? rows : null, endHold: Number(a["end-hold"]) || 4.0 });
   console.log(JSON.stringify(res, null, 2));
   process.exit(res.ok ? 0 : 2);
 }

@@ -86,7 +86,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs, die, readJSON, writeFile } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import * as ESH from "./lib/earshot.mjs";
-import { sfxDensityBand } from "./lib/ref-targets.mjs";
+import { sfxDensityBand, sfxDepartureWhy } from "./lib/ref-targets.mjs";
 import { track } from "./lib/report.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
@@ -1005,8 +1005,10 @@ function check() {
     {
       const designed = cues.filter((c) => !/typ|key|tick|click|texture/i.test(String(c.kind || ""))).length, per10 = (designed / dur) * 10, band = sfxDensityBand(args.run && args.run !== true ? path.resolve(String(args.run)) : null, args.mode && args.mode !== true ? String(args.mode) : undefined);
       measures.sfx_designed = { count: designed, per_10s: r1(per10), band: [band.lo, band.hi], error_above: band.err, from_refs: band.fromRefs };
-      if (dur >= 10 && per10 > band.err) P("SFX density per 10 s", `${r1(per10)} designed SFX per 10 s`, `<= ${band.err} (band ${band.lo}-${band.hi})`, "drop the weakest cues: sounds only on causal, designed moments");
-      else if (dur >= 10 && cues.length && (per10 > band.hi || per10 < band.lo)) warnings.push(`sfx-density: ${r1(per10)} designed SFX per 10 s is outside ${band.lo}-${band.hi}${band.fromRefs ? " (the run's reference films)" : ""}: ${per10 > band.hi ? "thin it to the moments that matter" : "add cues on the real landings and the reveal"}`);
+      const why = sfxDepartureWhy(args.run && args.run !== true ? path.resolve(String(args.run)) : null);
+      if (why) measures.sfx_designed.departs_because = why;
+      if (dur >= 10 && per10 > band.err && !why) warnings.push(`sfx-density: ${r1(per10)} designed SFX per 10 s is above ${band.err} (band ${band.lo}-${band.hi}, a default and not a law): drop the weakest cues so sounds sit on causal, designed moments, or record { rule: "sfx-density", why } in score.departures`);
+      else if (!why && dur >= 10 && cues.length && (per10 > band.hi || per10 < band.lo)) warnings.push(`sfx-density: ${r1(per10)} designed SFX per 10 s is outside ${band.lo}-${band.hi}${band.fromRefs ? " (the run's reference films)" : ""}: ${per10 > band.hi ? "thin it to the moments that matter" : "add cues on the real landings and the reveal"}`);
     }
     // revision 2: a layered event counts ONCE for editorial density; every layer counts for the technical resources and the summed level (sfx-layers)
     if (rev2c && cues.some((c) => c.layers)) {

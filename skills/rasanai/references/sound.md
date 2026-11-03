@@ -17,6 +17,8 @@
 - [Choosing music](#choosing-music)
 - [Editing music to picture (what fit does)](#editing-music-to-picture-what-fit-does)
 - [Sound effects (what sfx-plan enforces)](#sound-effects-what-sfx-plan-enforces)
+- [Phrase and lead (which medium leads each passage)](#phrase-and-lead-which-medium-leads-each-passage)
+- [Selective sound hierarchy](#selective-sound-hierarchy)
 - [Voiceover](#voiceover)
 - [Sound that follows the picture (spotting)](#sound-that-follows-the-picture-spotting)
 - [Voice: take, listen, retake](#voice-take-listen-retake)
@@ -282,6 +284,31 @@ One table (`SFX_BUDGET` in `lib/audio.mjs`) feeds `sfx-plan`, `sound.mjs check` 
 - **Harshness:** > 35% of energy above 5 kHz or > 60% at 2-5 kHz on a > 0.5 s sound means lowpass (9 kHz) or another sample. The bundled `key-press`, `glitch-3`, `sparkle` and `chime` fail this. All UI sounds are lowpassed at 11 kHz and high-passed at 100 Hz; only hero hits own the sub.
 - **Tonal SFX** (pings, chimes) belong in the music's key or should be swapped for atonal ones; ≤ 1 per scene.
 - **Voiceover:** no SFX transient within ±150 ms of a stressed word (`--words audio_meta.json` moves it 1-2 frames later or drops it).
+
+## Phrase and lead (which medium leads each passage)
+
+Choose the mode before you build: a musical launch needs audio planned early and still gets a muted-picture review, because music can prop up a weak picture edit.
+
+- Mark which medium leads each passage, `lead: vo | music | sound | picture` per beat in the score (`launch-grammar.md` section 17; `lead-missing`), and align each section to a musical phrase (`phrase`, for example bars 9 to 12), because words, music and sound take turns leading. Source: Paddy Bird, Duet Theory and musical element assignment (single practitioner), https://www.insidetheedit.com/blog/mistake-editors-make-cutting-music.
+- Give the music's important phrase room after a key spoken line, with the pause following the phrase rather than a fixed length, and avoid truncating a flourish. Source: Paddy Bird, as above.
+- Assign visual accents to particular musical elements (a swell, a hi-hat, a riser) instead of cutting every kick, and store which element each accent follows. Source: Paddy Bird, as above.
+- Lower SFX prominence while the music leads, and move or edit a stem that obstructs a key sound. Source: Sono Sanctus live audio breakdown (studio practice), https://schoolofmotion.com/blog/sono-sanctus-podcast-podcast.
+- Allow deliberate counterpoint, where sound subverts the action (calm music under a frantic picture), mark it (`counterpoint: true` with `counterpoint_why`) and keep essential instructional causality clear. Source: Skillbard, Motionographer interview (studio practice), https://partners.motionographer.com/2024/11/11/unsung-heroes-skillbard/.
+- Give music or sound the lead in at least one passage, because a score that never leads is wallpaper (`music-wallpaper`). Source: Paddy Bird, as above (a ranked editorial diagnosis in the research, not a validated detector).
+- Test the picture rhythm with the music muted once, and treat holds with no useful new information as the finding. Source: Zack Arnold, Art of the Cut interview (single practitioner), https://blog.frame.io/2021/06/02/art-of-the-cut-cobra-kai-zack-arnold/.
+- Resolve the music: end on the track's own ending, a sting or a controlled ringout whose reverb tail supports the settled end frame, and pair it with the picture's resolve (`ending`, `launch-grammar.md` section 17). Source: Ben Haslup, https://blog.frame.io/2017/11/08/make-music-fit-your-video/, and Chris Salters, https://blog.frame.io/2023/06/07/insider-tips-stretch-music-tracks-in-premiere-pro/ (single practitioners).
+
+<example>
+good: beat 6 `lead: "music"`, `phrase: "bars 9 to 12"`: the key line lands, the VO stops and the phrase carries two bars before the next cut; beat 3 `counterpoint: true`, `counterpoint_why: "a calm pad under the frantic inbox"`.
+bad: every beat `lead: "vo"` with the bed under it at one level, and cuts on every kick.
+</example>
+
+## Selective sound hierarchy
+
+- Give signature sounds to the few important actions (`sfx_role: signature`) and let the rest stay abstract or silent, because hierarchy survives the mix and an equal whoosh on every event does not. Source: Sono Sanctus live audio breakdown (studio practice), https://schoolofmotion.com/blog/sono-sanctus-podcast-podcast.
+- Leave room for the score: reduce SFX when music takes the lead, and build anticipation, tension and release in the audio as well as the picture. Source: Stefan Kostaras, pelican sound, Motionographer interview (single practitioner), https://partners.motionographer.com/2025/04/21/unsung-heroes-pelican-sound/.
+- Treat the designed-SFX band for the sound mode (1.5 to 2.2 per 10 s for a music-led film; `SFX_BANDS` in `lib/ref-targets.mjs`) as a default and not a law, because no source sets an SFX-per-second target: outside the band is a warning that asks for a why, and `departures: [{rule: "sfx-density", why}]` in the score explains a denser designed texture. The causal-events rule and the per-mode budget table stay (they protect the mix).
+- Check the sound hierarchy: a signature sound exists, and fewer than about 40% of beats carry one (`sound-anchor-missing`, `sound-hierarchy-flat`).
 
 ## Voiceover
 

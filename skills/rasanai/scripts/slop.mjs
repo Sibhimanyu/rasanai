@@ -31,7 +31,7 @@ import { readTime, wordCount } from "./lib/reading.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
 import { decodeGrey, findCuts } from "./lib/carry.mjs";
 import { sfxMode, sfxLimit, sfxOver, SFX_BUDGET } from "./lib/audio.mjs";
-import { sfxCapPerSec, sfxDensityBand } from "./lib/ref-targets.mjs";
+import { sfxCapPerSec, sfxDensityBand, sfxDepartureWhy } from "./lib/ref-targets.mjs";
 import { readOpticsPlans, opticsOwns } from "./lib/optical-treatments.mjs";
 
 const args = parseArgs();
@@ -222,8 +222,9 @@ if (filmLen && sfxCount > sfxLim + 1) add("sfx-overload", "error", `${sfxCount} 
 if (filmLen >= 10) {
   const des = audioRefs.filter((r) => !/music|bgm|\/texture-|\bbed\b|[-_/]bed[-_.]|voice|(^|[-_/])vo[-_.]|narrat|typ|key|tick|click/i.test(r)).length, per10 = (des / filmLen) * 10;
   const band = sfxDensityBand(args.run && args.run !== true ? path.resolve(String(args.run)) : null);
-  if (per10 > band.err) add("sfx-density", "error", `${per10.toFixed(1)} designed SFX per 10 s`, `More than ${band.err} designed sound effects per 10 s: none of them matter.`, "Keep the causal, designed moments (about 1.5-2.2 per 10 s).");
-  else if (des && (per10 > band.hi || per10 < band.lo)) add("sfx-density", "warn", `${per10.toFixed(1)} designed SFX per 10 s`, `Designed SFX density sits outside ${band.lo}-${band.hi} per 10 s.`, per10 > band.hi ? "Thin the cues to the moments that matter." : "Add cues on the real landings and the reveal.");
+  const why = sfxDepartureWhy(args.run && args.run !== true ? path.resolve(String(args.run)) : null);
+  if (per10 > band.err && !why) add("sfx-density", "warn", `${per10.toFixed(1)} designed SFX per 10 s`, `More than ${band.err} designed sound effects per 10 s: the band is a default, and a crowd of cues leaves no hierarchy.`, "Keep the causal, designed moments (about 1.5-2.2 per 10 s), or record { rule: \"sfx-density\", why } in score.departures.");
+  else if (!why && des && (per10 > band.hi || per10 < band.lo)) add("sfx-density", "warn", `${per10.toFixed(1)} designed SFX per 10 s`, `Designed SFX density sits outside ${band.lo}-${band.hi} per 10 s.`, per10 > band.hi ? "Thin the cues to the moments that matter." : "Add cues on the real landings and the reveal.");
 }
 // SFX come only from the run's sfx-plan.json (sound.mjs sfx-plan): more clips than planned cues means hand-mounted sounds (a clip per keystroke is the usual one)
 {

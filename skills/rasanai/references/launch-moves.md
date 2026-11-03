@@ -41,7 +41,7 @@ Read with `launch-grammar.md` (section 4e). The moves were watched frame by fram
 
 ## Motion texture
 
-This section is the one home for texture placement, stepped use and the flash-burst rules; `launch-grammar.md` (4b) links here. Declare a `texture` on every beat. Checks are warnings: `texture-all-smooth`, `texture-mix`, `texture-calm-beat`, `texture-fps`.
+This section is the one home for texture placement, stepped use and the flash-burst rules; `launch-grammar.md` (4b) links here. Declare a `texture` on every beat. Checks are warnings: `texture-all-smooth`, `texture-mix`, `texture-calm-beat`, `texture-fps`. The texture share and the stepped section are defaults (`launch-grammar.md` "Defaults you can leave"): a film that leaves them records a `texture` departure with its why.
 
 | texture | What it is |
 |---|---|
@@ -174,7 +174,7 @@ The score's per-beat `moves_named[]` names these ids. The first four columns are
 
 ## AI cliches: replace, or use rarely
 
-The checks are warnings in `launch-beats` (`clicheFindings`). Two true invariants, no pulsing glows and no bokeh or floating particles as atmosphere, have no allowed use. Everything else has a replacement or a rare budget.
+The checks are warnings in `launch-beats` (`clicheFindings`, `craftResearchFindings`). The last nine rows come from the professional research's AI-tells list (`.context/motion-craft-research.md`), a ranked editorial diagnosis and not a validated detector; its community critiques are opinions, not studio consensus. Two true invariants, no pulsing glows and no bokeh or floating particles as atmosphere, have no allowed use. Everything else has a replacement or a rare budget.
 
 | Cliche | Do this | Check |
 |---|---|---|
@@ -196,6 +196,15 @@ The checks are warnings in `launch-beats` (`clicheFindings`). Two true invariant
 | An underline swiping under a word as the emphasis | use it once per film, never on the highlight beat | `cliche-underline` |
 | One carrier, move or transition across the whole film | cap a carrier at 40% of beats, a move at 2 beats, a transition family at 30% of seams | `carrier-overuse`, `move-repeat`, `transition-variety` |
 | Everything centred, everything smooth on one ease | contrast scale and texture | `texture-*`, `scene-*` |
+| Every shot uses the same enter, wait, exit pattern | plan a sequence of actions, carried states and purposeful cuts; vary how beats arrive and leave | `same-entrance-exit` (70% or more of 5 or more beats) |
+| Easing so extreme that the action is unreadable | soften the curve or give the action more time, so the viewer sees what moved and where it landed | `easing-extreme` |
+| Careless gaps or breaks in large type | art-direct the actual words: break at grammatical units, kern optically, move the word as its shape suggests (`craft.md` "Craft research") | `type-break`, `type-motion-missing`, critic |
+| Shadows or glows that overpower the UI | reduce them and check them against the real interface hierarchy | critic, reference juror (render review) |
+| Blur that leaves fog or ghost copies | link blur to velocity (`RasanTexture.motionBlur`, zero at rest), keep a smear to 1 to 2 frames, raise the samples | `blur-css-motion`, `ghost-copies` |
+| A beautiful middle with no cumulative progression or payoff | link beats causally: `set_up` plants it, `pays_off` cashes it in during the last third | `progression-missing`, `set-up-dangling`, `payoff-late-missing` |
+| A logo-swappable film | build motifs from a brand element, a product verb or the customer's material (`motif_source`); fail the logo-swap test | `motif-source-missing`, reference juror `logo_swap_test` |
+| Music as wallpaper | mark which medium leads each passage, and give the music or a sound the lead in at least one (`sound.md` "Phrase and lead") | `music-wallpaper`, `lead-missing` |
+| Ten seconds with no new information | trim the stretch or turn it into a legible demonstration with a new fact, state or result | `no-new-info` |
 
 <example>
 good: emphasis on "here": a pill rises through the word and pushes the letters apart (`object-splits-word`), the text blurs on a rack while the pill stays sharp.

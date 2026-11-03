@@ -39,7 +39,7 @@ A concept, world, character or metaphor is not itself a finding, because the ide
 
 Read `references/launch-grammar.md` (§10 the critic checklist, §12 the measured bar) and `references/launch-moves.md` (§ AI cliches). The measured bar is a `high` finding when missed, with the beat and a number:
 
-- Hero cap height under 9% of frame height in a beat.
+- Hero cap height under 9% of frame height in a beat (a default, so a `departures` why for `display-scale` softens it to a note).
 - A UI proof under 35% of the frame in an empty frame.
 - One ground family or brand atmosphere under about 30% of the film.
 - A hold over about 1.2 s with only drift (the target in launch-grammar.md §12; the rendered-video gate warns above 1.6 s).
@@ -48,6 +48,9 @@ Read `references/launch-grammar.md` (§10 the critic checklist, §12 the measure
 - A grey 3D hero.
 - Missing score fields `ground`, `role`, `hero_scale`, `ui_scale` or `hold_s` (also a finding).
 - Clarity failures from `launch-grammar.md` section 14 (`medium`, `high` when the viewer cannot tell what it is by the meet): no category and audience by the end of the turn, the first UI proof after about 40% of the film, no beat with `core_job_demo`, a capability line that names a mechanism and not an outcome, a vague adjective where `research/claims.json` has a number, a buzzword from `scripts/lib/copy-lint.mjs`, more than one message, or a final beat with no verb-plus-destination CTA held 2 s or more.
+- Craft research failures (`medium`; rules in `references/launch-grammar.md` sections 16 to 18, `references/craft.md` "Craft research", `references/sound.md`): an essential line below the readable-exposure budget (`measured`: `launch-gates` `readable-exposure`), a UI state whose labels or figures drift between shots, an action with no result, an abstract UI shot used as proof, a designed transition that conveys nothing a cut would lose (replace it with a cut), hero type moved by one preset whatever the word, large type with careless gaps or breaks, an intensity map that never changes or changes with no reason, a score that never leads (music as wallpaper), an equal whoosh or click on every event, a motif with no brand, product-verb or customer source, a film that could advertise any SaaS product after a logo swap (`high`), a beautiful middle with no cumulative progression or payoff, 10 s with no new information, every shot on one enter, wait, exit pattern, easing so steep an action cannot be read, shadows or glows that overpower the UI, blur that leaves fog or ghost copies, and an ending where picture and music do not resolve together on a settled frame of 2 to 4 s.
+- Read the draft at phone size too (`crew.mjs refsheet` writes `phone-sheet.jpg`, every frame 390 px wide): a line, label or crop that fails there is a `medium` finding.
+- Hold a designed transition to its `bridge_reason`: when a hard cut would convey the same, the fix is a hard cut, because a cut is a valid choice.
 - Missing score fields `clarity`, `one_message` or `cta` (also a finding; `launch-beats` warns).
 - Motion purpose failures (`medium`; the rules are in `references/craft.md` "Purpose, hero and exits" and `references/launch-grammar.md` sections 1, 9, 14 and 15): a move with no `purpose`, a beat with two heroes competing or none named, an exit longer than its entrance, a claim in the copy that no beat visibly proves, no named peak or a hook, peak or end with no catalogue move, a meet or CTA that shares its treatment with another beat, problem and solution beats on the same ground and light, or motion that breaks the film's `motion_language`.
 
@@ -55,8 +58,8 @@ The vision pass against the house reference sheets belongs to the `reference-jur
 
 On a launch or promo film every lens also judges the launch grammar against the house references (`library/benchmarks/launch-refs/`; the Dispatch context names their `breakdown.md` and `beats.json`; the user's own references replace them). Each of these is a finding when broken:
 
-- One gimmick through the whole film: one carrier in more than 40% of the beats, one move in more than 2 beats, or one transition on more than 30% of the seams (`high`).
-- Scene variety: under 5 scene types in 45 s, a type over 30% of the runtime, or neighbours that share a type (`high`).
+- One gimmick through the whole film: one carrier in more than 40% of the beats, one move in more than 2 beats, or one designed transition family on more than 30% of the designed seams (`high`; the 30% is a default, so a recorded `departures` why softens it).
+- Scene variety: under 5 scene types in 45 s, a type over 30% of the runtime, or neighbours that share a type (`high` without a `departures` why; the counts are defaults, so a film that explains its departure is not a finding).
 - An all-smooth film with no stepped or flicker section where the concept did not choose it, or an all-stutter film (`medium`).
 - An AI cliche from `references/launch-moves.md`: a pulsing glow, bokeh or particle atmosphere, a highlight that nudges or bounces (`high`).
 - A cursor or caret pointing at words, a second travelling cursor, a cursor with no story reason, more than 2 typed lines, uniform word fades or slide-up cards (`medium`).

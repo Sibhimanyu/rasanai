@@ -17,6 +17,17 @@
 //   density         "dense" (3+ elements, a collage, a full UI or a full-frame object) | "sparse" (one small line or one object on an empty ground)
 //   logo            true when the mark or wordmark is on screen in the beat
 import { buzzwordHits, buzzwordMessage, BUZZWORD_FIX, ctaProblems, CTA_HOLD_MIN_S } from "./copy-lint.mjs";
+import { grammarWaivers } from "./gate-profile.mjs";
+
+// SOFT DEFAULTS (references/launch-grammar.md "Defaults you can leave"): scene-type counts and shares, the transition-family share, the texture share, the dense:sparse rhythm, plain cuts and
+// display-scale type have no source behind their numbers (.context/motion-craft-research.md). They stay as defaults with their reason: the finding is a warning that says "explain the change",
+// and a note once the score records { rule, why } in departures[] (grammar_waivers is the older name). Measured defects (an unlit or empty frame, meaningful stillness, flashes, unreadable text, claim truth) stay hard.
+export const depOf = (plan, waived = {}) => ({ ...grammarWaivers(plan).waived, ...waived });
+function soft(F, dep, rule, check, message, fix, see) {
+  const why = dep[rule];
+  if (why) F.push({ severity: "note", check, message: `departs by choice (${why}): ${message}`, fix: "none: the score explains the departure", basis: "score", waived: true });
+  else F.push({ severity: "warning", check, message: `${message} (a default, not a law)`, fix: `${fix}; or keep it and record { rule: "${rule}", why } in score.departures${see ? `; ${see}` : ""}`, basis: "score" });
+}
 
 export const LB = { max_plain_cuts_warn: 0, max_plain_cuts_error: 2, max_logo: 3, carrier_share_max: 0.4, scene_min_types_40s: 5, scene_share_max: 0.3, nonsmooth_min: 0.15, nonsmooth_max: 0.4, transition_share_max: 0.3, imagery_max: 4, max_words_line: 9, min_density_alternations: 2, max_dense_run: 2, beat_median_warn_s: 5 };
 
@@ -130,17 +141,21 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
   };
   const see = "references/launch-grammar.md";
   // 1. transitions: named from the full vocabulary. A hard cut on a music hit is welcome; a bare "cut" with no reason is a warning (never an error)
-  const later = rows.slice(1), declared = later.filter((r) => r.transition != null);
+  const later = rows.slice(1), declared = later.filter((r) => r.transition != null), dep = depOf(plan, waived);
   if (!declared.length) add("warning", "transition-undeclared", "no beat names how it arrives (scenes[].transition_in, or score.seams[].kind): transition variety cannot be checked", `give every beat a transition_in (hard-cut-on-hit, stepped-smash, flicker-cut, mask-wipe, push, pull, whip, morph, match-cut, type-morph ...); ${see}`);
   else {
     const plain = later.filter((r) => isPlainCut(r.transition));
-    if (plain.length) add("warning", "hard-cuts", `${plain.length} undeclared plain cut(s) (beats ${plain.map((r) => r.id).slice(0, 6).join(", ")}): a hard cut is fine when it lands on a music hit; say so (transition_in: "hard-cut-on-hit") or choose another transition`, `name the hit the cut lands on, or use a stepped smash, a flicker cut, a mask, a push or a whip; ${see}`);
-    // transition variety: no family on more than ~30% of the seams
-    if (declared.length >= 4) {
-      const fam = {}; declared.forEach((r) => { const k = transitionFamily(r.transition); if (k) fam[k] = (fam[k] || 0) + 1; });
-      const [top, cnt] = Object.entries(fam).sort((a, b) => b[1] - a[1])[0] || ["", 0];
-      if (cnt / declared.length > LB.transition_share_max + 1e-9) F.push({ severity: "warning", check: "transition-variety", message: `"${top}" is ${cnt} of ${declared.length} seams (${Math.round((100 * cnt) / declared.length)}%; ${Math.round(LB.transition_share_max * 100)}% at most): one transition used throughout reads as a gimmick`, fix: `mix the vocabulary: hard cuts on hits, stepped smash, flicker cut, mask or wipe, push or pull, whip, morph, match cut, type morph; ${see}`, basis: "score" });
-    }
+    // a cut is a valid choice (research rule 31): an undeclared one only asks for its reason
+    if (plain.length) soft(F, dep, "hard-cuts", "hard-cuts", `${plain.length} plain cut(s) with no stated reason (beats ${plain.map((r) => r.id).slice(0, 6).join(", ")}): a hard cut is fine; say what it lands on (transition_in: "hard-cut-on-hit", the music hit) or what the beat carries across it`, `name the hit the cut lands on, or use a stepped smash, a flicker cut, a mask, a push or a whip`, see);
+    // transition variety: among the DESIGNED seams (hard cuts excluded), no family on more than ~30%
+    { const designed = declared.filter((r) => { const k = transitionFamily(r.transition); return k && k !== "hard-cut" && !isPlainCut(r.transition); });
+      if (designed.length >= 4) {
+        const fam = {}; designed.forEach((r) => { const k = transitionFamily(r.transition); if (k) fam[k] = (fam[k] || 0) + 1; });
+        const [top, cnt] = Object.entries(fam).sort((a, b) => b[1] - a[1])[0] || ["", 0];
+        if (cnt / designed.length > LB.transition_share_max + 1e-9) soft(F, dep, "transition-variety", "transition-variety", `"${top}" is ${cnt} of ${designed.length} designed seams (${Math.round((100 * cnt) / designed.length)}%; about ${Math.round(LB.transition_share_max * 100)}% is the default ceiling): one transition used throughout can read as a gimmick`, `mix the vocabulary: hard cuts on hits, stepped smash, flicker cut, mask or wipe, push or pull, whip, morph, match cut, type morph`, see);
+      }
+      const nfam = new Set(designed.map((r) => transitionFamily(r.transition))).size;
+      if (nfam > 3) F.push({ severity: "note", check: "bridge-families", message: `${nfam} bridge families besides hard cuts: the calibration profile starts at hard cuts plus 2 to 3 families (a starting value to test, not a standard); each extra family needs a role`, fix: "give every family its own meaning in bridge_reason, or fold two together", basis: "score" }); }
   }
   // 2. the logo: at most 3 appearances
   const logos = rows.filter((r) => r.logo === true).length;
@@ -153,9 +168,9 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
       if (share > LB.carrier_share_max + 1e-9) F.push({ severity: "warning", check: "carrier-overuse", message: `a carrier is in ${Math.round(share * 100)}% of the beats (${Math.round(LB.carrier_share_max * 100)}% at most): one motif through every scene and seam is repetitive`, fix: `let the carrier link two or three neighbouring beats or bookend the film, and give the other beats their own scene; ${see}`, basis: "score" });
     } }
   // 3b. scene variety: a palette of scene types, at least 5 in a 40 s film, none over ~30% of the runtime, neighbours differ unless a deliberate continuation
-  F.push(...sceneVarietyFindings(plan, rows, see));
+  F.push(...sceneVarietyFindings(plan, rows, see, dep));
   // 3c. motion texture contrast: smooth / stepped / flicker / glitch
-  F.push(...textureFindings(plan, rows, see));
+  F.push(...textureFindings(plan, rows, see, dep));
   // 3c2. AI cliches and move variety
   F.push(...clicheFindings(plan, rows));
   // 3d. imagery: Codex stills used where they add meaning (1 to 4 per film)
@@ -170,7 +185,7 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
   if (dens.length < Math.ceil(rows.length / 2)) F.push({ severity: "warning", check: "rhythm-undeclared", message: "beats do not say dense or sparse (scenes[].density): the rhythm cannot be checked", fix: `tag each beat dense (3+ elements, a collage, a full-frame object) or sparse (one small line or object on an empty ground); ${see}`, basis: "score" });
   else {
     let alt = 0; for (let i = 1; i < dens.length; i++) if (dens[i] !== dens[i - 1]) alt++;
-    if (alt < LB.min_density_alternations) add("error", "rhythm", `${alt} dense/sparse alternation(s) (${LB.min_density_alternations} at least): the film holds one density`, `alternate a dense moment (a collage, a UI, a big object) with one small line on an empty ground; ${see}`, "rhythm");
+    if (alt < LB.min_density_alternations) soft(F, dep, "rhythm", "rhythm", `${alt} dense/sparse alternation(s) (${LB.min_density_alternations} is the default): the film holds one density, and no source gives a dense:sparse ratio`, `alternate a dense moment (a collage, a UI, a big object) with one small line on an empty ground, or explain a relentless or serene passage`, see);
   }
   // dense beats never run more than 2 in a row (a warning)
   { let run = 0, worst = 0, at = ""; rows.forEach((r) => { if (r.density === "dense") { run++; if (run > worst) { worst = run; at = r.id; } } else run = 0; });
@@ -181,6 +196,7 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
   F.push(...clarityFindings(plan, rows));
   F.push(...motionLawFindings(plan, rows));
   F.push(...purposeFindings(plan, rows));
+  F.push(...craftResearchFindings(plan, rows));
   return F;
 }
 
@@ -189,27 +205,27 @@ const runtimeOf = (plan, rows) => {
   return have.length === rows.length ? rows.map((r) => r.dur) : rows.map(() => 1); // no durations: weigh the beats equally
 };
 
-export function sceneVarietyFindings(plan, rows, see = "references/launch-grammar.md") {
+export function sceneVarietyFindings(plan, rows, see = "references/launch-grammar.md", dep = depOf(plan)) {
   const F = [], declared = rows.filter((r) => r.scene_type);
   if (declared.length < Math.ceil(rows.length / 2)) return [{ severity: "warning", check: "scene-type-undeclared", message: "beats do not say their scene type (scenes[].scene_type): scene variety cannot be checked", fix: `tag each beat from the palette (${SCENE_TYPES.join(", ")}); ${see}`, basis: "score" }];
   const w = runtimeOf(plan, rows), total = w.reduce((a, b) => a + b, 0) || 1, dur = rows.every((r) => r.dur > 0) ? total : Number(plan && plan.duration) || 0;
   const share = {}; rows.forEach((r, i) => { if (r.scene_type) share[r.scene_type] = (share[r.scene_type] || 0) + w[i] / total; });
   const types = Object.keys(share), need = dur >= 40 ? LB.scene_min_types_40s : dur >= 20 ? 3 : 0;
-  if (need && types.length < need) F.push({ severity: "warning", check: "scene-variety", message: `${types.length} scene type(s) in a ${Math.round(dur)} s film (${need}+ wanted: ${types.join(", ")}): a launch film is a sequence of different scenes, not one scene repeated`, fix: `add scenes from the palette (a type slate, a UI proof, a cinematic image, a diagram, a data scene, a kinetic list, an object shot, a typed prompt); ${see}`, basis: "score" });
+  if (need && types.length < need) soft(F, dep, "scene-variety", "scene-variety", `${types.length} scene type(s) in a ${Math.round(dur)} s film (${need}+ is the default: ${types.join(", ")}): a launch film is usually a sequence of different scenes`, `add scenes from the palette (a type slate, a UI proof, a cinematic image, a diagram, a data scene, a kinetic list, an object shot, a typed prompt)`, see);
   const [top, sh] = Object.entries(share).sort((a, b) => b[1] - a[1])[0];
-  if (sh > LB.scene_share_max + 0.02) F.push({ severity: "warning", check: "scene-share", message: `"${top}" takes ${Math.round(sh * 100)}% of the runtime (${Math.round(LB.scene_share_max * 100)}% at most)`, fix: `replace some of those beats with another scene type; ${see}`, basis: "score" });
+  if (sh > LB.scene_share_max + 0.02) soft(F, dep, "scene-variety", "scene-share", `"${top}" takes ${Math.round(sh * 100)}% of the runtime (about ${Math.round(LB.scene_share_max * 100)}% is the default ceiling)`, `replace some of those beats with another scene type`, see);
   const rep = []; for (let i = 1; i < rows.length; i++) if (rows[i].scene_type && rows[i].scene_type === rows[i - 1].scene_type && !rows[i].continues) rep.push(`${rows[i - 1].id}-${rows[i].id}`);
   if (rep.length) F.push({ severity: "warning", check: "scene-neighbours", message: `neighbouring beats share a scene type (${rep.slice(0, 5).join(", ")}): change the type, or mark the second beat continues: true when it is a deliberate continuation`, fix: `give neighbours different scene types; ${see}`, basis: "score" });
   return F;
 }
 
-export function textureFindings(plan, rows, see = "references/launch-grammar.md") {
+export function textureFindings(plan, rows, see = "references/launch-grammar.md", dep = depOf(plan)) {
   const F = [], declared = rows.filter((r) => r.texture);
   if (declared.length < Math.ceil(rows.length / 2)) return [{ severity: "warning", check: "texture-undeclared", message: "beats do not say their motion texture (scenes[].texture: smooth | stepped | flicker | glitch): the texture mix cannot be checked", fix: `declare a texture per beat (and fps for stepped: 12 or 8); ${see}`, basis: "score" }];
   const w = runtimeOf(plan, rows), total = w.reduce((a, b) => a + b, 0) || 1;
   let non = 0, any = false; rows.forEach((r, i) => { if (r.texture && r.texture !== "smooth") { non += w[i] / total; any = true; } });
-  if (!any) F.push({ severity: "warning", check: "texture-all-smooth", message: "every beat is smooth: a launch film needs at least one stepped or flicker section (the hook's chaos or a dense collage), with the calm beats staying smooth", fix: `make the hook or a collage stepped (12 or 8 fps) or a flicker burst; ${see}`, basis: "score" });
-  else if (non < LB.nonsmooth_min - 0.02 || non > LB.nonsmooth_max + 0.02) F.push({ severity: "warning", check: "texture-mix", message: `stepped, flicker and glitch cover ${Math.round(non * 100)}% of the runtime (${Math.round(LB.nonsmooth_min * 100)}-${Math.round(LB.nonsmooth_max * 100)}% is the target)`, fix: `${non < LB.nonsmooth_min ? "stutter one more dense beat" : "return some beats to smooth"}: never all smooth, never all stutter; ${see}`, basis: "score" });
+  if (!any) soft(F, dep, "texture", "texture-all-smooth", "every beat is smooth: a stepped or flicker section (the hook's chaos or a dense collage) usually adds contrast, with the calm beats staying smooth", `make the hook or a collage stepped (12 or 8 fps) or a flicker burst`, see);
+  else if (non < LB.nonsmooth_min - 0.02 || non > LB.nonsmooth_max + 0.02) soft(F, dep, "texture", "texture-mix", `stepped, flicker and glitch cover ${Math.round(non * 100)}% of the runtime (${Math.round(LB.nonsmooth_min * 100)}-${Math.round(LB.nonsmooth_max * 100)}% is the starting value; no source sets a share)`, `${non < LB.nonsmooth_min ? "stutter one more dense beat" : "return some beats to smooth"}, or say why this film sits outside it`, see);
   const calm = rows.filter((r) => /^(meet|payoff|end)/.test(r.role) && r.texture && r.texture !== "smooth");
   if (calm.length) F.push({ severity: "warning", check: "texture-calm-beat", message: `calm beat(s) ${calm.map((r) => r.id).join(", ")} (meet, payoff, end) are not smooth`, fix: `keep the meet, the payoff line and the end smooth; ${see}`, basis: "score" });
   const nofps = rows.filter((r) => r.texture === "stepped" && !(r.fps >= 4 && r.fps <= 15));
@@ -406,7 +422,9 @@ export function purposeFindings(plan, rows, see = "references/launch-grammar.md"
   const w = (check, message, fix, ref = see) => F.push({ severity: "warning", check, message, fix: `${fix}; ${ref}`, basis: "score" });
   const idx = (pred) => rows.findIndex(pred);
   // 1. claim to proof: every claim the copy uses is proven by a beat (`proves: [claim ids]`)
-  { const proven = new Set(sc.flatMap((s) => idList(s && s.proves))), used = new Set([...idList(plan && plan.claims_used), ...sc.flatMap((s) => idList(s && s.claims))]);
+  { const abstractProof = sc.map((s, i) => (s && s.proves != null && idList(s.proves).length && lc(s.ui_mode) === "abstract" ? rows[i].id : null)).filter(Boolean);
+    if (abstractProof.length) w("proof-abstract", `beat(s) ${abstractProof.join(", ")} set proves but are ui_mode: abstract: an abstract shot never counts as proof`, "show the claim on a literal UI beat (real labels, real state), and keep the abstract shot for the sensation", `${see} section 14`);
+    const proven = new Set(sc.filter((s) => lc(s && s.ui_mode) !== "abstract").flatMap((s) => idList(s && s.proves))), used = new Set([...idList(plan && plan.claims_used), ...sc.flatMap((s) => idList(s && s.claims))]);
     if (!sc.some((s) => s && s.proves != null)) w("proof-map-missing", "no beat declares proves: [claim ids]: the claim-to-proof map cannot be checked", "name on each proof beat the claim ids (research/claims.json) its picture proves (UI, before/after, a demo, a number on screen)", `${see} section 14`);
     else { const loose = [...used].filter((c) => !proven.has(c)); if (loose.length) w("claim-unproven", `claim(s) ${loose.slice(0, 6).join(", ")} appear in the copy and no beat proves them (proves)`, "give each claim a beat that shows it (UI proof, before/after, a demo, a number on screen), or cut the claim from the copy", `${see} section 14`); } }
   // 2. peak-end craft budget: a named peak, and catalogue moves on the hook, the peak and the end
@@ -449,5 +467,130 @@ export function purposeFindings(plan, rows, see = "references/launch-grammar.md"
       for (const x of all.filter((m) => isExit(m) && dur(m) > 0 && m.target)) { const en = all.find((m) => isEnter(m) && String(m.target) === String(x.target) && dur(m) > 0); if (en && dur(x) > dur(en) + 1e-9) slow.push(`${x.target} (exit ${dur(x)} s, entrance ${dur(en)} s)`); }
       if (slow.length) w("exit-longer", `${slow.length} exit(s) run longer than their entrance: ${slow.slice(0, 4).join(", ")}; exits take ${Math.round(EXIT_RATIO.aim[0] * 100)} to ${Math.round(EXIT_RATIO.aim[1] * 100)}% of the entrance`, "shorten each exit to about 60 to 80 percent of its entrance", craft);
     } }
+  return F;
+}
+
+// Professional craft research checks (all warnings; .context/motion-craft-research.md Top 15 and AI tells). Rules: references/launch-grammar.md sections 16 and 17, references/craft.md "Craft research",
+// references/launch-moves.md "AI cliches"; fields: references/score.md "Craft research fields". Reads only the score; the render-side twin of the readable-exposure budget is lib/readable-exposure.mjs.
+export const UI_MODES = ["literal", "abstract"];
+export const INTENSITY_AXES = ["cut_rate", "movement", "proximity", "camera"];
+export const LEVELS = { low: 0, med: 1, medium: 1, high: 2 };
+export const LEADS = ["vo", "music", "sound", "picture"];
+export const TYPE_UNITS = ["letter", "word", "line", "block"];
+export const MOTIF_SOURCES = ["brand-element", "product-verb", "customer-material"];
+export const SFX_ROLES = ["signature", "support", "none"];
+export const ENDING_MUSIC = ["resolve", "ringout", "sting", "hard-stop", "none"];
+const FUNCTION_WORD = /^(a|an|the|of|to|in|on|at|for|and|or|with|from|by|but|your|my|our|is|are)$/i;
+const sortKeys = (v) => (Array.isArray(v) ? v.map(sortKeys) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v);
+const parsePersist = (p) => { if (typeof p === "string") { const m = p.split(/→|->|=>/); return { element: m[0].trim(), dest: (m[1] || "").trim() }; } return p && typeof p === "object" ? { element: S(p.element || p.what || p.id), dest: S(p.to || p.dest || p.role || p.destination) } : { element: "", dest: "" }; };
+// the steepness of a curve: the share of the duration between 10% and 90% of its travel (expo.out reaches 90% at about 0.33; a symmetric expo in-out packs all its travel into a narrow middle)
+const bezierT = (str, q) => { const m = String(str).match(/cubic-bezier\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/i); if (!m) return null; const [x1, y1, x2, y2] = m.slice(1).map(Number), bz = (a2, b2, t) => 3 * (1 - t) * (1 - t) * t * a2 + 3 * (1 - t) * t * t * b2 + t ** 3; for (let t = 0; t <= 1; t += 0.005) if (bz(y1, y2, t) >= q) return bz(x1, x2, t); return 1; };
+export const easeExtreme = (ease, dur) => { const e = String(ease == null ? "" : ease).replace(/^rasan:/i, "").toLowerCase(); if (!e) return false; if (/(expo|circ|quint|power4|power5)\.?in-?out/.test(e)) return true; const t90 = bezierT(e, 0.9), t10 = bezierT(e, 0.1); if (t90 != null) return t90 < 0.2 || t90 - t10 < 0.25 || (t90 < 0.3 && Number(dur) > 0 && Number(dur) < 0.25); return false; };
+
+export function craftResearchFindings(plan, rows) {
+  const F = [], sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
+  const w = (check, message, fix, ref = "references/score.md \"Craft research fields\"") => F.push({ severity: "warning", check, message, fix: `${fix}; ${ref}`, basis: "score" });
+  const ids = (a) => a.map((x) => x.id).slice(0, 8).join(", ");
+  const B = sc.map((s, i) => ({ s: s || {}, r: rows[i], i, id: rows[i].id }));
+  if (rows.length < 4) return F;
+  // 3. product-state truth: literal UI for proof, abstract UI for sensation; one state id shows one set of labels; every action is followed by its result
+  { const isUi = (x) => x.s.ui_state || x.s.ui_mode || x.r.scene_type === "ui-proof" || x.r.scene_type === "ui-collage" || Number(x.s.ui_scale) >= CL.ui_min_scale, ui = B.filter(isUi);
+    const noMode = ui.filter((x) => !x.s.ui_mode), badMode = ui.filter((x) => x.s.ui_mode && !UI_MODES.includes(lc(x.s.ui_mode)));
+    if (noMode.length) w("ui-mode-missing", `UI beat(s) ${ids(noMode)} do not say ui_mode: literal | abstract`, "mark each UI beat literal (real labels and states, usable as proof) or abstract (a sensation, never counted as proof)", "references/launch-grammar.md section 17");
+    if (badMode.length) w("ui-mode-unknown", `ui_mode "${lc(badMode[0].s.ui_mode)}" on beat ${badMode[0].id} is not one of ${UI_MODES.join(", ")}`, "pick one", "references/launch-grammar.md section 17");
+    const lit = ui.filter((x) => lc(x.s.ui_mode) !== "abstract" && !x.s.ui_state);
+    if (ui.length && lit.length && ui.some((x) => x.s.ui_state)) w("ui-state-missing", `literal UI beat(s) ${ids(lit)} declare no ui_state {id, labels, figures, action, result}`, "record the labels, figures, action and result each UI beat shows, so the states can be checked across shots", "references/launch-grammar.md section 17");
+    const byId = new Map(); const bad = [];
+    for (const x of B) { const st = x.s.ui_state; if (!st || typeof st !== "object") continue; const id = S(st.id); if (!id) { bad.push(x); continue; }
+      const key = JSON.stringify(sortKeys({ labels: st.labels || null, figures: st.figures || null })), prev = byId.get(id);
+      if (prev && prev.key !== key) w("ui-state-drift", `UI state "${id}" shows different labels or figures in beat ${prev.beat} and beat ${x.id}`, "give a changed UI its own state id, or make the labels and figures identical: the same state must read the same in every shot", "references/launch-grammar.md section 17");
+      else if (!prev) byId.set(id, { key, beat: x.id }); }
+    if (bad.length) w("ui-state-id-missing", `ui_state on beat(s) ${ids(bad)} has no id`, "name the state so repeats can be compared", "references/launch-grammar.md section 17");
+    const noRes = B.filter((x) => x.s.ui_state && S(x.s.ui_state.action) && !S(x.s.ui_state.result)), order = B.filter((x) => x.s.ui_state && Number.isFinite(Number(x.s.ui_state.action_at)) && Number.isFinite(Number(x.s.ui_state.result_at)) && Number(x.s.ui_state.result_at) < Number(x.s.ui_state.action_at));
+    if (noRes.length) w("ui-action-no-result", `beat(s) ${ids(noRes)} show a UI action with no result in ui_state.result`, "show the result the action causes, in order, in the same beat or the next: a click with no outcome is not a demonstration", "references/launch-grammar.md section 17");
+    if (order.length) w("ui-result-before-action", `beat(s) ${ids(order)} place the result before the action (result_at < action_at)`, "put the result after the action it follows", "references/launch-grammar.md section 17"); }
+  // 4. motion plan across boundaries: objects carry a role and a destination across shots
+  { const withP = B.filter((x) => x.s.persists != null), noDest = []; let last = null;
+    for (const x of withP) { const list = Array.isArray(x.s.persists) ? x.s.persists : [x.s.persists]; for (const p of list) { const q = parsePersist(p); if (!q.element || !q.dest) noDest.push(x); } if (x.i === rows.length - 1) last = x; }
+    if (noDest.length) w("persists-no-destination", `persists on beat(s) ${ids(noDest)} names an element with no destination (element → next beat role)`, "write each as \"element → role in the next beat\" (the pill → the card's header)", "references/motion-handoffs.md");
+    if (last) w("persists-last-beat", `beat ${last.id} is the last beat and still lists persists: nothing follows it`, "end the film on a settled frame; persists belongs on beats that have a next beat", "references/motion-handoffs.md");
+    const carried = B.some((x) => x.s.handoff || x.s.persists != null || carrierOn(x.s.carrier_state));
+    if (rows.length >= 6 && !carried) w("boundary-reset", "no beat carries an object across a boundary (persists, handoff or carrier_state): every shot starts from a clean scene", "plan at least a few objects that keep a role and a destination across the cut (a pill that becomes the next card, type that persists over cuts)", "references/motion-handoffs.md"); }
+  // 5. hard-cut candidate: each designed transition says what it conveys that a cut would lose
+  { const designed = B.slice(1).filter((x) => x.r.transition != null && !isPlainCut(x.r.transition) && transitionFamily(x.r.transition) !== "hard-cut");
+    const reason = (x) => S(x.s.bridge_reason || x.s.transition_reason), none = designed.filter((x) => !reason(x)), weak = designed.filter((x) => reason(x) && (reason(x).length < 12 || /^(looks?|smooth|nice|cool|flow|transition|fancy|pretty)\b/i.test(reason(x)))), cut = designed.filter((x) => /^(nothing|none|n\/a|no reason)/i.test(reason(x)));
+    if (none.length) w("bridge-reason-missing", `designed transition(s) into beat(s) ${ids(none)} give no bridge_reason`, "write what the bridge conveys that a hard cut would lose (a shared object, a continued motion, a spatial move); with no answer, use a cut", "references/launch-grammar.md section 6");
+    if (weak.length) w("bridge-reason-weak", `bridge_reason on beat(s) ${ids(weak)} is a taste word, not a relationship`, "name the relationship the bridge shows (the same pill becomes the card), or replace the bridge with a hard cut", "references/launch-grammar.md section 6");
+    if (cut.length) w("bridge-hard-cut-candidate", `the bridge into beat(s) ${ids(cut)} conveys nothing a cut would lose`, "replace it with a hard cut", "references/launch-grammar.md section 6"); }
+  // 6. meaning to motion for hero type
+  { const hero = B.filter((x) => Number(x.s.hero_scale) >= 9), tm = (x) => (x.s.type_motion && typeof x.s.type_motion === "object" ? x.s.type_motion : null);
+    const miss = hero.filter((x) => { const t = tm(x); return !t || !S(t.unit) || !S(t.behaviour || t.behavior) || !S(t.meaning); }), unit = hero.filter((x) => tm(x) && S(tm(x).unit) && !TYPE_UNITS.includes(lc(tm(x).unit)));
+    if (miss.length) w("type-motion-missing", `hero line(s) in beat(s) ${ids(miss)} declare no type_motion {unit, behaviour, meaning}`, `choose the animation unit (${TYPE_UNITS.join(" | ")}) and the behaviour from what the word means (a word that splits breaks apart, a word about speed travels)`, "references/craft.md \"Craft research\"");
+    if (unit.length) w("type-motion-unit", `type_motion.unit "${lc(tm(unit[0]).unit)}" on beat ${unit[0].id} is not one of ${TYPE_UNITS.join(", ")}`, "pick one", "references/craft.md \"Craft research\"");
+    const n = {}; hero.forEach((x) => { const t = tm(x); if (t && S(t.unit) && S(t.behaviour || t.behavior)) { const k = `${lc(t.unit)}|${lc(t.behaviour || t.behavior)}`; (n[k] ||= []).push(x.id); } });
+    for (const [k, v] of Object.entries(n)) if (v.length >= 3) w("type-motion-same", `${v.length} hero lines (beats ${v.slice(0, 6).join(", ")}) share one unit and behaviour (${k.replace("|", ", ")}): an unchanged preset across unlike words and layouts`, "derive the unit and behaviour from each word's meaning and layout", "references/craft.md \"Craft research\""); }
+  // 7. intensity map: cut rate, movement, proximity and camera as separate levels, each major change explained
+  { const iv = (x) => (x.s.intensity && typeof x.s.intensity === "object" ? x.s.intensity : null), have = B.filter((x) => iv(x));
+    if (have.length < Math.ceil(rows.length / 2)) w("intensity-missing", "beats do not declare an intensity {cut_rate, movement, proximity, camera} (low | med | high)", "map the four axes per beat; the pacing is more than the cut rate", "references/launch-grammar.md section 17");
+    else {
+      const lv = (x, a) => { const v = LEVELS[lc(iv(x) && iv(x)[a])]; return v == null ? null : v; };
+      const unk = have.filter((x) => INTENSITY_AXES.some((a) => iv(x)[a] != null && lv(x, a) == null));
+      if (unk.length) w("intensity-unknown", `intensity on beat(s) ${ids(unk)} has a level that is not low, med or high`, "use low | med | high on each axis", "references/launch-grammar.md section 17");
+      const jumps = []; for (let k = 1; k < have.length; k++) { const a = have[k - 1], b = have[k]; for (const ax of INTENSITY_AXES) { const p = lv(a, ax), q = lv(b, ax); if (p != null && q != null && Math.abs(q - p) >= 2 && !S(iv(b).why || b.s.intensity_why)) { jumps.push(`${b.id} ${ax}`); } } }
+      if (jumps.length) w("intensity-change-unexplained", `major intensity change(s) with no why (${jumps.slice(0, 5).join(", ")}): an axis jumps low to high or back`, "add intensity.why on the beat that changes (the drop, the reveal, the breath): each major change has a reason", "references/launch-grammar.md section 17");
+      const sig = have.map((x) => INTENSITY_AXES.map((a) => lv(x, a)).join(","));
+      if (have.length >= 4 && new Set(sig).size === 1) w("intensity-flat", `the intensity map is the same on every beat (${sig[0]}): nothing speeds up, closes in or calms down`, "alternate on purpose, or explain a deliberately relentless film", "references/launch-grammar.md section 17"); } }
+  // 8. music phrase and lead-role map
+  { const lead = (x) => lc(x.s.lead), have = B.filter((x) => lead(x));
+    if (have.length < Math.ceil(rows.length / 2)) w("lead-missing", "beats do not say what leads (lead: vo | music | sound | picture)", "mark which medium leads each passage, with sections aligned to musical phrases", "references/sound.md \"Phrase and lead\"");
+    else {
+      const unk = have.filter((x) => !LEADS.includes(lead(x))); if (unk.length) w("lead-unknown", `lead "${lead(unk[0])}" on beat ${unk[0].id} is not one of ${LEADS.join(", ")}`, "pick one", "references/sound.md \"Phrase and lead\"");
+      if (!have.some((x) => lead(x) === "music" || lead(x) === "sound")) w("music-wallpaper", "music and sound never lead a passage: the score is wallpaper under the picture and the voice", "give the music or a sound the lead in at least one passage (a phrase that lands after the key line)", "references/sound.md \"Phrase and lead\"");
+      const nophr = have.filter((x) => lead(x) === "music" && !S(x.s.phrase)); if (nophr.length) w("lead-phrase-missing", `music-led beat(s) ${ids(nophr)} name no phrase`, "write phrase: the musical phrase the section follows (bars 9 to 12), and cut on its edges", "references/sound.md \"Phrase and lead\"");
+      const cp = have.filter((x) => (x.s.counterpoint === true || /counterpoint/.test(String(x.s.counterpoint))) && !S(x.s.counterpoint_why || x.s.why)); if (cp.length) w("counterpoint-why", `counterpoint on beat(s) ${ids(cp)} has no why`, "say what the contrast means (calm music under a frantic picture), or drop it", "references/sound.md \"Phrase and lead\""); } }
+  // 9. brand-derived motifs and product metaphors
+  { const motifs = [...(Array.isArray(plan.motifs) ? plan.motifs : []), ...(plan.carrier && typeof plan.carrier === "object" && S(plan.carrier.what || plan.carrier.name) ? [{ what: plan.carrier.what || plan.carrier.name, source: plan.carrier.source || plan.carrier.motif_source, ref: plan.carrier.ref }] : [])];
+    const bad = motifs.filter((m) => m && typeof m === "object" && !MOTIF_SOURCES.includes(lc(m.source || m.motif_source)));
+    if (bad.length) w("motif-source-missing", `motif(s) ${bad.slice(0, 4).map((m) => S(m.what || m.name) || "?").join(", ")} name no motif_source (${MOTIF_SOURCES.join(" | ")})`, "say where each major motif comes from: a brand element, a product verb or the customer's material; a motif from none of them could advertise any product", "references/launch-grammar.md section 18");
+    const beatBad = B.filter((x) => x.s.motif && !MOTIF_SOURCES.includes(lc(x.s.motif_source))); if (beatBad.length) w("motif-source-missing", `beat(s) ${ids(beatBad)} name a motif with no motif_source`, "name its provenance", "references/launch-grammar.md section 18"); }
+  // AI tells: cumulative progression, a repeated entrance/exit pattern, extreme easing, careless breaks in large type, 10 s with no new information
+  { const set = B.flatMap((x) => idList(x.s.set_up).map((k) => ({ k, id: x.id, i: x.i }))), pay = B.flatMap((x) => idList(x.s.pays_off).map((k) => ({ k, id: x.id, i: x.i })));
+    if (rows.length >= 6 && !set.length && !pay.length) w("progression-missing", "no beat declares set_up or pays_off: nothing links the middle to the end (a beautiful middle with no cumulative progression)", "name what each beat sets up and which later beat pays it off; the last third should pay off something the first two thirds built", "references/launch-moves.md \"AI cliches\"");
+    else { const dangling = set.filter((s2) => !pay.some((p) => p.k === s2.k && p.i > s2.i)), orphan = pay.filter((p) => !set.some((s2) => s2.k === p.k && s2.i < p.i));
+      if (dangling.length) w("set-up-dangling", `set_up ${dangling.slice(0, 4).map((d) => `"${d.k}" (beat ${d.id})`).join(", ")} is never paid off by a later beat`, "pay it off with pays_off on a later beat, or drop the set-up", "references/launch-moves.md \"AI cliches\"");
+      if (orphan.length) w("pays-off-orphan", `pays_off ${orphan.slice(0, 4).map((d) => `"${d.k}" (beat ${d.id})`).join(", ")} has no earlier set_up`, "add the set_up on the beat that plants it", "references/launch-moves.md \"AI cliches\"");
+      if (set.length && !pay.some((p) => p.i >= Math.floor(rows.length * 0.6))) w("payoff-late-missing", "no pays_off lands in the last third: the film builds and never cashes in", "land a payoff in the last beats", "references/launch-moves.md \"AI cliches\""); }
+    const pat = B.map((x, i) => { const recs = Array.isArray(x.s.moves) ? x.s.moves.filter((m) => m && typeof m === "object") : [], en = lc(x.s.entrance || (recs.find((m) => m.entrance) || {}).entrance), ex = lc(x.s.exit || (recs.find((m) => m.exit && typeof m.exit === "string") || {}).exit || (rows[i + 1] ? transitionFamily(rows[i + 1].transition) : "")); return en || ex ? `${en}>${ex}` : null; }).filter(Boolean);
+    if (pat.length >= 5) { const n = {}; pat.forEach((p) => { n[p] = (n[p] || 0) + 1; }); const [top, c] = Object.entries(n).sort((a, b) => b[1] - a[1])[0]; if (c / pat.length >= 0.7) w("same-entrance-exit", `${c} of ${pat.length} beats share one entrance and exit pattern (${top.replace(">", " then ")}): every shot is enter, wait, exit`, "plan a sequence of actions, carried states and purposeful cuts; vary how beats arrive and leave", "references/launch-moves.md \"AI cliches\""); }
+    const moves = B.flatMap((x) => (Array.isArray(x.s.moves) ? x.s.moves.filter((m) => m && typeof m === "object").map((m) => ({ ...m, _b: x.id })) : [])), ex = moves.filter((m) => m.ease && easeExtreme(m.ease, m.dur));
+    if (ex.length) w("easing-extreme", `${ex.length} move(s) use an ease so steep the action cannot be read (beats ${[...new Set(ex.map((m) => m._b))].slice(0, 6).join(", ")}: ${[...new Set(ex.map((m) => m.ease))].slice(0, 3).join(", ")})`, "soften the curve or give the action more time: the viewer must see what moved and where it landed", "references/launch-moves.md \"AI cliches\"");
+    const br = B.flatMap((x) => (Array.isArray(x.s.line_breaks) ? [{ x, br: x.s.line_breaks.map(S) }] : [])).map(({ x, br: b }) => ({ x, hit: b.slice(0, -1).filter((t) => FUNCTION_WORD.test((t.split(/\s+/).pop() || ""))).concat(b.slice(1).filter((t) => t && t.split(/\s+/).length === 1 && FUNCTION_WORD.test(t))) })).filter((o) => o.hit.length);
+    if (br.length) w("type-break", `large type breaks after or apart from a function word in beat(s) ${br.map((o) => o.x.id).slice(0, 6).join(", ")} ("${br[0].hit[0]}")`, "break at grammatical units (keep the article with its noun, the preposition with its phrase): art-direct the actual words", "references/craft.md \"Craft research\"");
+    const info = B.filter((x) => S(x.s.new_info));
+    if (info.length >= Math.ceil(rows.length / 2)) { let t = 0; const st = rows.map((r) => { const s0 = t; t += r.dur > 0 ? r.dur : 0; return s0; }); const ends = rows.map((r, i) => st[i] + (r.dur > 0 ? r.dur : 0)); let worst = 0, at = 0, lastT = 0;
+      const marks = [0, ...B.map((x, i) => (S(x.s.new_info) ? st[i] : null)).filter((v) => v != null), ends[ends.length - 1] || 0]; for (let k = 1; k < marks.length; k++) if (marks[k] - marks[k - 1] > worst) { worst = marks[k] - marks[k - 1]; at = marks[k - 1]; lastT = marks[k]; }
+      if (worst >= 10) w("no-new-info", `${Math.round(worst)} s from ${Math.round(at)} s to ${Math.round(lastT)} s carry no new information (no beat sets new_info)`, "trim the stretch, or make it a legible demonstration with a new fact, state or result", "references/launch-moves.md \"AI cliches\""); } }
+  // 11. a deterministic cursor track: its own path data, jitter-free, framing follows the result
+  { const cur = B.filter((x) => x.s.cursor === true || (x.s.cursor && typeof x.s.cursor === "object") || S(x.s.cursor_reason));
+    const noTrack = cur.filter((x) => !(x.s.cursor_track && typeof x.s.cursor_track === "object" && S(x.s.cursor_track.source || x.s.cursor_track.file))), click = cur.filter((x) => x.s.cursor_track && /click/.test(lc(x.s.cursor_track.frames_on || x.s.cursor_track.framing))), baked = cur.filter((x) => x.s.cursor_track && /baked|capture|recorded/.test(lc(x.s.cursor_track.source)));
+    if (noTrack.length) w("cursor-track-missing", `the cursor in beat(s) ${ids(noTrack)} has no cursor_track {source, frames_on}`, "keep the pointer path as its own data (a separate, jitter-free track), not baked into a capture", "references/craft.md \"Craft research\"");
+    if (click.length) w("cursor-framing-click", `the camera frames the click, not the result, in beat(s) ${ids(click)}`, "frame what the action changes (frames_on: result)", "references/craft.md \"Craft research\"");
+    if (baked.length) w("cursor-baked", `the cursor in beat(s) ${ids(baked)} is baked into a capture`, "draw the cursor from its own track so travel, size and visibility can be edited", "references/craft.md \"Craft research\""); }
+  // 12. selective sound hierarchy
+  { const role = (x) => lc(x.s.sfx_role), have = B.filter((x) => role(x));
+    if (have.length >= Math.ceil(rows.length / 2)) {
+      const sig = have.filter((x) => role(x) === "signature").length;
+      if (!sig) w("sound-anchor-missing", "no beat has a signature sound (sfx_role: signature): nothing in the mix leads", "give the few important actions a signature sound and let the rest stay abstract", "references/sound.md \"Selective sound hierarchy\"");
+      else if (sig / have.length > 0.4) w("sound-hierarchy-flat", `${sig} of ${have.length} beats carry a signature sound: equal prominence everywhere is no hierarchy`, "keep signature sounds for the important actions and leave room for the score", "references/sound.md \"Selective sound hierarchy\""); } }
+  // 13. blur: velocity-linked temporal blur or a brief smear, never a constant CSS blur on moving type or UI
+  { const moves = B.flatMap((x) => (Array.isArray(x.s.moves) ? x.s.moves.filter((m) => m && typeof m === "object").map((m) => ({ ...m, _b: x.id })) : [])), css = moves.filter((m) => /^css/.test(lc(m.blur_kind || m.blur)) && Number(m.travel_px) > 0);
+    if (css.length) w("blur-css-motion", `a constant CSS blur is the only motion blur on moving element(s) in beat(s) ${[...new Set(css.map((m) => m._b))].slice(0, 6).join(", ")}`, "link the blur to velocity (RasanTexture.motionBlur: zero at rest, directional, about a half-frame shutter) or use a 1 to 2 frame smear; check the edges for fog and ghost copies", "references/craft.md \"Craft research\""); }
+  // 14. a resolved ending: picture and music resolve together on a settled frame
+  { const en = plan.ending && typeof plan.ending === "object" ? plan.ending : null, cta = plan.cta && typeof plan.cta === "object" ? plan.cta : null;
+    if (!en) w("ending-missing", "the score declares no ending {music, settled_s}: picture and music should resolve together", "name how the music ends (resolve | ringout | sting | hard-stop) and the settled end frame (2 to 4 s)", "references/launch-grammar.md section 17");
+    else { const m = lc(en.music); if (!ENDING_MUSIC.includes(m)) w("ending-music-unknown", `ending.music "${m}" is not one of ${ENDING_MUSIC.join(", ")}`, "pick one", "references/launch-grammar.md section 17");
+      if (m === "none" && !S(en.why)) w("ending-unresolved", "the music has no deliberate endpoint (ending.music: none) and gives no why", "end on a musical resolution, or say why an unresolved ending serves the film", "references/launch-grammar.md section 17");
+      const settled = Number(en.settled_s != null ? en.settled_s : cta && cta.hold_s), multi = (cta && (S(cta.url) || Number(cta.count) > 1 || /\.[a-z]{2,}\b|https?:|www\./i.test(S(cta.text)))) ? 3 : 2;
+      if (Number.isFinite(settled) && settled < multi) w("end-frame-short", `the settled end frame is ${settled} s (${multi} to 4 s is the starting value${multi === 3 ? ", more for a URL or several calls to action" : ""})`, "hold the end frame long enough to read the name, the action and any URL", "references/launch-grammar.md section 17"); } }
   return F;
 }

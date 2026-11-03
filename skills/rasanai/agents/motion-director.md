@@ -330,7 +330,7 @@ When the film is a launch or promo film, the score lists **beats**, one `scenes[
 
 - `line`: the copy on screen in the beat, one thought, about 9 words at most at once. A longer line builds word by word: write its final state.
 - `scene_type`: the beat's scene from the palette (type-slate, type-collage, ui-proof, ui-collage, cinematic-image, diagram, data, kinetic-list, object-shot, typed-prompt, footage, logo-end), taken from the concept's `scene_plan`.
-  - Variety rules (5 or more types in 45 s, none over about 30% of the runtime, neighbours differ or `continues: true`): `references/launch-grammar.md` section 4a.
+  - Variety rules (5 or more types in 45 s, none over about 30% of the runtime, neighbours differ or `continues: true`; defaults you can leave with a `departures` why): `references/launch-grammar.md` section 4a.
 - `texture`: `smooth | stepped | flicker | glitch`, plus `fps` (12 or 8) on a stepped beat.
   - Placement rules for stepped, flicker and glitch, and the share of non-smooth runtime (about 15 to 40%, with the meet, payoff and end smooth): `references/launch-grammar.md` section 4b and `references/launch-moves.md` "Motion texture" (Placement, Stepped, Flash-frame burst).
   - Stepped is for discrete motion (assembling pieces, pop-ins, state changes, bursts, beat hits), and a scroll, pan, push, glide or orbit stays fluid (`stepped-fluid-move`).
@@ -397,6 +397,13 @@ When the film is a launch or promo film, the score lists **beats**, one `scenes[
 - Film level: `motion_language: {direction, physics}` beside `signature_ease` (taken from the chosen Look's `blend.json` `treatment.motion_language`), `peak` (the peak beat's id) and `claims_used` (the claim ids the copy states).
 - Per beat: `proves` (the claim ids its picture visibly proves), `mood` (`problem | turn | solution | climax | cta`), `light`, `hero` (the one element carrying the main motion), `moves_named` on the hook, the peak and the end, and `distinct: {what}` on the meet and the CTA beats (a colour, scale, motion or sound no other beat uses).
 - Per `moves[]` record: `purpose` (`hierarchy | state | relationship | feedback | continuity | emotion`), and an exit `dur` of 60 to 80% of its entrance.
+
+**Craft research fields** (all warnings; the rules live in `references/launch-grammar.md` sections 16 to 19, `references/craft.md` "Craft research" and `references/sound.md` "Phrase and lead"; the fields in `references/score.md` "Craft research fields"):
+
+- Film level: `structure: {kind, why}` from the concept, `departures: [{rule, why}]` for each default the film leaves (scene variety, transition share, texture share, display-scale type, plain cuts, rhythm, SFX density), `motifs: [{what, source, ref}]` and `ending: {music, settled_s}`.
+- Per beat: `ui_mode` (`literal | abstract`) and `ui_state: {id, labels, figures, action, result}` on UI beats, `persists` (what keeps a role and a destination across the cut), `bridge_reason` on every designed transition (what a hard cut would lose), `type_motion: {unit, behaviour, meaning}` on hero lines, `intensity: {cut_rate, movement, proximity, camera, why?}`, `lead` and `phrase`, `set_up` and `pays_off`, `new_info`, `sfx_role`.
+- Explain each major intensity change in `intensity.why`, and say why each designed transition beats a hard cut, because the pacing reason belongs next to the numbers and a bridge with no reason should be a cut.
+- Keep the film to literal UI for proof: an abstract shot never counts in `proves`.
 
 Read the house references first (the Dispatch context lists `library/benchmarks/launch-refs/<id>/beats.json`, three real films' beat tables (Minase, Kinso, Sovra.fm)) unless the user gave their own. Count beats, not shots, and take principles, never their copy, marks, palette or frames.
 
