@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Launch films now prove every claim on screen, put their best craft on the opening, the peak and the end, give the reveal and the call to action a look nothing else in the film has, let the mood follow the story, and move with one consistent personality.
+
 ## 0.31.1 (build 82) — 2026-11-03
 
 - Launch films say what the product is and who it is for early, show the real product doing its job, avoid buzzwords, keep to one message and end on a clear call to action; the reference jury now does a five-second cold read of every draft.

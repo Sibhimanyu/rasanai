@@ -180,6 +180,7 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
   if (durs.length >= 4) { const med = durs[Math.floor(durs.length / 2)]; if (med > LB.beat_median_warn_s) F.push({ severity: "warning", check: "beat-length", message: `median beat ${Math.round(med * 10) / 10} s (the references run 2.8 to 3.7 s): the film changes thought too slowly`, fix: `split long beats: one thought each; ${see}`, basis: "score" }); }
   F.push(...clarityFindings(plan, rows));
   F.push(...motionLawFindings(plan, rows));
+  F.push(...purposeFindings(plan, rows));
   return F;
 }
 
@@ -388,5 +389,65 @@ export function clarityFindings(plan, rows, see = "references/launch-grammar.md 
   const copy = rows.map((r) => ({ id: r.id, text: r.line })).concat(cta && S(cta.text) ? [{ id: "cta", text: S(cta.text) }] : []).concat(S(plan && plan.one_message) ? [{ id: "one_message", text: S(plan.one_message) }] : []);
   const hits = copy.map((c) => ({ id: c.id, h: buzzwordHits(c.text) })).filter((x) => x.h.length);
   if (hits.length) w("copy-buzzword", buzzwordMessage(`beat(s) ${hits.slice(0, 5).map((x) => x.id).join(", ")}`, [...new Set(hits.flatMap((x) => x.h))]), BUZZWORD_FIX);
+  return F;
+}
+
+// Motion purpose checks (all warnings): claim-to-proof map, peak-end craft, distinct reveal and CTA, mood follows story, one hero per beat, motion personality,
+// a purpose per move, exits quicker than entrances. Rules: references/launch-grammar.md sections 15 and 14 (proof), references/craft.md "Purpose, hero and exits"; fields: references/score.md "Motion purpose".
+export const MOODS = ["problem", "turn", "solution", "climax", "cta"];
+export const PURPOSES = ["hierarchy", "state", "relationship", "feedback", "continuity", "emotion"];
+export const MOTION_DIRECTIONS = ["forward", "upward", "inward", "outward"];
+export const MOTION_PHYSICS = ["soft", "crisp", "heavy", "weightless", "elastic"];
+export const EXIT_RATIO = { aim: [0.6, 0.8] };
+const idList = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : String(v).split(/[,\s]+/)).map((x) => String(x && typeof x === "object" ? x.id || x.claim || "" : x).trim()).filter(Boolean);
+const lc = (v) => String(v == null ? "" : typeof v === "object" ? v.what || v.id || v.name || "" : v).trim().toLowerCase();
+export function purposeFindings(plan, rows, see = "references/launch-grammar.md") {
+  const F = [], sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
+  const w = (check, message, fix, ref = see) => F.push({ severity: "warning", check, message, fix: `${fix}; ${ref}`, basis: "score" });
+  const idx = (pred) => rows.findIndex(pred);
+  // 1. claim to proof: every claim the copy uses is proven by a beat (`proves: [claim ids]`)
+  { const proven = new Set(sc.flatMap((s) => idList(s && s.proves))), used = new Set([...idList(plan && plan.claims_used), ...sc.flatMap((s) => idList(s && s.claims))]);
+    if (!sc.some((s) => s && s.proves != null)) w("proof-map-missing", "no beat declares proves: [claim ids]: the claim-to-proof map cannot be checked", "name on each proof beat the claim ids (research/claims.json) its picture proves (UI, before/after, a demo, a number on screen)", `${see} section 14`);
+    else { const loose = [...used].filter((c) => !proven.has(c)); if (loose.length) w("claim-unproven", `claim(s) ${loose.slice(0, 6).join(", ")} appear in the copy and no beat proves them (proves)`, "give each claim a beat that shows it (UI proof, before/after, a demo, a number on screen), or cut the claim from the copy", `${see} section 14`); } }
+  // 2. peak-end craft budget: a named peak, and catalogue moves on the hook, the peak and the end
+  { const peakRaw = plan && plan.peak != null ? plan.peak : null, key = peakRaw && typeof peakRaw === "object" ? peakRaw.beat || peakRaw.id : peakRaw;
+    let pi = key != null && String(key).trim() !== "" ? idx((r) => String(r.id).toLowerCase() === String(key).toLowerCase()) : -1;
+    if (pi < 0 && key != null && /^\d+$/.test(String(key).trim())) pi = Number(key) - 1 < rows.length ? Number(key) - 1 : -1;
+    if (pi < 0) pi = sc.findIndex((s) => s && truthy(s.peak));
+    if (pi < 0) w("peak-missing", "the score names no peak beat (score.peak: the beat id of the signature moment)", "name the beat that carries the film's signature moment; the hook, the peak and the end get the richest moves", `${see} section 1`);
+    const hi = Math.max(0, idx((r) => r.role === "hook")), ei = rows.length - 1;
+    const bare = [["hook", hi], ["peak", pi], ["end", ei]].filter(([, i]) => i >= 0 && !moveNamesOf(sc[i]).length);
+    if (rows.length >= 4 && bare.length) w("peak-end-moves", `the ${bare.map(([n, i]) => `${n} (beat ${rows[i].id})`).join(", ")} name no catalogue move (moves_named): the first 3 s, the peak and the end are where the craft goes`, `give those beats a move from launch-moves.md and the richest layering of the film`, `${see} section 1`); }
+  // 3. distinct reveal and CTA: a treatment found nowhere else (a colour, scale, motion or sound)
+  { const meetI = idx((r) => r.role === "meet"), ctaI = rows.length - 1, dv = (i) => (i >= 0 ? lc(sc[i] && sc[i].distinct) : "");
+    for (const [name, i] of [["meet", meetI], ["cta", ctaI]]) {
+      if (i < 0) continue;
+      if (!dv(i)) w("distinct-missing", `the ${name} beat (${rows[i].id}) declares no distinct: {what} (a colour, scale, motion or sound used nowhere else in the film)`, "give it one treatment no other beat uses, so the viewer's eye lands there", `${see} section 15`);
+      else { const dup = rows.map((r, j) => j).filter((j) => j !== i && dv(j) === dv(i)); if (dup.length) w("distinct-repeat", `the ${name} beat's distinct "${dv(i)}" is also on beat(s) ${dup.map((j) => rows[j].id).join(", ")}: a treatment used twice stops being distinct`, "choose a colour, scale, motion or sound the rest of the film leaves alone", `${see} section 15`); } } }
+  // 4. mood follows story: problem beats muted and tight, solution beats bright and open, the CTA calm
+  { const mood = (i) => lc(sc[i] && sc[i].mood), missing = rows.map((r, i) => (MOODS.includes(mood(i)) ? null : r.id)).filter(Boolean);
+    if (missing.length) w("mood-missing", `beat(s) ${missing.slice(0, 8).join(", ")} declare no mood (${MOODS.join(" | ")})`, "tag each beat with the story's mood so the ground, light and motion can follow it", `${see} section 15`);
+    const sig = (i) => `${lc(sc[i] && sc[i].ground)}|${lc(sc[i] && sc[i].light)}`, set = (m) => new Set(rows.map((r, i) => (mood(i) === m ? sig(i) : null)).filter((s) => s && s !== "|"));
+    const pr = set("problem"), so = set("solution");
+    if (pr.size && so.size && pr.size === so.size && [...pr].every((s) => so.has(s))) w("mood-flat", `problem and solution beats declare the same ground and light (${[...pr].join(", ")}): the turn changes nothing you can see`, "mute the problem beats (darker or greyer ground, tighter framing, constrained motion) and open the solution beats (brighter, wider, confident motion)", `${see} section 15`); }
+  // 6. one hero per beat
+  { const noHero = sc.map((s, i) => (lc(s && s.hero) ? null : rows[i].id)).filter(Boolean);
+    if (noHero.length) w("hero-missing", `beat(s) ${noHero.slice(0, 8).join(", ")} name no hero (the element that carries the beat's main motion)`, "name one hero per beat; everything else moves less, and the ambient layer drifts at 20 to 30 percent of the hero's speed", "references/craft.md \"Purpose, hero and exits\""); }
+  // 7. motion personality
+  { const ml = plan && plan.motion_language, d = lc(ml && ml.direction), p = lc(ml && ml.physics);
+    if (!ml || typeof ml !== "object" || !d || !p) w("motion-language-missing", "the score declares no motion_language: {direction, physics} next to signature_ease", `declare motion_language: direction ${MOTION_DIRECTIONS.join(" | ")}, physics ${MOTION_PHYSICS.join(" | ")}; the whole film follows it`, `${see} section 9`);
+    else { if (!MOTION_DIRECTIONS.includes(d)) w("motion-language-unknown", `motion_language.direction "${d}" is not one of ${MOTION_DIRECTIONS.join(", ")}`, "pick one", `${see} section 9`); if (!MOTION_PHYSICS.includes(p)) w("motion-language-unknown", `motion_language.physics "${p}" is not one of ${MOTION_PHYSICS.join(", ")}`, "pick one", `${see} section 9`); } }
+  // 8. every tween has a purpose; 5. exits are quicker than their entrances
+  { const B = beatMoves(plan), all = B.flatMap((b) => b.moves.map((m) => ({ ...m, _beat: b.id }))), craft = "references/craft.md \"Purpose, hero and exits\"";
+    if (all.length) {
+      const none = all.filter((m) => !lc(m.purpose));
+      if (none.length) w("move-purpose-missing", `${none.length} of ${all.length} move record(s) have no purpose (beats ${[...new Set(none.map((m) => m._beat))].slice(0, 6).join(", ")}): a move with no job is decoration`, `give each move purpose: ${PURPOSES.join(" | ")}, or cut it`, craft);
+      const bad = all.filter((m) => lc(m.purpose) && !PURPOSES.includes(lc(m.purpose)));
+      if (bad.length) w("move-purpose-unknown", `purpose "${lc(bad[0].purpose)}" on beat ${bad[0]._beat} is not one of ${PURPOSES.join(", ")}`, "use one of the six", craft);
+      const dur = (m) => Number(m.dur), isExit = (m) => !!m.exit || /exit|leave|out/i.test(String(m.kind || "")), isEnter = (m) => !!m.entrance || (/enter|in\b/i.test(String(m.kind || "")) && !isExit(m));
+      const slow = [];
+      for (const x of all.filter((m) => isExit(m) && dur(m) > 0 && m.target)) { const en = all.find((m) => isEnter(m) && String(m.target) === String(x.target) && dur(m) > 0); if (en && dur(x) > dur(en) + 1e-9) slow.push(`${x.target} (exit ${dur(x)} s, entrance ${dur(en)} s)`); }
+      if (slow.length) w("exit-longer", `${slow.length} exit(s) run longer than their entrance: ${slow.slice(0, 4).join(", ")}; exits take ${Math.round(EXIT_RATIO.aim[0] * 100)} to ${Math.round(EXIT_RATIO.aim[1] * 100)}% of the entrance`, "shorten each exit to about 60 to 80 percent of its entrance", craft);
+    } }
   return F;
 }

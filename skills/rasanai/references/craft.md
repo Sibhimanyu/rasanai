@@ -122,7 +122,7 @@ Everything obeys `motion.md` (the style's motion language: its signature curves,
 | Glide (repositions) | `cubic-bezier(0.2,0,0,1)` | A soft start, a long settle. 0.5–0.9 s. |
 | Expressive (big travels) | `cubic-bezier(0.4,0.14,0.3,1)` | Felt mass: a real ease-in before the travel. |
 | Settle (hero landings) | `spring(0.68,12)` | 3–8% past the target and back, about 1 landing in 8; never body text or numbers. Only where the element arrives with momentum, sized by its weight ("Settles"). |
-| Exit | `cubic-bezier(0.3,0,0.8,0.15)` or the language's exit | About 65% of the matching entrance. |
+| Exit | `cubic-bezier(0.3,0,0.8,0.15)` or the language's exit | 60 to 80% of the matching entrance ("Purpose, hero and exits"). |
 | Snap (hits, accents) | `expo.out` | A quarter of moves at most. |
 | Drift (camera, ground, ambient) | `sine.inOut` or linear | 4 s or longer. |
 | Linear | only constant-speed things | Tickers, marquees, progress bars, conveyor belts. |
@@ -152,6 +152,12 @@ Everything obeys `motion.md` (the style's motion language: its signature curves,
 **Arcs.** A travel over 3% of the frame bends by 4–12% of its length, away from the frame centre (references: 41–75% of travels bend). A cursor moves on arcs, never straight segments. No element crosses more than a third of the frame width in one straight tween: add an arc or an intermediate keyframe, unless the score declares it a whip (`path: whip`, a blur-stretched swap on a hit). `long-straight-travel` (warning; `path: arc | whip` in the score waives it).
 
 **A living frame, composed holds.** Each shot has a camera layer on a world wrapper (a 1.5–4% push over the shot or a 0.5–1.5% of the frame per second drift, `sine.inOut`; UI references move the camera about a third of the time) or a quiet ambient on the ground. **Three motion layers, in counter-motion.** Every showcase shot has a primary (the hero), a secondary (support, 2-4 frames behind) and an ambient layer. The ambient layer drifts at 20-30% of the hero's speed and against its direction (hero travels left, the ground drifts right). Score `layer: hero | support | ambient` per move; `ambient-speed` warns above 40% of the hero's mean speed, `ambient-not-counter` when the ambient drifts the hero's way (both measured on the tweens that carry a `layer`), and `layers-missing` (launch-beats) when a meet or capability beat lacks one. A hold is composed: the frame keeps breathing while the line is read. A dead frame (nothing moving at all) is the failure, and so is constant mechanical drift ("a line never parks" made every line slide forever; it is gone). No idle loops on content (breathing scale, bobbing, pulsing, infinite yoyo: `slop.mjs` idle-breathing; they also break seek-safety).
+
+### Purpose, hero and exits
+
+- Give each beat one hero: the element that carries the beat's main motion, named in the score as `hero`. Everything else moves less, because two things competing for the eye mean neither is seen; this is the primary layer of the three-layer rule above (the ambient layer stays at 20 to 30% of the hero's speed). `hero-missing` warns on a launch beat with none.
+- Give each move a `purpose`: `hierarchy` (what to look at first), `state` (something changed), `relationship` (these belong together), `feedback` (the product answered), `continuity` (the same thing carried across a cut) or `emotion` (the feeling the beat needs). A move that serves none is decoration: cut it or give it a job. The critic flags moves with no purpose; `move-purpose-missing` warns on per-tween records without one.
+- Make an exit quicker than its entrance, at about 60 to 80% of the matching entrance duration, because the viewer is done with the element and the next thing is arriving. `exit-longer` (launch-beats) warns when a move record's exit `dur` passes its entrance `dur` on the same `target`.
 
 **Speed-softening.** An element faster than about 40% of the frame width a second softens with its speed (blur up to 6 px, or a directional trail, RasanCamera `blurTrail`); Kinso and Sovra soften about 35% of fast moves. True motion blur comes from `finish.mjs`.
 

@@ -154,6 +154,7 @@ Read `references/launch-grammar.md` (§9 the three looks, §11 chrome and look r
   - (b) a UI card at 35 to 60% of the frame, not a thumbnail;
   - (c) the ground rhythm: a strip or three small frames of the look's grounds in order (for example brand-gradient, dark, white) with the brand-colour atmosphere stated as a hex gradient or glow, and brand colour on at least 30% of the strip;
   - (d) a dense and a sparse frame at different scale.
+- Write the film's motion personality into `blend.json` `treatment` as `"motion_language": { "direction": "forward|upward|inward|outward", "physics": "soft|crisp|heavy|weightless|elastic" }` beside the signature ease, and make the three looks differ on it, because the whole film follows one personality (`references/launch-grammar.md` section 9; `crew.mjs check` warns when it is missing).
 - Write `"hero_scale_pct"`, `"ui_scale_pct"` and `"ground_rhythm": ["brand-gradient", "dark", "white"]` into `blend.json` `treatment`; the film's `ground` per beat is taken from this rhythm (`references/launch-grammar.md` section 12). Give a hero a lit or branded ground, because a neutral grey studio ground teaches the film to be grey.
 - Chrome rule and look contrast: follow `references/launch-grammar.md` §11 (no fake HUD or instrument labels unless the product is that kind of tool; the three looks are distinct treatments with at least one lit atmosphere).
 
@@ -271,7 +272,7 @@ The look's one motion grammar, in the library's schema (`grammar.mjs check --fil
 - Sure, Bold and Wild may differ in grammar only where the brand allows (with a brand lock the grammar is the one axis you may vary freely, besides composition and density).
 
 <output_contract>
-Write these files in `design/<label>/`: `DESIGN.md`, `recipe.json`, `specimen.html` (the gate renders `specimen.png`), `blend.json` and `grammar.json`. A medium look also writes `medium.json` and `creative/medium-judgments.json`.
+Write these files in `design/<label>/`: `DESIGN.md`, `recipe.json`, `specimen.html` (the gate renders `specimen.png`), `blend.json` (on a launch film with `treatment.motion_language`) and `grammar.json`. A medium look also writes `medium.json` and `creative/medium-judgments.json`.
 
 Done when `node "$SKILL_DIR/scripts/design.mjs" check-system --dir design/<label>` exits 0 and `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role design-system-designer --key <label>` exits 0 (it runs the system gate and compares you with the siblings that already exist).
 </output_contract>
