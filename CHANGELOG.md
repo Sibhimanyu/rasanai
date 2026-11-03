@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.39.0 (2026-11-03): Clear launch films: what it is and for whom, real product early, no buzzwords, one message, a clear CTA
 
 - **Launch clarity rules from the YC design reviews (doctrine, briefs, warnings).** `references/launch-grammar.md` section 14 now asks every launch film to make the category and audience clear by the end of the turn (score `clarity {category, audience, beat}`), land the first UI proof by about 40% with a `core_job_demo` beat, state benefits with true specific numbers instead of features and adjectives, declare one `one_message`, and end on a held verb-plus-destination `cta {text, hold_s}`. New `scripts/lib/copy-lint.mjs` holds the buzzword denylist and the CTA shape; `launch-beats.mjs`, the concept check in `crew.mjs` and the final-gate text-qa warn on them. The reference juror gets a five-second cold read (`first5s-sheet.jpg`, `cold_read`, `one_message_check`), and a mismatch forces a story_clarity score under 7.
 
