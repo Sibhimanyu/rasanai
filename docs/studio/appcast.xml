@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.31.1 beta 1</title>
+      <pubDate>Tue, 03 Nov 2026 04:25:38 GMT</pubDate>
+      <description><![CDATA[<ul><li>Launch films say what the product is and who it is for early, show the real product doing its job, avoid buzzwords, keep to one message and end on a clear call to action; the reference jury now does a five-second cold read of every draft.</li></ul>]]></description>
+      <sparkle:version>82</sparkle:version>
+      <sparkle:shortVersionString>0.31.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.31.1-beta.1/RasanAI-Studio-0.31.1.dmg" sparkle:edSignature="GZMKC6/3HWA0EB89Aqrj82hxfykl3fPfBp7A1prs/+GqHsCGuDLK8gTWq1l+x7re+7ZBIBd8hQwg9kRom5/zCw==" length="99175619" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.31.0 beta 1</title>
       <pubDate>Mon, 02 Nov 2026 16:26:03 GMT</pubDate>
       <description><![CDATA[<ul><li>Launch films are made the way the house reference films are: a variety of scenes, stepped and flicker texture where it helps, reference moves instead of stock AI animation, editorial imagery without generated people, and a reference jury that checks each draft before the Final.</li><li>The latest-preview bubble opens the video in the app's own player (every control, true full screen, Space/arrows/Esc) instead of the system player, with a play glyph, a hover state and an expand button. Small inline players (the preview tile on the asking screen and anywhere else under 480 pt wide) now show one slim row (play, scrubber, time, full screen) over a picture that fills the tile, instead of a transport clipped by it.</li></ul>]]></description>
