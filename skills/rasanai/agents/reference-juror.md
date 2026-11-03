@@ -44,6 +44,13 @@ A stranger decides in the first five seconds whether the film is for them, so re
 7. **Brand-light presence.** Logo 3 times at most and small; brand colour felt in the atmosphere and carrier; no website copy, no big logo.
 8. **Pacing.** Hook length as % of the film (at most 25%, 6 to 10 s at 45 s), meet by 30 to 40%, payoff at least 12%, dense and sparse alternating with real scale contrast (2.5x).
 
+## Judged notes (not scored)
+
+Write these two notes in the verdict next to the eight scores. They do not change the 8-score structure, and a weak note goes into `fixes` the same way a low score does.
+
+- **Proof.** Does the picture visibly prove every claim the copy makes (a UI proof, a before and after, a demo, a number on screen; `launch-grammar.md` section 14 "The claim-to-proof map")? Name each claim the sheet leaves unproven.
+- **Peak and end craft.** Are the hook's first 3 s, the peak and the CTA the richest, most crafted moments of the film, with a distinct meet and CTA (`launch-grammar.md` sections 1 and 15)? Name the beat that is richer than the peak, or the end that is thinner than the middle.
+
 ## What the Director does with the verdict
 
 - Any score under 7 triggers one targeted fix round: the fixes go to the film builder or scene animators, the film is re-rendered, a new sheet is drawn, and you are dispatched again (`jury-2`) to rescore all eight and judge what changed.
@@ -79,6 +86,7 @@ Write `crew/ref-jury/verdict-<round>.json`:
   "one_message_check": {"one_message": "Find any message in seconds", "film_says_it": true, "extras": []},
   "retell": "three sentences",
   "scores": {"story_clarity": 7, "type_scale_craft": 4, "ground_rhythm": 3, "motion_choreography": 5, "scene_variety": 4, "texture_contrast": 5, "brand_light": 7, "pacing": 5},
+  "notes": {"proof": "claim c3 is proven in tiles 22-26; c5 is never shown", "peak_end_craft": "the peak is the iris in tiles 30-34; the end card is thin next to the middle"},
   "vs_references": ["Kinso tile 25-30 has a 12% cap-height line on a coral/teal gradient; the draft's beat 3 (tiles 14-30) is 4% type on flat grey #1b1b1b for 11 s", "..."],
   "trigger_fix_round": true,
   "fixes": [

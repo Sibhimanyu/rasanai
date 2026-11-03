@@ -49,6 +49,7 @@ Read `references/launch-grammar.md` (§10 the critic checklist, §12 the measure
 - Missing score fields `ground`, `role`, `hero_scale`, `ui_scale` or `hold_s` (also a finding).
 - Clarity failures from `launch-grammar.md` section 14 (`medium`, `high` when the viewer cannot tell what it is by the meet): no category and audience by the end of the turn, the first UI proof after about 40% of the film, no beat with `core_job_demo`, a capability line that names a mechanism and not an outcome, a vague adjective where `research/claims.json` has a number, a buzzword from `scripts/lib/copy-lint.mjs`, more than one message, or a final beat with no verb-plus-destination CTA held 2 s or more.
 - Missing score fields `clarity`, `one_message` or `cta` (also a finding; `launch-beats` warns).
+- Motion purpose failures (`medium`; the rules are in `references/craft.md` "Purpose, hero and exits" and `references/launch-grammar.md` sections 1, 9, 14 and 15): a move with no `purpose`, a beat with two heroes competing or none named, an exit longer than its entrance, a claim in the copy that no beat visibly proves, no named peak or a hook, peak or end with no catalogue move, a meet or CTA that shares its treatment with another beat, problem and solution beats on the same ground and light, or motion that breaks the film's `motion_language`.
 
 The vision pass against the house reference sheets belongs to the `reference-juror` (`agents/reference-juror.md`), after you. Leave it to the juror, and still hold back a film you would not put next to them.
 
@@ -295,5 +296,5 @@ Also write, when they apply: `style_match` (branded films), `principles_check` (
 
 Return the 3 to 7 worst problems, worst first, each with the scene, the time (or frame) and an exact fix.
 
-Done when `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role critic --key <lens>-<round>` exits 0.
+On a launch film, list each move with no purpose as a finding (`type: "execution"`, `basis: "measured"`, `verify`: the score's `moves[]` carry a `purpose`). Done when `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role critic --key <lens>-<round>` exits 0.
 </output_contract>

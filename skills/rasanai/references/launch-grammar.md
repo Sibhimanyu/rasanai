@@ -18,7 +18,8 @@ Applies to every launch, promo, feature-reveal and product-launch film (`product
 - 11. Chrome and props rules
 - 12. Scale, ground rhythm, always moving, the reference jury (ground and light live here)
 - 13. The three house references
-- 14. Clarity, proof, benefit and call to action (what it is and for whom, UI by 40%, one message, CTA)
+- 14. Clarity, proof, benefit and call to action (what it is and for whom, UI by 40%, one message, CTA, the claim-to-proof map)
+- 15. Motion purpose (distinct reveal and CTA, mood follows story)
 
 ## Target and scope
 
@@ -32,6 +33,8 @@ Applies to every launch, promo, feature-reveal and product-launch film (`product
 
 Order every film hook, turn, meet, 2 to 3 capabilities, payoff, with one thought per beat and on-screen type carrying the story. A voiceover is optional and reads only the on-screen lines (Minase reads its lines; Kinso is music only); a song may be asked for, and the type then carries the same lines.
 
+- Allow voiceover-mirroring type and show the condensed key words of each spoken line, the way TaskShelf and Minase mirror their voiceovers, because the eye and the ear then land the same thought together.
+
 | Beat | Job | Shape |
 |---|---|---|
 | Hook | the viewer's problem, felt | 2 to 4 short lines, second person, no logo, no product name; the hook or the turn makes the category and the audience clear (section 14) |
@@ -39,6 +42,12 @@ Order every film hook, turn, meet, 2 to 3 capabilities, payoff, with one thought
 | Meet | the brand or product reveal, small and calm | the logo or wordmark plus one phrase, on an empty ground; the first logo use (section 3) |
 | Capabilities | 2 or 3 beats, each proves one thing | one line plus one simplified UI mockup that proves that line |
 | Payoff / CTA | the emotional line, or social proof | a closing line, or a count-up number then its label; the end card holds the logo (the last logo use) and the call to action |
+
+### Peak-end craft budget
+
+- Name the film's `peak` beat (`score.peak`: the beat id of the signature moment), because viewers remember the peak and the end.
+- Spend the richest moves and the most craft in three places: the hook's first 3 s, the peak and the end or CTA beat. Each names at least one catalogue move in `moves_named` (`launch-moves.md`), and the other beats run lighter.
+- Check: `peak-missing` and `peak-end-moves` (warnings in `scripts/lib/launch-beats.mjs`).
 
 ### Motion profile per beat
 
@@ -208,9 +217,11 @@ This section is the home of the Look rules (section 11 and the Look agents link 
 | Scene plan | which scene types, and where the texture accents fall |
 | Light treatment | `gradient`, `glow` on dark, `lit-white`, `none` |
 | Density | dense or sparse mix |
+| Motion language | `motion_language: {direction: forward \| upward \| inward \| outward, physics: soft \| crisp \| heavy \| weightless \| elastic}` |
 
 - Make the three looks distinct treatments: ground, type pairing, scene plan and light differ as a set, and type pairing and scene plan differ on every look, because three looks that differ in one axis read as one.
 - Give at least one look a lit atmosphere (a soft brand gradient as in Kinso, OR a coloured light or glow on dark as in Sovra.fm, one dark ground lit by moving purple light, OR a lit white), because lit atmosphere is what the references share. Three different grounds are a recommendation, not a rule.
+- Declare a `motion_language` on every look (in `blend.json` `treatment`) and carry the chosen one onto the score beside `signature_ease`, because one direction of travel and one kind of physics through the whole film is what reads as a motion personality. Every beat's moves follow it (a `heavy` film settles late and never snaps; a `crisp` film cuts clean; an `upward` film rises on every entrance). `motion-language-missing` warns when it is absent.
 - Use the brand palette as atmosphere and keep the logo small on every look.
 - Take a soft brand-gradient ground from the brand's own palette and keep it subtle, and use a blue or purple glow only when the brand palette calls for it, because a default blue or purple glow is the AI look. The references use white, near-black and the brand's own atmosphere.
 
@@ -230,7 +241,8 @@ Each item points to the section that holds the rule.
 10. One signature curve covers 70 to 85 percent of the moves, accents are limited to a whip, the signature transition and the payoff hit, and the hook, meet and payoff move as the profile table says (sections 1, 7).
 11. No AI-cliche emphasis: the limits in `launch-moves.md` § AI cliches hold, with no people or neon or glow in generated images (4d).
 12. Section 12 holds: hero cap height 9 to 20% in every beat, UI proof 35 to 60%, 2 or more ground families with brand atmosphere in 30% or more of the film, no hold over about 1.2 s, no plain fade or blur transition, hook at most 25%, no grey 3D hero.
-13. Section 14 holds: category and audience clear by the end of the turn, first UI proof by about 40% with the core job shown, benefit lines with a true specific number where one exists, no buzzwords, one message, a held CTA.
+13. Section 14 holds: category and audience clear by the end of the turn, first UI proof by about 40% with the core job shown, benefit lines with a true specific number where one exists, no buzzwords, one message, a held CTA, and every claim in the copy proven by a beat.
+14. Section 15 and the arc hold: a named peak, catalogue moves on the hook, peak and end, a distinct meet and CTA, a mood per beat that the ground follows, and one `motion_language` the whole film obeys (sections 1, 9, 15).
 
 Related: `launch-moves.md` (the 35 reference moves and the AI cliche table), `launch-film.md` (timings, measurement, red flags), `product-first.md`, `ui-rebuild.md`, `motion-handoffs.md`, `composition-transitions.md`.
 
@@ -312,6 +324,7 @@ This section is the home of five rules from the YC design reviews (`.context/yc-
 - Write each capability line as the outcome for the viewer and keep the mechanism for the UI proof, because the line is read in a second and the mechanism does not fit.
 - Take a number or a concrete detail from `research/claims.json` where one exists and keep the claim scope, because a true number lands harder than an adjective and an invented one breaks trust.
 - Replace the buzzwords in `scripts/lib/copy-lint.mjs` with the specific thing the product does, because those words say nothing a viewer can check.
+- Map every claim to a beat that visibly proves it (the claim-to-proof map, below), because a claim the picture never shows is an adjective with an id.
 - Write the CTA as a verb plus a destination ("Download for macOS", "Start your 7-day free trial", "Join the waitlist"), put it on the last beat and hold it at least 2 s, because a bare logo end card gives no next step.
 
 <example>
@@ -334,3 +347,30 @@ good: "Download for macOS", held 2.5 s on the end card
 good: "Join the waitlist", held 2 s
 bad: "Learn more" flashed for under 1 s, or a logo with no words
 </example>
+
+### The claim-to-proof map
+
+- Give each capability beat `proves: [claim ids]` (ids from `research/claims.json`), and list the claims the copy uses in `claims_used`, because the viewer should see every claim happen and not only read it.
+- Prove a claim with something visible: a UI proof, a before and after, a demo of the job, or the number on screen.
+- Check: `proof-map-missing` (no beat declares `proves`) and `claim-unproven` (a used claim no beat proves), both warnings.
+
+<example>
+Claim to proof
+good: claim `c3` "12 follow-ups before lunch" is in the copy, and beat 5 (`proves: ["c3"]`) shows the list emptying to 12 sent
+bad: `c3` is in the copy and the only beat near it is a mood slate
+</example>
+
+## 15. Motion purpose
+
+This section is the home of the distinct reveal and the mood rules. The hero, purpose and exit rules live in `craft.md` "Purpose, hero and exits"; the fields are in `score.md` "Motion purpose". All checks are warnings.
+
+| Rule | How | Why |
+|---|---|---|
+| Make the reveal and the CTA distinct | the meet beat and the CTA beat each declare `distinct: {what}`: a colour, scale, motion or sound found nowhere else in the film | an element that differs from its surroundings is the one remembered (Von Restorff), and the reveal and the CTA are the two things to remember |
+| Let mood follow the story | every beat declares `mood`: `problem \| turn \| solution \| climax \| cta` | the picture should change when the story does |
+| Mute the problem | problem beats take a more muted ground, tighter framing and constrained motion | the viewer feels the squeeze |
+| Open the solution | solution beats take a brighter ground, a more open frame and confident motion | the viewer feels the relief |
+| Calm the CTA | the CTA beat is calm and uncluttered | a clear next step needs room |
+
+- Declare a `light` per beat next to `ground`, because problem and solution beats that declare the same ground and light read as one mood (`mood-flat`).
+- Check: `distinct-missing`, `distinct-repeat`, `mood-missing`, `mood-flat` in `scripts/lib/launch-beats.mjs`.

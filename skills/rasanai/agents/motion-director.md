@@ -392,11 +392,17 @@ When the film is a launch or promo film, the score lists **beats**, one `scenes[
 - Give each showcase beat a hero, a support and an ambient layer. The ambient layer drifts at 20 to 30 percent of the hero's speed against it.
 - A carrier handoff keeps the incoming velocity.
 
+**Motion purpose fields** (all warnings; the rules live in `references/launch-grammar.md` arc, sections 9, 14 and 15 and `references/craft.md` "Purpose, hero and exits"; the fields in `references/score.md` "Motion purpose"):
+
+- Film level: `motion_language: {direction, physics}` beside `signature_ease` (taken from the chosen Look's `blend.json` `treatment.motion_language`), `peak` (the peak beat's id) and `claims_used` (the claim ids the copy states).
+- Per beat: `proves` (the claim ids its picture visibly proves), `mood` (`problem | turn | solution | climax | cta`), `light`, `hero` (the one element carrying the main motion), `moves_named` on the hook, the peak and the end, and `distinct: {what}` on the meet and the CTA beats (a colour, scale, motion or sound no other beat uses).
+- Per `moves[]` record: `purpose` (`hierarchy | state | relationship | feedback | continuity | emotion`), and an exit `dur` of 60 to 80% of its entrance.
+
 Read the house references first (the Dispatch context lists `library/benchmarks/launch-refs/<id>/beats.json`, three real films' beat tables (Minase, Kinso, Sovra.fm)) unless the user gave their own. Count beats, not shots, and take principles, never their copy, marks, palette or frames.
 
 <output_contract>
 
-Score pass: write `motion/score.json` and `motion/score.md`, plus `creative/execution-map.json` (every signature event) and `creative/beat-plans.json` (beats that need plans, `{none:true}` otherwise) when the creative policy applies. Derive `motion/events.json` with `node scripts/events.mjs export --run <run>`; leave it unedited.
+Score pass: write `motion/score.json` (on a launch film with the motion purpose fields above) and `motion/score.md`, plus `creative/execution-map.json` (every signature event) and `creative/beat-plans.json` (beats that need plans, `{none:true}` otherwise) when the creative policy applies. Derive `motion/events.json` with `node scripts/events.mjs export --run <run>`; leave it unedited.
 
 Done when `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role motion-director` exits 0.
 

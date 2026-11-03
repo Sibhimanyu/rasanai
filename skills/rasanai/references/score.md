@@ -145,10 +145,29 @@ Per beat, besides the fields above: `beat` (`hook | turn | meet | capability | p
 - `travel_px` and `path` (`straight | arc | whip`): a travel over a third of the frame needs an arc or a declared whip (`long-straight-travel`); `travel_px` above 0 or `whip` counts as momentum for a settle (`unmotivated-overshoot`).
 - `layer`: `hero | support | ambient` (`ambient-speed`, `ambient-not-counter`, `layers-missing`).
 - `entrance`: `mask-rise | scale-from-origin | draw-on | clip-reveal | travel-fade | cut | fade` (`fade` is opacity-only: `entrance-fade-only`, warning).
+- `exit` (a kind such as `travel-fade | cut | mask`) on a leaving move, with the same `target` as its entrance: the exit's `dur` is 60 to 80% of the entrance's (`exit-longer`).
+- `purpose`: `hierarchy | state | relationship | feedback | continuity | emotion` (`move-purpose-missing`, `move-purpose-unknown`; the rule is in `craft.md` "Purpose, hero and exits").
 - `set_piece: true`: a declared cascade set piece (`cascade-span` allows 1.2 s).
 - `handoff` on a beat: `{carry: [position, velocity, ...]}` or `{intentional_discontinuity}` (`handoff-velocity`).
 
 Measured from the built tweens where `obey` can see them, from these fields where it cannot; all warnings. `beat-profile` (hook has no overshoot and is tighter than the film's mean; the meet holds the longest entrance; the payoff's `hold_s` is the longest) reads `moves[]`, `beat` and `hold_s`.
+
+### Motion purpose (launch and promo films)
+
+The rules are in `references/launch-grammar.md` (arc, section 9, sections 14 and 15) and `references/craft.md` "Purpose, hero and exits"; every check is a warning in `scripts/lib/launch-beats.mjs`, shown by `crew.mjs check --role motion-director`.
+
+| Field | Type | Required for | Why (and the check) |
+|---|---|---|---|
+| `proves` | array of claim ids (from `research/claims.json`) | every beat whose picture proves a claim | Maps each claim to the beat that visibly proves it (`proof-map-missing`). |
+| `claims_used` (film), `claims` (beat) | array of claim ids | launch films | The claims the copy states; one with no proving beat warns (`claim-unproven`). |
+| `peak` (film) | the peak beat's id | launch films | Names the signature moment; the hook, the peak and the end get the richest moves (`peak-missing`). A beat may also carry `peak: true`. |
+| `moves_named` | array of catalogue names | the hook, peak and end beats at least | Shows where the craft went (`peak-end-moves`). |
+| `distinct` | `{what}` (or a string): a colour, scale, motion or sound | the meet beat and the CTA (last) beat | A treatment found nowhere else in the film; the same value on another beat warns (`distinct-missing`, `distinct-repeat`). |
+| `mood` | `problem \| turn \| solution \| climax \| cta` | every launch beat | The ground, light and motion follow the story (`mood-missing`). |
+| `light` | `gradient \| glow \| lit-white \| none` | every launch beat | With `ground`, tells problem from solution; identical ground and light on both warns (`mood-flat`). |
+| `hero` | string | every launch beat | The one element that carries the beat's main motion (`hero-missing`). |
+| `motion_language` (film) | `{direction: forward \| upward \| inward \| outward, physics: soft \| crisp \| heavy \| weightless \| elastic}` | launch films, beside `signature_ease` | The film's motion personality, copied from the chosen Look's `blend.json` `treatment.motion_language` (`motion-language-missing`, `motion-language-unknown`). |
+| move `purpose` | one of the six (see "Motion laws") | every record in `moves[]` | Gives each move a job (`move-purpose-missing`). |
 
 The full-frame-type scale, a second scale, the 50% UI hero and the old shot-length median no longer apply to the default launch grammar: a launch film is judged on its beats and, with no stated gate profile, as `flat`.
 

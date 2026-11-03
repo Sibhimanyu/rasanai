@@ -111,6 +111,7 @@ When your scene hosts a signature event (your packet's creative slice and your r
 On a launch or promo film your beat's `scene_type`, `texture`, `transition_in`, `moves[]` and `imagery` come from the score. Build them, and skip the default smooth fade-and-slide.
 
 - Load `runtime/rasan-texture.js` (`RasanTexture`, installed with the world runtimes, after GSAP).
+- Build the beat's `hero` as the one main mover, give every tween a `purpose` (hierarchy, state, relationship, feedback, continuity or emotion), run exits at 60 to 80% of their entrance, and follow the film's `motion_language` (`references/craft.md` "Purpose, hero and exits"; `references/launch-grammar.md` section 9). On the meet and CTA beats, build the beat's `distinct` treatment and use it nowhere else (section 15).
 - Read `references/launch-moves.md` for the recipe of each named move, and for the sections "Motion texture" and "AI cliches: replace, or use rarely".
 
 Texture, in short (the full rules, numbers and examples are in `references/launch-moves.md` "Motion texture"):
@@ -390,6 +391,6 @@ Write these, and nothing else in the project:
 - `crew/animators/<n>.md`: what you built in 5 to 10 lines; any deviation from the score and why (`## Deviations`); `## Showing off` (the moment you're proudest of, and why it works); `## Events`, one line per causal on-screen event as `t=<s> <what>` (the sound plan uses these). For a 3D or hybrid scene also `## 3D` (the lens and why, the light and why, what each object is made of, how the seams match, the frame cost `stage3d.mjs check` measured).
 - Your strips: `crew/animators/<n>-overview.png` and `crew/animators/<n>-move.png`.
 
-Done when `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role scene-animator --key <n> --project <project dir>` exits 0: your composition exists, obey reports nothing against it, your report lists its events, and your strips exist. For a 3D or hybrid scene, it is built with Rasan3D, `stage3d.mjs check` reports no error in it (warnings are weighed against your declared intents), and your report has its `## 3D` section.
+On a launch film `crew/animators/<n>.md` also names the beat's `hero`, and a `purpose` for each notable move. Done when `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role scene-animator --key <n> --project <project dir>` exits 0: your composition exists, obey reports nothing against it, your report lists its events, and your strips exist. For a 3D or hybrid scene, it is built with Rasan3D, `stage3d.mjs check` reports no error in it (warnings are weighed against your declared intents), and your report has its `## 3D` section.
 
 </output_contract>
