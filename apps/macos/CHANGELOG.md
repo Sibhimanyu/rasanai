@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Launch films say what the product is and who it is for early, show the real product doing its job, avoid buzzwords, keep to one message and end on a clear call to action; the reference jury now does a five-second cold read of every draft.
+
 ## 0.31.0 (build 81) — 2026-11-02
 
 - Launch films are made the way the house reference films are: a variety of scenes, stepped and flicker texture where it helps, reference moves instead of stock AI animation, editorial imagery without generated people, and a reference jury that checks each draft before the Final.
