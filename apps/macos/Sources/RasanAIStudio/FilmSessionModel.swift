@@ -92,6 +92,7 @@ final class FilmSessionModel {
     @ObservationIgnored var lastSpoke: [ChatIncident.Kind: Date] = [:]
     /// Asks Studio already answered (an ask is answered once, whatever the route), and when the last chat call failed (the doorways then offer buttons).
     @ObservationIgnored var answeredAsks: Set<String> = []
+    @ObservationIgnored var rejectedAsks: Set<String> = []
     var chatFailed = false
     /// The chat can run at all: set by the store (Claude Code installed and the director is Claude).
     var chatAvailable: () -> Bool = { true }
@@ -218,6 +219,8 @@ final class FilmSessionModel {
         setConnection(.live)
         for refused in reading.rejected where sentIDs.contains(refused.id) && reportedRejections.insert(refused.id).inserted {
             lastError = "The director could not use that answer: \(refused.error)."
+            // The ask is still open: the answer may be tried again (by the person's say-so in the chat), but the background look never re-sends it.
+            if let open = snapshot.ask?.id { answeredAsks.remove(open); rejectedAsks.insert(open) }
             pendingRefine.removeAll()
         }
         let ids = reading.queued.map(\.id)

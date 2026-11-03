@@ -96,7 +96,7 @@ extension StudioStore {
         guard !coordinator.isInstalling, !coordinator.isChecking, Date().timeIntervalSince(film.lastToolPoll) > 15,
               let incident = film.incidents.unresolved.first(where: { $0.kind == .toolNeed }), let need = incident.need, need.preflightIDs.isEmpty else { return }
         let ask = film.ask.flatMap { ToolNeed(ask: $0)?.tool == need.tool ? $0 : nil }
-        if let ask, film.answeredAsks.contains(ask.id) { return }
+        if let ask, film.answeredAsks.contains(ask.id) || film.rejectedAsks.contains(ask.id) { return }
         film.lastToolPoll = Date()
         Task { _ = await coordinator.check(need, ask: ask, model: film, source: "studio-poll", consent: "none", silent: true) }
     }

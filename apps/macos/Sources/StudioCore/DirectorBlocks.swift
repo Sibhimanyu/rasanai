@@ -198,7 +198,10 @@ public struct ToolNeed: Equatable, Sendable {
         "pydub": "pydub", "faster-whisper": "faster_whisper", "numpy": "numpy", "scipy": "scipy", "torch": "torch",
         "misaki": "misaki", "pyyaml": "yaml", "edge-tts": "edge_tts", "piper-tts": "piper", "librosa": "librosa", "numba": "numba"]
 
-    public static func isSafeName(_ s: String) -> Bool { s.range(of: #"^[A-Za-z0-9._+-]{1,60}$"#, options: .regularExpression) != nil }
+    public static func isSafeName(_ s: String) -> Bool { s.range(of: #"^[A-Za-z0-9._+-]{1,40}$"#, options: .regularExpression) != nil }
+    /// The text after `install-tool:` is something the director's console will accept back in `tool-ready:` (an optional lowercase `pip:`, `npm:` or
+    /// `app:` prefix, then 1 to 40 of letters, digits and `. _ + -`). Anything else (a version spec, another prefix, too long) is not read as a tool need.
+    public static func consoleAccepts(_ raw: String) -> Bool { raw.range(of: #"^(?:pip:|npm:|app:)?[A-Za-z0-9._+-]{1,40}$"#, options: .regularExpression) != nil }
 
     /// The key Studio's managed setup installs a tool name under, or nil.
     static func managedKey(_ tool: String) -> String? {
@@ -217,7 +220,7 @@ public struct ToolNeed: Equatable, Sendable {
     static func infer(_ raw: String) -> (name: String, kind: Kind, module: String?, valid: Bool) {
         var name = raw.trimmingCharacters(in: .whitespaces).lowercased()
         var forced: Kind?
-        for (prefix, kind) in [("pip:", Kind.pythonModule), ("python:", .pythonModule), ("npm:", .npmPackage), ("app:", .app), ("exe:", .executable)] where name.hasPrefix(prefix) {
+        for (prefix, kind) in [("pip:", Kind.pythonModule), ("npm:", .npmPackage), ("app:", .app)] where name.hasPrefix(prefix) {
             name = String(name.dropFirst(prefix.count)); forced = kind
         }
         if let cut = name.firstIndex(where: { "=<>!~[;".contains($0) }) { name = String(name[..<cut]) }   // `pkg==1.2`, `pkg[extra]`
@@ -233,7 +236,7 @@ public struct ToolNeed: Equatable, Sendable {
         guard let option = ask.options.first(where: { $0.id.hasPrefix(Self.installPrefix) }) else { return nil }
         let name = String(option.id.dropFirst(Self.installPrefix.count)).trimmingCharacters(in: .whitespaces)
         let read = Self.infer(name)
-        guard !name.isEmpty, read.valid else { return nil }
+        guard !name.isEmpty, read.valid, Self.consoleAccepts(name) else { return nil }
         askID = ask.id; step = ask.step; tool = read.name; kind = read.kind; module = read.module; isValid = true
         raw = name
         skipOption = ask.options.first { $0.id == Self.skipPrefix + name }?.id ?? ask.options.first { $0.id.hasPrefix(Self.skipPrefix) }?.id

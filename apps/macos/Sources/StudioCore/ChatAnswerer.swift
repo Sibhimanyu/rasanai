@@ -75,13 +75,13 @@ public enum ChatAnswerer {
     }
 
     private static let problemReply = try! NSRegularExpression(
-        pattern: #"^\s*(yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|please do|no|nope|not now|don'?t|skip|continue without|carry on without|install|check|installed|i('?ve| have)? ?(just )?installed|it'?s (installed|done|there|ready)|done|try again|retry|restart|resume|pause|stop|cancel|why|what)\b"#,
+        pattern: #"^\s*(please\s+)?(yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|no|nope|not now|later|skip( it)?|continue without( it)?|installed( it)?|i('?ve| have)? ?(just )?installed( it)?|it'?s (installed|done|there|ready)|done|check( it)?( again)?|install( it)?( for me)?|try again|retry|restart( it)?|resume|pause|stop( the install)?|cancel( the install)?)\s*(please|thanks|thank you)?\s*[.!]*\s*$"#,
         options: [.caseInsensitive])
-    /// A short answer to an open problem or a proposal ("yes", "installed", "skip it", "install it", "check again"): at most eight words, starting
-    /// with one of those. Anything longer, or a real instruction for the film ("make the logo blue"), is not.
+    /// A message that is entirely a short answer to an open problem or a proposal ("yes", "installed", "skip it", "install it for me", "check again").
+    /// Anything with more in it, such as a real instruction for the film ("yes, and make the logo blue"), is not.
     public static func isReplyToProblem(_ text: String) -> Bool {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty, t.split(whereSeparator: \.isWhitespace).count <= 8, !matches(feedbackWords, t) else { return false }
+        guard !t.isEmpty, t.count <= 40 else { return false }
         return matches(problemReply, t)
     }
 

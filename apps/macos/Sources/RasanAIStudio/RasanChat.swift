@@ -295,11 +295,14 @@ extension FilmSessionModel {
 
     private func rounds(_ first: ChatTurn, step: String, routedNote: String?, fallback: String, incident: String?, agent: RasanChatAgent?) async {
         var turn = first, lastResults: [String] = []
+        // A reply that went to Rasan only (never to the director): if he can't be reached, say plainly that nothing was done.
+        let routedOnly = { if case .person(let t) = first { return ChatAnswerer.isReplyToProblem(t) }; return false }()
         let key = runDirectory.map { RasanChatAgent.sessionKey(for: $0) } ?? "film"
         func fail(_ why: String, round: Int) {
             streamingText = nil; chatFailed = true
             let said = round == 0 ? fallback : "What Studio did: " + lastResults.joined(separator: " ")
-            addLocal(step, fromUser: false, "Couldn't reach my thinking just now (\(why)): " + said, incident: round == 0 ? incident : nil)
+            let nothing = round == 0 && routedOnly ? " I couldn't reach my thinking, so nothing was done." : ""
+            addLocal(step, fromUser: false, "Couldn't reach my thinking just now (\(why)): " + said + nothing, incident: round == 0 ? incident : nil)
         }
         for round in 0..<Self.maxRounds {
             // Built now, after the earlier replies landed, so the facts and the "what changed" are the latest.
