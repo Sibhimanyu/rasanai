@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.32.0 beta 1</title>
+      <pubDate>Tue, 03 Nov 2026 12:50:36 GMT</pubDate>
+      <description><![CDATA[<ul><li>Launch films now prove every claim on screen, put their best craft on the opening, the peak and the end, give the reveal and the call to action a look nothing else in the film has, let the mood follow the story, and move with one consistent personality.</li><li>Problems are handled by chatting with Rasan. A tool the film needs, a blocked command, a stall, a loop or a stopped director is now one incident worked out from real state on every tick; Rasan raises it in the chat himself, and the popups and banners are only doorways ("Talk to Rasan", "Later") that close on their own when the problem is over. The status pill and chat header show the problem ("Needs kokoro-onnx"), and each chat message about it carries an open / fixing / fixed chip.</li><li>Tool needs are checked by kind: a program on the director's PATH, a Python package by importing it with the director's <code>python3</code> (kokoro-onnx now works end to end, and is never offered through Homebrew), an npm package through the director's node, an app in Applications. After your yes in the chat, Studio installs a Python package with <code>pip install --user</code> and streams the output into the chat.</li><li>Rasan acts and reports: new chat actions check a tool, install it, carry on without it, answer the director's question and recheck a problem, and what they really did goes back to Rasan for a short follow-up (three rounds at most). Restart, pause, install and carry-on-without need your yes in the conversation.</li><li>The canned status replies and the quick-action buttons in the chat are gone; Rasan's words are always his own, with a plain fallback labelled "Couldn't reach my thinking just now" if the model can't be reached.</li></ul>]]></description>
+      <sparkle:version>83</sparkle:version>
+      <sparkle:shortVersionString>0.32.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.32.0-beta.1/RasanAI-Studio-0.32.0.dmg" sparkle:edSignature="2hp2rkcqlZsgInAoDCWg2/e7XJ2kNkWOmuSr9Wfo+vxd8d/x8JsviZTsI5FtN7UvDRDFwRbt07HhGuDShCONDw==" length="99286158" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.31.1 beta 1</title>
       <pubDate>Tue, 03 Nov 2026 04:25:38 GMT</pubDate>
       <description><![CDATA[<ul><li>Launch films say what the product is and who it is for early, show the real product doing its job, avoid buzzwords, keep to one message and end on a clear call to action; the reference jury now does a five-second cold read of every draft.</li></ul>]]></description>
