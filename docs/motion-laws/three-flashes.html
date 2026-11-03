@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
 <link rel="stylesheet" href="../assets/site.css?v=3" />
 <link rel="stylesheet" href="../assets/how.css?v=3" />
-<link rel="stylesheet" href="../assets/laws.css?v=1" />
+<link rel="stylesheet" href="../assets/laws.css?v=2" />
 </head>
 <body class="how laws">
 <a class="skip" href="#main">Skip to content</a>
@@ -56,17 +56,18 @@
     </div>
 
     <div class="ml-cols">
-      <section aria-labelledby="t-take"><h2 id="t-take">Takeaways</h2><ul class="ml-points"><li>Three flashes a second at most.</li><li>No alternating full-frame black and white.</li><li>No flashing saturated red.</li><li>Change an element, not the ground.</li></ul></section>
+      <section aria-labelledby="t-take"><h2 id="t-take">Takeaways</h2><ul class="ml-points"><li>Three flashes a second at most.</li><li>No alternating full-frame black and white.</li><li>No flashing saturated red.</li><li>Change an element, not the ground.</li><li>Screen striped type and grids for regular-pattern hazards too, and offer a reduced-motion version for big zooms and parallax.</li></ul></section>
       <section aria-labelledby="t-why"><h2 id="t-why">What it means</h2><p>Rapid flashing can trigger seizures in people with photosensitive epilepsy, so this is a hard limit and not a style choice. Avoid alternating full-frame black and white, avoid flashing saturated red, and change one element on a constant ground instead.</p></section>
       <section class="ml-film" aria-labelledby="t-film"><h2 id="t-film">In a RasanAI film</h2><p>The render gate measures flashes in the finished film (<code>photosensitivity-flash</code>) and fails it above the limit. Flash bursts vary one element on a locked layout and keep the luminance change small.</p></section>
-      <section aria-labelledby="t-src"><h2 id="t-src">Origins and sources</h2><p>WCAG 2.3.1, Three Flashes or Below Threshold (Success Criterion, level A). Ofcom's broadcast guidance sets a similar limit. <a href="https://www.w3.org/TR/WCAG22/#three-flashes-or-below-threshold" rel="noopener">Read the source</a>.</p></section>
+      <section aria-labelledby="t-src"><h2 id="t-src">Origins and sources</h2><p>WCAG 2.3.1, Three Flashes or Below Threshold (Success Criterion, level A). Ofcom's broadcast guidance sets a similar limit and also covers regular patterns (more than five light and dark stripe pairs, under conditions). WebKit lists zoom, blur, spinning and multi-directional motion as triggers even without flashing. These are conditional tests, not pixel thresholds. <a href="https://www.w3.org/TR/WCAG22/#three-flashes-or-below-threshold" rel="noopener">Read the source</a>.</p><p class="ml-ev"><b>Evidence:</b> Studio practice and standards.</p><ul class="ml-srcs"><li><a href="https://www.ofcom.org.uk/siteassets/resources/documents/tv-radio-and-on-demand/broadcast-guidance/gn_flash.pdf?v=324195" rel="noopener">Ofcom / ITC guidance on flashing images and regular patterns (PDF)</a></li><li><a href="https://webkit.org/blog/7551/responsive-design-for-motion/" rel="noopener">WebKit, Responsive Design for Motion</a></li></ul></section>
     </div>
 
+    
     <nav class="ml-pager" aria-label="More laws">
-      <a href="no-glow-no-bokeh.html" rel="prev"><span>Previous</span>No glow pulses, no bokeh</a>
-      <a href="time-to-read.html" rel="next"><span>Next</span>Time to read</a>
+      <a href="ai-tells.html" rel="prev"><span>Previous</span>Fourteen AI tells, ranked</a>
+      <a href="time-to-read.html" rel="next"><span>Next</span>Readable exposure</a>
     </nav>
-    <section class="ml-more" aria-labelledby="t-more"><h2 id="t-more">More in Accessibility</h2><ul><li><a href="time-to-read.html">Time to read</a></li></ul></section>
+    <section class="ml-more" aria-labelledby="t-more"><h2 id="t-more">More in Accessibility</h2><ul><li><a href="time-to-read.html">Readable exposure</a></li></ul></section>
   </div>
 </article>
 </main>

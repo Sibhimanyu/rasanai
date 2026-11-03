@@ -58,6 +58,7 @@
 .ill .grow, .ill .growy { transform-box: fill-box; transform-origin: var(--o, center); }
 .ill .draw { stroke-dasharray: 1; stroke-dashoffset: 0; }
 .ill .press { transform-box: fill-box; transform-origin: center; }
+.ill .shrink { transform-box: fill-box; transform-origin: 100% 50%; transform: scaleX(0); }
 @media (prefers-reduced-motion: no-preference) {
   .play .in { animation: k-in var(--t, .6s) var(--e, cubic-bezier(.05, .7, .1, 1)) var(--d, 0s) both; }
   .play .out { animation: k-out var(--t, .6s) var(--e, ease-in) var(--d, 0s) both; }
@@ -65,6 +66,7 @@
   .play .growy { animation: k-gy var(--t, .6s) var(--e, cubic-bezier(.05, .7, .1, 1)) var(--d, 0s) both; }
   .play .draw { animation: k-draw var(--t, .8s) var(--e, cubic-bezier(.4, .14, .3, 1)) var(--d, 0s) both; }
   .play .hop { animation: k-hop var(--t, 1.5s) linear both; }
+  .play .shrink { animation: k-sx var(--t, .8s) linear both; }
   .play .press { animation: k-press .35s ease-in-out var(--d, 0s) both; }
 }
 @keyframes k-in { from { opacity: 0; transform: translate(var(--fx, 0px), var(--fy, 0px)) scale(var(--fs, 1)); } }
@@ -73,6 +75,7 @@
 @keyframes k-gy { from { transform: scaleY(0); } }
 @keyframes k-draw { from { stroke-dashoffset: 1; } }
 @keyframes k-hop { 0% { transform: translateY(0); animation-timing-function: cubic-bezier(.2, .7, .4, 1); } 50% { transform: translateY(-100px); animation-timing-function: cubic-bezier(.6, 0, .8, .3); } 100% { transform: translateY(0); } }
+@keyframes k-sx { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @keyframes k-press { 0%, 100% { transform: scale(1); } 45% { transform: scale(.94); } }
 
 /* detail page */
@@ -125,3 +128,27 @@
   .ml-card { transition: none; }
   .ml-card:hover { transform: none; }
 }
+
+/* sources, evidence and the ranked list */
+.ml-ev { margin-top: 10px !important; font-size: .95rem !important; color: var(--ink-2); }
+.ml-srcs { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; max-width: 36rem; font-size: .98rem; }
+.ml-srcs li { position: relative; padding-left: 16px; }
+.ml-srcs li::before { content: ""; position: absolute; left: 0; top: .65em; width: 6px; height: 6px; border-radius: 50%; background: var(--rasanai-blue); }
+.ml-srcs a { color: var(--rasanai-blue); }
+.ml-rank { margin-top: clamp(40px, 5vw, 72px); padding-top: clamp(24px, 3vw, 36px); border-top: 1px solid var(--line-light); }
+.ml-rank h2 { font-family: var(--mono); font-weight: 500; font-size: 1.15rem; letter-spacing: .1em; text-transform: uppercase; color: var(--rasanai-blue); margin: 0 0 18px; max-width: none; }
+.ml-rank ol { margin: 0; padding: 0; list-style: none; counter-reset: rk; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.ml-rank li { counter-increment: rk; position: relative; background: var(--paper); border: 1px solid var(--line-light); border-radius: 12px; padding: 16px 18px 16px 62px; }
+.ml-rank li::before { content: counter(rk); position: absolute; left: 16px; top: 14px; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font: 600 1rem/1 var(--mono); color: var(--indigo); background: var(--turmeric); border: 1.5px solid var(--indigo); }
+.ml-rank li:nth-child(n+4)::before { background: var(--mist); }
+.ml-rank p { margin: 0 0 6px; font-size: .98rem; max-width: none; }
+.ml-rank .ml-tell { font: 600 1.08rem/1.3 var(--display); color: var(--indigo); }
+.ml-rank .ml-basis { color: var(--ink-2); font-size: .9rem; }
+.ml-rank a { color: var(--rasanai-blue); }
+.ml-evidence { background: var(--mist); border-top: 1px solid var(--line-light); padding: clamp(40px, 5vw, 72px) 0; }
+.ml-evidence h2 { font-size: clamp(1.6rem, 2.6vw, 2.2rem); margin-bottom: 14px; }
+.ml-evidence p { max-width: 46rem; color: var(--ink-2); }
+.ml-evidence ul { margin: 16px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 36px; max-width: 64rem; }
+.ml-evidence li { position: relative; padding-left: 22px; }
+.ml-evidence li::before { content: ""; position: absolute; left: 0; top: .6em; width: 9px; height: 9px; border-radius: 2px; background: #fff; border: 1.5px solid #b3165a; }
+@media (max-width: 1000px) { .ml-rank ol, .ml-evidence ul { grid-template-columns: 1fr; } }
