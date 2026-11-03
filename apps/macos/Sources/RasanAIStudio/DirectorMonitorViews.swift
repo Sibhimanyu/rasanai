@@ -148,65 +148,28 @@ struct DirectorMonitorPanel: View {
         return health.detail
     }
 
-    private func loopWarning(_ health: DirectorHealth) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("This may be stuck in a loop", systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemRed))
-            Text(health.loopReason ?? health.detail).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
-            Text("If it is, it is spending tokens without making progress. Stopping keeps your files; you can resume later.")
-                .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Button("Pause") { monitor.actions.pause(); dismiss() }
-                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
-                Button("Retry step") { monitor.actions.retry(); dismiss() }.help("Tells Rasan to try the current step again, without repeating the same call.")
-                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }.help("Stops this director and starts a fresh one from the saved film. Your files are kept.")
-                Spacer()
-            }.controlSize(.regular)
-        }
-        .padding(12)
-        .background(Color(nsColor: .systemRed).opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .systemRed).opacity(0.35), lineWidth: 0.5))
+    /// The director's problems in the panel are doorways to the chat too: what happened in a sentence, and "Talk to Rasan".
+    private func doorway(_ id: String, symbol: String, title: String, summary: String, tint: NSColor = .systemOrange) -> some View {
+        IncidentDoorway(symbol: symbol, tint: Color(nsColor: tint), title: title, summary: summary,
+                        talk: { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.talk(id) } })
+            .padding(12)
+            .background(Color(nsColor: tint).opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: tint).opacity(0.35), lineWidth: 0.5))
     }
 
-    /// A command the director was refused: named exactly, with the way forward. Never silent.
+    private func loopWarning(_ health: DirectorHealth) -> some View {
+        doorway("looping", symbol: "exclamationmark.triangle.fill", title: "This may be stuck in a loop",
+                summary: (health.loopReason ?? health.detail) + " If it is, it is spending tokens without making progress.", tint: .systemRed)
+    }
+
+    /// A command the director was refused: named exactly. What to do about it is decided in the chat.
     private func blockedCard(_ block: DirectorBlock) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Blocked", systemImage: "hand.raised.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemOrange))
-            Text(block.message).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
-            if let note = block.repeatNote { Text(note).font(.system(size: 11)).foregroundStyle(.secondary) }
-            if block.isInstall {
-                Text("Studio never lets the director install software by itself. Studio can install it for you instead.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                if let tool = block.suggestedTool { ToolNeedCard(need: ToolNeed(tool: tool, why: "Rasan tried to install it with `\(block.command)`."), model: nil) }
-            } else {
-                Text("This command is outside what the director is allowed to run. Turn on Settings → Director → Allow unrestricted tools if you trust this film, or tell Rasan another way to do it.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            HStack {
-                Button("Retry step") { monitor.actions.retry(); dismiss() }
-                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }
-                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
-                Spacer()
-            }
-        }
-        .padding(12)
-        .background(Color(nsColor: .systemOrange).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .systemOrange).opacity(0.4), lineWidth: 0.5))
+        doorway(block.toolNeed.map { "tool:\($0.tool)" } ?? "block:" + block.id, symbol: "hand.raised.fill", title: "Blocked",
+                summary: block.message + (block.repeatNote.map { " " + $0 } ?? ""))
     }
 
     private func stalledCard(_ health: DirectorHealth) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Rasan looks stuck", systemImage: "moon.zzz.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemOrange))
-            Text(health.detail).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Button("Retry step") { monitor.actions.retry(); dismiss() }
-                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }
-                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
-                Spacer()
-            }
-        }
-        .padding(12)
-        .background(Color(nsColor: .systemOrange).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        doorway("stalled", symbol: "moon.zzz.fill", title: "Rasan looks stuck", summary: health.detail)
     }
 
     private func budgetCard(_ limit: Double) -> some View {
@@ -353,21 +316,16 @@ struct MonitorBudgetBanner: View {
     var body: some View {
         let monitor = store.monitor
         if monitor.run == store.runURL, let paused = monitor.autoPaused, paused.kind == .loop {
-            banner(symbol: "exclamationmark.arrow.triangle.2.circlepath", tint: .systemRed,
-                   title: "Paused: the director looked stuck",
-                   detail: paused.reason + " Nothing is lost. Resume to let it carry on, or tell it what to do.") {
-                Button("Show log") { store.sheet = .log }
-                Button("Chat with Rasan…") { store.film?.beginTell() }
-                Button("Restart Rasan") { monitor.actions.restart() }
-                Button("Resume") { store.resumeDirector() }.keyboardShortcut(.defaultAction)
-            }
+            IncidentDoorway(symbol: "exclamationmark.arrow.triangle.2.circlepath", tint: Color(nsColor: .systemRed), title: "Paused: the director looked stuck",
+                            summary: paused.reason + " Nothing is lost. Talk to Rasan to resume it or tell it what to do.", talk: { store.talkAbout("looping") })
+                .doorwayBanner(tint: .systemRed)
         } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, let block = health.blocked, health.state != .paused {
             BlockedBanner(store: store, block: block)
         } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, health.stalled {
-            banner(symbol: "moon.zzz.fill", tint: .systemOrange, title: "Rasan looks stuck", detail: health.detail) {
-                Button("Retry step") { monitor.actions.retry() }
-                Button("Restart Rasan") { monitor.actions.restart() }
-                Button("Chat with Rasan…") { store.film?.beginTell() }
+            if store.doorwayOpen("stalled") {
+                IncidentDoorway(symbol: "moon.zzz.fill", title: "Rasan looks stuck", summary: health.detail,
+                                talk: { store.talkAbout("stalled") }, later: { store.laterAbout("stalled") })
+                    .doorwayBanner()
             }
         } else if let limit = monitor.budgetLimit, monitor.run == store.runURL {
             let spent = "About \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far\(monitor.telemetry.cost.isEstimated ? " (est.)" : "")."

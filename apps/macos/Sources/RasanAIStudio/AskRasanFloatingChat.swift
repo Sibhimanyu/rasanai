@@ -62,6 +62,11 @@ struct AskRasanFloatingChat: View {
                     guard atBottom else { return }
                     withAnimation(reduceMotion ? nil : .smooth) { proxy.scrollTo("end", anchor: .bottom) }
                 }
+                .onChange(of: model.scrollToIncident) { _, id in
+                    guard let id else { return }
+                    withAnimation(reduceMotion ? nil : .smooth) { proxy.scrollTo("incident-\(id)", anchor: .top) }
+                    model.scrollToIncident = nil
+                }
                 .onChange(of: model.pendingMark?.id) { withAnimation(reduceMotion ? nil : .smooth) { proxy.scrollTo("end", anchor: .bottom) } }
             }
             Divider().opacity(0.65)

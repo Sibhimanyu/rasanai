@@ -54,9 +54,8 @@ public struct ThreadMessage: Identifiable, Equatable, Sendable {
     public let fromUser: Bool
     public let text: String
     public let time: String
-    /// Set on a quick status Studio answered itself from what it already knows (Rasan was not asked): the one-tap actions it offers.
-    public var quickActions: [ChatQuickAction]? = nil
-    public var isQuickStatus: Bool { quickActions != nil }
+    /// The incident this message is about (`ChatIncident.id`): the chat shows a small open / fixing / fixed chip on it.
+    public var incident: String? = nil
     /// Studio's own instruction to the director ("Studio: please retry…"), sent as a note: shown as a short system line, never as the person's bubble.
     public var isStudioInstruction: Bool { fromUser && text.hasPrefix(Self.studioPrefix) }
     public static let studioPrefix = "Studio: "

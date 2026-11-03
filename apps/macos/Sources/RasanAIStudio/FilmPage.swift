@@ -62,7 +62,10 @@ struct FilmPage: View {
         guard !showsFinished, let notice = store.runtime.autoResume else { return false }
         return !notice.isLimit && !store.runtime.isRunning
     }
-    private var showsRecovery: Bool { !showsFinished && !showsAutoResume && showsConsole && !store.runtime.stopRequested && store.runtime.recovery != nil }
+    private var showsRecovery: Bool {
+        !showsFinished && !showsAutoResume && showsConsole && !store.runtime.stopRequested && store.runtime.recovery != nil
+            && store.film?.incidents.item("failed:" + (store.runtime.recovery?.rawValue ?? ""))?.state != .dismissed
+    }
 
     @ViewBuilder private var topChrome: some View {
         if ready && store.runURL != nil {
@@ -356,14 +359,11 @@ struct DirectorRecoveryView: View {
         .padding(.bottom, Workspace.gap)
     }
 
+    /// A doorway: the chat decides what to do (resume, restart, look at the log). Signing in is Studio's own screen, so it stays a button.
     @ViewBuilder private var actions: some View {
-        if recovery == .signIn {
-            Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary).controlSize(.small)
-            Button("Resume") { store.resumeDirector() }.buttonStyle(.rasanSecondary).controlSize(.small).disabled(!store.canResume)
-        } else {
-            Button("Resume") { store.resumeDirector() }.buttonStyle(.rasanPrimary).controlSize(.small).disabled(!store.canResume)
-        }
-        Button("Show log") { store.sheet = .log }.controlSize(.small)
+        if recovery == .signIn { Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.rasanSecondary).controlSize(.small) }
+        if store.doorwayOpen("failed:" + recovery.rawValue) { Button("Later") { store.laterAbout("failed:" + recovery.rawValue) }.buttonStyle(.plain).foregroundStyle(.secondary).controlSize(.small) }
+        Button("Talk to Rasan") { store.talkAbout("failed:" + recovery.rawValue) }.buttonStyle(.rasanPrimary).controlSize(.small)
     }
 }
 

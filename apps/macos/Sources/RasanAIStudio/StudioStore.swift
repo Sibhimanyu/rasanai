@@ -794,7 +794,12 @@ final class StudioStore {
         model.startedAt = runtime.startedAt
         model.progressProvider = { [weak self] in self?.progress?.snapshot }
         model.contextExtras = { [weak self] context in self?.fillChatContext(&context) }
-        model.quickActionHandler = { [weak self] action in self?.performQuickAction(action) }
+        model.actionRunner = { [weak self, weak model] action in
+            guard let self, let model else { return ChatActionResult("Studio can't do that right now.") }
+            return await self.runChatAction(action, film: model)
+        }
+        model.talkHandler = { [weak self] id in self?.talkAbout(id) }
+        model.laterHandler = { [weak self] id in self?.laterAbout(id) }
         model.chatAgentProvider = { [weak self] in self?.makeChatAgent() ?? RasanChatAgent(claude: URL(fileURLWithPath: "/nonexistent"), environment: [:]) }
         model.livenessProvider = { [weak self] in self?.chatLiveness() }
         model.onSnapshot = { [weak self, weak model] next in

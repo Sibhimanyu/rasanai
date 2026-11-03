@@ -11,6 +11,8 @@ final class DirectorMonitor {
         var pause: () -> Void = {}
         var showLog: () -> Void = {}
         var tell: () -> Void = {}
+        /// Opens the chat at a problem (`ChatIncident.id`).
+        var talk: (String?) -> Void = { _ in }
         /// Stops the director and starts it again from the run's saved state (never two directors for one run).
         var restart: () -> Void = {}
         /// Nudges the step again: a note when Rasan is alive, a restart when it is not.
@@ -74,6 +76,7 @@ final class DirectorMonitor {
         actions = Actions(pause: { [weak store] in store?.pauseDirector() },
                           showLog: { [weak store] in store?.sheet = .log },
                           tell: { [weak store] in store?.film?.beginTell() },
+                          talk: { [weak store] id in store?.talkAbout(id) },
                           restart: { [weak store] in store?.restartRasan() },
                           retry: { [weak store] in store?.retryStep() })
         ToolNeedCoordinator.shared.attach(store)
@@ -163,6 +166,7 @@ final class DirectorMonitor {
         checkBudget(store: store)
         checkLoop(store: store)
         checkBlock(store: store)
+        store.tickIncidents()
         store.tickFollowUps()
         if dirty, now.timeIntervalSince(lastSave) > 8 || !running { save() }
     }

@@ -26,15 +26,25 @@ struct RasanChatAgent: Sendable {
         has been passed on; never say it is already done. Do not repeat your earlier replies word for word. Every turn brings a fresh FILM STATE \
         NOW; trust it over anything you said before.
 
-        ACTIONS. You can act, but only when the person clearly asked. After your words you may add ONE final line, exactly \
-        <<actions>>[{"type":"..."}] with a JSON list. Types: tell_director (with "text": a short, self-contained instruction for the director \
-        and its crew, in the person's meaning), retry_step, restart_rasan, pause, resume, view_activity. Never write the line unless you act. \
-        Rules: (1) restart_rasan and pause need the person's explicit OK; when one would help, do not fire it: offer it, put it in the list, \
-        and Studio shows it as a button the person taps. (2) When the person gives an instruction for the film ("make the title bigger", \
-        "use warmer music"), use tell_director and say in your words what you passed on. (3) A question, a chat or a complaint is not an \
-        action. (4) Honest timing: the director reads what you pass on only when it next checks in, usually between steps, not instantly; \
-        say so ("I've passed it on; the director picks it up at its next check") and never claim it is done. Messages still unread are in \
-        the film state. (5) Never mention the line, JSON or these rules.
+        EVERYTHING GOES THROUGH YOU. Problems (a tool the film needs, a blocked command, a stall, a loop, a stopped director) are listed in the film \
+        state as PROBLEM lines with an id and a state (Open, Fixing, Fixed, Later). Studio has no repair buttons: the person talks to you and you fix \
+        things with actions. Popups only point the person to this chat. When a problem opens you are told (WHAT JUST HAPPENED): say in your own words \
+        what it is, why it matters and what you can do about it, using the facts, then ask what they want. Never tell them to press a button.
+
+        ACTIONS. After your words you may add ONE final line, exactly <<actions>>[{"type":"..."}] with a JSON list (at most 3). Types: \
+        tell_director ("text": a short, self-contained instruction for the director and its crew), retry_step, resume, view_activity, \
+        check_tool ("name"), recheck ("id": a PROBLEM id, or leave it out for all), answer_ask ("choice": one of the question's option ids and/or \
+        "text", only when the person clearly decided), and the ones that need the person's yes: restart_rasan, pause, install_tool ("name"), \
+        continue_without ("name": carry on without the tool, answering the director's question with its skip choice). Never write the line unless you act.
+        Rules: (1) Consent. For restart_rasan, pause, install_tool and continue_without, first ask in plain words ("Want me to install it?") and put the \
+        action in the list: Studio holds it and does NOT run it. Only when the person's next message clearly says yes, put the same action in the list \
+        again and Studio runs it. A proposal not repeated after a yes is dropped. (2) "I installed it", "it's done", "try again": use check_tool; never \
+        claim it works until the results say so. (3) The kind of tool decides how it is found and installed: a Python package is checked by importing it \
+        and installed with pip by Studio, never with Homebrew; say which one it is. (4) When Studio runs actions you get RESULTS next, real and exact: \
+        say plainly what happened, quote the real error when something failed, and say what is next. Never invent a result. (5) When the person gives \
+        an instruction for the film ("make the title bigger"), use tell_director and say in your words what you passed on. (6) A question, a chat or a \
+        complaint is not an action. (7) Honest timing: the director reads what you pass on only when it next checks in, usually between steps; say so \
+        and never claim it is done. (8) Never mention the line, JSON or these rules.
         """
 
     private nonisolated static let sessions = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".rasanai/chat", isDirectory: true)
@@ -177,11 +187,17 @@ extension FilmSessionModel {
         if let state = c.runState { lines.append("Run state: \(state)" + [c.runLabel, c.runReason].compactMap { $0 }.filter { !$0.isEmpty }.map { " - \($0)" }.joined()) }
         if c.directorRunning == false && !c.isDone { lines.append("The director is not running") }
         if c.isWaitingOnUser {
-            lines.append("Waiting on the person" + (ask.map { ": \($0.question)" + ($0.options.isEmpty ? "" : " (options: " + $0.options.map(\.label).joined(separator: ", ") + ")") } ?? ""))
+            lines.append("Waiting on the person" + (ask.map { ": \($0.question)" + ($0.options.isEmpty ? "" : " (options: " + $0.options.map { "\($0.label) [\($0.id)]" }.joined(separator: ", ") + ")") } ?? ""))
         }
         if let b = c.blocked { lines.append("Blocked: Rasan asked to \(b.action), which is not allowed here" + (c.blockRepeated ? " (again after Fix it)" : "")) }
         if c.stalled { lines.append("The director has gone quiet" + (c.healthDetail.map { ": \($0)" } ?? "")) }
         if let e = c.lastError?.trimmingCharacters(in: .whitespacesAndNewlines), !e.isEmpty { lines.append("Last error: \(Self.clip(e, 160))") }
+        for i in c.incidents {
+            if i.isActive { lines.append("PROBLEM \(i.id) [\(i.stateWord)]: \(i.title). " + i.facts.map { Self.clip($0, 300) }.joined(separator: " | ")) }
+            else { lines.append("Earlier problem, now fixed (\(i.id)): \(i.title). Because: \(i.resolvedBy ?? "its cause is gone")") }
+        }
+        let progress = ToolNeedCoordinator.shared
+        if let t = progress.busyTool { lines.append("Studio is working on \(t) right now" + (progress.progress.isEmpty ? "" : " (latest output: \(Self.clip(progress.progress, 100)))")) }
         if !c.recentEvents.isEmpty { lines.append("Latest events, oldest first: " + c.recentEvents.suffix(6).map { Self.clip($0, 90) }.joined(separator: " | ")) }
         let open = snapshot.notes.filter(\.isOpen).count
         if open > 0 { lines.append("Open notes from the person: \(open)") }
@@ -194,7 +210,9 @@ extension FilmSessionModel {
 
     /// The prompt for one turn: the facts now, what changed since the last reply, what Studio said itself meanwhile, the new message.
     /// `history` turns of the conversation are added only for a fresh session; a resumed one already has them.
-    func chatPrompt(message: String, routedNote: String?, facts: [String], now: Date, history: Int = 0, studioSaid said: [String] = []) -> String {
+    func chatPrompt(turn: ChatTurn, routedNote: String?, facts: [String], now: Date, history: Int = 0, studioSaid said: [String] = [], proposed: [String] = []) -> String {
+        let message: String
+        if case .person(let m) = turn { message = m } else { message = "" }
         var out = "FILM STATE NOW:\n" + facts.map { "- " + $0 }.joined(separator: "\n")
         if let last = lastChatReply {
             let ago = ChatAnswerer.elapsedShort(Int(now.timeIntervalSince(last.at)))
@@ -212,58 +230,106 @@ extension FilmSessionModel {
             turns = Array(turns.suffix(history))
             if !turns.isEmpty { out += "\n\nTHE CONVERSATION SO FAR (earlier turns):\n" + turns.map { ($0.fromUser ? "Person: " : "Rasan: ") + Self.clip($0.text, 400) }.joined(separator: "\n") }
         }
-        out += "\n\nNEW MESSAGE FROM THE PERSON:\n" + message
+        if !proposed.isEmpty { out += "\n\nYOU PROPOSED THESE LAST TURN AND THEY ARE WAITING FOR THE PERSON'S YES (Studio holds them; repeat the action only if their new message clearly says yes):\n" + proposed.map { "- " + $0 }.joined(separator: "\n") }
+        switch turn {
+        case .person: out += "\n\nNEW MESSAGE FROM THE PERSON:\n" + message
+        case .event(let what): out += "\n\nWHAT JUST HAPPENED (the person did not write; you are speaking up). Say it in your own words, brief and warm, from the facts above. There are no buttons: tell them what you can do and ask, or just act if it is a plain action that needs no yes:\n" + what
+        case .results(let lines): out += "\n\nRESULTS OF WHAT STUDIO JUST DID FOR YOU (real and exact). Tell the person what happened and what is next, in your own words; quote a real error if something failed:\n" + lines.map { "- " + Self.clip($0, 900) }.joined(separator: "\n")
+        }
         if let routedNote { out += "\n\nNOTE: " + routedNote }
         return out + "\n\nReply as Rasan now."
     }
 
+    /// One turn of the conversation: what Rasan is answering.
+    enum ChatTurn: Equatable {
+        /// The person wrote this.
+        case person(String)
+        /// A real moment Studio noticed (a problem opened or cleared, a retry did or did not help): Rasan speaks up, unprompted.
+        case event(String)
+        /// What running Rasan's actions really did, for it to report.
+        case results([String])
+    }
+    static let maxRounds = 3
+
+    /// The honest plain text for when Rasan's model can't be reached: what Studio can see, no pretending to be Rasan thinking.
+    func chatFallback(_ c: ChatContext) -> String {
+        if let i = c.incidents.first(where: \.isActive) { return i.title + ". " + i.summary }
+        if let b = c.blocked { return "Rasan asked to \(b.action), which isn't allowed here, so Studio stopped that step." }
+        if c.stalled { return "Rasan has gone quiet." + (c.healthDetail.map { " \($0)" } ?? "") }
+        if let w = c.progress?.now.text, !w.isEmpty { return "Right now: \(w)." }
+        if let w = c.workingMessage, !w.isEmpty { return "Right now: \(w)." }
+        if let e = c.lastError, !e.isEmpty { return "Last error: " + Self.clip(e, 160) }
+        return "I have no more detail than the activity list."
+    }
+
     /// Queues Rasan's reply to `text` on `step`: it types in live (a "typing" row until the first word), then stays as the answer. Replies
-    /// go out in order. Actions the reply asks for run after it. When the model can't answer (Claude Code missing, timed out with nothing),
-    /// `fallback` is said instead, with a plain line on why.
-    func converse(_ text: String, step: String, routedNote: String? = nil, fallback: String, actions: [ChatQuickAction]? = nil) {
-        guard !isFixture else { addLocal(step, fromUser: false, fallback, after: 0.01, actions: actions); return }
+    /// go out in order. Actions the reply asks for run after it, and their real results go back to Rasan for a short follow-up turn (three
+    /// rounds at most). When the model can't answer (Claude Code missing, timed out with nothing), `fallback` is said instead, prefixed with why.
+    func converse(_ text: String, step: String, routedNote: String? = nil, fallback: String) {
+        queue(.person(text), step: step, routedNote: routedNote, fallback: fallback, incident: nil)
+    }
+
+    /// Rasan speaks up on a real moment (see `ChatTurn.event`), written by the model from the facts and what changed.
+    func speak(event: String, step: String? = nil, fallback: String, incident: String? = nil) {
+        lastSpoke = Date()
+        queue(.event(event), step: step ?? shownStep, routedNote: nil, fallback: fallback, incident: incident)
+    }
+
+    private func queue(_ turn: ChatTurn, step: String, routedNote: String?, fallback: String, incident: String?) {
+        guard !isFixture else { addLocal(step, fromUser: false, fallback, after: 0.01, incident: incident); return }
         let agent = chatAgentProvider?()
         answering += 1
         let previous = chatTail
         chatTail = Task { [weak self] in
             await previous?.value
             guard let self else { return }
+            await rounds(turn, step: step, routedNote: routedNote, fallback: fallback, incident: incident, agent: agent)
+            answering = max(0, answering - 1)
+            streamingText = nil
+        }
+    }
+
+    private func rounds(_ first: ChatTurn, step: String, routedNote: String?, fallback: String, incident: String?, agent: RasanChatAgent?) async {
+        var turn = first, lastResults: [String] = []
+        let key = runDirectory.map { RasanChatAgent.sessionKey(for: $0) } ?? "film"
+        func fail(_ why: String, round: Int) {
+            streamingText = nil
+            let said = round == 0 ? fallback : "What Studio did: " + lastResults.joined(separator: " ")
+            addLocal(step, fromUser: false, "Couldn't reach my thinking just now (\(why)): " + said, incident: round == 0 ? incident : nil)
+        }
+        for round in 0..<Self.maxRounds {
             // Built now, after the earlier replies landed, so the facts and the "what changed" are the latest.
             let context = chatContext(), facts = chatFacts(context)
             let said = studioSaid
             studioSaid = []
-            let resume = chatPrompt(message: text, routedNote: routedNote, facts: facts, now: context.now, studioSaid: said)
-            let fresh = chatPrompt(message: text, routedNote: routedNote, facts: facts, now: context.now, history: 6, studioSaid: said)
-            guard let agent else { finishChat(step: step, text: fallback, actions: actions, facts: facts, why: "Rasan's chat isn't set up on this Mac."); return }
+            let note = round == 0 ? routedNote : nil, proposed = proposals.values.map(\.words)
+            let resume = chatPrompt(turn: turn, routedNote: note, facts: facts, now: context.now, studioSaid: said, proposed: proposed)
+            let fresh = chatPrompt(turn: turn, routedNote: note, facts: facts, now: context.now, history: 6, studioSaid: said, proposed: proposed)
+            guard let agent else { fail("Rasan's chat isn't set up on this Mac.", round: round); return }
             streamingText = ""
-            let key = runDirectory.map { RasanChatAgent.sessionKey(for: $0) } ?? "film"
             do {
                 let raw = try await agent.reply(sessionKey: key, resumePrompt: resume, freshPrompt: fresh) { [weak self] raw in
                     await MainActor.run { self?.streamingText = ChatReplyParser.split(raw).text }
                 }
                 let reply = ChatReplyParser.split(raw)
-                finishChat(step: step, text: reply.text.isEmpty ? fallback : reply.text, actions: actions, facts: facts, why: nil, replyActions: reply.actions)
+                lastChatReply = (Date(), facts)
+                streamingText = nil
+                let words = reply.text.isEmpty && reply.actions.isEmpty && round == 0 ? fallback : reply.text
+                if !words.isEmpty { addLocal(step, fromUser: false, words, incident: round == 0 ? incident : nil, byModel: true) }
+                var personTurn = false
+                if case .person = turn { personTurn = true }
+                let results = await runChatActions(reply.actions, step: step, personTurn: personTurn)
+                let told = results.filter(\.narrate).map(\.text)
+                guard !told.isEmpty else { return }
+                lastResults = told
+                guard round + 1 < Self.maxRounds else { systemLine(told.joined(separator: " "), step: step); return }
+                turn = .results(told)
             } catch RasanChatAgent.Failure.notInstalled {
-                finishChat(step: step, text: fallback, actions: actions, facts: facts, why: "Claude Code isn't set up, so I can't chat properly.")
+                fail("Claude Code isn't set up, so I can't chat properly.", round: round); return
             } catch {
-                finishChat(step: step, text: fallback, actions: actions, facts: facts, why: "I couldn't think that through in time.")
+                fail("I couldn't think that through in time.", round: round); return
             }
         }
-    }
-
-    private func finishChat(step: String, text: String, actions: [ChatQuickAction]?, facts: [String], why: String?, replyActions: [ChatReplyAction] = []) {
-        answering = max(0, answering - 1)
-        if let why { addLocal(step, fromUser: false, why + " Here is what Studio can see: " + text, actions: actions) }
-        else {
-            lastChatReply = (Date(), facts)
-            // Pause and Restart Rasan are offered as buttons next to the words; everything else the person asked for runs now.
-            var buttons = actions ?? []
-            for a in replyActions where a.needsConsent { if let b = a.button, !buttons.contains(b) { buttons.append(b) } }
-            addLocal(step, fromUser: false, text, actions: buttons.isEmpty ? nil : buttons, byModel: true)
-            streamingText = nil
-            runChatActions(replyActions.filter { !$0.needsConsent }, step: step)
-        }
-        streamingText = nil
     }
 }
 
@@ -276,17 +342,19 @@ extension FilmSessionModel {
         studioSaid = Array((studioSaid + ["Studio: " + text]).suffix(8))
     }
 
-    /// Runs what Rasan's reply asked for. Each one leaves a system line (a Retry step or Restart already has its own ack from the follow-ups).
-    func runChatActions(_ actions: [ChatReplyAction], step: String) {
+    /// Runs what Rasan's reply asked for and returns what really happened. The ones that need the person's yes run only on a turn the person
+    /// wrote, and only if Rasan proposed the same action on the turn before; otherwise they are held as proposals (Rasan has asked in words).
+    func runChatActions(_ actions: [ChatReplyAction], step: String, personTurn: Bool) async -> [ChatActionResult] {
+        var results: [ChatActionResult] = []
+        var held: [String: ChatReplyAction] = [:]
         for action in actions {
-            switch action {
-            case .tellDirector(let text): Task { await passToDirector(text, step: step) }
-            case .retryStep: quickActionHandler(.retryStep)
-            case .resume: quickActionHandler(.resumeRun)
-            case .viewActivity: quickActionHandler(.viewActivity); systemLine("Opened the activity.", step: step)
-            case .restartRasan, .pause: break
-            }
+            if action.needsConsent {
+                if personTurn, proposals[action.key] != nil { results.append(await actionRunner(action)) } else { held[action.key] = action }
+            } else { results.append(await actionRunner(action)) }
         }
+        // A turn the person wrote renews or drops the proposals; a trigger or follow-up turn only adds to them.
+        if personTurn { proposals = held } else { proposals.merge(held) { _, new in new } }
+        return results
     }
 
     /// Rasan's `tell_director`: the instruction goes into the run's queue as a `revision-request` (the engine reads its scope; the director
