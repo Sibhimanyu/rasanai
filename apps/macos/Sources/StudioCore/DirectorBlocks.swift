@@ -32,7 +32,7 @@ public struct DirectorBlock: Identifiable, Equatable, Sendable {
     /// What to do about it, one sentence.
     public var whatToDo: String {
         isInstall ? "Studio can install the tool for you, or you can install it yourself."
-            : "Press Fix it and Rasan will try a safer way."
+            : "Talk to Rasan and he will try a safer way."
     }
     /// The technical reason, for the small print and for support: the tool, the exact command, how often.
     public var technical: String {
@@ -45,6 +45,8 @@ public struct DirectorBlock: Identifiable, Equatable, Sendable {
     public var isInstall: Bool { ToolNeed.isInstallCommand(command) }
     /// The tool the command was trying to install, when Studio knows how to install it (or what to tell the person otherwise).
     public var suggestedTool: String? { isInstall ? ToolNeed.guessTool(fromCommand: command) : nil }
+    /// The same, read by installer kind (pip means a Python package), with what Rasan was doing as the reason.
+    public var toolNeed: ToolNeed? { isInstall ? ToolNeed(installCommand: command, why: "Rasan tried to \(action).") : nil }
     /// "It tried this 3 times": the loop guard.
     public var repeatNote: String? { count >= 2 ? "It tried this \(count) times." : nil }
 }
@@ -173,25 +175,36 @@ public struct ToolNeed: Equatable, Sendable {
     public static let readyPrefix = "tool-ready:"
     public static let skipPrefix = "skip-tool:"
 
+    /// How the tool is found and installed: a program on the PATH, a Python package (found by importing it), an npm package, or an app.
+    public enum Kind: String, Sendable { case executable, pythonModule, npmPackage, app }
+
     public let askID: String
     public let step: String
     public let tool: String
     public let why: String
+    public let kind: Kind
+    /// The import name of a Python package (`kokoro-onnx` -> `kokoro_onnx`). Looked up, never imported.
+    public let module: String?
+    /// The tool exactly as the director wrote it after `install-tool:`: the director's console accepts `tool-ready:` and the skip option only word for word.
+    public let raw: String
+    /// The skip option of the ask, as the director wrote it (`skip-tool:...`), when the ask had one.
+    public let skipOption: String?
+    /// The name is safe to show in Terminal steps and to pass on (letters, digits, `. _ + -`).
+    public let isValid: Bool
 
-    public init?(ask: DirectorAsk) {
-        guard let option = ask.options.first(where: { $0.id.hasPrefix(Self.installPrefix) }) else { return nil }
-        let name = String(option.id.dropFirst(Self.installPrefix.count)).trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return nil }
-        askID = ask.id; step = ask.step; tool = name.lowercased()
-        why = ask.context.isEmpty ? ask.question : ask.context
-    }
-    public init(tool: String, why: String) { askID = ""; step = ""; self.tool = tool.lowercased(); self.why = why }
+    /// Python packages Studio knows by name: pip name -> import name. (openai-whisper is left out: its import pulls in numba.)
+    static let pythonPackages: [String: String] = [
+        "kokoro-onnx": "kokoro_onnx", "kokoro": "kokoro", "onnxruntime": "onnxruntime", "soundfile": "soundfile", "pillow": "PIL", "opencv-python": "cv2",
+        "pydub": "pydub", "faster-whisper": "faster_whisper", "numpy": "numpy", "scipy": "scipy", "torch": "torch",
+        "misaki": "misaki", "pyyaml": "yaml", "edge-tts": "edge_tts", "piper-tts": "piper", "librosa": "librosa", "numba": "numba"]
 
-    public var readyChoice: String { Self.readyPrefix + tool }
-    public var skipChoice: String { Self.skipPrefix + tool }
+    public static func isSafeName(_ s: String) -> Bool { s.range(of: #"^[A-Za-z0-9._+-]{1,40}$"#, options: .regularExpression) != nil }
+    /// The text after `install-tool:` is something the director's console will accept back in `tool-ready:` (an optional lowercase `pip:`, `npm:` or
+    /// `app:` prefix, then 1 to 40 of letters, digits and `. _ + -`). Anything else (a version spec, another prefix, too long) is not read as a tool need.
+    public static func consoleAccepts(_ raw: String) -> Bool { raw.range(of: #"^(?:pip:|npm:|app:)?[A-Za-z0-9._+-]{1,40}$"#, options: .regularExpression) != nil }
 
-    /// The key Studio's managed setup (`Runtime/tool-setup.mjs`) installs this tool under, or nil when only the person can install it.
-    public var managedKey: String? {
+    /// The key Studio's managed setup installs a tool name under, or nil.
+    static func managedKey(_ tool: String) -> String? {
         switch tool {
         case "ffmpeg", "ffprobe": "ffmpeg"
         case "hyperframes", "renderer": "renderer"
@@ -201,16 +214,68 @@ public struct ToolNeed: Equatable, Sendable {
         default: nil
         }
     }
+
+    /// Reads a tool name as the director writes it: `pip:kokoro-onnx`, `npm:name`, `app:Name`, or a bare name (a known Python package, else a program).
+    /// A tool Studio installs itself is always a program, whatever installer the director tried.
+    static func infer(_ raw: String) -> (name: String, kind: Kind, module: String?, valid: Bool) {
+        var name = raw.trimmingCharacters(in: .whitespaces).lowercased()
+        var forced: Kind?
+        for (prefix, kind) in [("pip:", Kind.pythonModule), ("npm:", .npmPackage), ("app:", .app)] where name.hasPrefix(prefix) {
+            name = String(name.dropFirst(prefix.count)); forced = kind
+        }
+        if let cut = name.firstIndex(where: { "=<>!~[;".contains($0) }) { name = String(name[..<cut]) }   // `pkg==1.2`, `pkg[extra]`
+        guard isSafeName(name) else { return ("invalid-name", .executable, nil, false) }
+        if managedKey(name) != nil { return (name, .executable, nil, true) }
+        let dashed = name.replacingOccurrences(of: "_", with: "-")
+        if forced == nil || forced == .pythonModule, let module = pythonPackages[dashed] { return (dashed, .pythonModule, module, true) }
+        if forced == .pythonModule { return (dashed, .pythonModule, dashed.replacingOccurrences(of: "-", with: "_"), true) }
+        return (name, forced ?? .executable, nil, true)
+    }
+
+    public init?(ask: DirectorAsk) {
+        guard let option = ask.options.first(where: { $0.id.hasPrefix(Self.installPrefix) }) else { return nil }
+        let name = String(option.id.dropFirst(Self.installPrefix.count)).trimmingCharacters(in: .whitespaces)
+        let read = Self.infer(name)
+        guard !name.isEmpty, read.valid, Self.consoleAccepts(name) else { return nil }
+        askID = ask.id; step = ask.step; tool = read.name; kind = read.kind; module = read.module; isValid = true
+        raw = name
+        skipOption = ask.options.first { $0.id == Self.skipPrefix + name }?.id ?? ask.options.first { $0.id.hasPrefix(Self.skipPrefix) }?.id
+        why = ask.context.isEmpty ? ask.question : ask.context
+    }
+    public init(tool: String, why: String) {
+        let read = Self.infer(tool)
+        askID = ""; step = ""; self.tool = read.name; kind = read.kind; module = read.module; self.why = why; isValid = read.valid
+        raw = read.name; skipOption = nil
+    }
+    /// The tool an install command was after, read by the installer it used: `pip install kokoro-onnx` is a Python package, `brew install x` a program.
+    public init(installCommand command: String, why: String) {
+        let c = command.lowercased()
+        let name = Self.guessTool(fromCommand: command) ?? "tool"
+        let usesPip = c.range(of: #"(^|[\s;&|/])(pip3?|pipx)\b|-m\s+pip\b|\buv\s+(pip|add)\b"#, options: .regularExpression) != nil
+        let usesNpm = c.range(of: #"\b(npm|npx|pnpm|yarn)\b"#, options: .regularExpression) != nil
+        let read = Self.infer((usesPip ? "pip:" : usesNpm ? "npm:" : "") + name)
+        askID = ""; step = ""; tool = read.name; kind = read.kind; module = read.module; self.why = why; isValid = read.valid
+        raw = read.name; skipOption = nil
+    }
+
+    /// What the director's console accepts as the answer: the same text as its `install-tool:` option, and its own skip option.
+    public var readyChoice: String { Self.readyPrefix + raw }
+    public var skipChoice: String { skipOption ?? Self.skipPrefix + raw }
+
+    /// The key Studio's managed setup (`Runtime/tool-setup.mjs`) installs this tool under, or nil when only the person can install it.
+    public var managedKey: String? { Self.managedKey(tool) }
     /// Programs that must be found on the director's PATH before it may carry on (empty: checked by Studio's readiness row instead).
     public var executables: [String] {
         switch managedKey {
         case "ffmpeg": ["ffmpeg", "ffprobe"]
         case "renderer": ["hyperframes"]
         case "transcriber": ["whisper-cli"]
-        case nil: [tool]
+        case nil: kind == .executable ? [tool] : []
         default: []
         }
     }
+    /// Studio can install it itself: its managed setup, or pip for a Python package.
+    public var studioCanInstall: Bool { managedKey != nil || kind == .pythonModule }
     /// The readiness row (`FilmPreflight`) that must be ready too.
     public var preflightIDs: [String] {
         switch managedKey {
@@ -229,7 +294,7 @@ public struct ToolNeed: Equatable, Sendable {
         case "browser": "The render browser"
         case "skills": "HyperFrames design resources"
         case "transcriber": "The speech transcriber"
-        default: tool
+        default: kind == .pythonModule ? "\(tool) (a Python package)" : kind == .npmPackage ? "\(tool) (an npm package)" : tool
         }
     }
     /// What it is and how big, so the person can say yes knowing.
@@ -240,12 +305,22 @@ public struct ToolNeed: Equatable, Sendable {
         case "browser": "About 150 MB, downloaded by HyperFrames. Draws each frame when the film renders."
         case "skills": "A small download that needs Git. Design helpers the crew reads."
         case "transcriber": "About 470 MB (whisper and its model). Captions and cuts footage by what is said."
-        default: "Studio cannot install this one for you."
+        default: kind == .pythonModule ? "A Python package. Studio can install it into your user Python with `python3 -m pip install --user \(tool)`: no password, no Homebrew."
+            : "Studio cannot install this one for you."
         }
     }
-    /// Plain steps for a tool Studio cannot install, or whose install failed. Names what is absent instead of assuming Homebrew.
+    /// Plain steps for a tool Studio cannot install, or whose install failed, by kind. Names what is absent instead of assuming Homebrew.
     public func manualSteps(brewPresent: Bool) -> String {
-        let finish = " Then press “I installed it - check again”: Studio looks for it on the same PATH Rasan uses before carrying on."
+        let finish = " Then tell Rasan in the chat that it's installed: Rasan looks the same way the director does (\(kind == .pythonModule ? "can python3 import it" : kind == .npmPackage ? "can the director's node resolve it" : kind == .app ? "is the app in Applications" : "is it on the director's PATH")) before carrying on."
+        switch kind {
+        case .pythonModule:
+            return "`\(tool)` is a Python package, so Homebrew can't install it. Open Terminal and run `python3 -m pip install --user \(tool)`." + finish
+        case .npmPackage:
+            return "`\(tool)` is an npm package. Open Terminal and run `npm install -g \(tool)`." + finish
+        case .app:
+            return "Install \(tool) from its website or the App Store into your Applications folder." + finish
+        case .executable: break
+        }
         switch tool {
         case "git", "xcode-select", "xcode", "command-line-tools":
             return "Open Terminal and run `xcode-select --install`, then finish Apple's installer." + finish

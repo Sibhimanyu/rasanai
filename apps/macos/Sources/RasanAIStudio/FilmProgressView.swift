@@ -185,7 +185,7 @@ struct FilmProgressView: View {
         }
     }
 
-    /// The plain stuck line under the stage, in orange, with the two ways out. What it was doing stays as one quiet line.
+    /// The plain stuck line under the stage, in orange, with the doorway to the chat. What it was doing stays as one quiet line.
     private func stuckLine(_ stuck: StuckNotice, doing: String) -> some View {
         VStack(spacing: 8) {
             Text("Stuck: no progress for \(ChatFollowUps.span(stuck.quietFor))")
@@ -194,10 +194,10 @@ struct FilmProgressView: View {
                 .accessibilityAddTraits(.isHeader)
             if !doing.isEmpty { Text("Last: \(doing)").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1) }
             HStack(spacing: 10) {
-                Button("Retry step", action: stuck.onRetry).buttonStyle(.rasanSecondary).controlSize(.regular)
-                    .help("Tells Rasan to try the current step again.")
-                Button("Restart Rasan", action: stuck.onRestart).buttonStyle(.rasanPrimary).controlSize(.regular)
-                    .help("Stops the director and starts it again from your saved film.")
+                ForEach(stuck.fallback) { a in Button(a.title, action: a.run).buttonStyle(.rasanSecondary).controlSize(.regular) }
+                Button("Later", action: stuck.onLater).buttonStyle(.rasanSecondary).controlSize(.regular)
+                Button("Talk to Rasan", action: stuck.onTalk).buttonStyle(.rasanPrimary).controlSize(.regular)
+                    .help("Opens the chat. Rasan can retry the step or restart, with your say-so.")
             }
         }
     }

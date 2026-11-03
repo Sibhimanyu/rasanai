@@ -20,9 +20,16 @@ struct AskSheet: View {
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        // A tool-needed request (an `install-tool:<tool>` option) gets its own card: exact tool, "Install for me", and a checked manual path.
+        // A tool-needed request (an `install-tool:<tool>` option) is a doorway to the chat: Rasan checks, installs or skips it with the person there.
+        // It closes by itself when the question is answered (the sheet is bound to the open ask).
         if let need = ToolNeed(ask: ask) {
-            ToolNeedCard(need: need, ask: ask, model: model, onLater: { model.dismissedAsks.insert(ask.id); dismiss() }).frame(width: 520).padding(10)
+            let id = "tool:\(need.tool)", item = model.incidents.item(id)
+            IncidentDoorway(symbol: "wrench.and.screwdriver.fill", title: item?.title ?? "Rasan needs \(need.title)",
+                            summary: item?.summary ?? "\(need.title) is needed to carry on. Rasan can check for it, install it or carry on without it, with you in the chat.",
+                            fallback: model.doorwayActions(id),
+                            talk: { model.dismissedAsks.insert(ask.id); dismiss(); model.talkHandler(id) },
+                            later: { model.laterHandler(id); dismiss() })
+                .padding(20).frame(width: 520)
         } else { generic }
     }
 
@@ -111,7 +118,8 @@ struct AskCard: View {
                 Text(ask.question).font(.system(size: 13, weight: .medium)).lineLimit(2)
             }
             Spacer(minLength: 8)
-            Button("Answer…") { model.dismissedAsks.remove(ask.id) }.buttonStyle(.rasanPrimary)
+            if let need = ToolNeed(ask: ask) { Button("Talk to Rasan") { model.talkHandler("tool:\(need.tool)") }.buttonStyle(.rasanPrimary) }
+            else { Button("Answer…") { model.dismissedAsks.remove(ask.id) }.buttonStyle(.rasanPrimary) }
         }
         .padding(.horizontal, 20).padding(.vertical, 10)
         .background(Color.rasan.opacity(0.10))

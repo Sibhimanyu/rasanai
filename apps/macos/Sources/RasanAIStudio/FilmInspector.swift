@@ -109,6 +109,11 @@ struct NotesInspector: View {
             }
             .onChange(of: model.conversationSignature) { withAnimation(.smooth) { proxy.scrollTo("end") } }
             .onChange(of: model.scrollToNoteID) { _, id in scroll(to: id, proxy) }
+            .onChange(of: model.scrollToIncident) { _, id in
+                guard let id else { return }
+                if let m = model.conversation.last(where: { $0.incident == id }) { withAnimation(.smooth) { proxy.scrollTo(m.id, anchor: .top) } }
+                model.scrollToIncident = nil
+            }
             .onAppear {
                 proxy.scrollTo("end")
                 if let id = model.scrollToNoteID { Task { @MainActor in scroll(to: id, proxy) } }
@@ -238,8 +243,9 @@ struct ConversationList<Empty: View>: View {
                         let line = model.studioLine(for: message)
                         if !line.isEmpty { StudioSystemLine(text: line).padding(.vertical, 4) }
                     } else {
-                        ThreadBubble(message: message, label: label, onAction: model.quickActionHandler)
+                        ThreadBubble(message: message, label: label, incident: model.incidents.item(message.incident)?.state)
                             .padding(.top, previous != nil && startsRun ? 6 : 0)
+                            .id(message.id)
                     }
                 }
                 let scenes = model.snapshot.scenes(for: ReviewStage.consoleStep(group.step))
@@ -257,6 +263,7 @@ struct ConversationList<Empty: View>: View {
             if let confirm = model.pendingConfirm, confirm.step == model.draftStep { RevisionConfirmCard(model: model, confirm: confirm) }
             if model.lastUnanswered != nil { ThinkingRow(model: model).padding(.top, 4) }
             if model.answering > 0 { ChatReplyStreamRow(model: model) }
+            ChatInstallRow()
             Color.clear.frame(height: 1).id("end")
         }
     }
@@ -361,16 +368,11 @@ private struct StepDivider: View {
 struct ThreadBubble: View {
     let message: ThreadMessage
     var label: String?
-    /// Runs a quick status's action buttons.
-    var onAction: ((ChatQuickAction) -> Void)?
+    /// Where the problem this message is about stands now (open, fixing, fixed, later): a small chip under it.
+    var incident: ChatIncident.State?
     var body: some View {
         VStack(alignment: message.fromUser ? .trailing : .leading, spacing: 3) {
             if let label { Text(label).font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 4) }
-            if message.isQuickStatus {
-                Label("Quick status from Studio", systemImage: "bolt.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)
-                    .help("Studio answered this from what it already knows. Rasan was not interrupted.")
-            }
             HStack(spacing: 0) {
                 if message.fromUser { Spacer(minLength: 36) }
                 Text(message.text).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
@@ -381,16 +383,7 @@ struct ThreadBubble: View {
                     .accessibilityLabel((message.fromUser ? "You: " : "Rasan: ") + message.text)
                 if !message.fromUser { Spacer(minLength: 36) }
             }
-            if let actions = message.quickActions, !actions.isEmpty, let onAction {
-                FlowLayout(spacing: 6) {
-                    ForEach(Array(actions.enumerated()), id: \.element) { index, action in
-                        Button(action.title) { onAction(action) }
-                            .buttonStyle(.rasanSecondary).controlSize(.small)
-                            .fontWeight(index == 0 && action != .viewActivity ? .semibold : .regular)
-                    }
-                }
-                .padding(.top, 2)
-            }
+            if let incident { IncidentChip(state: incident).padding(.horizontal, 4).padding(.top, 2) }
         }
         .frame(maxWidth: .infinity, alignment: message.fromUser ? .trailing : .leading)
     }
@@ -418,8 +411,6 @@ struct ThinkingRow: View {
             Text(why).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
             FlowLayout(spacing: 6) {
                 Button("Ask again") { model.askAgain() }
-                Button("Ask for a short answer") { model.answerPendingLocally() }
-                    .help("Studio answers now from what it can see, without interrupting Rasan.")
                 Button("Stop waiting") { model.stopWaiting() }
             }
             .buttonStyle(.rasanSecondary).controlSize(.small)
@@ -437,18 +428,49 @@ struct ThinkingRow: View {
                 }
                 .accessibilityElement(children: .combine)
                 if stopped || (seconds ?? 0) >= Int(Self.slowAfter) {
-                    Text(stopped ? "Rasan is stopped right now, so it can't answer yet. Studio can tell you what it knows."
+                    Text(stopped ? "Rasan is stopped right now, so it can't answer yet. Ask me here and I'll say what I can see."
                                  : "Rasan is taking a while. Rasan may be busy with the step.")
                         .font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
                     FlowLayout(spacing: 6) {
-                        Button("Ask for a short answer") { model.answerPendingLocally() }
-                            .help("Studio answers now from what it can see, without interrupting Rasan.")
-                        Button("View activity") { model.quickActionHandler(.viewActivity) }
+                        Button("View activity") { model.requestActivity() }
                         Button("Stop waiting") { model.stopWaiting() }
                     }
                     .buttonStyle(.rasanSecondary).controlSize(.small)
                 }
             }
+    }
+}
+
+/// open / fixing / fixed / later, as a small chip under the message that raised the problem.
+struct IncidentChip: View {
+    let state: ChatIncident.State
+    var body: some View {
+        let color: Color = switch state { case .open: .orange; case .working: .rasan; case .resolved: .green; case .dismissed: .secondary }
+        HStack(spacing: 4) {
+            if state == .working { ProgressView().controlSize(.mini) } else { Circle().fill(color).frame(width: 6, height: 6) }
+            Text(state.word).font(.system(size: 10, weight: .medium)).foregroundStyle(color)
+        }
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .background(color.opacity(0.12), in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Problem status: \(state.rawValue)")
+    }
+}
+
+/// While Studio installs a tool for Rasan: the latest line of the install's own output, live in the chat.
+struct ChatInstallRow: View {
+    var coordinator = ToolNeedCoordinator.shared
+    var body: some View {
+        if let tool = coordinator.busyTool, !coordinator.progress.isEmpty {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("\(tool): \(coordinator.progress)").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
+                Spacer(minLength: 4)
+                Button("Stop") { _ = coordinator.cancelInstall() }.buttonStyle(.rasanSecondary).controlSize(.mini).help("Stop the install")
+            }
+            .padding(.top, 4)
+            .accessibilityElement(children: .combine)
+        }
     }
 }
 

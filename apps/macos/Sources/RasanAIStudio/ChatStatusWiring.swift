@@ -1,7 +1,7 @@
 import AppKit
 import StudioCore
 
-/// What the chat's quick status knows about the director, and what its one-tap actions do. Only data the app already has.
+/// What Rasan's chat knows about the director. Only data the app already has.
 extension StudioStore {
     /// Fills the chat context with the live director's state for the film on screen: blocked, stalled, running, last error, recent events.
     func fillChatContext(_ c: inout ChatContext) {
@@ -28,33 +28,5 @@ extension StudioStore {
         let health = monitor.health
         return .init(running: true, paused: runtime.isFrozen || health?.state == .paused, blocked: health?.blocked != nil,
                      lastActivity: monitor.telemetry.lastEventAt)
-    }
-
-    func performQuickAction(_ action: ChatQuickAction) {
-        switch action {
-        case .fixIt: fixBlock()
-        case .retryStep: retryStep()
-        case .restartRasan: restartRasan()
-        case .viewActivity: film?.requestActivity()
-        case .copyDetails: copyBlockDetails()
-        case .pauseRun: pauseDirector(); film?.systemLine("Paused the run.")
-        case .resumeRun: resumeDirector(); film?.systemLine("Resuming the run.")
-        }
-    }
-
-    /// "Copy details": the raw reason and the end of the director's log, for support.
-    func copyBlockDetails() {
-        var parts: [String] = ["RasanAI Studio: director details"]
-        if let film { parts.append("Film: \(film.title) · step: \(film.currentStep)") }
-        if let block = monitor.openBlock ?? monitor.health?.blocked {
-            parts.append("Blocked: \(block.technical)")
-            parts.append("Tool: \(block.tool) · command: \(block.command.isEmpty ? "(not recorded)" : block.command) · times: \(block.count) · helper: \(block.byHelper)")
-        }
-        if let health = monitor.health { parts.append("Health: \(health.label). \(health.detail)") }
-        if let error = monitor.telemetry.events.last(where: { $0.kind == .error })?.text { parts.append("Last error: \(error)") }
-        let tail = runtime.logTail().split(separator: "\n", omittingEmptySubsequences: false).suffix(40).joined(separator: "\n")
-        if !tail.isEmpty { parts.append("Log (last lines):\n" + tail) }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(parts.joined(separator: "\n"), forType: .string)
     }
 }

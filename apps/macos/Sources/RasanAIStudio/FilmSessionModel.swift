@@ -81,8 +81,35 @@ final class FilmSessionModel {
     var progressProvider: () -> FilmProgressSnapshot? = { nil }
     /// Fills in what the store knows about the director (blocked, stalled, running, last error, recent events). Set by the store.
     var contextExtras: (inout ChatContext) -> Void = { _ in }
-    /// Runs a quick status's one-tap action (Fix it, Restart Rasan, View activity…). Set by the store.
-    var quickActionHandler: (ChatQuickAction) -> Void = { _ in }
+    /// Runs one thing Rasan's reply asked for and says what really happened (see `StudioStore.runChatAction`). Set by the store.
+    var actionRunner: (ChatReplyAction) async -> ChatActionResult = { _ in ChatActionResult("Studio can't do that here.") }
+    /// What interrupts the film now and what became of each (derived from real data every tick; see `ChatIncident`).
+    var incidents = IncidentLedger()
+    /// Incidents whose resolution Rasan already reported in a follow-up turn, so it is not announced twice.
+    @ObservationIgnored var quietResolve: Set<String> = []
+    /// Incidents whose opening Rasan has posted in the chat, and the last time Rasan spoke unprompted.
+    @ObservationIgnored var announced: Set<String> = []
+    @ObservationIgnored var lastSpoke: [ChatIncident.Kind: Date] = [:]
+    /// Asks Studio already answered (an ask is answered once, whatever the route), and when the last chat call failed (the doorways then offer buttons).
+    @ObservationIgnored var answeredAsks: Set<String> = []
+    @ObservationIgnored var rejectedAsks: Set<String> = []
+    var chatFailed = false
+    /// The chat can run at all: set by the store (Claude Code installed and the director is Claude).
+    var chatAvailable: () -> Bool = { true }
+    var chatUsable: Bool { chatAvailable() && !chatFailed }
+    /// What a doorway offers when the chat can't run: the problem's real actions as buttons (set by the store).
+    var doorwayActions: (String) -> [DoorwayAction] = { _ in [] }
+    @ObservationIgnored var proposalsAt = Date.distantPast
+    /// What Studio last found when it looked for each tool (by tool name).
+    var toolChecks: [String: ToolCheck] = [:]
+    /// Consent-gated actions Rasan proposed in its last reply (by `ChatReplyAction.key`), waiting for the person's yes.
+    @ObservationIgnored var proposals: [String: ChatReplyAction] = [:]
+    /// Asks the open chat to scroll to the message about this incident.
+    var scrollToIncident: String?
+    /// The doorways' two buttons (Talk to Rasan, Later), set by the store: open the chat at a problem, or put its popup away.
+    var talkHandler: (String?) -> Void = { _ in }
+    var laterHandler: (String) -> Void = { _ in }
+    @ObservationIgnored var lastToolPoll = Date.distantPast
     /// Bumped to ask the working screen to open "View activity".
     private(set) var activityRequest = 0
     func requestActivity() { activityRequest += 1 }
@@ -192,6 +219,8 @@ final class FilmSessionModel {
         setConnection(.live)
         for refused in reading.rejected where sentIDs.contains(refused.id) && reportedRejections.insert(refused.id).inserted {
             lastError = "The director could not use that answer: \(refused.error)."
+            // The ask is still open: the answer may be tried again (by the person's say-so in the chat), but the background look never re-sends it.
+            if let open = snapshot.ask?.id { answeredAsks.remove(open); rejectedAsks.insert(open) }
             pendingRefine.removeAll()
         }
         let ids = reading.queued.map(\.id)
@@ -310,13 +339,18 @@ final class FilmSessionModel {
             return true
         }
         let context = chatContext()
-        // "What happened?", "is it stuck?", "how long?": Studio answers now from what it already knows. The director is not woken.
-        // A question to Rasan is answered in the chat by the model from the film's real state (the plain status line only if it can't).
-        if ChatAnswerer.classify(text) == .statusQuestion || ChatAnswerer.isConversational(text) {
+        // "What happened?", "is it stuck?", "how long?": a question goes to Rasan's model only, which answers from the film's real state. The director
+        // is not woken. (The wording is the model's; Studio only writes a plain fallback, prefixed honestly, when the model can't be reached.)
+        // A short reply to an open problem or a proposal ("yes", "installed", "skip it") goes to Rasan only. Real feedback ("make the logo blue") is
+        // still queued to the director below, whatever is open. Proposals lapse after three minutes or one message that is not a reply.
+        if !proposals.isEmpty, Date().timeIntervalSince(proposalsAt) > 180 { proposals = [:] }
+        let open = incidents.unresolved.contains { $0.state != .dismissed }
+        let inConversation = (open || !proposals.isEmpty) && ChatAnswerer.isReplyToProblem(text)
+        if !inConversation, !proposals.isEmpty { proposals = [:] }
+        if inConversation || ChatAnswerer.classify(text) == .statusQuestion || ChatAnswerer.isConversational(text) {
             addLocal(step, fromUser: true, text)
             if ChatAnswerer.classify(text) == .statusQuestion { followUpStatusAsked() }
-            let quick = ChatAnswerer.quickStatus(text, context)
-            converse(text, step: step, fallback: quick.text, actions: quick.actions)
+            converse(text, step: step, fallback: chatFallback(context))
             return true
         }
         if !isFixture && !isConnected {
@@ -335,9 +369,8 @@ final class FilmSessionModel {
         guard !isFixture else { return true }
         if ChatAnswerer.needsLocalAnswer(context) {
             // Not queued silently behind a director that can't read it: say so now, and say what is going on.
-            let quick = ChatAnswerer.quickStatus(text, context)
             converse(text, step: step, routedNote: "Sent to the director as an instruction, but it cannot read it until it carries on (see the film state). Say so and what is wrong.",
-                     fallback: "Your message is saved, but Rasan can't read it until it carries on. " + quick.text, actions: quick.actions)
+                     fallback: "Your message is saved, but Rasan can't read it until it carries on. " + chatFallback(context))
         } else {
             let line = transportLine()
             converse(text, step: step, routedNote: "Sent to the director as an instruction. Transport: \(line)", fallback: line)
@@ -436,13 +469,6 @@ final class FilmSessionModel {
         return inFlight.contains(key) || unansweredTexts.contains(key)
     }
 
-    /// "Ask for a short answer": Studio answers the waiting question now from what it knows.
-    func answerPendingLocally() {
-        guard let last = lastUnanswered else { return }
-        let quick = ChatAnswerer.quickStatus(last.text, chatContext())
-        addLocal(last.step, fromUser: false, "Here's the short answer from what Studio can see: " + quick.text, actions: quick.actions)
-    }
-
     /// "Ask again" on a message that was not answered: the same words go to Rasan once more.
     func askAgain() {
         guard let last = lastUnanswered else { return }
@@ -455,17 +481,6 @@ final class FilmSessionModel {
         guard let last = lastUnanswered else { return }
         stoppedWaitingFor = last.id
         addLocal(last.step, fromUser: false, "Okay, I've stopped waiting here. If Rasan answers later, it shows up in this chat.")
-    }
-
-    /// "Ask Rasan why" on the blocked banner: opens the chat and answers right away from what Studio knows.
-    func askWhyBlocked() {
-        beginTell()
-        let step = shownStep
-        let question = "Why did Rasan stop?"
-        addLocal(step, fromUser: true, question)
-        followUpStatusAsked()
-        let quick = ChatAnswerer.quickStatus(question, chatContext())
-        converse(question, step: step, fallback: quick.text, actions: quick.actions)
     }
 
     /// What is true about the request just queued: it is on the director's queue, and whether anything is running to read it.
@@ -502,11 +517,11 @@ final class FilmSessionModel {
         if !accept { beginTell(step: p.step, prefill: p.text) }
     }
 
-    func addLocal(_ step: String, fromUser: Bool, _ text: String, after: TimeInterval = 0, actions: [ChatQuickAction]? = nil, byModel: Bool = false) {
+    func addLocal(_ step: String, fromUser: Bool, _ text: String, after: TimeInterval = 0, incident: String? = nil, byModel: Bool = false) {
         if !fromUser, !byModel { studioSaid = Array((studioSaid + [text]).suffix(8)) }
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        localThreads[step, default: []].append(.local(step: step, fromUser: fromUser, text: text, time: f.string(from: Date().addingTimeInterval(after)), quickActions: actions))
+        localThreads[step, default: []].append(.local(step: step, fromUser: fromUser, text: text, time: f.string(from: Date().addingTimeInterval(after)), incident: incident))
     }
 
     /// What the answerer knows now: the progress snapshot, the run's own state, and how long the person's last message has waited.
@@ -522,6 +537,7 @@ final class FilmSessionModel {
         let looking = StepCatalog.label(shownStep) + (isViewingPast ? " (an earlier step, read-only)" : "")
         c.lookingAt = [looking, workingMessage].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         if let p = c.progress { c.recentEvents = p.activity.suffix(DirectorChatRules.maxEvents).map(\.title) }
+        c.incidents = incidents.items.suffix(6).reversed()
         if !isFixture { contextExtras(&c) }
         return c
     }

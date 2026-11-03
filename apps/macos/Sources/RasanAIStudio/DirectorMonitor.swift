@@ -11,6 +11,10 @@ final class DirectorMonitor {
         var pause: () -> Void = {}
         var showLog: () -> Void = {}
         var tell: () -> Void = {}
+        /// Opens the chat at a problem (`ChatIncident.id`).
+        var talk: (String?) -> Void = { _ in }
+        /// What a doorway offers when the chat can't run.
+        var fallback: (String) -> [DoorwayAction] = { _ in [] }
         /// Stops the director and starts it again from the run's saved state (never two directors for one run).
         var restart: () -> Void = {}
         /// Nudges the step again: a note when Rasan is alive, a restart when it is not.
@@ -74,6 +78,8 @@ final class DirectorMonitor {
         actions = Actions(pause: { [weak store] in store?.pauseDirector() },
                           showLog: { [weak store] in store?.sheet = .log },
                           tell: { [weak store] in store?.film?.beginTell() },
+                          talk: { [weak store] id in store?.talkAbout(id) },
+                          fallback: { [weak store] id in store?.doorwayActions(id) ?? [] },
                           restart: { [weak store] in store?.restartRasan() },
                           retry: { [weak store] in store?.retryStep() })
         ToolNeedCoordinator.shared.attach(store)
@@ -148,6 +154,8 @@ final class DirectorMonitor {
             await advance(run: run, log: runtime.logURL, final: !running && wasRunning)
         }
         wasRunning = running
+        // Problems are derived even with no director attached (a tool question after a relaunch), before anything returns early.
+        store.tickIncidents()
         guard run != nil else { health = nil; return }
         let context = HealthContext(now: now, processRunning: running, hasStarted: runtime.startedAt != nil || telemetry.hasData,
                                     exitCode: runtime.lastExitCode, stopRequested: runtime.stopRequested, awaitingUser: running && awaitingUser,
