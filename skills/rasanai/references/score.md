@@ -122,6 +122,18 @@ The gates read these per-beat fields (`lib/launch-beats.mjs`; the rules are in `
 | `ui_scale` | percent of frame area | every launch beat | The UI proof's share of the frame: 35 to 60 when it is the proof; 0 when none. |
 | `hold_s` | seconds | every launch beat | The longest static hold in the beat, about 1.2 at most, filled with secondary motion. With `ground`, `role`, `hero_scale` and `ui_scale` it is what the reference jury (`agents/reference-juror.md`) compares with the contact sheet: a declared number the sheet does not show is a finding. |
 
+### Clarity, proof and CTA (launch and promo films)
+
+The rules are in `references/launch-grammar.md` section 14; these fields feed the `launch-beats` warnings. Score-level fields:
+
+| Field | Type | Why (and the check) |
+|---|---|---|
+| `clarity` | `{category, audience, beat}`; `beat` is a beat id or role (`hook`, `turn`) | Names what the product is, who it is for, and where the copy says both: by the end of the turn, before the meet (`clarity-missing`, `clarity-late`, `clarity-beat-unknown`). |
+| `one_message` | string, one sentence | The single thing the film says; the juries check the film says that and only that (`one-message-missing`). |
+| `cta` | `{text, hold_s}` | The final beat's call to action: a verb plus a destination, held 2 s or more (`cta-missing`, `cta-weak`, `cta-hold-missing`). |
+
+Per-beat: `core_job_demo` (bool) marks a beat that shows the product's core job done on UI (`core-job-missing`, `core-job-no-ui`). The first beat with `ui_scale` of 35 or more (or a `ui-proof` or `ui-collage` scene) starts by about 40% of the runtime (`ui-proof-late`, `ui-proof-missing`). `copy-buzzword` warns on the denylist in `scripts/lib/copy-lint.mjs`.
+
 ### Motion laws (launch films; any film may carry `moves`)
 
 Film level: `signature_ease` (a curve name from `motion.md` `curves`, or a curve string such as `cubic-bezier(0.05,0.7,0.1,1)` or `expo.out`). Launch films only: 70-85% of moves use it (`signature-ease-missing`, `signature-share-low`).

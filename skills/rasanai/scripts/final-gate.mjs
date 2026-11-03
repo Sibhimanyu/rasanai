@@ -173,6 +173,7 @@ export function main(args) {
       const brand = String((jr(path.join(run, "brief.json")) || {}).name || (jr(path.join(run, "brief.json")) || {}).product || "");
       const q = textQa(html, { allow: brand.split(/\W+/).filter(Boolean) });
       steps.push({ step: "text-qa", ok: q.ok, words: q.words, errors: q.errors.length, warnings: q.warnings.length });
+      { const bz = [...new Set(q.buzzwords || [])]; if (bz.length) warnings.push(`text-qa (buzzword): the film's on-screen text uses ${bz.map((b) => `"${b}"`).join(", ")}: say the specific thing it does (references/launch-grammar.md section 14)`); }
       if (!q.ok) blocked.push(`text-qa: ${q.errors.slice(0, 6).map((e) => `${e.kind} "${e.word}" (${e.context})`).join("; ")}: fix the words in index.html`);
     } catch (e) { steps.push({ step: "text-qa", ok: false }); blocked.push(`text-qa: could not run (${String(e.message).slice(0, 120)})`); }
   }

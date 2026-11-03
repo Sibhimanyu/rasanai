@@ -28,6 +28,8 @@ Read `references/launch-grammar.md` (sections 4, 8 and 12). On a launch, promo o
 - Skip the world-diversity rules above (different style worlds, one bold pick, calm family) on a launch film.
 - Allow at most 1 of the 3 to use a non-default style world, and only if the brief asked for one or the idea truly needs it.
 - Judge story clarity in one watch: a stranger retells hook, turn, meet, capabilities, payoff.
+- Judge clarity (`launch-grammar.md` section 14): the hook or turn makes the category and the audience clear before the logo, each capability line states the viewer's outcome and not the mechanism, and the concept declares a `one_message` that the beats say and nothing else.
+- Drop or rank down an idea whose `cta` has no verb or destination, or whose copy leans on buzzwords from `scripts/lib/copy-lint.mjs`.
 - Judge how the hook lands: the problem is felt in the first lines, no logo.
 - Judge scene variety: 5+ scene types in 45 s, none over 30%, neighbours differ, each scene its own reference move. Reward it, and penalise a one-gimmick film whose one carrier, move or transition runs through every scene, or whose emphasis is an AI cliche from `launch-moves.md`.
 - Judge texture contrast: a stepped or flicker section, calm beats smooth; an all-smooth plan is weaker.
