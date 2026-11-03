@@ -74,6 +74,17 @@ public enum ChatAnswerer {
         return .feedback
     }
 
+    private static let problemReply = try! NSRegularExpression(
+        pattern: #"^\s*(yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|please do|no|nope|not now|don'?t|skip|continue without|carry on without|install|check|installed|i('?ve| have)? ?(just )?installed|it'?s (installed|done|there|ready)|done|try again|retry|restart|resume|pause|stop|cancel|why|what)\b"#,
+        options: [.caseInsensitive])
+    /// A short answer to an open problem or a proposal ("yes", "installed", "skip it", "install it", "check again"): at most eight words, starting
+    /// with one of those. Anything longer, or a real instruction for the film ("make the logo blue"), is not.
+    public static func isReplyToProblem(_ text: String) -> Bool {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, t.split(whereSeparator: \.isWhitespace).count <= 8, !matches(feedbackWords, t) else { return false }
+        return matches(problemReply, t)
+    }
+
     // MARK: When the director cannot read a message
 
     /// The director is blocked, stalled, failed or not running: it will not read a message until it carries on (Rasan says so).

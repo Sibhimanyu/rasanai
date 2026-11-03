@@ -35,7 +35,9 @@ struct RasanChatAgent: Sendable {
         tell_director ("text": a short, self-contained instruction for the director and its crew), retry_step, resume, view_activity, \
         check_tool ("name"), recheck ("id": a PROBLEM id, or leave it out for all), answer_ask ("choice": one of the question's option ids and/or \
         "text", only when the person clearly decided), and the ones that need the person's yes: restart_rasan, pause, install_tool ("name"), \
-        continue_without ("name": carry on without the tool, answering the director's question with its skip choice). Never write the line unless you act.
+        continue_without ("name": carry on without the tool, answering the director's question with its skip choice), cancel_install (stop an install Studio is running; when the person says to stop it). Never write the line unless you act. \
+        Installs run in the background: you are told how they ended in a later turn, and the person can keep talking meanwhile. answer_ask is only for a question that is \
+        not a tool question, and only on a message the person wrote.
         Rules: (1) Consent. For restart_rasan, pause, install_tool and continue_without, first ask in plain words ("Want me to install it?") and put the \
         action in the list: Studio holds it and does NOT run it. Only when the person's next message clearly says yes, put the same action in the list \
         again and Studio runs it. A proposal not repeated after a yes is dropped. (2) "I installed it", "it's done", "try again": use check_tool; never \
@@ -71,10 +73,8 @@ struct RasanChatAgent: Sendable {
         var attempts: [(id: String, resume: Bool)] = []
         if let id = Self.savedSession(key) { attempts.append((id, true)) }
         attempts.append((UUID().uuidString.lowercased(), false))
-        var last = ""
         for (index, attempt) in attempts.enumerated() {
             let out = await run(session: attempt.id, resume: attempt.resume, prompt: attempt.resume ? resumePrompt : freshPrompt, onText: onText)
-            last = out.text
             if !out.text.isEmpty {
                 if out.ok || out.timedOut { Self.save(session: attempt.id, key: key) }
                 return out.text
@@ -233,7 +233,7 @@ extension FilmSessionModel {
         if !proposed.isEmpty { out += "\n\nYOU PROPOSED THESE LAST TURN AND THEY ARE WAITING FOR THE PERSON'S YES (Studio holds them; repeat the action only if their new message clearly says yes):\n" + proposed.map { "- " + $0 }.joined(separator: "\n") }
         switch turn {
         case .person: out += "\n\nNEW MESSAGE FROM THE PERSON:\n" + message
-        case .event(let what): out += "\n\nWHAT JUST HAPPENED (the person did not write; you are speaking up). Say it in your own words, brief and warm, from the facts above. There are no buttons: tell them what you can do and ask, or just act if it is a plain action that needs no yes:\n" + what
+        case .event(let what): out += "\n\nWHAT JUST HAPPENED (the person did not write; you are speaking up). Say it in your own words, brief and warm, from the facts above. There are no buttons. You may only look (check_tool, recheck) on your own here; for anything else, say in words what you can do and ask what they want:\n" + what
         case .results(let lines): out += "\n\nRESULTS OF WHAT STUDIO JUST DID FOR YOU (real and exact). Tell the person what happened and what is next, in your own words; quote a real error if something failed:\n" + lines.map { "- " + Self.clip($0, 900) }.joined(separator: "\n")
         }
         if let routedNote { out += "\n\nNOTE: " + routedNote }
@@ -271,8 +271,12 @@ extension FilmSessionModel {
 
     /// Rasan speaks up on a real moment (see `ChatTurn.event`), written by the model from the facts and what changed.
     func speak(event: String, step: String? = nil, fallback: String, incident: String? = nil) {
-        lastSpoke = Date()
         queue(.event(event), step: step ?? shownStep, routedNote: nil, fallback: fallback, incident: incident)
+    }
+
+    /// Reports what a background job (an install) really did, as its own turn, so the chat was never held up while it ran.
+    func report(results: [String], step: String? = nil) {
+        queue(.results(results), step: step ?? shownStep, routedNote: nil, fallback: results.joined(separator: " "), incident: nil)
     }
 
     private func queue(_ turn: ChatTurn, step: String, routedNote: String?, fallback: String, incident: String?) {
@@ -293,7 +297,7 @@ extension FilmSessionModel {
         var turn = first, lastResults: [String] = []
         let key = runDirectory.map { RasanChatAgent.sessionKey(for: $0) } ?? "film"
         func fail(_ why: String, round: Int) {
-            streamingText = nil
+            streamingText = nil; chatFailed = true
             let said = round == 0 ? fallback : "What Studio did: " + lastResults.joined(separator: " ")
             addLocal(step, fromUser: false, "Couldn't reach my thinking just now (\(why)): " + said, incident: round == 0 ? incident : nil)
         }
@@ -312,7 +316,7 @@ extension FilmSessionModel {
                     await MainActor.run { self?.streamingText = ChatReplyParser.split(raw).text }
                 }
                 let reply = ChatReplyParser.split(raw)
-                lastChatReply = (Date(), facts)
+                lastChatReply = (Date(), facts); chatFailed = false
                 streamingText = nil
                 let words = reply.text.isEmpty && reply.actions.isEmpty && round == 0 ? fallback : reply.text
                 if !words.isEmpty { addLocal(step, fromUser: false, words, incident: round == 0 ? incident : nil, byModel: true) }
@@ -350,10 +354,12 @@ extension FilmSessionModel {
         for action in actions {
             if action.needsConsent {
                 if personTurn, proposals[action.key] != nil { results.append(await actionRunner(action)) } else { held[action.key] = action }
-            } else { results.append(await actionRunner(action)) }
+            } else if personTurn || action.readOnly { results.append(await actionRunner(action)) }
+            // On a turn the person did not write, only looking runs; anything else Rasan must ask about in words first.
         }
         // A turn the person wrote renews or drops the proposals; a trigger or follow-up turn only adds to them.
         if personTurn { proposals = held } else { proposals.merge(held) { _, new in new } }
+        if !held.isEmpty { proposalsAt = Date() }
         return results
     }
 

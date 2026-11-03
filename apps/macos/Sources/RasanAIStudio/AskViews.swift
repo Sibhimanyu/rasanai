@@ -26,6 +26,7 @@ struct AskSheet: View {
             let id = "tool:\(need.tool)", item = model.incidents.item(id)
             IncidentDoorway(symbol: "wrench.and.screwdriver.fill", title: item?.title ?? "Rasan needs \(need.title)",
                             summary: item?.summary ?? "\(need.title) is needed to carry on. Rasan can check for it, install it or carry on without it, with you in the chat.",
+                            fallback: model.doorwayActions(id),
                             talk: { model.dismissedAsks.insert(ask.id); dismiss(); model.talkHandler(id) },
                             later: { model.laterHandler(id); dismiss() })
                 .padding(20).frame(width: 520)

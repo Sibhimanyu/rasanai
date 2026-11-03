@@ -194,6 +194,7 @@ struct FilmProgressView: View {
                 .accessibilityAddTraits(.isHeader)
             if !doing.isEmpty { Text("Last: \(doing)").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1) }
             HStack(spacing: 10) {
+                ForEach(stuck.fallback) { a in Button(a.title, action: a.run).buttonStyle(.rasanSecondary).controlSize(.regular) }
                 Button("Later", action: stuck.onLater).buttonStyle(.rasanSecondary).controlSize(.regular)
                 Button("Talk to Rasan", action: stuck.onTalk).buttonStyle(.rasanPrimary).controlSize(.regular)
                     .help("Opens the chat. Rasan can retry the step or restart, with your say-so.")

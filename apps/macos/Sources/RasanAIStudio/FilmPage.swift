@@ -361,6 +361,7 @@ struct DirectorRecoveryView: View {
 
     /// A doorway: the chat decides what to do (resume, restart, look at the log). Signing in is Studio's own screen, so it stays a button.
     @ViewBuilder private var actions: some View {
+        ForEach(store.doorwayActions("failed:" + recovery.rawValue)) { a in Button(a.title, action: a.run).buttonStyle(.rasanSecondary).controlSize(.small) }
         if recovery == .signIn { Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.rasanSecondary).controlSize(.small) }
         if store.doorwayOpen("failed:" + recovery.rawValue) { Button("Later") { store.laterAbout("failed:" + recovery.rawValue) }.buttonStyle(.plain).foregroundStyle(.secondary).controlSize(.small) }
         Button("Talk to Rasan") { store.talkAbout("failed:" + recovery.rawValue) }.buttonStyle(.rasanPrimary).controlSize(.small)

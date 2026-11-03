@@ -16,6 +16,11 @@ public enum ChatReplyAction: Equatable, Sendable {
     case answerAsk(choice: String?, text: String?)
     /// Re-evaluates an incident from real data (nil: all of them) and reports where each stands.
     case recheck(String?)
+    /// Stops an install Studio is running for a tool.
+    case cancelInstall
+
+    /// The only actions that run on a turn the person did not write (a problem opened or cleared, or the results of an action): looking, never changing.
+    public var readOnly: Bool { switch self { case .checkTool, .recheck: true; default: false } }
 
     /// These run only after the person's yes in the conversation: Rasan asks in words, the person says yes, and the next turn runs them.
     public var needsConsent: Bool {
@@ -35,6 +40,7 @@ public enum ChatReplyAction: Equatable, Sendable {
         case .continueWithout(let t): "continue_without:" + ToolNeed.infer(t).name
         case .answerAsk(let c, let t): "answer_ask:" + (c ?? t ?? "")
         case .recheck(let id): "recheck:" + (id ?? "")
+        case .cancelInstall: "cancel_install"
         }
     }
     /// The action in words, for telling Rasan what it proposed.
@@ -101,6 +107,7 @@ public enum ChatReplyParser {
                 let choice = string(item, "choice"), text = string(item, "text")
                 action = choice == nil && text == nil ? nil : .answerAsk(choice: choice, text: text)
             case "recheck": action = .recheck(string(item, "id", "incident"))
+            case "cancel_install": action = .cancelInstall
             default: action = nil
             }
             if let action, !out.contains(action) { out.append(action) }

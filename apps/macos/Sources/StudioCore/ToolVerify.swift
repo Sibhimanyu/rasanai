@@ -43,24 +43,47 @@ public enum Shell {
         }
         do { try process.run() } catch { return ShellResult(status: -1, output: error.localizedDescription, timedOut: false) }
         let deadline = Date().addingTimeInterval(timeout)
-        var timedOut = false
+        var timedOut = false, stopped = false
         while process.isRunning {
-            if Task.isCancelled { process.terminate(); break }
-            if Date() > deadline { timedOut = true; process.terminate(); break }
+            if Task.isCancelled { stopped = true; break }
+            if Date() > deadline { timedOut = true; stopped = true; break }
             try? await Task.sleep(for: .milliseconds(80))
+        }
+        if stopped {
+            // The whole tree (pip starts build tools), politely first, then for sure. Never wait on a pipe a child may still hold open.
+            let pid = process.processIdentifier
+            let tree = descendants(of: pid)
+            for p in tree.reversed() { kill(p, SIGTERM) }
+            process.terminate()
+            for _ in 0..<25 where process.isRunning { try? await Task.sleep(for: .milliseconds(80)) }
+            for p in tree.reversed() { kill(p, SIGKILL) }
+            if process.isRunning { kill(pid, SIGKILL) }
         }
         process.waitUntilExit()
         pipe.fileHandleForReading.readabilityHandler = nil
-        if let rest = try? pipe.fileHandleForReading.readToEnd(), !rest.isEmpty { buffer.add(String(decoding: rest, as: UTF8.self) + "\n", line: onLine) }
+        if !stopped, let rest = try? pipe.fileHandleForReading.readToEnd(), !rest.isEmpty { buffer.add(String(decoding: rest, as: UTF8.self) + "\n", line: onLine) }
         return ShellResult(status: process.terminationStatus, output: buffer.all, timedOut: timedOut)
+    }
+
+    /// Every process below `pid`, parents before children (found with `pgrep -P`).
+    private static func descendants(of pid: Int32, depth: Int = 0) -> [Int32] {
+        guard depth < 5 else { return [] }
+        let p = Process(), pipe = Pipe()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep"); p.arguments = ["-P", String(pid)]
+        p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return [] }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile(); p.waitUntilExit()
+        let kids = String(decoding: data, as: UTF8.self).split(whereSeparator: \.isNewline).compactMap { Int32($0) }
+        return kids.flatMap { [$0] + descendants(of: $0, depth: depth + 1) }
     }
 }
 
 /// Looks for a tool the way its kind is found, in the director's own environment: an executable on its PATH, a Python package by importing
 /// it with the `python3` the director gets, an npm package through its `node`, an app in the Applications folders.
-/// It never imports librosa or numba (they crash on Python 3.14 and pop dialogs): those are only looked up, never loaded.
+/// A Python package is never imported (librosa and numba crash on Python 3.14 and pop dialogs, and any import runs the package's own code):
+/// it is looked up with `importlib.util.find_spec` on its top-level name, or `importlib.metadata` for the names in `neverImport`.
 public enum ToolVerifier {
-    static let neverImport: Set<String> = ["librosa", "numba", "llvmlite"]
+    static let neverImport: Set<String> = ["librosa", "numba", "llvmlite", "whisper"]
 
     public static func check(_ need: ToolNeed, environment: [String: String]) async -> ToolCheck {
         switch need.kind {
@@ -97,20 +120,32 @@ public enum ToolVerifier {
 
     static func validModule(_ m: String) -> Bool { m.range(of: #"^[A-Za-z_][A-Za-z0-9_.]*$"#, options: .regularExpression) != nil }
 
+    /// A fresh, empty folder to run Python from, so nothing in the project or the film's folder can shadow a module.
+    private static func emptyDirectory() -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rasan-pycheck-" + UUID().uuidString, isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     private static func python(_ need: ToolNeed, environment: [String: String]) async -> ToolCheck {
         let module = need.module ?? need.tool.replacingOccurrences(of: "-", with: "_")
         guard let python = pythonURL(environment: environment) else {
-            return ToolCheck(found: false, checked: "looked for `python3` on the director's PATH", location: "", detail: "There is no usable python3 there, so a Python package can't be imported.")
+            return ToolCheck(found: false, checked: "looked for `python3` on the director's PATH", location: "", detail: "There is no usable python3 there, so a Python package can't be looked up.")
         }
-        guard validModule(module) else { return ToolCheck(found: false, checked: "checked the module name", location: "", detail: "`\(module)` is not a valid Python module name.") }
-        let find = neverImport.contains(module.lowercased())
-        let code = find ? "import sys, importlib.util; assert importlib.util.find_spec('\(module)') is not None, 'No module named \(module)'; print(sys.executable)"
-                        : "import sys; import \(module); print(sys.executable)"
-        let run = await Shell.run(python, ["-c", code], environment: environment, timeout: 40)
-        let checked = "ran `\(python.path) -c \"\(find ? "find_spec" : "import") \(module)\"`"
+        let top = String(module.split(separator: ".").first ?? "")
+        guard validModule(module), !top.isEmpty else { return ToolCheck(found: false, checked: "checked the module name", location: "", detail: "`\(module)` is not a valid Python module name.") }
+        // Never `import`: find_spec on the top-level name only reads the import machinery's paths. For the names that must never be loaded, package metadata.
+        let viaMetadata = neverImport.contains(top.lowercased())
+        let code = viaMetadata
+            ? "import sys, importlib.metadata as m\nm.version(sys.argv[1])\nprint(sys.executable)"
+            : "import sys, importlib.util\nif importlib.util.find_spec(sys.argv[1]) is None: raise SystemExit('No module named ' + repr(sys.argv[1]))\nprint(sys.executable)"
+        var env = environment; env["PYTHONSAFEPATH"] = "1"; env["PYTHONDONTWRITEBYTECODE"] = "1"
+        let dir = emptyDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let run = await Shell.run(python, ["-c", code, viaMetadata ? need.tool : top], environment: env, directory: dir, timeout: 30)
+        let checked = "asked `\(python.path)` whether the Python package `\(need.tool)` (module `\(top)`) is installed, without importing it"
         if run.status == 0 { return ToolCheck(found: true, checked: checked, location: python.path, detail: "") }
         let lines = run.output.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.isEmpty }
-        let reason = run.timedOut ? "It did not finish within 40 seconds." : (lines.last ?? "It exited with status \(run.status).")
+        let reason = run.timedOut ? "It did not finish within 30 seconds." : (lines.last ?? "It exited with status \(run.status).")
         return ToolCheck(found: false, checked: checked, location: "", detail: reason)
     }
 
@@ -144,8 +179,8 @@ public enum ToolVerifier {
 public enum PythonInstaller {
     public struct Outcome: Sendable { public var ok: Bool; public var command: String; public var tail: String; public var usedBreak: Bool }
 
-    public static func command(package: String, python: String = "python3", breaking: Bool = false) -> String {
-        "\(python) -m pip install --user --disable-pip-version-check" + (breaking ? " --break-system-packages" : "") + " \(package)"
+    public static func command(package: String, python: String = "python3", breaking: Bool = false, user: Bool = true) -> String {
+        "\(python) -m pip install" + (user ? " --user" : "") + " --disable-pip-version-check" + (breaking ? " --break-system-packages" : "") + " \(package)"
     }
 
     public static func install(package: String, environment: [String: String], onLine: @escaping @Sendable (String) -> Void) async -> Outcome {
@@ -156,15 +191,18 @@ public enum PythonInstaller {
             return Outcome(ok: false, command: "", tail: "There is no usable python3 on the director's PATH, so pip can't run. Install Python (python.org) or Apple's command line tools first.", usedBreak: false)
         }
         var usedBreak = false
-        var args = ["-m", "pip", "install", "--user", "--disable-pip-version-check", package]
+        // Inside a virtual environment pip refuses --user; there it installs into the environment itself.
+        let probe = await Shell.run(python, ["-c", "import sys; print(sys.prefix != sys.base_prefix)"], environment: environment, timeout: 20)
+        let inVenv = probe.output.contains("True")
+        var args = ["-m", "pip", "install"] + (inVenv ? [] : ["--user"]) + ["--disable-pip-version-check", package]
         var run = await Shell.run(python, args, environment: environment, timeout: 900, onLine: onLine)
-        if run.status != 0, run.output.contains("externally-managed-environment") {
-            usedBreak = true; args.insert("--break-system-packages", at: 5)
+        if run.status != 0, !inVenv, run.output.contains("externally-managed-environment") {
+            usedBreak = true; args.insert("--break-system-packages", at: args.count - 1)
             onLine("Python is managed by your system, so installing into your own user folder instead.")
             run = await Shell.run(python, args, environment: environment, timeout: 900, onLine: onLine)
         }
         let lines = run.output.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        let cmd = command(package: package, python: python.path, breaking: usedBreak)
+        let cmd = command(package: package, python: python.path, breaking: usedBreak, user: !inVenv)
         return Outcome(ok: run.status == 0, command: cmd, tail: run.timedOut ? "pip did not finish within 15 minutes." : lines.suffix(6).joined(separator: "\n"), usedBreak: usedBreak)
     }
 }

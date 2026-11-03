@@ -27,8 +27,9 @@ public struct ChatIncident: Identifiable, Equatable, Sendable {
     /// The evidence that closed it ("python3 imports kokoro_onnx", "the director is moving again").
     public var resolvedBy: String?
     public var opened: Date = Date()
-    /// The tool, for a tool need.
-    public var tool: String?
+    /// The tool, for a tool need: the whole need (its kind, its exact words for the director), so nothing rebuilds it from a name.
+    public var need: ToolNeed?
+    public var tool: String? { need?.tool }
 
     public var isActive: Bool { state != .resolved }
     /// The chip in the chat.
@@ -44,6 +45,8 @@ public struct IncidentSignals: Sendable {
     public var quietFor: TimeInterval = 0
     public var healthDetail: String?
     public var loopReason: String?
+    /// RasanAI paused the director because it looked stuck (and it is still paused).
+    public var loopPaused: String?
     /// The director ended without finishing: what kind and in what words (nil: it is running, finished, or stopped by the person).
     public var failureID: String?
     public var failureTitle: String?
@@ -72,7 +75,7 @@ public enum IncidentDeriver {
             else { facts.append("The director tried to install it itself and was refused (\(s.block?.command ?? "a command")).") }
             out.append(ChatIncident(id: "tool:\(need.tool)", kind: .toolNeed, title: "Rasan needs \(need.title)", label: "Needs \(need.tool)",
                                     summary: "\(need.title) is needed to carry on. Rasan can check for it, install it or carry on without it, with you in the chat.",
-                                    facts: facts, tool: need.tool))
+                                    facts: facts, need: need))
         }
         if let block = s.block, block.toolNeed == nil || !needs.contains(where: { $0.tool == block.toolNeed?.tool }) {
             out.append(ChatIncident(id: "block:" + block.id, kind: .blocked, title: "Rasan was blocked", label: "Blocked",
@@ -85,9 +88,12 @@ public enum IncidentDeriver {
                                     summary: "Nothing has moved for \(mins) min and nothing is waiting on you. Rasan can retry the step or restart with you in the chat.",
                                     facts: ["The director is running but has made no progress for \(mins) min, with no step running and nobody to wait for.", s.healthDetail ?? "", "The film so far is saved."].filter { !$0.isEmpty }))
         }
-        if let reason = s.loopReason {
-            out.append(ChatIncident(id: "looping", kind: .looping, title: "Rasan may be going in circles", label: "Looping?",
-                                    summary: reason + " Talk to Rasan to decide what to do.", facts: ["The director looks stuck in a loop: " + reason, "It spends tokens without making progress; pausing keeps the files."]))
+        if let reason = s.loopPaused ?? s.loopReason {
+            let paused = s.loopPaused != nil
+            out.append(ChatIncident(id: "looping", kind: .looping, title: paused ? "Paused: Rasan looked stuck" : "Rasan may be going in circles", label: paused ? "Paused" : "Looping?",
+                                    summary: reason + (paused ? " Nothing is lost. Talk to Rasan to resume it or tell it what to do." : " Talk to Rasan to decide what to do."),
+                                    facts: [(paused ? "RasanAI paused the director because it looked stuck in a loop: " : "The director looks stuck in a loop: ") + reason,
+                                            paused ? "It is paused now and uses no tokens; the resume action carries on from the saved film." : "It spends tokens without making progress; pausing keeps the files."]))
         }
         if let id = s.failureID, let title = s.failureTitle {
             out.append(ChatIncident(id: "failed:" + id, kind: .failed, title: title, label: "Stopped",

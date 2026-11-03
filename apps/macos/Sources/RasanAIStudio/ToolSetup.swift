@@ -231,17 +231,21 @@ struct DeveloperToolsSetup: View {
 /// Does the work behind a tool need. Rasan (the chat) calls it: it checks a tool by its kind, installs it after the person's yes, or answers the
 /// director's question with the skip choice. The director can never run brew, pip, sudo or an installer itself; when it needs a tool it asks
 /// (`console.mjs ask` with an `install-tool:<tool>` option, see `ToolNeed`). Success is only believed after the tool is seen the way the
-/// director would see it, and only then is the answer that wakes the director sent (or the director restarted if it already exited).
+/// director would see it, and only then is the answer that wakes the director sent (a paused or stopped run is never restarted by it).
 /// Nothing here draws: results are words for the chat, progress is a line the chat shows while it runs.
 @MainActor @Observable final class ToolNeedCoordinator {
     static let shared = ToolNeedCoordinator()
-    /// The tool being installed or checked right now (the incident is "fixing" meanwhile).
+    /// The tool being installed right now (the incident is "fixing" meanwhile).
     private(set) var busyTool: String?
     /// The latest line of the install's own output, shown live in the chat.
     private(set) var progress = ""
+    @ObservationIgnored private var installTask: Task<Void, Never>?
+    /// Checks in flight, by tool: a second look at the same tool waits for the first and reuses its result.
+    @ObservationIgnored private var checks: [String: Task<ChatActionResult, Never>] = [:]
     private weak var store: StudioStore?
     func attach(_ store: StudioStore) { self.store = store }
-    var isBusy: Bool { busyTool != nil }
+    var isInstalling: Bool { installTask != nil }
+    var isChecking: Bool { !checks.isEmpty }
 
     /// True when Homebrew exists on this Mac (a manual `brew install` is only worth suggesting then).
     static var brewPresent: Bool { ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"].contains { FileManager.default.isExecutableFile(atPath: $0) } }
@@ -256,21 +260,45 @@ struct DeveloperToolsSetup: View {
         return store.settings.nodeURL.map { store.runtime.environment(node: $0, settings: store.settings) } ?? ProcessInfo.processInfo.environment
     }
 
-    /// The need for a tool name: the director's open question if it names this tool, else read from the name.
-    func need(for name: String, ask: DirectorAsk?) -> ToolNeed {
-        if let ask, let n = ToolNeed(ask: ask), n.tool == ToolNeed(tool: name, why: "").tool { return n }
+    /// The need for a tool name, nil when the name is not one Studio will use. The director's open question, or an incident already
+    /// holding this tool's need, wins: they carry its kind and its exact words, so nothing is rebuilt from a name.
+    func need(for name: String, ask: DirectorAsk?, film: FilmSessionModel?) -> ToolNeed? {
+        let probe = ToolNeed(tool: name, why: "")
+        guard probe.isValid else { return nil }
+        if let ask, let n = ToolNeed(ask: ask), n.tool == probe.tool { return n }
+        if let n = film?.incidents.unresolved.compactMap(\.need).first(where: { $0.tool == probe.tool }) { return n }
         return ToolNeed(tool: name, why: "The person asked about it.")
     }
 
+    /// Answers the director's question once. A question already answered is never answered again (a refused answer must not loop).
+    private func answerOnce(_ ask: DirectorAsk, choice: String, text: String, model: FilmSessionModel) async -> String? {
+        guard model.answeredAsks.insert(ask.id).inserted else { return "Studio already answered the director's question once, so it was not answered again." }
+        guard await model.answer(ask, choice: choice, text: text) else {
+            model.answeredAsks.remove(ask.id)
+            return "Studio could not send the answer to the director: " + (model.lastError ?? "unknown error") + "."
+        }
+        return nil
+    }
+
+    // MARK: Check
+
     /// Looks for the tool by its kind, in the director's environment. When it is really there, answers the director's question (or tells a live
-    /// director) and wakes it. The words say what was looked at, where, and what came back.
+    /// director) and wakes it. The words say what was looked at, where, and what came back. `silent`: the background look (no readiness check,
+    /// no records unless it finds it).
     func check(_ need: ToolNeed, ask: DirectorAsk?, model: FilmSessionModel?, source: String = "user-manual", consent: String = "checked-manually", silent: Bool = false) async -> ChatActionResult {
+        guard need.isValid else { return ChatActionResult("That is not a tool name Studio will look up.") }
+        if let running = checks[need.tool] { return await running.value }
+        let task = Task { @MainActor in await self.performCheck(need, ask: ask, model: model, source: source, consent: consent, silent: silent) }
+        checks[need.tool] = task
+        let result = await task.value
+        checks[need.tool] = nil
+        return result
+    }
+
+    private func performCheck(_ need: ToolNeed, ask: DirectorAsk?, model: FilmSessionModel?, source: String, consent: String, silent: Bool) async -> ChatActionResult {
         guard let store else { return ChatActionResult("Studio can't check right now: no film is open.") }
-        let owned = !silent && busyTool == nil
-        if owned { busyTool = need.tool }
-        defer { if owned { busyTool = nil } }
         var result = await ToolVerifier.check(need, environment: directorEnvironment())
-        if result.found, !need.preflightIDs.isEmpty {
+        if result.found, !silent, !need.preflightIDs.isEmpty {
             await store.checkPreflight()
             let notReady = (store.preflightReport?.items ?? []).filter { need.preflightIDs.contains($0.id) && $0.level != .ready }
             if !notReady.isEmpty { result = ToolCheck(found: false, checked: result.checked, location: "", detail: "Studio's readiness check still reports: " + notReady.map { "\($0.title) (\($0.detail))" }.joined(separator: "; ")) }
@@ -279,37 +307,60 @@ struct DeveloperToolsSetup: View {
         if !silent || result.found { record(need, source: source, consent: consent, result: result.found ? "visible-on-path" : "not-visible", detail: result.found ? result.location : result.detail) }
         guard result.found else { return ChatActionResult(result.summary + " Manual steps: " + need.manualSteps(brewPresent: Self.brewPresent)) }
         let words = "\(need.title) is installed and Studio found it the way you look for it (\(result.checked)\(result.location.isEmpty ? "" : ", \(result.location)")). Carry on."
+        var note = ask != nil ? " Studio answered the director's question, so it carries on." : " Studio told the director it is there."
         if let ask, let model {
-            guard await model.answer(ask, choice: need.readyChoice, text: words) else { return ChatActionResult(result.summary + " But Studio could not send the answer to the director: " + (model.lastError ?? "unknown error") + ".") }
+            if let problem = await answerOnce(ask, choice: need.readyChoice, text: words, model: model) { return ChatActionResult(result.summary + " " + problem) }
         } else if let model, store.runtime.isRunning {
             _ = await model.tell("Studio: " + words + " The command that was blocked is not needed any more.", fromStudio: true,
                                  key: "tool-ready|\(need.tool)", friendly: "\(need.title) is installed. Rasan carries on.")
-        }
-        store.film?.quietResolve.insert("tool:\(need.tool)")
+        } else { note = "" }
+        model?.quietResolve.insert("tool:\(need.tool)")
         store.monitor.acknowledgeBlock()
-        await wake()
-        return ChatActionResult(result.summary + (ask != nil ? " Studio answered the director's question, so it carries on." : " Studio told the director it is there."))
+        if await wake() { note += " The director had stopped, so Studio restarted it from the saved film." }
+        else if store.runtime.stopRequested || store.runtime.isFrozen { note += " The run is paused, so it carries on when you resume." }
+        return ChatActionResult(result.summary + note)
     }
 
-    /// The person said yes: Studio installs it. Managed tools use Studio's own setup; a Python package uses `python3 -m pip install --user`.
-    /// Output streams into `progress`. The result is believed only after a check.
-    func install(_ need: ToolNeed, ask: DirectorAsk?, model: FilmSessionModel?) async -> ChatActionResult {
-        guard let store, !isBusy, !store.toolSetup.isRunning else { return ChatActionResult("Another install is already running. Wait for it to finish.") }
+    // MARK: Install (in the background: the chat stays usable)
+
+    /// The person said yes: Studio installs it in the background and `done` gets the outcome (the chat then reports it as its own turn). Managed
+    /// tools use Studio's own setup; a Python package uses `python3 -m pip install --user`. Output streams into `progress`. The result is
+    /// believed only after a check.
+    func startInstall(_ need: ToolNeed, ask: DirectorAsk?, model: FilmSessionModel?, done: @escaping @MainActor (ChatActionResult) -> Void) -> ChatActionResult {
+        guard let store, need.isValid else { return ChatActionResult("That is not a tool name Studio will install.") }
+        guard installTask == nil, !store.toolSetup.isRunning else { return ChatActionResult("Another install is already running. Wait for it to finish, or stop it.") }
         guard need.studioCanInstall else {
             record(need, source: "studio-managed", consent: "approved", result: "failed", detail: "Studio cannot install \(need.tool) by itself")
             return ChatActionResult("Studio can't install \(need.tool) by itself. " + need.manualSteps(brewPresent: Self.brewPresent))
         }
         busyTool = need.tool; progress = "Starting…"
-        defer { busyTool = nil; progress = "" }
+        installTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await runInstall(need, ask: ask, model: model, store: store)
+            busyTool = nil; progress = ""; installTask = nil
+            done(result)
+        }
+        return ChatActionResult("Started installing \(need.title) in the background. Progress shows in the chat and Rasan reports when it ends; the person can say \"stop the install\".", narrate: false)
+    }
+
+    /// "Stop the install": ends the running install (the outcome is reported like any other).
+    func cancelInstall() -> ChatActionResult {
+        guard installTask != nil else { return ChatActionResult("No install is running.") }
+        installTask?.cancel(); store?.toolSetup.cancel()
+        return ChatActionResult("Asked the install to stop. It reports when it has.", narrate: false)
+    }
+
+    private func runInstall(_ need: ToolNeed, ask: DirectorAsk?, model: FilmSessionModel?, store: StudioStore) async -> ChatActionResult {
         if let key = need.managedKey, let kind = SetupTool(rawValue: key) { return await installManaged(need, kind: kind, ask: ask, model: model, store: store) }
         record(need, source: "studio-managed", consent: "approved", result: "started", detail: PythonInstaller.command(package: need.tool))
         let run = await PythonInstaller.install(package: need.tool, environment: directorEnvironment()) { line in Task { @MainActor in ToolNeedCoordinator.shared.progress = String(line.prefix(120)) } }
+        if Task.isCancelled { record(need, source: "studio-managed", consent: "approved", result: "failed", detail: "cancelled"); return ChatActionResult("The install was stopped before it finished. Nothing was changed by Studio after that.") }
         guard run.ok else {
             record(need, source: "studio-managed", consent: "approved", result: "failed", detail: run.tail)
             return ChatActionResult("The install failed. Studio ran `\(run.command.isEmpty ? "pip" : run.command)` and got:\n\(run.tail)\nManual steps: " + need.manualSteps(brewPresent: Self.brewPresent))
         }
         record(need, source: "studio-managed", consent: "approved", result: "installed", detail: run.command)
-        progress = "Checking it imports…"
+        progress = "Checking it is installed…"
         let verdict = await check(need, ask: ask, model: model, source: "studio-managed", consent: "approved")
         return ChatActionResult("pip finished (`\(run.command)`)" + (run.usedBreak ? ", using --break-system-packages in your user folder because the system Python is managed" : "") + ". " + verdict.text)
     }
@@ -325,7 +376,7 @@ struct DeveloperToolsSetup: View {
             store.toolSetup.start(tools: [kind], node: store.settings.nodeURL, environment: directorEnvironment()) { done.resume() }
             if !store.toolSetup.isRunning { done.resume() }
         }
-        if store.toolSetup.isCancelling { record(need, source: "studio-managed", consent: "approved", result: "failed", detail: "cancelled"); return ChatActionResult("The install was cancelled.") }
+        if store.toolSetup.isCancelling || Task.isCancelled { record(need, source: "studio-managed", consent: "approved", result: "failed", detail: "cancelled"); return ChatActionResult("The install was stopped before it finished.") }
         if let error = store.toolSetup.error {
             record(need, source: "studio-managed", consent: "approved", result: "failed", detail: error)
             return ChatActionResult("The install failed: \(error) Manual steps: " + need.manualSteps(brewPresent: Self.brewPresent))
@@ -335,27 +386,28 @@ struct DeveloperToolsSetup: View {
         return ChatActionResult("Studio's setup finished. " + verdict.text)
     }
 
-    /// The person said to carry on without it: the director's question is answered with its skip choice. With no question open (the director
-    /// tried to install it itself and was refused) the step is retried another way instead.
+    // MARK: Skip
+
+    /// The person said to carry on without it: the director's question is answered with its own skip option. With no question open there is
+    /// nothing to answer, and that is said.
     func skip(_ need: ToolNeed, ask: DirectorAsk?, model: FilmSessionModel?) async -> ChatActionResult {
+        guard let ask, let model else { return ChatActionResult("No question from the director is open for \(need.title), so there is nothing to answer. (If it was refused while installing it, a retry of the step is the way on.)") }
         record(need, source: "none", consent: "declined", result: "skipped")
-        guard let ask, let model else {
-            store?.retryStep()
-            return ChatActionResult("No question was open for \(need.title), so Studio told the director to retry the step another way, without installing it.")
-        }
-        guard await model.answer(ask, choice: need.skipChoice, text: "Continue without \(need.title).") else {
-            return ChatActionResult("Studio could not send that to the director: " + (model.lastError ?? "unknown error") + ".")
-        }
+        if let problem = await answerOnce(ask, choice: need.skipChoice, text: "Continue without \(need.title).", model: model) { return ChatActionResult(problem) }
         store?.monitor.acknowledgeBlock()
         model.quietResolve.insert("tool:\(need.tool)")
-        await wake()
-        return ChatActionResult("Answered the director's question: it carries on without \(need.title).")
+        var note = "Answered the director's question: it carries on without \(need.title)."
+        if await wake() { note += " The director had stopped, so Studio restarted it from the saved film." }
+        else if let store, store.runtime.stopRequested || store.runtime.isFrozen { note += " The run is paused, so it carries on when you resume." }
+        return ChatActionResult(note)
     }
 
-    /// The answer is queued. A live director reads it on its next wait; one that already exited is restarted from the saved run.
-    private func wake() async {
-        guard let store, !store.runtime.isRunning, !store.runtime.isFrozen else { return }
+    /// A live director reads the answer on its next wait; one that already exited is restarted from the saved run. A run the person paused or
+    /// stopped is left alone: it carries on when they resume. True when it restarted the director.
+    private func wake() async -> Bool {
+        guard let store, !store.runtime.isRunning, !store.runtime.isFrozen, !store.runtime.stopRequested, !store.runtime.isPreparing else { return false }
         store.restartRasan()
+        return true
     }
 }
 

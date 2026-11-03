@@ -183,56 +183,25 @@ public struct ToolNeed: Equatable, Sendable {
     public let tool: String
     public let why: String
     public let kind: Kind
-    /// The import name of a Python package (`kokoro-onnx` -> `kokoro_onnx`).
+    /// The import name of a Python package (`kokoro-onnx` -> `kokoro_onnx`). Looked up, never imported.
     public let module: String?
+    /// The tool exactly as the director wrote it after `install-tool:`: the director's console accepts `tool-ready:` and the skip option only word for word.
+    public let raw: String
+    /// The skip option of the ask, as the director wrote it (`skip-tool:...`), when the ask had one.
+    public let skipOption: String?
+    /// The name is safe to show in Terminal steps and to pass on (letters, digits, `. _ + -`).
+    public let isValid: Bool
 
-    /// Python packages Studio knows by name: pip name -> import name.
+    /// Python packages Studio knows by name: pip name -> import name. (openai-whisper is left out: its import pulls in numba.)
     static let pythonPackages: [String: String] = [
         "kokoro-onnx": "kokoro_onnx", "kokoro": "kokoro", "onnxruntime": "onnxruntime", "soundfile": "soundfile", "pillow": "PIL", "opencv-python": "cv2",
-        "pydub": "pydub", "openai-whisper": "whisper", "faster-whisper": "faster_whisper", "numpy": "numpy", "scipy": "scipy", "torch": "torch",
+        "pydub": "pydub", "faster-whisper": "faster_whisper", "numpy": "numpy", "scipy": "scipy", "torch": "torch",
         "misaki": "misaki", "pyyaml": "yaml", "edge-tts": "edge_tts", "piper-tts": "piper", "librosa": "librosa", "numba": "numba"]
 
-    /// Reads a tool name as the director writes it: `pip:kokoro-onnx`, `npm:name`, `app:Name`, or a bare name (a known Python package, else a program).
-    static func infer(_ raw: String) -> (name: String, kind: Kind, module: String?) {
-        var name = raw.trimmingCharacters(in: .whitespaces).lowercased()
-        var forced: Kind?
-        for (prefix, kind) in [("pip:", Kind.pythonModule), ("python:", .pythonModule), ("npm:", .npmPackage), ("app:", .app), ("exe:", .executable)] where name.hasPrefix(prefix) {
-            name = String(name.dropFirst(prefix.count)); forced = kind
-        }
-        if let cut = name.firstIndex(where: { "=<>!~[;".contains($0) }) { name = String(name[..<cut]) }   // `pkg==1.2`, `pkg[extra]`
-        let dashed = name.replacingOccurrences(of: "_", with: "-")
-        if forced == nil || forced == .pythonModule, let module = pythonPackages[dashed] { return (dashed, .pythonModule, module) }
-        if forced == .pythonModule { return (dashed, .pythonModule, dashed.replacingOccurrences(of: "-", with: "_")) }
-        return (name, forced ?? .executable, nil)
-    }
+    public static func isSafeName(_ s: String) -> Bool { s.range(of: #"^[A-Za-z0-9._+-]{1,60}$"#, options: .regularExpression) != nil }
 
-    public init?(ask: DirectorAsk) {
-        guard let option = ask.options.first(where: { $0.id.hasPrefix(Self.installPrefix) }) else { return nil }
-        let name = String(option.id.dropFirst(Self.installPrefix.count)).trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return nil }
-        let read = Self.infer(name)
-        askID = ask.id; step = ask.step; tool = read.name; kind = read.kind; module = read.module
-        why = ask.context.isEmpty ? ask.question : ask.context
-    }
-    public init(tool: String, why: String) {
-        let read = Self.infer(tool)
-        askID = ""; step = ""; self.tool = read.name; kind = read.kind; module = read.module; self.why = why
-    }
-    /// The tool an install command was after, read by the installer it used: `pip install kokoro-onnx` is a Python package, `brew install x` a program.
-    public init(installCommand command: String, why: String) {
-        let c = command.lowercased()
-        let name = Self.guessTool(fromCommand: command) ?? "tool"
-        let usesPip = c.range(of: #"(^|[\s;&|/])(pip3?|pipx)\b|-m\s+pip\b|\buv\s+(pip|add)\b"#, options: .regularExpression) != nil
-        let usesNpm = c.range(of: #"\b(npm|npx|pnpm|yarn)\b"#, options: .regularExpression) != nil
-        let read = Self.infer((usesPip ? "pip:" : usesNpm ? "npm:" : "") + name)
-        askID = ""; step = ""; tool = read.name; kind = read.kind; module = read.module; self.why = why
-    }
-
-    public var readyChoice: String { Self.readyPrefix + tool }
-    public var skipChoice: String { Self.skipPrefix + tool }
-
-    /// The key Studio's managed setup (`Runtime/tool-setup.mjs`) installs this tool under, or nil when only the person can install it.
-    public var managedKey: String? {
+    /// The key Studio's managed setup installs a tool name under, or nil.
+    static func managedKey(_ tool: String) -> String? {
         switch tool {
         case "ffmpeg", "ffprobe": "ffmpeg"
         case "hyperframes", "renderer": "renderer"
@@ -242,6 +211,56 @@ public struct ToolNeed: Equatable, Sendable {
         default: nil
         }
     }
+
+    /// Reads a tool name as the director writes it: `pip:kokoro-onnx`, `npm:name`, `app:Name`, or a bare name (a known Python package, else a program).
+    /// A tool Studio installs itself is always a program, whatever installer the director tried.
+    static func infer(_ raw: String) -> (name: String, kind: Kind, module: String?, valid: Bool) {
+        var name = raw.trimmingCharacters(in: .whitespaces).lowercased()
+        var forced: Kind?
+        for (prefix, kind) in [("pip:", Kind.pythonModule), ("python:", .pythonModule), ("npm:", .npmPackage), ("app:", .app), ("exe:", .executable)] where name.hasPrefix(prefix) {
+            name = String(name.dropFirst(prefix.count)); forced = kind
+        }
+        if let cut = name.firstIndex(where: { "=<>!~[;".contains($0) }) { name = String(name[..<cut]) }   // `pkg==1.2`, `pkg[extra]`
+        guard isSafeName(name) else { return ("invalid-name", .executable, nil, false) }
+        if managedKey(name) != nil { return (name, .executable, nil, true) }
+        let dashed = name.replacingOccurrences(of: "_", with: "-")
+        if forced == nil || forced == .pythonModule, let module = pythonPackages[dashed] { return (dashed, .pythonModule, module, true) }
+        if forced == .pythonModule { return (dashed, .pythonModule, dashed.replacingOccurrences(of: "-", with: "_"), true) }
+        return (name, forced ?? .executable, nil, true)
+    }
+
+    public init?(ask: DirectorAsk) {
+        guard let option = ask.options.first(where: { $0.id.hasPrefix(Self.installPrefix) }) else { return nil }
+        let name = String(option.id.dropFirst(Self.installPrefix.count)).trimmingCharacters(in: .whitespaces)
+        let read = Self.infer(name)
+        guard !name.isEmpty, read.valid else { return nil }
+        askID = ask.id; step = ask.step; tool = read.name; kind = read.kind; module = read.module; isValid = true
+        raw = name
+        skipOption = ask.options.first { $0.id == Self.skipPrefix + name }?.id ?? ask.options.first { $0.id.hasPrefix(Self.skipPrefix) }?.id
+        why = ask.context.isEmpty ? ask.question : ask.context
+    }
+    public init(tool: String, why: String) {
+        let read = Self.infer(tool)
+        askID = ""; step = ""; self.tool = read.name; kind = read.kind; module = read.module; self.why = why; isValid = read.valid
+        raw = read.name; skipOption = nil
+    }
+    /// The tool an install command was after, read by the installer it used: `pip install kokoro-onnx` is a Python package, `brew install x` a program.
+    public init(installCommand command: String, why: String) {
+        let c = command.lowercased()
+        let name = Self.guessTool(fromCommand: command) ?? "tool"
+        let usesPip = c.range(of: #"(^|[\s;&|/])(pip3?|pipx)\b|-m\s+pip\b|\buv\s+(pip|add)\b"#, options: .regularExpression) != nil
+        let usesNpm = c.range(of: #"\b(npm|npx|pnpm|yarn)\b"#, options: .regularExpression) != nil
+        let read = Self.infer((usesPip ? "pip:" : usesNpm ? "npm:" : "") + name)
+        askID = ""; step = ""; tool = read.name; kind = read.kind; module = read.module; self.why = why; isValid = read.valid
+        raw = read.name; skipOption = nil
+    }
+
+    /// What the director's console accepts as the answer: the same text as its `install-tool:` option, and its own skip option.
+    public var readyChoice: String { Self.readyPrefix + raw }
+    public var skipChoice: String { skipOption ?? Self.skipPrefix + raw }
+
+    /// The key Studio's managed setup (`Runtime/tool-setup.mjs`) installs this tool under, or nil when only the person can install it.
+    public var managedKey: String? { Self.managedKey(tool) }
     /// Programs that must be found on the director's PATH before it may carry on (empty: checked by Studio's readiness row instead).
     public var executables: [String] {
         switch managedKey {

@@ -150,7 +150,7 @@ struct DirectorMonitorPanel: View {
 
     /// The director's problems in the panel are doorways to the chat too: what happened in a sentence, and "Talk to Rasan".
     private func doorway(_ id: String, symbol: String, title: String, summary: String, tint: NSColor = .systemOrange) -> some View {
-        IncidentDoorway(symbol: symbol, tint: Color(nsColor: tint), title: title, summary: summary,
+        IncidentDoorway(symbol: symbol, tint: Color(nsColor: tint), title: title, summary: summary, fallback: monitor.actions.fallback(id),
                         talk: { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.talk(id) } })
             .padding(12)
             .background(Color(nsColor: tint).opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -315,15 +315,16 @@ struct MonitorBudgetBanner: View {
     var store: StudioStore
     var body: some View {
         let monitor = store.monitor
-        if monitor.run == store.runURL, let paused = monitor.autoPaused, paused.kind == .loop {
+        if monitor.run == store.runURL, let paused = monitor.autoPaused, paused.kind == .loop, store.doorwayOpen("looping") {
             IncidentDoorway(symbol: "exclamationmark.arrow.triangle.2.circlepath", tint: Color(nsColor: .systemRed), title: "Paused: the director looked stuck",
-                            summary: paused.reason + " Nothing is lost. Talk to Rasan to resume it or tell it what to do.", talk: { store.talkAbout("looping") })
+                            summary: paused.reason + " Nothing is lost. Talk to Rasan to resume it or tell it what to do.", fallback: store.doorwayActions("looping"),
+                            talk: { store.talkAbout("looping") }, later: { store.laterAbout("looping") })
                 .doorwayBanner(tint: .systemRed)
         } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, let block = health.blocked, health.state != .paused {
             BlockedBanner(store: store, block: block)
         } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, health.stalled {
             if store.doorwayOpen("stalled") {
-                IncidentDoorway(symbol: "moon.zzz.fill", title: "Rasan looks stuck", summary: health.detail,
+                IncidentDoorway(symbol: "moon.zzz.fill", title: "Rasan looks stuck", summary: health.detail, fallback: store.doorwayActions("stalled"),
                                 talk: { store.talkAbout("stalled") }, later: { store.laterAbout("stalled") })
                     .doorwayBanner()
             }

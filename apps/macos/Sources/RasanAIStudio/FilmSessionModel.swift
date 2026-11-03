@@ -89,7 +89,16 @@ final class FilmSessionModel {
     @ObservationIgnored var quietResolve: Set<String> = []
     /// Incidents whose opening Rasan has posted in the chat, and the last time Rasan spoke unprompted.
     @ObservationIgnored var announced: Set<String> = []
-    @ObservationIgnored var lastSpoke = Date.distantPast
+    @ObservationIgnored var lastSpoke: [ChatIncident.Kind: Date] = [:]
+    /// Asks Studio already answered (an ask is answered once, whatever the route), and when the last chat call failed (the doorways then offer buttons).
+    @ObservationIgnored var answeredAsks: Set<String> = []
+    var chatFailed = false
+    /// The chat can run at all: set by the store (Claude Code installed and the director is Claude).
+    var chatAvailable: () -> Bool = { true }
+    var chatUsable: Bool { chatAvailable() && !chatFailed }
+    /// What a doorway offers when the chat can't run: the problem's real actions as buttons (set by the store).
+    var doorwayActions: (String) -> [DoorwayAction] = { _ in [] }
+    @ObservationIgnored var proposalsAt = Date.distantPast
     /// What Studio last found when it looked for each tool (by tool name).
     var toolChecks: [String: ToolCheck] = [:]
     /// Consent-gated actions Rasan proposed in its last reply (by `ChatReplyAction.key`), waiting for the person's yes.
@@ -329,13 +338,16 @@ final class FilmSessionModel {
         let context = chatContext()
         // "What happened?", "is it stuck?", "how long?": a question goes to Rasan's model only, which answers from the film's real state. The director
         // is not woken. (The wording is the model's; Studio only writes a plain fallback, prefixed honestly, when the model can't be reached.)
-        // While a problem is open or Rasan is waiting on a yes, every message ("I installed it", "yes", "skip it") is part of that conversation: it goes
-        // to Rasan only, who forwards a real instruction for the film with tell_director.
-        let inConversation = !proposals.isEmpty || !incidents.unresolved.isEmpty
+        // A short reply to an open problem or a proposal ("yes", "installed", "skip it") goes to Rasan only. Real feedback ("make the logo blue") is
+        // still queued to the director below, whatever is open. Proposals lapse after three minutes or one message that is not a reply.
+        if !proposals.isEmpty, Date().timeIntervalSince(proposalsAt) > 180 { proposals = [:] }
+        let open = incidents.unresolved.contains { $0.state != .dismissed }
+        let inConversation = (open || !proposals.isEmpty) && ChatAnswerer.isReplyToProblem(text)
+        if !inConversation, !proposals.isEmpty { proposals = [:] }
         if inConversation || ChatAnswerer.classify(text) == .statusQuestion || ChatAnswerer.isConversational(text) {
             addLocal(step, fromUser: true, text)
             if ChatAnswerer.classify(text) == .statusQuestion { followUpStatusAsked() }
-            converse(text, step: step, fallback: chatFallback(context) + (inConversation ? " Your message was not passed on to the director." : ""))
+            converse(text, step: step, fallback: chatFallback(context))
             return true
         }
         if !isFixture && !isConnected {

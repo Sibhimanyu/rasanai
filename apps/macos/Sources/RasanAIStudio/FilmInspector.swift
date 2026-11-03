@@ -111,7 +111,7 @@ struct NotesInspector: View {
             .onChange(of: model.scrollToNoteID) { _, id in scroll(to: id, proxy) }
             .onChange(of: model.scrollToIncident) { _, id in
                 guard let id else { return }
-                withAnimation(.smooth) { proxy.scrollTo("incident-\(id)", anchor: .top) }
+                if let m = model.conversation.last(where: { $0.incident == id }) { withAnimation(.smooth) { proxy.scrollTo(m.id, anchor: .top) } }
                 model.scrollToIncident = nil
             }
             .onAppear {
@@ -245,7 +245,7 @@ struct ConversationList<Empty: View>: View {
                     } else {
                         ThreadBubble(message: message, label: label, incident: model.incidents.item(message.incident)?.state)
                             .padding(.top, previous != nil && startsRun ? 6 : 0)
-                            .id(message.incident.map { "incident-\($0)" } ?? message.id)
+                            .id(message.id)
                     }
                 }
                 let scenes = model.snapshot.scenes(for: ReviewStage.consoleStep(group.step))
@@ -465,6 +465,8 @@ struct ChatInstallRow: View {
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
                 Text("\(tool): \(coordinator.progress)").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
+                Spacer(minLength: 4)
+                Button("Stop") { _ = coordinator.cancelInstall() }.buttonStyle(.rasanSecondary).controlSize(.mini).help("Stop the install")
             }
             .padding(.top, 4)
             .accessibilityElement(children: .combine)

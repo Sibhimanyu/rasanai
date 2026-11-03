@@ -15,7 +15,7 @@ struct BlockedBanner: View {
         if store.doorwayOpen(id) {
             let item = store.film?.incidents.item(id)
             IncidentDoorway(symbol: block.isInstall ? "wrench.and.screwdriver.fill" : "hand.raised.fill", title: item?.title ?? "Rasan was blocked",
-                            summary: item?.summary ?? block.message + " Talk to Rasan to get past it.",
+                            summary: item?.summary ?? block.message + " Talk to Rasan to get past it.", fallback: store.doorwayActions(id),
                             talk: { store.talkAbout(id) }, later: { store.laterAbout(id) })
                 .doorwayBanner()
         }

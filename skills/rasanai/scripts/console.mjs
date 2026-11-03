@@ -328,7 +328,7 @@ function checkExternal(v, s) {
     const options = (Array.isArray(ask.options) ? ask.options : []).filter(isObj).map((o) => o.id);
     const choice = val.choice ?? null;
     // Studio's "Install for me" answers `tool-ready:<tool>` for an ask that offered `install-tool:<tool>`
-    const ready = typeof choice === "string" && /^tool-ready:([A-Za-z0-9._+-]{1,40})$/.exec(choice);
+    const ready = typeof choice === "string" && /^tool-ready:((?:pip:|npm:|app:)?[A-Za-z0-9._+-]{1,40})$/.exec(choice);
     if (choice !== null && !(typeof choice === "string" && (options.includes(choice) || (ready && options.includes(`install-tool:${ready[1]}`))))) return "that is not one of the question's options";
     if (val.text !== undefined && !isText(val.text)) return "the answer text is not text";
     if (choice === null && !String(val.text || "").trim()) return "an answer needs a choice or text";

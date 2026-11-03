@@ -178,7 +178,8 @@ extension StudioStore {
     /// The stuck state as the working screen gets it: how long, and the doorway to the chat. nil once the person said Later (the pill stays).
     var stuckNotice: StuckNotice? {
         guard let quiet = stuckFor, film?.incidents.item("stalled")?.state != .dismissed else { return nil }
-        return StuckNotice(quietFor: quiet, onTalk: { [weak self] in self?.talkAbout("stalled") }, onLater: { [weak self] in self?.laterAbout("stalled") })
+        return StuckNotice(quietFor: quiet, onTalk: { [weak self] in self?.talkAbout("stalled") }, onLater: { [weak self] in self?.laterAbout("stalled") },
+                           fallback: doorwayActions("stalled"))
     }
 }
 
@@ -187,6 +188,8 @@ struct StuckNotice {
     var quietFor: TimeInterval
     var onTalk: () -> Void
     var onLater: () -> Void
+    /// Real actions as buttons, only when Rasan's chat can't run.
+    var fallback: [DoorwayAction] = []
 }
 
 // MARK: Bottom bar pill

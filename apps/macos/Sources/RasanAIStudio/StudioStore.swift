@@ -798,6 +798,11 @@ final class StudioStore {
             guard let self, let model else { return ChatActionResult("Studio can't do that right now.") }
             return await self.runChatAction(action, film: model)
         }
+        model.chatAvailable = { [weak self] in
+            guard let self else { return false }
+            return settings.agent == .claude && FileManager.default.isExecutableFile(atPath: settings.path(for: .claude))
+        }
+        model.doorwayActions = { [weak self] id in self?.doorwayActions(id) ?? [] }
         model.talkHandler = { [weak self] id in self?.talkAbout(id) }
         model.laterHandler = { [weak self] id in self?.laterAbout(id) }
         model.chatAgentProvider = { [weak self] in self?.makeChatAgent() ?? RasanChatAgent(claude: URL(fileURLWithPath: "/nonexistent"), environment: [:]) }
