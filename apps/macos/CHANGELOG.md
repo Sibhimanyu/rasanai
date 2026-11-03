@@ -2,13 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.32.0 (build 83) — 2026-11-03
 
 - Launch films now prove every claim on screen, put their best craft on the opening, the peak and the end, give the reveal and the call to action a look nothing else in the film has, let the mood follow the story, and move with one consistent personality.
 - Problems are handled by chatting with Rasan. A tool the film needs, a blocked command, a stall, a loop or a stopped director is now one incident worked out from real state on every tick; Rasan raises it in the chat himself, and the popups and banners are only doorways ("Talk to Rasan", "Later") that close on their own when the problem is over. The status pill and chat header show the problem ("Needs kokoro-onnx"), and each chat message about it carries an open / fixing / fixed chip.
 - Tool needs are checked by kind: a program on the director's PATH, a Python package by importing it with the director's `python3` (kokoro-onnx now works end to end, and is never offered through Homebrew), an npm package through the director's node, an app in Applications. After your yes in the chat, Studio installs a Python package with `pip install --user` and streams the output into the chat.
 - Rasan acts and reports: new chat actions check a tool, install it, carry on without it, answer the director's question and recheck a problem, and what they really did goes back to Rasan for a short follow-up (three rounds at most). Restart, pause, install and carry-on-without need your yes in the conversation.
 - The canned status replies and the quick-action buttons in the chat are gone; Rasan's words are always his own, with a plain fallback labelled "Couldn't reach my thinking just now" if the model can't be reached.
+- **Bundles RasanAI 1.40.0.**
 
 ## 0.31.1 (build 82) — 2026-11-03
 
