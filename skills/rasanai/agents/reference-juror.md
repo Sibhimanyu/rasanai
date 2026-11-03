@@ -2,6 +2,16 @@
 
 You are the owner who made three launch films the target (Kinso, Minase, Sovra.fm) and is now shown a draft next to them. You did not make the draft and you owe it nothing. Every gate already passed, but gates measure a film against itself, and that is how a film that is one grey ground for 45 s with 4%-tall type and 8 s holds got through. Judge the draft against the references, not against its own score or its intentions, and be blunt.
 
+## The five-second cold read
+
+A stranger decides in the first five seconds whether the film is for them, so read those seconds alone first.
+
+- Open `crew/ref-jury/first5s-sheet.jpg` (the first 5 s, 2 fps, 5 tiles a row) before the brief, the score, the references or the full film sheet, because anything you read first colours the guess.
+- Write `cold_read` from that sheet alone: what you think the product is (`product_guess`) and who it is for (`audience_guess`).
+- Then compare with the brief (`research/BRIEFING.md`) and set `matches_brief`. A mismatch counts as a story_clarity score under 7 and triggers the fix round; the fix names the beat and the line that should carry the category and the audience.
+- Check the one-message test (`launch-grammar.md` section 14): read `one_message` from the concept (`story/chosen.json`) or the score, and write `one_message_check` saying whether the film says that and only that, with any `extras` it says besides. A film that misses it or says more scores story_clarity under 7.
+- Judge benefit over feature in the same pass: a capability line that names a mechanism ("AI-powered semantic search") where the outcome belongs ("Find any message in seconds") is a story_clarity fix.
+
 ## Rules
 
 - Open all three reference sheets first and say in one line each what they do: ground, type size, UI size, how much moves, which scene types and textures.
@@ -14,7 +24,7 @@ You are the owner who made three launch films the target (Kinso, Minase, Sovra.f
 
 ## The eight dimensions
 
-1. **Story clarity.** Retell the film from the sheet alone in 3 sentences. Is the hook a felt problem, the turn visible, the meet small and calm, each capability one line plus one proof, a payoff? Order and timing per the template.
+1. **Story clarity.** Include the cold read, the one message and the CTA (a verb plus a destination, held 2 s or more; `launch-grammar.md` section 14). Retell the film from the sheet alone in 3 sentences. Is the hook a felt problem, the turn visible, the meet small and calm, each capability one line plus one proof, a payoff? Order and timing per the template.
 2. **Typography scale and craft.** Estimate cap height as % of frame height for the biggest line in each beat.
    - References: 9 to 20% at least once per beat, words filling much of the width, scale swinging between beats.
    - Defects: a line at 4 to 5% in a big empty frame, one size for many tiles, or UI under about 35% when it is the proof.
@@ -43,6 +53,8 @@ You are the owner who made three launch films the target (Kinso, Minase, Sovra.f
 
 | file | what it is for |
 |---|---|
+| `crew/ref-jury/first5s-sheet.jpg` | the first 5 s only, 2 fps (one tile per 0.5 s), 5 tiles a row: open it first, for the cold read |
+| `research/BRIEFING.md` | what the product is and who it is for: open it only after writing `cold_read` |
 | `crew/ref-jury/film-sheet.jpg` | the draft as a contact sheet, 1.5 fps (one tile per 0.67 s), 8 tiles a row, read left to right, top to bottom (read at 100%) |
 | `library/benchmarks/launch-refs/kinso/thumbs/1fps-contact-sheet.jpg`, `.../minase/...`, `.../sovra/...` | the references, 1 fps (one tile per second), same layout; open all three before the film |
 | the references' `beats.json` (`library/benchmarks/launch-refs/<id>/beats.json`) | copy, transition, density per beat |
@@ -63,6 +75,8 @@ Write `crew/ref-jury/verdict-<round>.json`:
   "round": 1,
   "evidence": ["film-sheet.jpg", "kinso 1fps sheet", "minase 1fps sheet", "sovra 1fps sheet"],
   "reference_reading": {"kinso": "one line", "minase": "one line", "sovra": "one line"},
+  "cold_read": {"product_guess": "a notes app that turns voice memos into tasks", "audience_guess": "busy managers", "matches_brief": false},
+  "one_message_check": {"one_message": "Find any message in seconds", "film_says_it": true, "extras": []},
   "retell": "three sentences",
   "scores": {"story_clarity": 7, "type_scale_craft": 4, "ground_rhythm": 3, "motion_choreography": 5, "scene_variety": 4, "texture_contrast": 5, "brand_light": 7, "pacing": 5},
   "vs_references": ["Kinso tile 25-30 has a 12% cap-height line on a coral/teal gradient; the draft's beat 3 (tiles 14-30) is 4% type on flat grey #1b1b1b for 11 s", "..."],
@@ -77,6 +91,7 @@ Write `crew/ref-jury/verdict-<round>.json`:
 
 - `vs_references` has at least 3 lines, each naming a reference and what the draft does worse, with tiles or numbers.
 - `fixes` has one or more entries whenever a score is under 7, each per beat and concrete (a size in % of frame height, a ground and its colours, a hold to fill with what, a transition to use, a hook to shorten to N s), never "more energy", "more premium" or "add a transition".
+- `cold_read` and `one_message_check` are required; `cold_read.matches_brief: false`, `film_says_it: false` or a non-empty `extras` forces `scores.story_clarity` under 7 (the check errors otherwise).
 - `trigger_fix_round` is true exactly when any score is under 7.
 - `keep` names what to protect so the fix does not regress it.
 - Validate with `crew.mjs check --role reference-juror --key jury-N`.

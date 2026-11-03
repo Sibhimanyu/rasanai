@@ -16,6 +16,8 @@
 //   imagery         OPTIONAL: the Codex image the beat uses (a ref into crew/imagery.json / art/assets.json) or "none"
 //   density         "dense" (3+ elements, a collage, a full UI or a full-frame object) | "sparse" (one small line or one object on an empty ground)
 //   logo            true when the mark or wordmark is on screen in the beat
+import { buzzwordHits, buzzwordMessage, BUZZWORD_FIX, ctaProblems, CTA_HOLD_MIN_S } from "./copy-lint.mjs";
+
 export const LB = { max_plain_cuts_warn: 0, max_plain_cuts_error: 2, max_logo: 3, carrier_share_max: 0.4, scene_min_types_40s: 5, scene_share_max: 0.3, nonsmooth_min: 0.15, nonsmooth_max: 0.4, transition_share_max: 0.3, imagery_max: 4, max_words_line: 9, min_density_alternations: 2, max_dense_run: 2, beat_median_warn_s: 5 };
 
 // signature curve (references/craft.md "A curve per role"): a launch film puts 70-85% of its moves on one declared curve; the gates warn under 60%
@@ -176,6 +178,7 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
   // 6. beats, not shots: a one-take film has long "shots"; a beat that runs long is the thing to watch
   const durs = rows.map((r) => r.dur).filter((d) => d != null && d > 0).sort((a, b) => a - b);
   if (durs.length >= 4) { const med = durs[Math.floor(durs.length / 2)]; if (med > LB.beat_median_warn_s) F.push({ severity: "warning", check: "beat-length", message: `median beat ${Math.round(med * 10) / 10} s (the references run 2.8 to 3.7 s): the film changes thought too slowly`, fix: `split long beats: one thought each; ${see}`, basis: "score" }); }
+  F.push(...clarityFindings(plan, rows));
   F.push(...motionLawFindings(plan, rows));
   return F;
 }
@@ -344,4 +347,46 @@ export function spikeFinding({ hardCuts, dur, plan = null }) {
   if (per10 <= (textured ? 14 : 4)) return null;
   const decl = plan ? beatRows(plan).slice(1).filter((r) => isPlainCut(r.transition)).length : null;
   return { severity: "warning", check: "frame-spikes", message: `${hardCuts} frame-difference spikes in ${Math.round(dur)} s (${Math.round(per10 * 10) / 10} per 10 s; the references show 1 to 3): some may be plain cuts${decl != null ? ` (the score declares ${decl})` : ""}`, fix: "carry an element or the type across the flips, or merge beats; references/launch-grammar.md" };
+}
+
+// Clarity, proof and call to action (references/launch-grammar.md section 14; fields in references/score.md "Clarity, proof and CTA").
+// All warnings: the film says what it is and who it is for by the turn, shows real UI by about 40%, proves the core job, ends on a held CTA, and says one thing.
+export const CL = { ui_by: 0.4, clarity_by: 0.25, ui_min_scale: 35, cta_hold_s: CTA_HOLD_MIN_S };
+const S = (v) => String(v == null ? "" : typeof v === "object" ? v.text || v.what || v.name || "" : v).trim();
+export function clarityFindings(plan, rows, see = "references/launch-grammar.md section 14") {
+  const F = [], sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
+  const w = (check, message, fix) => F.push({ severity: "warning", check, message, fix: `${fix}; ${see}`, basis: "score" });
+  // beat start times: declared start/t0, else the running sum of the durations
+  let acc = 0; const starts = rows.map((r, i) => { const s0 = Number(sc[i] && (sc[i].start != null ? sc[i].start : sc[i].t0)); const st = Number.isFinite(s0) ? s0 : acc; acc = st + (r.dur > 0 ? r.dur : 0); return st; });
+  const total = Number(plan && plan.duration) || (acc > 0 ? acc : 0);
+  const roleAt = (role) => rows.findIndex((r) => r.role === role);
+  const meetI = roleAt("meet");
+  // 1. what it is, for whom
+  const cl = plan && plan.clarity && typeof plan.clarity === "object" ? plan.clarity : null;
+  if (!cl || !S(cl.category) || !S(cl.audience) || !S(cl.beat)) w("clarity-missing", "no clarity: {category, audience, beat} on the score: the copy must say what the product is and who it is for by the end of the turn", "add score.clarity naming the category, the audience and the beat where the copy says both (the hook or the turn; Kinso: \"Your next deal is in here somewhere\")");
+  else {
+    const key = S(cl.beat).toLowerCase();
+    let ci = rows.findIndex((r) => String(r.id).toLowerCase() === key); if (ci < 0) ci = roleAt(key); if (ci < 0 && /^\d+$/.test(key)) ci = Number(key) - 1;
+    if (ci < 0) w("clarity-beat-unknown", `clarity.beat "${S(cl.beat)}" matches no beat id or role`, "name the beat by its id or its role (hook, turn)");
+    else if (meetI >= 0 && ci > meetI) w("clarity-late", `the category and audience land in beat ${rows[ci].id}, after the meet (beat ${rows[meetI].id}): the logo arrives before the viewer knows what it is`, "move the category and audience into the hook or the turn, before the logo");
+    else if (total && starts[ci] / total > CL.clarity_by + 0.1) w("clarity-late", `the category and audience land at ${Math.round((100 * starts[ci]) / total)}% of the film (about ${Math.round(CL.clarity_by * 100)}% is the target, the end of the turn)`, "say what it is and who it is for in the hook or the turn");
+  }
+  // 2. real UI proof by about 40%, and the core job shown once
+  const isUi = (r, i) => (Number(sc[i] && sc[i].ui_scale) >= CL.ui_min_scale) || r.scene_type === "ui-proof" || r.scene_type === "ui-collage";
+  const uiI = rows.findIndex(isUi);
+  if (uiI < 0) w("ui-proof-missing", "no beat shows UI proof (ui_scale of 35 or more, or a ui-proof or ui-collage scene)", "recreate the product's real UI in a capability beat, by about 40% of the film");
+  else if (total && starts[uiI] / total > CL.ui_by + 0.05) w("ui-proof-late", `the first UI proof lands at ${Math.round((100 * starts[uiI]) / total)}% of the film (${Math.round(CL.ui_by * 100)}% at the latest): the viewer sees the product too late`, "bring the first capability beat forward, or shorten the hook and the meet");
+  if (rows.length >= 4 && !sc.some((s) => truthy(s && s.core_job_demo))) w("core-job-missing", "no beat sets core_job_demo: true: nothing shows the core job being done", "mark the capability beat in which the viewer sees the product's main job done on real UI, not a decoration");
+  else { const bad = sc.map((s, i) => (truthy(s && s.core_job_demo) && !isUi(rows[i], i) ? rows[i].id : null)).filter(Boolean); if (bad.length) w("core-job-no-ui", `core_job_demo is set on beat(s) ${bad.join(", ")} that show no UI (ui_scale under ${CL.ui_min_scale}, not a ui scene)`, "show the job on the UI mockup itself"); }
+  // 3. one message
+  if (!S(plan && plan.one_message)) w("one-message-missing", "no one_message on the score: the film's single sentence is not declared", "add score.one_message (one sentence) and make every beat serve it");
+  // 4. the CTA
+  const cta = plan && plan.cta && typeof plan.cta === "object" ? plan.cta : plan && S(plan.cta) ? { text: S(plan.cta) } : null;
+  if (!cta || !S(cta.text)) w("cta-missing", "no cta: {text, hold_s} on the score: the last beat needs a call to action (a verb plus a destination)", "add score.cta with text such as \"Download for macOS\" and hold_s of 2 or more");
+  else { for (const p of ctaProblems(cta)) w("cta-weak", p, "write the CTA as a verb plus a destination and hold it for 2 s or more"); if (cta.hold_s == null) w("cta-hold-missing", "cta.hold_s is not set: the hold cannot be checked", "set cta.hold_s (2 s or more)"); }
+  // 5. buzzwords on the score's copy
+  const copy = rows.map((r) => ({ id: r.id, text: r.line })).concat(cta && S(cta.text) ? [{ id: "cta", text: S(cta.text) }] : []).concat(S(plan && plan.one_message) ? [{ id: "one_message", text: S(plan.one_message) }] : []);
+  const hits = copy.map((c) => ({ id: c.id, h: buzzwordHits(c.text) })).filter((x) => x.h.length);
+  if (hits.length) w("copy-buzzword", buzzwordMessage(`beat(s) ${hits.slice(0, 5).map((x) => x.id).join(", ")}`, [...new Set(hits.flatMap((x) => x.h))]), BUZZWORD_FIX);
+  return F;
 }

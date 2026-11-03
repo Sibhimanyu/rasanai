@@ -18,6 +18,7 @@ Applies to every launch, promo, feature-reveal and product-launch film (`product
 - 11. Chrome and props rules
 - 12. Scale, ground rhythm, always moving, the reference jury (ground and light live here)
 - 13. The three house references
+- 14. Clarity, proof, benefit and call to action (what it is and for whom, UI by 40%, one message, CTA)
 
 ## Target and scope
 
@@ -33,7 +34,7 @@ Order every film hook, turn, meet, 2 to 3 capabilities, payoff, with one thought
 
 | Beat | Job | Shape |
 |---|---|---|
-| Hook | the viewer's problem, felt | 2 to 4 short lines, second person, no logo, no product name |
+| Hook | the viewer's problem, felt | 2 to 4 short lines, second person, no logo, no product name; the hook or the turn makes the category and the audience clear (section 14) |
 | Turn | one short pivot line | 2 to 5 words ("Let's fix this first", "That's it", "The moment it clicks") |
 | Meet | the brand or product reveal, small and calm | the logo or wordmark plus one phrase, on an empty ground; the first logo use (section 3) |
 | Capabilities | 2 or 3 beats, each proves one thing | one line plus one simplified UI mockup that proves that line |
@@ -191,7 +192,7 @@ Name one of these in the beat's `transition_in` for every beat change:
 
 ## 8. Concept fields for a launch film
 
-Name these in every launch-film concept: `hook_lines` (2 to 4), `turn_line`, `meet` (the reveal beat: what appears, where, how small), `capabilities` (2 or 3 of `{line, ui_proof}`), `payoff` (line plus CTA), `scene_plan[]` (one entry per beat: `{beat, scene_type, texture, move, imagery?}`; 5+ types in 45 s, none over 30%, neighbours differ), `texture_accents[]` (where the stepped or flicker sections are and why), `signature_transition`, `ground` (`neutral` | `brand-gradient` | `dark`), `type_pairing`, plus the usual `signature_moment`, `sound_mode` and `shots[]`.
+Name these in every launch-film concept: `hook_lines` (2 to 4), `turn_line`, `meet` (the reveal beat: what appears, where, how small), `capabilities` (2 or 3 of `{line, ui_proof}`), `payoff` (line plus CTA), `scene_plan[]` (one entry per beat: `{beat, scene_type, texture, move, imagery?}`; 5+ types in 45 s, none over 30%, neighbours differ), `clarity {category, audience, beat}`, `one_message`, `cta` (section 14), `texture_accents[]` (where the stepped or flicker sections are and why), `signature_transition`, `ground` (`neutral` | `brand-gradient` | `dark`), `type_pairing`, plus the usual `signature_moment`, `sound_mode` and `shots[]`.
 
 - Treat `carrier {what, kind, beats, handoff}` as optional (local, 40% of beats at most) and `style_world` as optional (absent means the kinetic-launch default); let at most 1 of the jury's 3 picks name a non-default world.
 - Diversify ideas and jury picks by hook, scene plan and signature transition and keep the art style shared, because the jury rewards scene variety and penalises a one-gimmick film.
@@ -229,6 +230,7 @@ Each item points to the section that holds the rule.
 10. One signature curve covers 70 to 85 percent of the moves, accents are limited to a whip, the signature transition and the payoff hit, and the hook, meet and payoff move as the profile table says (sections 1, 7).
 11. No AI-cliche emphasis: the limits in `launch-moves.md` § AI cliches hold, with no people or neon or glow in generated images (4d).
 12. Section 12 holds: hero cap height 9 to 20% in every beat, UI proof 35 to 60%, 2 or more ground families with brand atmosphere in 30% or more of the film, no hold over about 1.2 s, no plain fade or blur transition, hook at most 25%, no grey 3D hero.
+13. Section 14 holds: category and audience clear by the end of the turn, first UI proof by about 40% with the core job shown, benefit lines with a true specific number where one exists, no buzzwords, one message, a held CTA.
 
 Related: `launch-moves.md` (the 35 reference moves and the AI cliche table), `launch-film.md` (timings, measurement, red flags), `product-first.md`, `ui-rebuild.md`, `motion-handoffs.md`, `composition-transitions.md`.
 
@@ -291,3 +293,44 @@ This section is the home of ground and light. It exists because a film made on e
 
 - Calibrate the gates so all three pass and the 26keys v6 film (a flat, unlit, static, small-content void) fails.
 - Tune toward their shared traits (variety, light, motion) and skip matching one film's texture or ground colour, because those differ between the references. Breakdowns: `library/benchmarks/launch-refs/<id>/`.
+
+## 14. Clarity, proof, benefit and call to action
+
+This section is the home of five rules from the YC design reviews (`.context/yc-design-review.md`): what it is and for whom, real UI by 40%, benefit over feature with specific numbers, one message, and a clear CTA. Score fields live in `references/score.md` "Clarity, proof and CTA"; the checks are `clarity-*`, `ui-proof-*`, `core-job-*`, `one-message-*`, `cta-*` and `copy-buzzword` in `scripts/lib/launch-beats.mjs` (all warnings), `scripts/lib/copy-lint.mjs` (the buzzword list and the CTA shape) and the five-second cold read in `agents/reference-juror.md`.
+
+| Rule | Number | Why |
+|---|---|---|
+| Say what it is and for whom | by the end of the turn (about 20 to 25% of the film), before the logo | a viewer who cannot name the category and the audience in the first quarter stops watching |
+| Show real UI | first UI proof by about 40% of the runtime; at least one beat has `core_job_demo: true` | a film that shows the product late, or never doing its job, is a mood piece |
+| State the benefit | every capability line says the viewer's outcome | the viewer buys what happens for them, not how it works |
+| Prefer specifics | a true number or concrete detail from `research/claims.json` over "faster" or "better" | a number can be checked, an adjective cannot (claim-truth rules still apply) |
+| Say one thing | the concept declares `one_message` (one sentence); every beat serves it | a film that says three things is remembered as none |
+| End on a clear CTA | the final beat carries a verb plus a destination, held at least 2 s | the viewer needs to know the next step and have time to read it |
+
+- Make the hook or the turn name the category and the audience in plain words, and keep the product name for the meet, because clarity before the logo is what Kinso's "Your next deal is in here somewhere" does (a deal, a person who closes deals).
+- Land the first UI proof by about 40% of the runtime, and mark the beat that shows the core job done on the mockup with `core_job_demo: true`, because proof of a line is the product doing the job and not a decoration (section 5 sets the size).
+- Write each capability line as the outcome for the viewer and keep the mechanism for the UI proof, because the line is read in a second and the mechanism does not fit.
+- Take a number or a concrete detail from `research/claims.json` where one exists and keep the claim scope, because a true number lands harder than an adjective and an invented one breaks trust.
+- Replace the buzzwords in `scripts/lib/copy-lint.mjs` with the specific thing the product does, because those words say nothing a viewer can check.
+- Write the CTA as a verb plus a destination ("Download for macOS", "Start your 7-day free trial", "Join the waitlist"), put it on the last beat and hold it at least 2 s, because a bare logo end card gives no next step.
+
+<example>
+Benefit, not feature (capability line)
+good: "Find any message in seconds" (the outcome; the search UI proves it)
+good: "Close 12 follow-ups before lunch" (a true number from claims.json)
+bad: "AI-powered semantic search" (a mechanism and a buzzword)
+bad: "Faster, better, smarter inbox" (adjectives with nothing to check)
+</example>
+
+<example>
+What it is and for whom (hook and turn)
+good: hook "Your next deal is in here somewhere", turn "Let's find it": the category (deal tracking) and the audience (people who sell) are clear before the logo
+bad: hook "Meet the future of work", then the logo: nothing says what it is or who it is for
+</example>
+
+<example>
+Call to action (final beat)
+good: "Download for macOS", held 2.5 s on the end card
+good: "Join the waitlist", held 2 s
+bad: "Learn more" flashed for under 1 s, or a logo with no words
+</example>

@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { SKILL_DIR } from "./common.mjs";
+import { buzzwordHits, buzzwordMessage, BUZZWORD_FIX, ctaProblems } from "./copy-lint.mjs";
 
 export const GATE_PROFILES = ["dimensional", "flat", "pixel", "stepped", "photographic", "hand-made"];
 export const WAIVABLE = {
@@ -160,4 +161,19 @@ export function launchConceptProblems(x, id) {
   if (!["neutral", "brand-gradient", "dark"].includes(S(x && x.ground).toLowerCase())) P.push(`concept ${id}: ground is neutral, brand-gradient or dark`);
   if (!has(x && x.type_pairing)) P.push(`concept ${id}: no type_pairing`);
   return P;
+}
+
+// Launch-concept WARNINGS (references/launch-grammar.md sections 8 and 14): clarity, one message, CTA shape, buzzwords in the copy. [warning strings]
+export function launchConceptWarnings(x, id) {
+  const W = [], t = (v) => (v && typeof v === "object" && !Array.isArray(v) ? S(v.line || v.text || v.what || v.cta || "") : S(v));
+  const cl = x && x.clarity && typeof x.clarity === "object" ? x.clarity : null;
+  if (!cl || !S(cl.category) || !S(cl.audience) || !S(cl.beat)) W.push(`concept ${id}: no clarity {category, audience, beat}: say what the product is and who it is for in the hook or the turn, before the logo (launch-grammar.md section 14)`);
+  if (!S(x && x.one_message)) W.push(`concept ${id}: no one_message (the film's one sentence; launch-grammar.md section 14)`);
+  const payoff = x && x.payoff, cta = x && (x.cta || (payoff && typeof payoff === "object" ? payoff.cta : null));
+  if (!S(typeof cta === "object" && cta ? cta.text : cta)) W.push(`concept ${id}: no cta (a verb plus a destination, held 2 s or more: "Download for macOS")`);
+  else for (const p of ctaProblems(typeof cta === "object" ? cta : { text: cta })) W.push(`concept ${id}: ${p}`);
+  const lines = [...(Array.isArray(x && x.hook_lines) ? x.hook_lines : [x && x.hook_lines]), x && x.turn_line, x && x.meet, ...(Array.isArray(x && x.capabilities) ? x.capabilities.map((c) => c && c.line) : []), payoff, x && x.one_message].map(t).filter(Boolean);
+  const hits = [...new Set(lines.flatMap(buzzwordHits))];
+  if (hits.length) W.push(`concept ${id}: ${buzzwordMessage("the copy", hits)}; ${BUZZWORD_FIX}`);
+  return W;
 }

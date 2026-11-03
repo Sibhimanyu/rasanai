@@ -2,10 +2,11 @@
 // A small heuristic, no network: visible text is pulled from the composition (scripts, styles, comments and attributes dropped), then
 //   errors   a doubled word ("the the"), a known common typo, a contraction missing its apostrophe ("does't", "dont", "cant"), a stray space before punctuation
 //            ("word ,"), a number-word mismatch inside one film ("7-day" and "seven-day")
-//   warnings a long lowercase word that is in no dictionary (the system word list when there is one, a built-in list otherwise), brand and proper names excepted
+//   warnings a buzzword from the denylist (lib/copy-lint.mjs: "say the specific thing it does"), a long lowercase word that is in no dictionary (the system word list when there is one, a built-in list otherwise), brand and proper names excepted
 // The final gate blocks on errors only.
 //   textQa(html, { allow: ["Rasan"] }) -> { ok, words, errors: [{kind, word, context}], warnings: [...] }
 import fs from "node:fs";
+import { buzzwordHits } from "./copy-lint.mjs";
 
 export const TYPOS = {
   excatly: "exactly", exacly: "exactly", teh: "the", recieve: "receive", recieved: "received", seperate: "separate", seperately: "separately", definately: "definitely", definatly: "definitely",
@@ -44,7 +45,7 @@ const stemOk = (w, D) => {
 };
 
 export function textQa(html, { allow = [] } = {}) {
-  const chunks = visibleText(html), errors = [], warnings = [];
+  const chunks = visibleText(html), errors = [], warnings = [], buzz = new Set();
   const allowSet = new Set(allow.map((a) => String(a).toLowerCase()));
   const D = dict(), haveDict = D.size > 1000;
   let words = 0; const numForms = new Map();
@@ -54,6 +55,7 @@ export function textQa(html, { allow = [] } = {}) {
   for (const c of chunks) {
     const toks = c.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu) || [];
     words += toks.length;
+    for (const b of buzzwordHits(c)) { buzz.add(b); push(warnings, "buzzword", b, c); }
     for (let i = 0; i < toks.length; i++) {
       const t = toks[i], lo = t.toLowerCase();
       if (i && lo === toks[i - 1].toLowerCase() && /^\p{L}{2,}$/u.test(t) && !/^(had|that|very|bye|no|so|ha|go|yeah|yes|never|more|knock|long)$/i.test(t)) push(errors, "doubled-word", `${toks[i - 1]} ${t}`, c);
@@ -67,5 +69,5 @@ export function textQa(html, { allow = [] } = {}) {
     if (/\s[,.;:!?](?!\.)/.test(c) && !/\s\.\.\./.test(c)) { const m = c.match(/\S+\s[,.;:!?]/); if (m) push(errors, "space-before-punctuation", m[0], c); }
   }
   for (const [k, forms] of numForms) if (forms.size > 1) errors.push({ kind: "number-style", word: k, context: `"${k}" is written both with digits and with words in this film: pick one` });
-  return { ok: errors.length === 0, words, errors, warnings: warnings.slice(0, 30) };
+  return { ok: errors.length === 0, words, errors, warnings: warnings.slice(0, 30), buzzwords: [...buzz] };
 }

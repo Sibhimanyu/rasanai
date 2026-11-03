@@ -47,6 +47,8 @@ Read `references/launch-grammar.md` (§10 the critic checklist, §12 the measure
 - A hook over 25% of the film.
 - A grey 3D hero.
 - Missing score fields `ground`, `role`, `hero_scale`, `ui_scale` or `hold_s` (also a finding).
+- Clarity failures from `launch-grammar.md` section 14 (`medium`, `high` when the viewer cannot tell what it is by the meet): no category and audience by the end of the turn, the first UI proof after about 40% of the film, no beat with `core_job_demo`, a capability line that names a mechanism and not an outcome, a vague adjective where `research/claims.json` has a number, a buzzword from `scripts/lib/copy-lint.mjs`, more than one message, or a final beat with no verb-plus-destination CTA held 2 s or more.
+- Missing score fields `clarity`, `one_message` or `cta` (also a finding; `launch-beats` warns).
 
 The vision pass against the house reference sheets belongs to the `reference-juror` (`agents/reference-juror.md`), after you. Leave it to the juror, and still hold back a film you would not put next to them.
 
