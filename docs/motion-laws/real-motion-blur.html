@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Real motion blur, not fog | RasanAI Motion Laws</title>
+<meta name="description" content="Blur follows speed and vanishes at rest; a constant haze is not motion blur. Real motion blur comes from a shutter open for part of each frame: a fast object smears along its path, and a still object is sharp." />
+<meta name="theme-color" content="#1B1F5E" />
+<meta name="author" content="Sibhimanyu" />
+<link rel="canonical" href="https://sibhimanyu.github.io/rasanai/motion-laws/real-motion-blur.html" />
+<meta property="og:title" content="Real motion blur, not fog | RasanAI Motion Laws" />
+<meta property="og:description" content="Blur follows speed and vanishes at rest; a constant haze is not motion blur. Real motion blur comes from a shutter open for part of each frame: a fast object smears along its path, and a still object is sharp." />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="RasanAI" />
+<meta property="og:url" content="https://sibhimanyu.github.io/rasanai/motion-laws/real-motion-blur.html" />
+<meta property="og:image" content="https://sibhimanyu.github.io/rasanai/img/social-card.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://sibhimanyu.github.io/rasanai/img/social-card.jpg" />
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="../assets/logo/rasanai-mark-180.png" />
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
+<link rel="stylesheet" href="../assets/site.css?v=3" />
+<link rel="stylesheet" href="../assets/how.css?v=3" />
+<link rel="stylesheet" href="../assets/laws.css?v=2" />
+</head>
+<body class="how laws">
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <nav class="nav" aria-label="Primary">
+    <a class="brand" href="../"><img src="../assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI home" /></a>
+    <div class="nav-links" id="laws-nav"><a href="../how-it-works.html">How it works</a><a href="../motion-laws.html" aria-current="page">Motion laws</a></div>
+    <a class="nav-action" href="../index.html#download">Download</a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="laws-nav" hidden>Menu <span aria-hidden="true">+</span></button>
+  </nav>
+</header>
+
+<main id="main">
+<article class="ml-detail">
+  <div class="wrap">
+    <nav class="ml-crumb" aria-label="Breadcrumb"><a href="../motion-laws.html">Motion laws</a><span aria-hidden="true">/</span><a href="../motion-laws.html#motion">Motion</a></nav>
+    <div class="ml-detail-grid">
+      <header>
+        <p class="eyebrow">Motion</p>
+        <h1>Real motion blur, not fog</h1>
+        <p class="ml-law">Blur follows speed and vanishes at rest; a constant haze is not motion blur.</p>
+        <button class="ml-replay" type="button" data-replay>Replay the demonstration</button>
+      </header>
+      <figure class="ill ill-big" data-ill><svg viewBox="0 0 320 200" role="img" aria-label="Top: a yellow circle slides in with a blue streak behind it that shortens to nothing as it stops. Bottom: a still circle with faint ghost copies, crossed out." xmlns="http://www.w3.org/2000/svg"><title>Top: a yellow circle slides in with a blue streak behind it that shortens to nothing as it stops. Bottom: a still circle with faint ghost copies, crossed out.</title><text class="tx" x="30" y="24" text-anchor="start">streak follows speed, gone at rest</text>
+<path class="ln sg" d="M30 54H290" style="stroke-width:1.5;stroke-dasharray:2 6"/>
+<g class="in" style="--fx:-220px;--t:1.2s;--e:cubic-bezier(.05,.7,.1,1)"><g class="shrink" style="--t:1.2s"><rect class="fb" x="196" y="42" width="52" height="24" rx="12" opacity=".6"/></g><circle class="ft" cx="262" cy="54" r="12" stroke="#1b1f5e" stroke-width="2.5"/></g>
+<text class="tx" x="30" y="106" text-anchor="start">ghosts and fog on a still object</text>
+<circle class="fg" cx="232" cy="138" r="12" opacity=".35"/><circle class="fg" cx="247" cy="138" r="12" opacity=".5"/><circle class="ft" cx="262" cy="138" r="12" stroke="#1b1f5e" stroke-width="2.5"/>
+<path class="ln sr draw" pathLength="1" style="--d:.9s;--t:.4s" d="M216 120L280 156"/>
+<text class="tx" x="30" y="182" text-anchor="start">start near a half-frame exposure</text></svg></figure>
+    </div>
+
+    <div class="ml-cols">
+      <section aria-labelledby="t-take"><h2 id="t-take">Takeaways</h2><ul class="ml-points"><li>Blur depends on speed, shutter and phase.</li><li>A stationary object is never smeared.</li><li>Test around a half-frame exposure.</li><li>More samples when ghosts show.</li><li>Defocus, glow and glass are different effects.</li></ul></section>
+      <section aria-labelledby="t-why"><h2 id="t-why">What it means</h2><p>Real motion blur comes from a shutter open for part of each frame: a fast object smears along its path, and a still object is sharp. A constant spatial blur, or ghost copies that never merge, looks like fog. Start from a half-frame exposure (a 180 degree shutter, 1/48 s at 24 fps) and add samples until the ghosts disappear.</p></section>
+      <section class="ml-film" aria-labelledby="t-film"><h2 id="t-film">In a RasanAI film</h2><p>Fast moves are rendered from time samples, with the shutter and sample count logged, rather than faked with a CSS blur. Edges are checked for repeated silhouettes. Blur is kept off information the viewer needs to read, and large post-blur is avoided where hidden pixels are missing. Staccato graphic motion may stay sharp on purpose.</p></section>
+      <section aria-labelledby="t-src"><h2 id="t-src">Origins and sources</h2><p>Adobe's documentation on temporal blur, shutter angle and sampling. The 180 degree figure is a conventional starting point, not a rule.</p><p class="ml-ev"><b>Evidence:</b> Studio practice (software vendor documentation).</p><ul class="ml-srcs"><li><a href="https://www.adobe.com/learn/after-effects/web/aftereffects-pixel-motion-blur-cc" rel="noopener">Adobe Learn, Apply motion blur for smoother playback</a></li><li><a href="https://helpx.adobe.com/after-effects/desktop/animate-in-after-effects/assorted-animation-tools/assorted-animation-tools.html" rel="noopener">Adobe After Effects documentation, Assorted animation tools</a></li><li><a href="https://schoolofmotion.com/blog/depth-of-field-cinema-4d-nuke-after-effects" rel="noopener">Joey Korenman, School of Motion, depth-of-field compositing: large post-blur breaks overlaps</a></li></ul></section>
+    </div>
+
+    
+    <nav class="ml-pager" aria-label="More laws">
+      <a href="always-moving.html" rel="prev"><span>Previous</span>Always moving, no dead frames</a>
+      <a href="scene-variety.html" rel="next"><span>Next</span>Scene variety</a>
+    </nav>
+    <section class="ml-more" aria-labelledby="t-more"><h2 id="t-more">More in Motion</h2><ul><li><a href="purpose-and-one-hero.html">Purpose, and one hero</a></li><li><a href="natural-physics.html">Natural physics</a></li><li><a href="signature-curve.html">One signature curve</a></li><li><a href="exits-quicker-than-entrances.html">Exits are quicker than entrances</a></li><li><a href="cascade-span.html">Short, uneven cascades</a></li><li><a href="counter-motion.html">Counter-motion layers</a></li><li><a href="stepped-is-for-arrivals.html">Stepped on tracks, fluid for glides</a></li><li><a href="always-moving.html">Always moving, no dead frames</a></li></ul></section>
+  </div>
+</article>
+</main>
+
+<footer class="foot"><div class="wrap">
+  <div class="foot-top">
+    <p class="foot-sign"><span lang="ta">ரசனை</span> means taste. The eye, and ear, for what feels right.</p>
+    <nav class="foot-links" aria-label="Footer"><a href="../">Home</a><a href="../how-it-works.html">How it works</a><a href="../motion-laws.html">Motion laws</a><a href="../brand/RasanAI-Brand-Guidelines.pdf">Brand guidelines (PDF)</a><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.31.1-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub &rarr;</a></nav>
+  </div>
+  <img class="foot-mark" src="../assets/logo/rasanai-lockup-reverse.svg" width="487" height="100" alt="RasanAI" loading="lazy" />
+  <p class="foot-by">By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> &middot; Open source / MIT</p>
+  <p class="foot-by heresay-line"><a class="heresay-credit" href="https://sibhimanyu.github.io/heresay/" target="_blank" rel="noopener"><img src="../assets/heresay/heresay-mark.svg" width="16" height="16" alt="" /><span>Feedback and reports handled by <b>Heresay</b></span></a></p>
+</div></footer>
+<script src="../assets/laws.js?v=1"></script>
+</body>
+</html>

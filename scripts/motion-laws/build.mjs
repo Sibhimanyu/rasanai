@@ -46,7 +46,7 @@ const head = ({ title, desc, path, depth }) => {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
 <link rel="stylesheet" href="${up}assets/site.css?v=3" />
 <link rel="stylesheet" href="${up}assets/how.css?v=3" />
-<link rel="stylesheet" href="${up}assets/laws.css?v=1" />
+<link rel="stylesheet" href="${up}assets/laws.css?v=2" />
 </head>
 <body class="how laws">
 <a class="skip" href="#main">Skip to content</a>
@@ -119,10 +119,26 @@ ${LAWS.filter((l) => l.group === x.id).map(card).join("\n")}
 
 ${sections}
 
+<section class="ml-evidence" aria-labelledby="ev-title">
+  <div class="wrap">
+    <h2 id="ev-title">What the evidence does not support</h2>
+    <p>Research into professional craft turned up many strong habits and no magic numbers. These claims are common, and no source establishes them as general laws. The engine's numbers are defaults to test, and each page says how firmly its law is backed.</p>
+    <ul>
+      <li>No fixed shot count: no source says all good 30-second films have N shots.</li>
+      <li>No fixed number of transition types. Three is a pilot constraint, not a professional standard, and hard cuts are always allowed.</li>
+      <li>No minimum font size. Check type at the size the film is watched.</li>
+      <li>No sound effects per second, and no rule of one sound for every entrance.</li>
+      <li>Neither always nor never cut on the beat.</li>
+      <li>No universal blur setting: a 180 degree shutter is a starting point, not a requirement.</li>
+      <li>No universal lower boundary of 12 frames a second for animation, and no universal 2 second ceiling on a hold.</li>
+    </ul>
+  </div>
+</section>
+
 <section class="ml-note" aria-labelledby="note-title">
   <div class="wrap">
     <h2 id="note-title">Where these come from</h2>
-    <p>Some laws are old and well known: Disney's twelve principles of animation, Richard Mayer's research on multimedia learning, the peak-end rule and the Von Restorff effect from Laws of UX, Apple's Human Interface Guidelines on motion, and WCAG on flashing. Others are the engine's own rules, measured from real launch films, and each page says which is which. None of them is a guarantee of a good film. They are the floor that taste then works above.</p>
+    <p>Some laws are old and well known: Disney's twelve principles of animation, Richard Mayer's research on multimedia learning, the peak-end rule and the Von Restorff effect from Laws of UX, Apple's Human Interface Guidelines on motion, and WCAG on flashing. Others come from named studios and practitioners, with a link on each page, and some are the engine's own rules, measured from real launch films. Each page says which is which, and community opinions are marked as opinions. None of them is a guarantee of a good film. They are the floor that taste then works above.</p>
     <p>The full text lives in the open-source skill: <a href="https://github.com/Sibhimanyu/rasanai/tree/master/skills/rasanai/references">the launch grammar, launch moves, craft, imagery and score references on GitHub</a>.</p>
     <p class="ml-credit">The format is inspired by <a href="https://lawsofux.com">Laws of UX</a>, which does it for interfaces. Nothing here is copied from it.</p>
   </div>
@@ -137,7 +153,10 @@ const detail = (law, i) => {
   const g = group(law.group);
   const same = LAWS.filter((l) => l.group === law.group && l.slug !== law.slug);
   const prev = LAWS[(i + LAWS.length - 1) % LAWS.length], next = LAWS[(i + 1) % LAWS.length];
-  const src = law.srcUrl ? `${esc(law.source)} <a href="${law.srcUrl}" rel="noopener">Read the source</a>.` : esc(law.source);
+  const srcList = (law.srcs || []).map(([t, u]) => `<li><a href="${esc(u)}" rel="noopener">${esc(t)}</a></li>`).join("");
+  const src0 = law.srcUrl ? `${esc(law.source)} <a href="${law.srcUrl}" rel="noopener">Read the source</a>.` : esc(law.source);
+  const src = `<p>${src0}</p>` + (law.ev ? `<p class="ml-ev"><b>Evidence:</b> ${esc(law.ev)}.</p>` : "") + (srcList ? `<ul class="ml-srcs">${srcList}</ul>` : "");
+  const ranked = law.ranked ? `<section class="ml-rank" aria-labelledby="t-rank"><h2 id="t-rank">The ranked list</h2><ol>${law.ranked.map((r) => `<li><p class="ml-tell">${esc(r.tell)}</p><p><b>Fix:</b> ${esc(r.fix)}</p><p class="ml-basis"><b>Basis:</b> ${esc(r.basis)} <a href="${esc(r.url)}" rel="noopener">${esc(r.label)}</a></p></li>`).join("")}</ol></section>` : "";
   return head({
     title: `${law.title} | RasanAI Motion Laws`,
     desc: law.law + " " + law.explain.split(". ")[0] + ".",
@@ -161,9 +180,10 @@ const detail = (law, i) => {
       <section aria-labelledby="t-take"><h2 id="t-take">Takeaways</h2><ul class="ml-points">${law.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></section>
       <section aria-labelledby="t-why"><h2 id="t-why">What it means</h2><p>${rich(law.explain)}</p></section>
       <section class="ml-film" aria-labelledby="t-film"><h2 id="t-film">In a RasanAI film</h2><p>${rich(law.film)}</p></section>
-      <section aria-labelledby="t-src"><h2 id="t-src">Origins and sources</h2><p>${src}</p></section>
+      <section aria-labelledby="t-src"><h2 id="t-src">Origins and sources</h2>${src}</section>
     </div>
 
+    ${ranked}
     <nav class="ml-pager" aria-label="More laws">
       <a href="${prev.slug}.html" rel="prev"><span>Previous</span>${esc(prev.title)}</a>
       <a href="${next.slug}.html" rel="next"><span>Next</span>${esc(next.title)}</a>
