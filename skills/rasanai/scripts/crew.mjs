@@ -4392,7 +4392,7 @@ if (cmd === "plan") {
   const { P, W } = await checkRole(run, role, key);
   // still running vs failed: a member briefed and not yet checked, whose output files are missing or were written in the last 5 minutes, is still working. Report status "running"
   // (exit 4, no ledger row, no repair escalation) instead of a failure.
-  if (P.length) {
+  if (P.length && !args.final) { // --final: the worker has reported done, so a failing check is a failure, never "running"
     const rows = readLedger(run).filter((r) => r.role === role && (r.key || null) === key), lastRow = rows[rows.length - 1];
     if (lastRow && lastRow.event === "brief") {
       let outs = [], scratch = null;
@@ -4402,7 +4402,7 @@ if (cmd === "plan") {
       const missing = outs.length ? outs.filter((f) => !exists(f)).length : 0;
       const recent = newest > 0 && now - newest < 5 * 60000;
       if (briefAge < 90 * 60000 && (recent || (outs.length > 0 && missing === outs.length))) {
-        out({ ok: false, status: "running", role, key, briefed_min_ago: Math.round(briefAge / 6000) / 10, last_write_s_ago: newest ? Math.round((now - newest) / 1000) : null, outputs_missing: missing, note: "the worker has not finished (no output yet, or files written in the last 5 minutes): not a failure; check again when it reports done. Nothing was recorded.", problems_so_far: P.slice(0, 5) }, 4);
+        out({ ok: false, status: "running", role, key, briefed_min_ago: Math.round(briefAge / 6000) / 10, last_write_s_ago: newest ? Math.round((now - newest) / 1000) : null, outputs_missing: missing, note: "the worker has not finished (no output yet, or files written in the last 5 minutes): not a failure; check again when it reports done (then pass --final to get a verdict now). Nothing was recorded.", problems_so_far: P.slice(0, 5) }, 4);
       }
     }
   }

@@ -806,8 +806,10 @@ function recommendTreatments(list, v, setFile) {
   return { recommended, why, ranking: ranking.map(({ label, title, passes, errors, majors, distinct_axes, signature_moment, rank }) => ({ label, title, passes, errors, majors, distinct_axes, signature_moment, rank })), source };
 }
 
-const ENG_PAREN = /\s*[(\[][^)\]]*(?:\.(?:swift|mjs|cjs|js|ts|tsx|json|md|html|css|sh)\b|\bline \d+|recreated mockup|labell?ed mockup|:\d+)[^)\]]*[)\]]/gi;
-const ENG_PATH = /(?:[\w./-]*\/)?[\w-]+\.(?:swift|mjs|cjs|js|ts|tsx|json|md|html|css|sh)(?::\d+(?::\d+)?)?/gi;
+const ENG_EXT = "swift|mjs|cjs|tsx|json|md|html|css|sh";
+// engineering references only: a path with a directory, a file with a code-only extension, or file:line. Never bare ".js" / ".ts" (Next.js, Node.js, Vue.js are product names) and never a bare ":9" (16:9)
+const ENG_PAREN = new RegExp(String.raw`\s*[(\[][^)\]]*(?:\b[\w-]+\.(?:${ENG_EXT})(?::\d+)?\b|\bline \d+|recreated mockup|labell?ed mockup)[^)\]]*[)\]]`, "gi");
+const ENG_PATH = new RegExp(String.raw`(?:[\w.-]+\/)+[\w-]+\.(?:${ENG_EXT}|js|ts)(?::\d+(?::\d+)?)?|\b[\w-]+\.(?:swift|mjs|cjs|tsx|json)(?::\d+(?::\d+)?)?\b`, "gi");
 const ENG_PHRASE = /,?\s*\b(?:recreated mockup|mockup),?\s*labell?ed\b/gi;
 export function cleanText(x) {
   if (x == null) return "";
