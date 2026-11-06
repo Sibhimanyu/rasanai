@@ -47,6 +47,12 @@
 //        -> the beat sheet for that film length (BEAT_SHEETS: slot, from, to, note per beat; the 10 s sheets are exact) and the rules G6 holds it to
 //   node story.mjs revise --notes <story/edit-notes.json>
 //        -> { revise: [labels the editor marked rewrite | replace], notes: { label: [...] } }: what goes back to the writers (once)
+//   node story.mjs payload --run <run> [--out <story/stories.json>] [--recommended <label>]
+//        -> the Story call's console payload from the treatments flow: story/treatments.json (else story/pitch-*.json) + the story plates + story/edit-notes.json become
+//           { stories: [{id, angle, title, aim {takeaway, feel, action, audience: strings}, approach, tempo, logline, device, why, beats, last_line, carrier?}], recommended,
+//             boards: [{concept: <story id>, image, shots: [{id, t, image?, words, move, carrier_state, transition}], style_world?, carrier?, signature_moment?, sound_mode?}], warnings }
+//           written to story/stories.json (moves.mjs payload --stories reads it) and printed. Media paths are relative to the run. Field types are normalised ({text, hold_s} objects become strings),
+//           engineering references (file:line, .swift / .mjs paths, "recreated mockup, labelled") are stripped from user-facing text, and the takeaway headline is capped at 14 words, second person.
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
 //   FORMAT-AWARE STORIES (Plan 03; the default balanced workflow, references/story.md "Format-aware treatments"):
@@ -775,6 +781,142 @@ function loadPlan(args, pitchFile) {
 }
 
 // --- commands -------------------------------------------------------------------
+
+// --- treatments mode: the recommendation and the console payload ----------------------------------
+// the editor's pick (story/edit-notes.json: recommended = a tag, id or treatment id) wins, with its reason; otherwise the engine ranks by what the validators found:
+// ships first, then fewest major concerns, then distinctness from the others (axes that differ), then the signature moment and the evidence ledger.
+function recommendTreatments(list, v, setFile) {
+  const tagOf = (t, i) => t.tag || TAGS_ORDER[i] || t.id || `T${i + 1}`;
+  const axes = (id) => (v.comparison && v.comparison.pairs || []).filter((p) => p.a === id || p.b === id).reduce((a, p) => a + (p.axes_different || 0), 0);
+  const rows = list.map((t, i) => {
+    const r = (v.results || [])[i] || {};
+    const majors = (r.concerns || []).filter((c) => c.severity === "major").length, errs = (r.errors || []).length, minors = (r.concerns || []).filter((c) => c.severity !== "major").length;
+    const sig = signatureOf(t).what ? 1 : 0, ledger = r.ledger && Array.isArray(r.ledger.rows) ? r.ledger.rows.length : (t.coverage && t.coverage.ledger || []).length;
+    const rank = (r.verdict === "ship" ? 100 : 0) - errs * 20 - majors * 10 - minors + axes(t.id) * 2 + sig * 3 + Math.min(ledger, 6) * 0.5;
+    return { label: tagOf(t, i), id: t.id, title: t.treatment_title, passes: r.verdict === "ship", errors: errs, majors, distinct_axes: axes(t.id), signature_moment: !!sig, rank: Math.round(rank * 10) / 10 };
+  });
+  const ranking = [...rows].sort((a, b) => b.rank - a.rank);
+  let recommended = ranking[0] && ranking[0].label, why = ranking[0] ? `${ranking[0].label} (${ranking[0].title || ranking[0].id}): ${ranking[0].passes ? "passes the checks" : "closest to passing"}, ${ranking[0].distinct_axes} axes that differ from the others${ranking[0].signature_moment ? ", has a signature moment" : ""}` : "";
+  let source = "engine";
+  try {
+    const n = JSON.parse(fs.readFileSync(path.join(path.dirname(setFile), "edit-notes.json"), "utf8")), rid = String(n.recommended || "").toLowerCase();
+    const hit = rid && rows.find((r) => [r.label, r.id].some((x) => x && String(x).toLowerCase() === rid));
+    if (hit) { recommended = hit.label; why = String(n.why || n.recommended_why || "the editor's recommendation"); source = "editor"; }
+  } catch { /* no editor review yet: the engine's ranking stands */ }
+  return { recommended, why, ranking: ranking.map(({ label, title, passes, errors, majors, distinct_axes, signature_moment, rank }) => ({ label, title, passes, errors, majors, distinct_axes, signature_moment, rank })), source };
+}
+
+const ENG_PAREN = /\s*[(\[][^)\]]*(?:\.(?:swift|mjs|cjs|js|ts|tsx|json|md|html|css|sh)\b|\bline \d+|recreated mockup|labell?ed mockup|:\d+)[^)\]]*[)\]]/gi;
+const ENG_PATH = /(?:[\w./-]*\/)?[\w-]+\.(?:swift|mjs|cjs|js|ts|tsx|json|md|html|css|sh)(?::\d+(?::\d+)?)?/gi;
+const ENG_PHRASE = /,?\s*\b(?:recreated mockup|mockup),?\s*labell?ed\b/gi;
+export function cleanText(x) {
+  if (x == null) return "";
+  let t = typeof x === "object" ? textOf(x) : String(x);
+  t = t.replace(ENG_PAREN, "").replace(ENG_PHRASE, "").replace(ENG_PATH, "").replace(/\(\s*\)/g, "");
+  return t.replace(/\s+([,.;:!?])/g, "$1").replace(/\s{2,}/g, " ").replace(/\s+$/g, "").replace(/^\s+/g, "").replace(/\s+—\s*$/, "");
+}
+// a {text, hold_s} (or {line}, {label}) object, or an array of them, becomes the plain string the console renders
+function textOf(x) {
+  if (x == null) return "";
+  if (typeof x === "string") return x;
+  if (typeof x === "number" || typeof x === "boolean") return String(x);
+  if (Array.isArray(x)) return x.map(textOf).filter(Boolean).join(" ");
+  if (typeof x === "object") return textOf(x.text ?? x.line ?? x.label ?? x.action ?? x.cta ?? x.title ?? x.name ?? "");
+  return "";
+}
+const wordsOf = (t) => String(t).trim().split(/\s+/).filter(Boolean);
+const FIRST_PERSON = /\b(I|I'm|I've|I'll|I'd|me|my|mine|we|we're|we've|our|ours|us)\b/i;
+// the headline: second person or neutral, one clause, 14 words at most
+export function headline(x, max = 14) {
+  let t = cleanText(x);
+  if (!t) return "";
+  if (FIRST_PERSON.test(t)) {
+    t = t.replace(/\bI'm\b/g, "you're").replace(/\bI've\b/g, "you've").replace(/\bI'll\b/g, "you'll").replace(/\bI'd\b/g, "you'd").replace(/\bI am\b/g, "you are").replace(/\bI\b/g, "you").replace(/\bmy\b/gi, "your").replace(/\bmine\b/gi, "yours").replace(/\bwe're\b/gi, "you're").replace(/\bwe've\b/gi, "you've").replace(/\bwe\b/gi, "you").replace(/\bour\b/gi, "your").replace(/\bme\b/g, "you").replace(/\bus\b/g, "you");
+    t = t.replace(/^you\b/, "You");
+  }
+  if (wordsOf(t).length > max) {
+    const clause = t.split(/(?<=[.!?:;—])\s+|,\s+(?:and|but|so|then)\s+|\s+—\s+/)[0].replace(/[,:;—\s]+$/, "");
+    t = wordsOf(clause).length >= 4 && wordsOf(clause).length <= max ? clause : wordsOf(t).slice(0, max).join(" ").replace(/[,:;—\s]+$/, "");
+  }
+  return t.replace(/[.\s]+$/, "") ;
+}
+const capFirst = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+
+function storyPayload() {
+  if (!args.run || args.run === true) die("--run <run dir> required");
+  const run = path.resolve(String(args.run));
+  const sdir = path.join(run, "story");
+  const rd = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
+  const rel = (f) => (f ? path.relative(run, path.isAbsolute(f) ? f : path.resolve(run, f)) : "");
+  const warnings = [];
+  // the source: the set the writer wrote; else the pitches `treatments --split` projected
+  let list = [];
+  const raw = rd(path.join(sdir, "treatments.json"));
+  if (raw) list = (Array.isArray(raw) ? raw : Array.isArray(raw.treatments) ? raw.treatments : []).map((t) => normalizeTreatment({ communication_kind: raw.communication_kind, ...t }));
+  if (!list.length && fs.existsSync(sdir)) {
+    for (const f of fs.readdirSync(sdir).filter((x) => /^pitch-.+\.json$/.test(x)).sort()) { const j = rd(path.join(sdir, f)); if (j) list.push(normalizeTreatment(j.treatment && typeof j.treatment === "object" ? j.treatment : j)); }
+  }
+  if (!list.length) die(`no story/treatments.json or story/pitch-*.json in ${run}: nothing to push`);
+  const notes = rd(path.join(sdir, "edit-notes.json")) || {};
+  const plates = rd(path.join(sdir, "plates", "plates.json")) || {};
+  if (plates.state === "unavailable") warnings.push(`story plates unavailable (${plates.reason || "image generation"}): the boards show the type template`);
+  const noteRows = Array.isArray(notes.treatments) ? notes.treatments : Array.isArray(notes.pitches) ? notes.pitches : [];
+  const stories = [], boards = [];
+  list.forEach((t, i) => {
+    const id = t.tag || TAGS_ORDER[i] || t.id || `T${i + 1}`;
+    const note = noteRows.find((x) => x && [x.label, x.tag, x.id, x.treatment_id].some((y) => y && (y === id || y === t.id))) || {};
+    const durations = t.beats.map((b) => Number(b.duration_provisional_s) || 0), total = durations.reduce((a, b) => a + b, 0);
+    const beats = t.beats.map((b) => {
+      const ve = b.visual_event || {};
+      const visual = cleanText([ve.change, ve.after && !ve.change ? ve.after : ""].filter(Boolean).join(" ")) || cleanText(b.visual);
+      return { name: cleanText(b.internal_beat_label || b.id), duration_s: Number(b.duration_provisional_s) || 0, on_screen: cleanText(b.on_screen), vo: cleanText(b.voiceover), visual, ...(b.viewer_takeaway ? { value: cleanText(b.viewer_takeaway) } : {}) };
+    });
+    const last = t.beats[t.beats.length - 1] || {};
+    const takeCands = [...(t.takeaways || []).filter((x) => x.required !== false).map((x) => x.text), t.viewer_takeaway, t.proposition, t.logline].filter(Boolean);
+    const clean1 = takeCands.find((x) => !FIRST_PERSON.test(x) && wordsOf(cleanText(x)).length <= 14);
+    const takeaway = capFirst(headline(clean1 || takeCands[0] || t.treatment_title));
+    if (!clean1 && takeCands[0]) warnings.push(`${id}: takeaway rewritten to a short second-person headline from "${cleanText(takeCands[0]).slice(0, 60)}"`);
+    const action = cleanText(t.cta ?? t.action ?? (t.aim && t.aim.action) ?? textOf(last.on_screen) ?? "");
+    const first_watch = cleanText(note.first_watch || t.first_watch);
+    const story = {
+      id, angle: id, title: cleanText(t.treatment_title) || id,
+      aim: { takeaway, feel: cleanText(t.feel ?? (t.emotional_arc && (t.emotional_arc.movement || t.emotional_arc)) ?? ""), action, audience: cleanText(t.audience ?? t.perspective ?? "") },
+      approach: cleanText(t.premise), logline: headline(t.logline || t.premise, 18),
+      tempo: { ideas: t.beats.length, change_every_s: t.beats.length ? Math.round((total / t.beats.length) * 10) / 10 : 0, source: "this treatment's beats" },
+      device: cleanText(t.device ?? t.organizing_mechanism ?? t.concept_kind ?? t.communication_kind ?? ""),
+      why: cleanText(note.why || first_watch || t.why) || headline(t.proposition || t.premise, 30),
+      beats, last_line: cleanText(last.on_screen || last.voiceover || ""),
+    };
+    const car = carrierOf(t); if (car.what) story.carrier = cleanText(car.what).split(/\s+/).slice(0, 10).join(" ");
+    stories.push(story);
+    // the board: the story's concept board image (story/boards/<id>/story-board.png, from story-board.mjs), the plate pictures per shot, every shot as a tile
+    const pdir = path.join(sdir, "plates", t.id), plateRec = (plates.concepts && plates.concepts[t.id] && plates.concepts[t.id].plates) || [];
+    const shots = (Array.isArray(t.shots) ? t.shots : []).map((sh, k) => {
+      const sid = sh.id || `s${String(k + 1).padStart(2, "0")}`;
+      let img = sh.image && fs.existsSync(path.resolve(run, sh.image)) ? sh.image : "";
+      if (!img) { const pr = plateRec.find((x) => x.shot === sid); if (pr && pr.image && fs.existsSync(path.resolve(run, pr.image))) img = pr.image; }
+      if (!img && fs.existsSync(path.join(pdir, `${sid}.png`))) img = path.join(pdir, `${sid}.png`);
+      return { id: sid, t: Number(sh.t) || 0, ...(img ? { image: rel(img) } : {}), words: cleanText(sh.words), move: cleanText(typeof sh.move === "object" ? sh.move.id : sh.move), carrier_state: cleanText(sh.carrier_state), transition: cleanText(sh.transition) };
+    });
+    if (shots.length) {
+      const cand = [path.join(sdir, "boards", t.id, "story-board.png"), path.join(sdir, "boards", id, "story-board.png"), path.join(sdir, "boards", `${t.id}.png`), path.join(sdir, "boards", `${id}.png`), path.join(sdir, `board-${id}.png`), path.join(sdir, `board-${t.id}.png`)].find((f) => fs.existsSync(f));
+      const withImg = shots.filter((x) => x.image);
+      const sigShot = signatureOf(t).shot, image = cand ? rel(cand) : (withImg.find((x) => x.id === sigShot) || withImg[0] || {}).image || "";
+      if (!cand && image) warnings.push(`${id}: no story-board.png (story-board.mjs) found: the board image is the signature plate`);
+      boards.push({ concept: id, image, shots, ...(styleWorldId(t) ? { style_world: styleWorldId(t) } : {}), ...(car.what ? { carrier: cleanText(car.what) } : {}), ...(signatureOf(t).what ? { signature_moment: cleanText(signatureOf(t).what) } : {}), ...(soundModeOf(t) ? { sound_mode: soundModeOf(t) } : {}) });
+    } else warnings.push(`${id}: the treatment has no shots[]: no board`);
+  });
+  // field types the console renders: strings everywhere a string is expected (a wrongly typed aim.action blanks the whole stage)
+  for (const st of stories) for (const k of ["title", "approach", "logline", "device", "why", "last_line"]) if (typeof st[k] !== "string") { st[k] = textOf(st[k]); warnings.push(`${st.id}: ${k} coerced to a string`); }
+  const rec = args.recommended && args.recommended !== true ? String(args.recommended) : null;
+  const sf = path.join(sdir, "treatments.json");
+  const recommendation = rec ? { recommended: rec } : (() => { const v = (() => { try { return validateTreatmentSet(list, {}); } catch { return { results: [], comparison: {} }; } })(); return recommendTreatments(list, v, sf); })();
+  const payload = { stories, recommended: recommendation.recommended, ...(recommendation.why ? { recommended_why: cleanText(recommendation.why) } : {}), boards, warnings };
+  const of = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(sdir, "stories.json");
+  writeFile(of, JSON.stringify(payload, null, 2) + "\n");
+  out({ ok: true, file: of, stories: stories.map((x) => x.id), boards: boards.map((b) => ({ concept: b.concept, shots: b.shots.length, with_images: b.shots.filter((x) => x.image).length })), recommended: payload.recommended, warnings, next: "moves.mjs payload --run <run> --stories story/stories.json (adds carrier + moves), then console.mjs push --step story --file <that output> (stories, recommended, boards)" });
+}
+
 if (cmd === "truth") {
   if (!args.out || args.out === true) die("--out <truth.md> required");
   const f = path.resolve(String(args.out));
@@ -1034,8 +1176,13 @@ if (cmd === "truth") {
 } else if (cmd === "revise") {
   if (!args.notes || args.notes === true) die("--notes <story/edit-notes.json> required");
   let n; try { n = readJSON(path.resolve(String(args.notes))); } catch (e) { die(`--notes is not readable JSON: ${e.message}`); }
-  const back = (n.pitches || []).filter((x) => x && ["rewrite", "replace"].includes(x.verdict));
-  out({ revise: back.map((x) => x.label || x.id), notes: Object.fromEntries(back.map((x) => [x.label || x.id, x.notes || []])), verdicts: Object.fromEntries(back.map((x) => [x.label || x.id, x.verdict])), next: back.length ? "dispatch script-writer once per label (crew.mjs brief --role script-writer --key <label>: revise mode), then story.mjs check on the set; no second editor pass" : "nothing goes back" });
+  // legacy notes list pitches[]; the treatments flow (balanced / concept-jury) lists treatments[] (id, tag or label names the treatment); a bare label is its tag, else its id
+  const mode = Array.isArray(n.treatments) && n.treatments.length ? "treatments" : "pitches";
+  const rows = mode === "treatments" ? n.treatments : (n.pitches || []);
+  const nameOf = (x) => x.label || x.tag || x.id || x.treatment_id;
+  const back = rows.filter((x) => x && ["rewrite", "replace"].includes(x.verdict));
+  const notesOf = (x) => x.notes || x.issues || [];
+  out({ mode, revise: back.map(nameOf), notes: Object.fromEntries(back.map((x) => [nameOf(x), notesOf(x)])), verdicts: Object.fromEntries(back.map((x) => [nameOf(x), x.verdict])), next: back.length ? (mode === "treatments" ? "dispatch the script-writer ONCE in revise mode (crew.mjs brief --role script-writer --key Set: its brief carries the notes) for the treatments listed in `revise`, keep the others untouched, then story.mjs treatments --set story/treatments.json --split; no second editor pass" : "dispatch script-writer once per label (crew.mjs brief --role script-writer --key <label>: revise mode), then story.mjs check on the set; no second editor pass") : "nothing goes back" });
 } else if (cmd === "grammar") {
   // Plan 03 S1: the starting narrative logic for a communication kind; no --kind lists them
   if (!args.kind || args.kind === true) out({ kinds: grammarKinds(), optional_tools: Object.keys(OPTIONAL_TOOLS), note: "grammars are starting logic, not formulas; optional tools are never required and never banned" });
@@ -1076,8 +1223,11 @@ if (cmd === "truth") {
       });
       v.split = list.map((t, i) => `pitch-${t.tag || TAGS_ORDER[i] || `T${i + 1}`}.json`);
     }
+    v.recommendation = recommendTreatments(list, v, sf);
     out(v); process.exitCode = v.ok ? 0 : 2;
   }
+} else if (cmd === "payload") {
+  storyPayload();
 } else if (cmd === "validate") {
   const problems = [];
   const ids = new Set();
@@ -1104,7 +1254,7 @@ if (cmd === "truth") {
   out({ ok: !problems.length, devices: DEVICES.length, by_family: byFam, overused: DEVICES.filter((d) => d.overused).map((d) => d.id), problems });
   process.exit(problems.length ? 1 : 0);
 } else {
-  die("usage: story.mjs truth|devices|cliche|pick|check|plan|sheet|revise|intent|validate (see the header of scripts/story.mjs)");
+  die("usage: story.mjs truth|devices|cliche|pick|check|plan|sheet|revise|intent|treatments|payload|validate (see the header of scripts/story.mjs)");
 }
 
 // --- check -------------------------------------------------------------------------

@@ -70,6 +70,7 @@
 //        small creative brief (creative/brief.json: intent only, no timing, no approval; a new revision after the Story and Look choices, the old kept in creative/revisions/), and the honest readiness at a boundary
 //        (`gate --stage final` says not_reviewed, never passed, when the review evidence is absent). check also takes --observed-reads a.png,b.png (the supervisor's record of image reads on the packet receipt).
 //   node crew.mjs usage --run <run> [--prices <json>]   -> usage by what the harness reported (null = unreported), rejected-alternative and repeated-research work apart, an API-equivalent estimate only with a price table
+//   node crew.mjs eta --run <run> [--push]   -> { next_call, minutes_left, phases[], message }: minutes until the Story call from the plan's phases not yet accepted (typical measured durations); --push writes the message to the console feed (console.mjs activity)
 //   node crew.mjs pitches --run <run>         -> merges story/pitch-*.json into story/pitches.json (Sure, Bold, Wild)
 //   node crew.mjs storyboard --run <run> --project <dir> [--score <score.json>]
 //        -> writes the Motion Director's score into the project's STORYBOARD.md as the workflow's visual design
@@ -462,7 +463,13 @@ function planCrew(p) {
     phases.push({ phase: "story", when: "after the jury's three picks (story/jury.json): the script writer develops those three ideas into full treatments, keeping each idea's style_world, carrier, signature_moment, sound_mode and shots[] (it does not swap an idea; ON A LAUNCH FILM a launch concept has hook, turn, meet, capabilities (each a line plus ui_proof), payoff, carrier, signature transition, ground and type pairing (a style_world is optional), kept as the idea has them)", dispatch: [d("script-writer", "Set", { mode: "treatments" })], director_steps: ["node story.mjs treatments --set story/treatments.json --split [--brief <briefing>] [--evidence research/claims.json]   (exit 2: the writer fixes exactly what it names; add --no-visual-plan ONLY on a legacy run that has no story/jury.json)", "crew.mjs pitches   (merges the projected story/pitch-<label>.json for the Story card)", "REQUIRED, not optional (the Story check fails without story/plates/plates.json when image generation is ready; image generation unavailable still runs it once so plates.json says 'unavailable' and the check passes): node scripts/story-plates.mjs --concept <concept.json | story/treatments.json> --out <run>/story/plates   (one Codex plate per hero shot: the signature moment and the key shots, built from the concept's atlas style_world through imagegen.mjs --style; writes shot.image; imagegen unavailable or a plate failing is never faked: the board then labels those tiles 'template')", "for each concept: node scripts/board.mjs --concept <concept.json> --out <run>/story/boards/<id>   (story-board.png: one frame per shot); attach it to the story push as the option's moves[].poster so the user picks by picture"], then: "crew.mjs check --role script-writer --key Set, then the editor (it shows the three concepts as thumbnail boards)" });
     // the sound mode is decided WITH the story (references/sound.md "Sound mode"; scripts/lib/sound-mode.mjs): vo-kinetic | instrumental-arc | sfx-led | song-lyric
     phases.push({ phase: "sound-mode", dispatch: [d("lyricist", null, p.sung ? {} : { conditional: true, only_if: "the resolved sound mode (crew.mjs soundmode: audio/mode.json) is song-lyric, or the chosen concept's music_arc is a lyric-song or has sung hooks" })], when: "with the story: after the three concepts are chosen, shown on the Story card (each concept names its sound_mode) and confirmed at the Story call; the lyricist runs only when the sound mode is song-lyric or the concept has sung hooks (it writes audio/lyrics.txt BEFORE the music is made)", director_steps: ["node scripts/crew.mjs soundmode --run <run>   (calls sound.mjs mode from the brief, platform, length and the chosen concept: crew/sound-mode.json and audio/mode.json = mode, reason, VO yes/no, words budget, loudness; shown in the decisions drawer; the person's own answer always wins). Then, per mode: recommend_vo.yes -> vo.mjs make --script <lines> --out <run>/audio/vo (words.json feeds the kinetic type); song-lyric (a first-class mode: suggest it when a song fits the brand; write the lyric first as five acts, rhymed, ending on the tagline) -> vo.mjs lyrics --track <song> --lyrics <lyrics.txt> (force-aligns the SUPPLIED text to the audio with whisper word timings; never trust a raw whisper transcript; the on-screen type may follow lyrics.json or run its own short script beside the song); after the carrier is chosen -> sound.mjs palette --carrier --key-hz --seed --dir <run>/audio/palette; the mix -> sound.mjs mix --spec mix.json --out <run>/audio/mix.wav --platform (--allow-generation only with consent)"], then: "the music, VO and mix phases read crew/sound-mode.json; a mode the person overrides at the Story call is re-run with --answer \"<their words>\"" });
-    phases.push({ phase: "story-edit", when: "after the concept jury's set passes story.mjs treatments", dispatch: [d("script-editor")], then: "story.mjs review --review story/edit-notes.json (structured: issue_id, beat, evidence, severity, fix); the story-revise phase sends the writer ONE focused revision; then push story with the three treatment cards (titled by premise; Sure / Bold / Wild is a secondary tag)."+" The recommended script on the Story call is `recommendation.recommended` from story.mjs check/pick (it ranks originality + memorability among the pitches that pass; never the top weighted score): pass it as the story push's `recommended` and show its `why`." });
+    // the Moves pass (shared-contract, story-and-moves.md): between the checked treatments and the editor; Fast pace keeps it. Same phases as the legacy room: it reads the pitch-<label>.json files `treatments --split` writes.
+    if (!["reel", "music-to-video"].includes(p.route)) {
+      phases.push({ phase: "moves", when: "after story.mjs treatments --split passes and the story plates are made (pitch-<label>.json exist for Sure, Bold and Wild)", director_steps: ["moves.mjs pack --run <run> --label <Sure|Bold|Wild>   (once per script, before its inventor is briefed)"], dispatch: ["Sure", "Bold", "Wild"].map((k) => d("move-inventor", k)), then: "moves.mjs check on each (crew.mjs check --role move-inventor), then the move-juror, then a move-sketcher per script (moves.mjs rough + check-rough), then the editor" });
+      phases.push({ phase: "moves-jury", when: "after the three moves files pass moves.mjs check", dispatch: [d("move-juror")], then: "moves.mjs check-verdict; a script with fewer than 3 passing cards gets one denial round (re-dispatch its inventor once with the failures added to its banned list)" });
+      phases.push({ phase: "moves-roughs", when: "after the verdict is accepted", director_steps: ["moves.mjs rough --dir <run>/story/moves/<label>-<hero id> --aspect <the film's aspect>   (after each sketcher writes rough.html)", "moves.mjs check-rough --dir <run>/story/moves/<label>-<hero id>"], dispatch: ["Sure", "Bold", "Wild"].map((k) => d("move-sketcher", k)), then: "moves.mjs payload puts each script's carrier and hero moves on the Story screen; after the pick, moves.mjs choose --label <L> writes story/moves.json and moves.mjs record keeps the heroes for the next film" });
+    }
+    phases.push({ phase: "story-edit", when: "after the moves pass (the three moves files, the verdict and the roughs are accepted), or, on a reel / music film, after the concept jury's set passes story.mjs treatments", dispatch: [d("script-editor")], then: "story.mjs review --review story/edit-notes.json (structured: issue_id, beat, evidence, severity, fix); the story-revise phase sends the writer ONE focused revision; then push story with the three treatment cards (titled by premise; Sure / Bold / Wild is a secondary tag)."+" The recommended script on the Story call is `recommendation.recommended` from story.mjs check/pick (it ranks originality + memorability among the pitches that pass; never the top weighted score): pass it as the story push's `recommended` and show its `why`." });
     phases.push({ phase: "story-revise", when: "after the editor's review is accepted: only when a treatment is marked rewrite or replace on an error or major issue", dispatch: [d("script-writer", "Set", { conditional: true, only_if: "story/edit-notes.json marks a treatment rewrite or replace", mode: "revise" })], then: "re-run story.mjs treatments on the set; one focused revision, no second editor pass" });
     phases.push({ phase: "story-escalate", when: "only when story.mjs treatments reports escalation.needed (diversity, clarity or evidence still insufficient after the one revision)", dispatch: [d("script-writer", "Extra", { conditional: true, only_if: "story.mjs treatments escalation.needed is true after the revision", mode: "treatments" })], then: "an independent extra writer adds the missing kind of candidate (the user is still offered three); unresolved communication issues are shown to the user, not hidden" });
   } else if (STORY_ROUTES.has(p.route) && !leanCreative) {
@@ -670,6 +677,11 @@ function spikeScene(run, N) {
 }
 
 // ---------------------------------------------------------------- ledger
+// the editor's rewrite / replace verdicts: legacy notes list pitches[], the treatments flow lists treatments[] (label = the tag, else the id)
+function editBack(notes) {
+  const l = notes && (Array.isArray(notes.pitches) ? notes.pitches : Array.isArray(notes.treatments) ? notes.treatments : []);
+  return (l || []).filter((q) => q && ["rewrite", "replace"].includes(q.verdict));
+}
 function ledger(run, row) {
   fs.mkdirSync(R(run, "crew"), { recursive: true });
   Rec.appendJsonl(R(run, "crew", "ledger.jsonl"), { t: new Date().toISOString(), ...row }); // Plan 11 R1: torn-tail-safe append
@@ -1380,6 +1392,13 @@ function contextFor(run, role, key, plan) {
         Object.assign(ctx, { brief: B, branded: !!P.branded, jury_rule: productFirst(run, P) ? "You are the concept JURY, not the editor: read agents/concept-jury.md (launch-film section) and references/launch-grammar.md. Pick exactly 3 ideas from story/ideas-*.json that differ in HOOK, SCENE PLAN and SIGNATURE TRANSITION (not art world); at most 1 of the 3 may use a non-default style world. Judge: story clarity in one watch, how the hook lands, SCENE VARIETY (5+ scene types in 45 s, none over 30%, neighbours differ), texture contrast (a stepped or flicker section; calm beats smooth), transition variety, where Codex imagery earns its place, motion choreography potential, brand lightly but clearly present. Reward variety; PENALISE a one-gimmick film (one carrier, one move or one transition through every scene) and AI-cliche emphasis (references/launch-moves.md). Name the obvious film and why it lost; `recommended` is the strongest film, never the safest. Write story/jury.json as { picks: [{id, lane, why}], dropped: [{id, why}], recommended, recommended_why, obvious_film, distinctness }." : "You are the concept JURY, not the editor: read agents/concept-jury.md and ignore the treatments/pitches sections of your own role file. Pick exactly 3 ideas from story/ideas-*.json that differ in idea AND style world, say why each won, name the obvious film and why it lost. At least one pick must be in a bold (non-calm) world; `recommended` is the strongest film among the three, never the safest. Write story/jury.json as { picks: [{id, lane, why}], dropped: [{id, why}], recommended, recommended_why, obvious_film, distinctness }." });
         for (const [l, p] of [["the story-led pool", R(run, "story", "ideas-story.json")], ["the style-led pool", R(run, "story", "ideas-style.json")], ["the wild pool", R(run, "story", "ideas-wild.json")], ["truth", R(run, "story", "truth.md")], ["claims (the only facts an idea may state)", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["product truth (the one rule on what the film must make clear)", path.join(SKILL_DIR, "references", "product-first.md")], ["the concept method (step 3 is yours)", path.join(SKILL_DIR, "references", "concept-development.md")], ["the jury's role", path.join(SKILL_DIR, "agents", "concept-jury.md")]]) I(l, p);
         O(R(run, "story", "jury.json"));
+        break;
+      }
+      // the treatments flow (story/treatments.json or the concept pool exists) never writes beats-*.md, pitches.json, check.json or precedent.md: do not list them
+      const treatmentsFlow = fs.existsSync(R(run, "story", "treatments.json")) || fs.existsSync(R(run, "story", "jury.json"));
+      if (treatmentsFlow) {
+        for (const [l, p] of [["the three treatments (read first: retell each film in one sentence from its beats before anything else: on_screen, voice and picture only)", R(run, "story", "treatments.json")], ["the jury's picks", R(run, "story", "jury.json")], ["the story plates (the pictures each concept shows)", R(run, "story", "plates", "plates.json")], ["the moves (carrier, hero moves, juror's verdict), when the Moves pass ran", R(run, "story", "moves-verdict.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["rubric", path.join(SKILL_DIR, "references", "script.md")], ["story rules", path.join(SKILL_DIR, "references", "story.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")]]) I(l, p);
+        O(R(run, "story", "edit-notes.json"));
         break;
       }
       for (const [l, p] of [["the beat lists for the BLIND RETELL (read these first and retell each film in one sentence before anything else: on_screen, voice and picture only)", R(run, "story", "beats-Sure.md")], ["", R(run, "story", "beats-Bold.md")], ["", R(run, "story", "beats-Wild.md")], ["the intent sheets (the argument each script rests on: story/intent-<Label>.json, or intent.json once chosen)", R(run, "story")], ["pitches", R(run, "story", "pitches.json")], ["check", R(run, "story", "check.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["rubric", path.join(SKILL_DIR, "references", "script.md")], ["story rules", path.join(SKILL_DIR, "references", "story.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")]]) I(l, p);
@@ -4371,6 +4390,22 @@ if (cmd === "plan") {
   if (!ROLES[role]) die(`--role must be one of ${Object.keys(ROLES).join(", ")}`);
   const key = args.key && args.key !== true ? String(args.key) : null;
   const { P, W } = await checkRole(run, role, key);
+  // still running vs failed: a member briefed and not yet checked, whose output files are missing or were written in the last 5 minutes, is still working. Report status "running"
+  // (exit 4, no ledger row, no repair escalation) instead of a failure.
+  if (P.length) {
+    const rows = readLedger(run).filter((r) => r.role === role && (r.key || null) === key), lastRow = rows[rows.length - 1];
+    if (lastRow && lastRow.event === "brief") {
+      let outs = [], scratch = null;
+      try { const c = contextFor(run, role, key, jsonMaybe(R(run, "crew", "plan.json")) || {}); outs = c.outputs.map((o) => path.resolve(WS, o)); scratch = path.resolve(WS, c.ctx.scratch); } catch { /* no declared outputs: fall back to the brief age */ }
+      const now = Date.now(), mt = (f) => { try { return fs.statSync(f).mtimeMs; } catch { return 0; } };
+      const briefAge = now - Date.parse(lastRow.t), newest = Math.max(0, ...outs.map(mt), scratch ? mt(scratch) : 0);
+      const missing = outs.length ? outs.filter((f) => !exists(f)).length : 0;
+      const recent = newest > 0 && now - newest < 5 * 60000;
+      if (briefAge < 90 * 60000 && (recent || (outs.length > 0 && missing === outs.length))) {
+        out({ ok: false, status: "running", role, key, briefed_min_ago: Math.round(briefAge / 6000) / 10, last_write_s_ago: newest ? Math.round((now - newest) / 1000) : null, outputs_missing: missing, note: "the worker has not finished (no output yet, or files written in the last 5 minutes): not a failure; check again when it reports done. Nothing was recorded.", problems_so_far: P.slice(0, 5) }, 4);
+      }
+    }
+  }
   if (creativeOn(jsonMaybe(R(run, "crew", "plan.json")) || {})) creativeReadsNote(run, role, key, W); // the supervisor's own record of image reads (never the worker's claim)
   // Plan 08 K7: counters the harness showed (--usage <json file>, or --tokens-in/--tokens-out/--cache-read/--cache-write/--turns); anything not given stays null, never 0
   const usageIn = args.usage && args.usage !== true ? readUsageFile(path.resolve(String(args.usage))) : null;
@@ -4390,7 +4425,34 @@ if (cmd === "plan") {
     for (const j of Jobs.listJobs(run).filter((x) => x.role === role && (x.key || null) === key)) { const u = usage ? usage.total_reported ?? (usage.output !== null && usage.output !== undefined ? (usage.input_uncached || 0) + usage.output : null) : null; Jobs.reconcileBudget(run, j.job_id, { actual: u, failed: P.length > 0 }); }
   } catch (e) { W.push(`job bookkeeping skipped: ${e.message}`); }
   ledger(run, { event: P.length ? "fail" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, ...(usage ? { usage } : {}), problems: P.length ? P.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
-  out({ ok: !P.length, role, key, problems: P, warnings: W, ...(CHECK_EXTRA || {}) }, P.length ? 2 : 0);
+  out({ ok: !P.length, status: P.length ? "failed" : "ok", role, key, problems: P, warnings: W, ...(CHECK_EXTRA || {}) }, P.length ? 2 : 0);
+} else if (cmd === "eta") {
+  // minutes until the next call the person is waiting for (the Story call): the sum of the typical durations of the phases before it that are not accepted yet.
+  // Measured on a real run: research desk ~8, research lead ~4, concept writers ~12, jury ~3, script writer + plates ~12, editor ~4, revision ~4. The Moves pass is not measured yet (estimates, flagged).
+  const run = runDir();
+  const plan = jsonMaybe(R(run, "crew", "plan.json"));
+  if (!plan || !Array.isArray(plan.phases)) die(`no crew/plan.json in ${rel(run)}: run crew.mjs plan first`);
+  const TYPICAL = { research: 8, "research-lead": 4, concepts: 12, "concept-jury": 3, story: 12, moves: 6, "moves-jury": 3, "moves-roughs": 4, "story-edit": 4, "story-revise": 4 };
+  const ESTIMATED = new Set(["moves", "moves-jury", "moves-roughs"]);
+  const L = readLedger(run), last = new Map(), firstBrief = new Map();
+  for (const r of L) { const k = `${r.role}|${r.key || ""}`; last.set(k, r); if (r.event === "brief" && !firstBrief.has(k)) firstBrief.set(k, Date.parse(r.t)); }
+  const editNotes = jsonMaybe(R(run, "story", "edit-notes.json")), back = editBack(editNotes);
+  const rows = [];
+  for (const ph of plan.phases) {
+    if (!(ph.phase in TYPICAL)) continue;
+    const members = (ph.dispatch || []).filter((x) => !x.conditional || back.some((q) => (q.label || q.id) === x.key) || (ph.phase === "story-revise" && !editNotes));
+    const accepted = members.every((x) => (last.get(`${x.role}|${x.key || ""}`) || {}).event === "ok");
+    const done = ph.phase === "story-revise" ? !!editNotes && accepted : accepted;
+    if (done) continue;
+    const started = members.map((x) => firstBrief.get(`${x.role}|${x.key || ""}`)).filter(Boolean);
+    const elapsed = started.length ? (Date.now() - Math.min(...started)) / 60000 : 0;
+    rows.push({ phase: ph.phase, typical_min: TYPICAL[ph.phase], left_min: Math.max(started.length ? 1 : TYPICAL[ph.phase], Math.round(TYPICAL[ph.phase] - elapsed)), running: started.length > 0, ...(ESTIMATED.has(ph.phase) ? { estimated: true } : {}) });
+  }
+  const minutes = rows.reduce((a, r) => a + r.left_min, 0);
+  const msg = rows.length ? `About ${minutes} minute${minutes === 1 ? "" : "s"} until your Story call` : "Your Story call is ready";
+  const res = { next_call: "story", minutes_left: minutes, phases: rows, message: msg, note: "typical durations from a measured run, not a promise; push the message into the feed (console.mjs activity) at each phase change, or pass --push" };
+  if (args.push) spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "console.mjs"), "activity", "--run", run, "--message", msg], { encoding: "utf8" });
+  out(res);
 } else if (cmd === "status") {
   const run = runDir();
   const plan = jsonMaybe(R(run, "crew", "plan.json"));
@@ -4400,7 +4462,7 @@ if (cmd === "plan") {
   const state = (r) => (!r ? "planned" : r.event === "brief" ? "dispatched" : r.event === "ok" ? "accepted" : "needs work");
   // a conditional member (story-revise: only the labels the editor marked rewrite or replace) that is not needed is "not needed", never pending
   const editNotes = jsonMaybe(R(run, "story", "edit-notes.json"));
-  const needed = (x) => x.role === "lyricist" ? (((jsonMaybe(R(run, "audio", "mode.json")) || {}).mode || (x.conditional ? null : "song-lyric")) === "song-lyric") : !x.conditional || ((editNotes && editNotes.pitches) || []).some((q) => (q.label || q.id) === x.key && ["rewrite", "replace"].includes(q.verdict));
+  const needed = (x) => x.role === "lyricist" ? (((jsonMaybe(R(run, "audio", "mode.json")) || {}).mode || (x.conditional ? null : "song-lyric")) === "song-lyric") : !x.conditional || editBack(editNotes).some((q) => (q.label || q.id) === x.key && ["rewrite", "replace"].includes(q.verdict));
   const phases = plan ? plan.phases.map((ph) => ({ phase: ph.phase, members: (ph.dispatch || []).map((x) => { const r = last.get(`${x.role}|${x.key || ""}`); return { role: x.role, key: x.key, state: needed(x) ? state(r) : "not needed", problems: r && r.problems }; }) })) : [];
   const extra = [...last.values()].filter((r) => !plan || !plan.phases.some((ph) => (ph.dispatch || []).some((x) => x.role === r.role && String(x.key || "") === String(r.key || "")))).map((r) => ({ role: r.role, key: r.key, state: state(r) }));
   const next = phases.find((ph) => ph.members.some((m) => m.state !== "accepted" && m.state !== "not needed"));
@@ -4842,7 +4904,7 @@ if (cmd === "plan") {
   const r = spawnSync(process.execPath, [path.join(path.dirname(new URL(import.meta.url).pathname), "eval.mjs"), ...process.argv.slice(3)], { stdio: "inherit" });
   process.exit(r.status ?? 1);
 } else {
-  die("usage: crew.mjs plan|brief|check|ab|status|pitches|thumbs|storyboard|timing|strip|schedule|job|budget|pool|revision|impact|perf|recover|delivery|eval … (see the header)");
+  die("usage: crew.mjs plan|brief|check|eta|ab|status|pitches|thumbs|storyboard|timing|strip|schedule|job|budget|pool|revision|impact|perf|recover|delivery|eval … (see the header)");
 }
 
 // Plan 09: the schedule over this run, with what the ledger, the jobs and the usage counters say right now
