@@ -608,7 +608,7 @@ function applyAction(s, action) {
       if (!isObj(b)) b = {};
       const tgt = isObj(b.fields) ? b.fields : b;
       for (const [k, x] of Object.entries(flat)) if (x !== null && x !== undefined) tgt[k] = x;
-      if (tgt.length_s === undefined && Number.isFinite(Number(flat.length))) tgt.length_s = Number(flat.length);
+      if (flat.length_s === undefined && flat.length !== undefined && flat.length !== null && flat.length !== "" && Number.isFinite(Number(flat.length))) tgt.length_s = Number(flat.length); // a submitted length wins over the pushed one
       b.submitted = { ts: action.ts, by: "console" };
       writeJSON(bp, b);
     } catch (e) { activity(s, `Brief answer not copied to brief.json: ${e.message}`, "warn", null); }
