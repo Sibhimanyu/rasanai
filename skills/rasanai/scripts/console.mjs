@@ -1255,6 +1255,20 @@ function serve() {
       req.on("close", () => clients.delete(res));
       return;
     }
+    if (u.pathname === "/api/client-log" && req.method === "POST") {
+      // the page reports a card it could not show (never a state change: one warn line in the feed)
+      if (req.headers["x-rasa-token"] !== token) return send(403, { error: "bad token" });
+      let body = "";
+      req.on("data", (c) => { if (body.length < 8000) body += c; });
+      req.on("end", () => {
+        let m = "";
+        try { m = String(JSON.parse(body).message || ""); } catch {}
+        m = m.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").slice(0, 300);
+        if (m) withLock(F.sessionLock, () => { const s = session(); activity(s, `Console could not show part of a screen: ${m}`, "warn", s.working && s.working.msg); saveSession(s); });
+        send(200, { ok: true });
+      });
+      return;
+    }
     if (u.pathname === "/api/action" && req.method === "POST") {
       if (req.headers["x-rasa-token"] !== token) return send(403, { error: "bad token" });
       let body = "";
