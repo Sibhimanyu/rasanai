@@ -148,7 +148,7 @@ node $SKILL_DIR/scripts/art.mjs world lock  --run "$RUN"      # hash the anchor 
 
 ## Launch imagery (where a launch scene needs meaning)
 
-- Use 1 to 4 Codex images per launch film and only where they add meaning (`launch-grammar.md` section 4d), because the imagery is the content of the product shot and never wallpaper. Minase fills its landing pages and cards with generated worlds (grass hills, a chair on a mound, flowers).
+- Plan 4 to 8 Codex images per launch film by default when `IMAGEGEN=ready` (`launch-grammar.md` section 4d), used as content inside UI cards and collages and each reused 2 to 3 times, plus at most one burst of 5 to 6 plates used once each, because the imagery is the content of the product shot and never wallpaper. Minase fills its landing pages and cards with generated worlds (grass hills, a chair on a mound, flowers) and shows imagery in 44% of its frames.
 - Direct the style as editorial and tactile, with no people and no AI glow. The reference films' images are still-life objects and props (driftwood with a flower, a retro CRT with a sad face on its screen, flowers on a rock against the sky, a printed street map, paper and print textures, landing-page photo cards) in natural light, real materials, warm or neutral palettes, with a photographic or print feel, often cut out or collaged into cards.
   1. Keep people out: no faces, figures, hands or silhouettes unless the brief explicitly asks, because generated people read as AI.
   2. Keep neon or blue-glow gradient tech scenes, glowing screens, holograms and "cinematic AI" moods out, because a person at a laptop lit by a blue gradient is the failure that reads as AI-generated.
@@ -166,7 +166,7 @@ bad: "A woman at a laptop, glowing blue holographic UI, cinematic, epic." Fix: s
   3. A cinematic plate behind type: a dark or bright scene the type sits over.
   Keep the product's real UI, text, logos, charts and a real person out of them (the "Never use it for" list above stands).
 - Declare score-level `imagery_plan[]` (`{id, prompt, aspect?, transparent?}`; the prompt comes from the concept and the brand palette, one style line shared by all) and per beat `imagery: "<id>"` or `"none"` (the designer or the motion director declares it).
-  - Run `node scripts/imagegen.mjs plan-from-score --score <run>/motion/score.json --out assets/images/launch-plan.json` to write the batch plan for exactly the images the beats use (it warns above 4), then `imagegen.mjs batch --plan assets/images/launch-plan.json`.
+  - Run `node scripts/imagegen.mjs plan-from-score --score <run>/motion/score.json --out assets/images/launch-plan.json` to write the batch plan for exactly the images the beats use (it warns above 8), then `imagegen.mjs batch --plan assets/images/launch-plan.json`.
   - Run `batch --world art/world.json` instead when the film has a world bible (`art/world.json`), so every image shares the anchor and the style line.
 - Animate it, because a still is held at most about 1.2 s: parallax layers (the T-techniques above, `RasanImageFX` depth), a slow push, a light sweep, a stepped reveal (`RasanTexture.stepped`), or the image scrolling inside its card on threes. `launch-beats` counts the distinct images (`imagery-count`).
 

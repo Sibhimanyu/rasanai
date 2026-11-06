@@ -98,7 +98,7 @@ The Story already chose a world. The chosen concept carries a `style_world` (`st
   - Scope a reference's restriction (a cartoon recipe's "no text") to that recipe, and keep it out of the film's rules.
   - Frame counts name their source fps and become seconds; pixel values name their reference dimensions (`scripts/lib/ref-principles.mjs`).
 - Finishing treatments (grain, blur, vignette, chromatic aberration, camera drift, 3D) are neither default nor banned: keep one only for what it communicates (`blend.json` `finish_policy`: `default` | `chosen` | `none`, and `finish_rationale` when `none`). A deliberate exception to a brand constraint is local to named beats with a rationale and needs approval, and does not become a global rule.
-- The chosen look is compiled into `look/visual-bible.json` (hard brand constraints separate from creative defaults, exact font identities with locale fallback, safe regions, motion and transition vocabulary by semantic relation). Write DESIGN.md so that projection is accurate: roles by name, one display and one body face, numbers in the Motion section.
+- The chosen look is compiled into `look/visual-bible.json` (hard brand constraints separate from creative defaults, exact font identities with locale fallback, safe regions, motion and transition vocabulary by semantic relation). Write DESIGN.md so that projection is accurate: roles by name, one display and one body face (a launch film adds a display palette, below), numbers in the Motion section.
 
 ## Identity versus treatment (v3: Look alternatives stay real)
 
@@ -150,7 +150,8 @@ Read `references/launch-grammar.md` (§9 the three looks, §11 chrome and look r
 - Use the brand palette as atmosphere (gradient, accent shape, glow) in every look and keep the logo small (at most 3 uses in the film). Take the palette from the brand's own colours and keep the brand site's page layout out. UI is shown as simplified recreated mockups in the look's palette and type.
 - Look A (Sure) is the chosen concept's own `ground`, `type_pairing` and scene plan; B and C are contrasts on those axes.
 - Set the film up to win in the specimen. A Look poster with small type on a dark ground teaches the film to be small and grey, so on a launch film every look's poster and specimen show:
-  - (a) the display-scale hero line: the type pairing at cap height 9 to 20% of the frame, one emphasised word, filling 40 to 90% of the width;
+  - (a) the display-scale hero line: the type pairing at cap height 9 to 20% of the frame, one emphasis, filling 40 to 90% of the width;
+  - (a2) the display palette: 5 or more type treatments beyond one display and one body face (halftone mega type, outline, mixed serif and sans, dot-matrix, black-band bleed, caption on an image), and 3 or more emphasis kinds (gradient fill, redaction bar, glass shelf, word on a bar, inline icon chip, serif swap, scale), written to DESIGN.md `typography.treatments` and `blend.json` `treatment.type_treatments`; the brand face stays on the claim and end lines under a brand lock (`references/launch-grammar.md` section 2);
   - (b) a UI card at 35 to 60% of the frame, not a thumbnail;
   - (c) the ground rhythm: a strip or three small frames of the look's grounds in order (for example brand-gradient, dark, white) with the brand-colour atmosphere stated as a hex gradient or glow, and brand colour on at least 30% of the strip;
   - (d) a dense and a sparse frame at different scale.

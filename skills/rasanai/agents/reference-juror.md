@@ -40,7 +40,7 @@ A fresh viewer has no stake in the film, and a fresh viewer's recall can overrul
 2. **Typography scale and craft.** Estimate cap height as % of frame height for the biggest line in each beat.
    - References: 9 to 20% at least once per beat, words filling much of the width, scale swinging between beats.
    - Defects: a line at 4 to 5% in a big empty frame, one size for many tiles, or UI under about 35% when it is the proof.
-   - Craft: one emphasised word, no clutter, no fake HUD.
+   - Craft: one emphasis per line whose kind varies (gradient fill, redaction, glass shelf, word on a bar, icon chip, serif swap, scale), 5 or more type treatments across the film; the same last-word colour on most lines, or one sans throughout, caps this at 5. No clutter, no fake HUD.
 3. **Ground and atmosphere rhythm.** Count ground families and the share of tiles with brand-colour atmosphere (gradient, glow, tint, brand slate). References: at least 2 families alternating, brand atmosphere on 30% or more. One grey ground is a 3 at best.
 4. **Motion choreography.** Count runs of near-identical consecutive tiles (a hold): over about 1.2 s with only drift (or light) is a defect.
    - Do transitions vary and read as intended (a hard cut on a hit, a stepped smash, a mask, a type morph, a push, a whip), or as a fade or blur?
