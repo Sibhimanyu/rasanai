@@ -147,13 +147,13 @@ The user named films they love. Each was measured and read by the reference anal
 | file | what it is for |
 |---|---|
 | `story/treatments.json` | the three compact treatments you review (treatments mode) |
-| `story/beats-Sure.md`, `beats-Bold.md`, `beats-Wild.md` | the beat lists for the blind retell: read these first and retell each film in one sentence; on_screen, voice and picture only |
-| `story/intent-<Label>.json` (or `intent.json` once chosen) | the argument each script rests on: proposition, villain, ending first, per-beat buys, relation, importance, peak |
-| `story/pitches.json` | the three scripts (legacy flow) |
-| `story/check.json` | `story.mjs check` on the scripts, plus the portfolio result (`shared-line`, `shared-peak-kind`, `shared-turn-kind`, `same-order`, `coverage-dropped`) |
+| `story/beats-Sure.md`, `beats-Bold.md`, `beats-Wild.md` | LEGACY room only (absent in the treatments flow: do not look for them; read treatments.json): the beat lists for the blind retell: read these first and retell each film in one sentence; on_screen, voice and picture only |
+| `story/intent-<Label>.json` (or `intent.json` once chosen) | LEGACY room, or written by `treatments --split`: the argument each script rests on: proposition, villain, ending first, per-beat buys, relation, importance, peak |
+| `story/pitches.json` | LEGACY room only: the three scripts (absent in the treatments flow) |
+| `story/check.json` | LEGACY room only (absent in the treatments flow): `story.mjs check` on the scripts, plus the portfolio result (`shared-line`, `shared-peak-kind`, `shared-turn-kind`, `same-order`, `coverage-dropped`) |
 | `story/plan.json` | the planner's slots and coverage (legacy flow) |
 | `story/truth.md`, `research/claims.json`, `research/BRIEFING.md` | the facts: must-show features, surprising facts, and the only claims a line may state |
-| `research/precedent.md` (when it ran) | what comparable films did |
+| `research/precedent.md` (legacy room, when it ran; the treatments flow never writes it) | what comparable films did |
 | `story/proof-contracts.json`, `story/proof-review.json` (creative-policy runs) | every demonstration the scripts show, and where your proof review goes |
 | `story/moves-verdict.json` and each `story/moves-<label>.json` (when the Moves pass ran) | the hero moves each story must carry (`references/moves.md` section 4) |
 | `references/script.md`, `references/intent.md`, `references/story.md` (Plot engines, Scope), `references/craft.md` | the rubric and story rules |
