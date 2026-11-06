@@ -22,7 +22,7 @@
 // A line may leave the frame only in a deliberate push-through of 1.2 s or less (an oversize word may sweep across the frame cropped,
 // as long as the same line then rests readable). An element (or a parent) marked
 // data-text-fit="ignore" is skipped (a screenshot of a real UI that is meant to bleed off the frame).
-// data-text-fit="bleed" marks deliberate oversized type: NOT an error when its cap height is at least 12% of the frame height and at some sampled time
+// data-text-fit="bleed" marks deliberate oversized type: NOT an error when its cap height is at least 12% of the frame height and at rest
 // at least 60% of each word's glyph box is inside the frame (still recognisable); it is reported as the note `text-bleed`.
 // An accidental crop (no attribute, or a bleed that is too small or never recognisable) still fails.
 // The same samples also measure LINE BLOCKS: text nodes grouped under the first non-inline ancestor (so SplitText
@@ -123,6 +123,8 @@ window.__tfMeasure=function(){
     else if(v.left<sx-e){kind='safe';side='left';}else if(v.right>W-sx+e){kind='safe';side='right';}else if(v.top<sy-e){kind='safe';side='top';}else if(v.bottom>H-sy+e){kind='safe';side='bottom';}
     // data-text-fit="bleed": deliberate oversized type. Per word, the share of its glyph box inside the frame, and the cap height as a share of the frame height
     var bl=el.closest('[data-text-fit="bleed"]'),ws=1,cap=0;
+    // the opt-in counts only on the line itself or on an ancestor holding no other text than this line's block (a wrapper or #root with more text does not whitelist it)
+    if(bl&&bl!==el){var nz=function(x){return String(x.textContent||'').replace(/\\s+/g,'');};if(nz(bl)!==nz(blockOf(el)))bl=null;}
     if(bl){var raw=String(n.nodeValue||''),re=/\\S+/g,mm,mn=1;
       while((mm=re.exec(raw))){var wr=document.createRange();wr.setStart(n,mm.index);wr.setEnd(n,mm.index+mm[0].length);var q=wr.getBoundingClientRect(),qa=q.width*q.height;
         if(qa>0){var ix=Math.max(0,Math.min(q.right,W)-Math.max(q.left,0)),iy=Math.max(0,Math.min(q.bottom,H)-Math.max(q.top,0));mn=Math.min(mn,ix*iy/qa);}}
@@ -290,14 +292,15 @@ export function analyze(byKey, dt, file, notes = []) {
   const edgeMin = Math.floor(TEXT_FIT.edge_s / dt + 1e-9) + 1; // more than 1.2 s
   const restMin = Math.ceil(TEXT_FIT.rest_s / dt - 1e-9); // 0.4 s or more
   for (const [, rows0] of byKey) {
-    // data-text-fit="bleed": deliberate oversized type passes (as a note) when its cap height is at least bleed_cap of the frame height and at some sample at least
-    // bleed_share of each of its words' glyph boxes is inside the frame; otherwise it is judged like any other line
+    // data-text-fit="bleed": deliberate oversized type passes (as a note) when its cap height is at least bleed_cap of the frame height and while at rest (the last rest_s of samples) at least
+    // bleed_share of each of its words' glyph boxes is inside the frame; the attribute counts only on the line or an ancestor with no other text; otherwise it is judged like any other line
     if (rows0.some((r) => r.bl)) {
-      const cap = Math.max(...rows0.map((r) => r.cap || 0)), share = Math.max(...rows0.map((r) => r.ws || 0));
+      const rest = rows0.slice(-Math.max(1, restMin)); // at rest: the last rest_s of samples
+      const cap = Math.max(...rows0.map((r) => r.cap || 0)), share = Math.min(...rest.map((r) => r.ws || 0));
       if (cap >= TEXT_FIT.bleed_cap - 1e-9 && share >= TEXT_FIT.bleed_share - 1e-9) {
         const e = rows0.filter((r) => r.kind === "edge"), t0 = (e[0] || rows0[0]).t, t1 = (e[e.length - 1] || rows0[rows0.length - 1]).t + dt;
         notes.push({ check: "text-bleed", severity: "warning", at: r2(t0), from: r2(t0), to: r2(t1), text: rows0[0].text.slice(0, 40), file: path.basename(file), region: "bleed",
-          message: `note: "${rows0[0].text.slice(0, 40)}" bleeds off the frame on purpose (data-text-fit="bleed"; cap height ${Math.round(cap * 100)}% of the frame, ${Math.round(share * 100)}% of every word in frame at its best)`, fix: "none needed" });
+          message: `note: "${rows0[0].text.slice(0, 40)}" bleeds off the frame on purpose (data-text-fit="bleed"; cap height ${Math.round(cap * 100)}% of the frame, ${Math.round(share * 100)}% of every word in frame at rest)`, fix: "none needed" });
         continue;
       }
     }
