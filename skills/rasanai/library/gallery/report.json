@@ -1,9 +1,9 @@
 {
- "generated": "2026-10-31",
+ "generated": "2026-11-06",
  "size": "960x540",
  "summary": {
-  "total": 59,
-  "ok": 33,
+  "total": 65,
+  "ok": 39,
   "fixed": 26,
   "still-broken": 0
  },
@@ -1003,6 +1003,102 @@
    },
    "duration_s": 7,
    "sheet": "medium-isometric.png"
+  },
+  {
+   "id": "texture-glass-shelf",
+   "kind": "kit",
+   "title": "Kit: RasanTexture.glassShelf (words on a frosted glass slab, reflection, one-settle orb)",
+   "fn": "RasanTexture",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 31.8,
+    "motion": 11.7,
+    "changed_px": 13.45,
+    "seek_diff": 0
+   },
+   "duration_s": 3.6,
+   "sheet": "texture-glass-shelf.png"
+  },
+  {
+   "id": "texture-glass-wipe",
+   "kind": "kit",
+   "title": "Kit: RasanTexture.glassWipe (a slanted pane refracts the line as it travels)",
+   "fn": "RasanTexture",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 23,
+    "motion": 0.9,
+    "changed_px": 0.91,
+    "seek_diff": 0
+   },
+   "duration_s": 3.4,
+   "sheet": "texture-glass-wipe.png"
+  },
+  {
+   "id": "texture-type-collage",
+   "kind": "kit",
+   "title": "Kit: RasanTexture.typeCollage (serif and sans, rotated chips, assembling on twos)",
+   "fn": "RasanTexture",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 40.6,
+    "motion": 11.1,
+    "changed_px": 8.62,
+    "seek_diff": 0
+   },
+   "duration_s": 3.4,
+   "sheet": "texture-type-collage.png"
+  },
+  {
+   "id": "texture-bleed-type",
+   "kind": "kit",
+   "title": "Kit: RasanTexture.bleedType (huge lines enter past the edge, settle cropped, data-text-fit=bleed)",
+   "fn": "RasanTexture",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 67.1,
+    "motion": 27.9,
+    "changed_px": 17.9,
+    "seek_diff": 0
+   },
+   "duration_s": 3.4,
+   "sheet": "texture-bleed-type.png"
+  },
+  {
+   "id": "texture-corner-brackets",
+   "kind": "kit",
+   "title": "Kit: RasanTexture.cornerBrackets (accent squares snap to a block's corners)",
+   "fn": "RasanTexture",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 19.2,
+    "motion": 0,
+    "changed_px": 0.12,
+    "seek_diff": 0
+   },
+   "duration_s": 2.8,
+   "sheet": "texture-corner-brackets.png"
+  },
+  {
+   "id": "texture-slot-list",
+   "kind": "kit",
+   "title": "Kit: RasanTexture.slotList (loops, lands on one item, fixed arrow)",
+   "fn": "RasanTexture",
+   "status": "ok",
+   "notes": [],
+   "metrics": {
+    "max_stddev": 11.2,
+    "motion": 1,
+    "changed_px": 1.04,
+    "seek_diff": 0
+   },
+   "duration_s": 3.4,
+   "sheet": "texture-slot-list.png"
   }
  ]
 }
