@@ -1577,7 +1577,7 @@
     body.appendChild(grid);
     var ctl = h("div", { class: "controls" });
     body.appendChild(ctl);
-    var res = { body: body, q: d.question || (look ? "Pick the look for your film" : "Pick a film"), hint: "Hover " + (look ? "a look" : "a film") + " to see it move · 1 · 2 · 3 to pick", primary: { label: "Make it", run: function () { send(S.current, "choose", local.filmSel); } }, secondary: [] };
+    var res = { body: body, q: d.question || (look ? "Pick the look for your film" : "Pick a film"), hint: "Hover " + (look ? "a look" : "a film") + " to see it move · 1 · 2 · 3 to pick", primary: { label: look ? "Make it with " + (((films.filter(function (x) { return x.id === local.filmSel; })[0] || {}).title) || "this look") : "Make it", run: function () { send(S.current, "choose", local.filmSel); } }, secondary: [] };
     loadRenderer(function () {
       var go = function (g) {
         var byId = {}; ((g && g.presets) || []).forEach(function (p) { byId[p.id] = p; });

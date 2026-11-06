@@ -20,7 +20,7 @@ energy, space and durations are fixed by the plates** (`crew.mjs check` warns wh
 Key frames (5), the gate (6) and the push (7) are as written; the animatic's `scenes` are the plates, `music` is the track, `voice` omitted.
 Notes that change a plate's idea go back to its idea in `chosen-treatment.json` (re-run `treatment.mjs check` and `scenes`); notes on timing snap to downbeats.
 
-1. **Scenes from the chosen script** (craft, `references/craft.md`): build `$RUN/scenes.json` (format: `references/video.md`) from the picked story's beats: one scene per beat (split a long beat into shots if it needs them), its `on_screen`, `visual`, `vo` as the voiceover `line` and `duration_s`, keeping the approved words;
+1. **Scenes from the chosen script** (craft, `references/craft.md`): start with `node $SKILL_DIR/scripts/scenes.mjs from-treatment --run "$RUN"` (maps the chosen treatment's roles hook, turn, meet, proof/capability, payoff, cta to the scene types hook, benefit_highlight, product_intro, feature_showcase, benefit_highlight, cta and fills `message`; edit the result), then build `$RUN/scenes.json` (format: `references/video.md`) from the picked story's beats: one scene per beat (split a long beat into shots if it needs them), its `on_screen`, `visual`, `vo` as the voiceover `line` and `duration_s`, keeping the approved words;
    only timing changes later (the music fit).
    Per scene `id`, `title`, on-screen text, `visual` (what we see), voiceover `line`, `duration`, `type`/`persuasion`/`beat` (launch films), `intensity`, `transition_in`.
    One job per scene; hook in the first 1.5–2 s in outcome language; text held at least 0.4 s per word + 0.6 s; no scene still for more than ~1 s; layouts vary; end card 1.5–3 s.
@@ -32,6 +32,8 @@ Notes that change a plate's idea go back to its idea in `chosen-treatment.json` 
    node $SKILL_DIR/scripts/sound.mjs fit --track <picked file> --scenes "$RUN/scenes.json" [--reveal <s>] [--logo <s>] --out "$RUN/music/plan.json" --write-scenes "$RUN/scenes.json"
    node $SKILL_DIR/scripts/sound.mjs render --plan "$RUN/music/plan.json" --out "$RUN/bed.wav"
    ```
+
+   `music.mjs` refuses (prints `{refused, missing}` and exits 2) until the story's arc exists, so run this step AFTER the score has written `motion/score.json` (its `music_arc`) or pass the chosen treatment's arc yourself: `--arc '{"drop_at":<s>,"payoff_at":<s>,"button_at":<s>}'` with the times of the turn, payoff and end-card scenes from `scenes.json`. A refusal is a stop, not a pass: fix the arc and re-run (`--unplanned "<reason>"` is the one logged escape).
 
    Once local ACE-Step is installed (`music.mjs local-setup`) that install IS the consent: `music.mjs` generates takes to the film's arc, in the concept's music arc shape and style world, with no `--allow-generation` (paid vendors still need it; opt out of generation with `--no-generation`).
    Every fallback to catalog or the original score is logged (`downgrades.jsonl`, the drawer's "Working without"). A song-lyric film needs `audio/lyrics.txt` first (the `lyricist` role).

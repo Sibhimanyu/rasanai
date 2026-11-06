@@ -33,6 +33,37 @@ if (args._[0] === "states") {
   }
   process.exit(0);
 }
+//   node scenes.mjs from-treatment --run <run> [--out <scenes.json>]   writes scenes.json from the chosen treatment (story/chosen-treatment.json, else story/chosen.json): one scene per beat,
+//   its role mapped to the type list (hook, pain_point, product_intro, feature_showcase, benefit_highlight, social_proof, branding, cta), `message` filled from the treatment
+if (args._[0] === "from-treatment") {
+  if (!args.run || args.run === true) die("from-treatment: --run <run> is required");
+  const run = path.resolve(String(args.run));
+  const src = ["chosen-treatment.json", "chosen.json"].map((f) => path.join(run, "story", f)).find((f) => fs.existsSync(f));
+  if (!src) die("from-treatment: no story/chosen-treatment.json or story/chosen.json in the run");
+  const raw = readJSON(src), t = raw.treatment && typeof raw.treatment === "object" ? raw.treatment : raw;
+  const bs = Array.isArray(t.beats) ? t.beats : Array.isArray(raw.beats) ? raw.beats : [];
+  if (!bs.length) die(`from-treatment: ${path.basename(src)} has no beats[]`);
+  const MAP = { hook: "hook", open: "hook", cold_open: "hook", problem: "pain_point", pain: "pain_point", pain_point: "pain_point", turn: "benefit_highlight", meet: "product_intro", intro: "product_intro", hero: "product_intro", product_intro: "product_intro",
+    proof: "feature_showcase", capability: "feature_showcase", demo: "feature_showcase", feature: "feature_showcase", feature_showcase: "feature_showcase", rung: "feature_showcase", payoff: "benefit_highlight", benefit: "benefit_highlight", benefit_highlight: "benefit_highlight",
+    proposition: "benefit_highlight", demonstration: "feature_showcase", accumulation: "benefit_highlight", invitation: "cta", social_proof: "social_proof", testimonial: "social_proof", statement: "branding", brand: "branding", branding: "branding", cta: "cta", close: "cta", end: "cta" };
+  const T = (v) => (v == null ? "" : String(v).replace(/\s+/g, " ").trim());
+  const notes = [];
+  const scenes = bs.map((b, i) => {
+    const role = T(b.grammar_role || b.role).toLowerCase().replace(/[\s-]+/g, "_");
+    const type = MAP[role] || (i === 0 ? "hook" : i === bs.length - 1 ? "cta" : "feature_showcase");
+    if (!MAP[role]) notes.push(`beat ${b.id || i + 1}: role "${role || "(none)"}" is not mapped, used ${type}`);
+    const ve = b.visual_event && typeof b.visual_event === "object" ? b.visual_event : null;
+    const dur = Number(b.duration_s ?? b.duration_provisional_s);
+    const vo = T(b.voiceover ?? b.vo);
+    return { id: T(b.id) || `s${i + 1}`, title: T(b.internal_beat_label || b.name || b.id) || `Scene ${i + 1}`, type, on_screen: T(b.on_screen), ...(vo ? { voiceover: vo } : {}),
+      visual: T(b.visual || b.picture || (ve && ve.change)), ...(dur > 0 ? { duration: dur } : {}), beat: i + 1 };
+  });
+  const message = T(t.one_message || t.proposition || raw.one_message || t.premise || t.logline || t.treatment_title || t.title || raw.title);
+  const outF = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(run, "scenes.json");
+  writeFile(outF, JSON.stringify({ message: message || "(fill in the one thing the video says)", ...(t.length_s ? { length_s: t.length_s } : {}), scenes }, null, 2) + "\n");
+  console.log(JSON.stringify({ ok: true, file: outF, scenes: scenes.length, types: scenes.map((x) => x.type), message_filled: !!message, notes }, null, 2));
+  process.exit(0);
+}
 track("Timing the scenes into a storyboard", "Storyboard timing ready");
 if (!args.scenes || !args.out) die("--scenes <scenes.json> and --out <dir> are required");
 const ROUTES = ["product-launch-video", "faceless-explainer", "pr-to-video", "general-video"];

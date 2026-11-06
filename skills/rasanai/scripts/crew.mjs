@@ -1026,6 +1026,7 @@ function creativeContext(run, role, key, P, ctx, I, O) {
   if (role === "concept-critic") {
     const ps = proofState(run);
     I("proof contracts and the editor's proof review", R(run, "story", "proof-review.json"));
+    ctx.frames_if_present = "frames/ (the styleframe boards) is read only if it exists: the concept gate runs BEFORE the styleframes are drawn, so a missing frames/ is expected, never a finding; judge the script, the intent and the look on their own";
     ctx.concept_keys = "new creative policy: a v2 story also answers demonstrations_preserve_meaning and visual_idea_carries_claim, each {ok: true|false, evidence, fix when not ok}";
     if (ps) ctx.proof_review_inputs = ps.reviewInputs.map((x) => ({ contract_id: x.contract_id, beat_id: x.beat_id }));
   }

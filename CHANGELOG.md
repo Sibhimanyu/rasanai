@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Treatments flow handoff fixes.** `moves.mjs choose` writes `story/intent.json` from the chosen `intent-<Label>.json` and cuts `story/proof-contracts.json` to the chosen treatment (full set kept as `proof-contracts.all.json`); new `scenes.mjs from-treatment --run` maps treatment roles to scene types and fills `message`; the music step documents `--arc` / score order (it already refuses with exit 2); the concept critic treats `frames/` as if-present; `shots-check` warns `layout-repeat` for 3+ neighbouring boards with one layout; the Look page button reads "Make it with <look>".
+
 ## 1.41.0 (2026-11-07): Launch films get craft research gates, readable exposure and a real-product bar
 
 - **Launch gates measure the render's grammar (`lib/grammar-readout.mjs`).** Bleed share, density rhythm and sparse seconds, stepped and non-smooth share, unchanged share and longest still, events per 10 s and a headline-over-card estimate, with bands from the four house reference films. `launch-gates.mjs` adds warnings only: `texture-nonsmooth-low` (a note with a recorded texture departure), `texture-declared-not-rendered` and `holds-unchanged` (unchanged share over 0.10 or a still over 1.5 s outside the end card). `crew.mjs refsheet` writes `crew/ref-jury/readout.json` for the reference juror.

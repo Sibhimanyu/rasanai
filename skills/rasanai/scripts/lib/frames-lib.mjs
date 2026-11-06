@@ -116,6 +116,25 @@ export function checkShots(doc, { duration = null, creativePolicy = null, lookPr
     const a = S[i - 1], b = S[i];
     if (String(a.size).toUpperCase() === String(b.size).toUpperCase() && norm(a.hero) && norm(a.hero) === norm(b.hero)) CE.push(`size-repeat: ${a.id} and ${b.id} share size ${String(b.size).toUpperCase()} and hero "${b.hero}": change the size, or the hero, between neighbours`);
   }
+  // layout-repeat: 3 or more neighbouring boards with the same layout signature (the declared layout, else the anchor, the device and where the text blocks sit)
+  const bucket = (v, n) => { const x = Number(v && typeof v === "object" ? v.x ?? v.left : v); return Number.isFinite(x) ? Math.min(2, Math.max(0, Math.floor((x > 1 ? x / 100 : x) * 3))) : null; };
+  const layoutSig = (s) => {
+    if (filled(s.layout)) return `layout:${norm(typeof s.layout === "string" ? s.layout : JSON.stringify(s.layout))}`;
+    const pos = (Array.isArray(s.type) ? s.type : []).filter((t) => t && typeof t === "object" && t.readable !== false).map((t) => {
+      const w = norm(t.place || t.at || t.pos || t.position || t.align || t.anchor || "");
+      const y = bucket(t.y ?? (t.box && t.box.y), 3), x = bucket(t.x ?? (t.box && t.box.x), 3);
+      return w || (x != null || y != null ? `${x ?? "?"}${y ?? "?"}` : "");
+    }).filter(Boolean);
+    const dev = filled(s.device) && !/^(none|no|n\/a|-)$/i.test(String(typeof s.device === "string" ? s.device : JSON.stringify(s.device)).trim()) ? "ui" : "";
+    const anchor = filled(s.anchor) ? norm(String(s.anchor)) : "";
+    return pos.length || dev || anchor ? `${anchor}|${dev}|${pos.join(",")}` : "";
+  };
+  const sigs = S.map(layoutSig);
+  for (let i = 0; i < S.length; ) {
+    let j = i; while (j + 1 < S.length && sigs[i] && sigs[j + 1] === sigs[i]) j++;
+    if (j - i >= 2) W.push(`layout-repeat: ${S.slice(i, j + 1).map((s) => s.id).join(", ")} share one layout (${sigs[i].slice(0, 60)}): vary where the headline and the UI sit, or the boards read as one slide repeated`);
+    i = j + 1;
+  }
   const sizes = new Set(S.map((s) => String(s.size || "").toUpperCase()).filter((x) => SIZES.includes(x)));
   if ((dur == null || dur >= 20) && S.length >= 3 && sizes.size < 3) CE.push(`sizes-few: ${sizes.size} shot size(s) (${[...sizes].join(", ")}); a film of 20 s or more uses at least 3`);
   const ws = S.filter((s) => String(s.size).toUpperCase() === "WS").length, wsMax = Math.max(1, Math.round((dur || 30) / 30));

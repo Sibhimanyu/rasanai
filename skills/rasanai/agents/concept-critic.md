@@ -71,6 +71,7 @@ You are a quick, cheap pre-flight (you run on Sonnet; the jury before you ran on
 | the brief (`brief.json`: literal sentence and fields) | the words the film is judged against |
 | `story/chosen.json` | the beats: on_screen, vo, visual, the pitch's `engine` and `turn` |
 | `story/intent.json` | proposition, villain, ending first, per-beat buys, relation, importance, peak: does the chosen script's turn reverse something and does its payoff answer the setup |
+| `frames/` (only if present) | the styleframe boards; this gate runs before they are drawn, so a missing `frames/` is expected and never a finding |
 | `story/proof-review.json` | the proof contracts and the editor's proof review |
 | `look/DESIGN.md` | the chosen look (design system) |
 | `decisions.json` | choices made so far, including `strict_brand_film` |
