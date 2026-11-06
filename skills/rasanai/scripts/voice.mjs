@@ -36,10 +36,12 @@
 //   (--no-cache to speak everything again), applies only user-CONFIRMED pronunciations (--glossary <glossary.json>: {entries:[{term, spoken, confirmed_by:"user"}]}), records each take's sample rate,
 //   channels, duration and approximate lead/trail silence, and never clones a voice unless --voice-kind cloned --authorized-by <who> --authorization-ref <where> are given. A local wording
 //   change regenerates only that line: soundplan.mjs voice plans it, and the shot's timing goes through commitTiming.
-//   node voice.mjs speak --run <run> --script <lines.json|lines.txt> [--voice <id>] [--engine auto|heygen|kokoro|edge] [--lang en] [--speed 1] [--retakes 3] [--match 0.92]
+//   node voice.mjs speak --run <run> --script <lines.json|lines.txt> [--voice <id>] [--engine auto|heygen|kokoro|edge|say] [--lang en] [--speed 1] [--retakes 1] [--match 0.92]
 //        [--respell '{"Brand":"bray-nd"}'] [--out <dir>] [--names "Brand,Product"]
 //   -> narration by take, transcribe, retake: each line is spoken, trimmed, transcribed back (verify's alignment) and kept when 92% of its words match, no 3 words are
-//      dropped or added and no non-speech tag ("(laughs)") was heard; otherwise up to 3 retakes (from the second, --respell is applied) and the best take is kept.
+//      dropped or added and no non-speech tag ("(laughs)") was heard; otherwise at most 1 retake, only with changed input
+//      (known brand names respelled phonetically; the same text is never sent twice to one engine) and the best take is kept. --respell applies from take 1. Names are matched
+//      phonetically ("Razan AI" is RasanAI). A HeyGen quota/credit error stops HeyGen at once with a clear message and the next engine on the shared ladder speaks.
 //      A single-word line gets its vowel tail trimmed (TTS adds an "uh" after a lone word). Files: <dir>/line-NN.wav, speak.json. Engines, in order: HeyGen via media-use,
 //      then Kokoro (the kokoro-tts CLI with its model files already on disk: RASANAI_KOKORO_DIR or the cwd) and edge-tts (online, no key) if installed; a model is
 //      never downloaded here. Voice-prompt rules for a model that takes a description: describe the voice (age, pace, warmth), put IPA in quotes for a hard name, never SSML.
@@ -56,6 +58,7 @@ import { noteDowngrade } from "./lib/downgrade.mjs";
 import { loadManifest } from "./lib/film-events.mjs";
 import { decideLanguage, hasWhisperCli, whisperTranscribe } from "./lib/lang.mjs";
 import { applyGlossary, glossaryDigest, lineKey, segmentRecord, voiceAuthorization } from "./lib/voice-cache.mjs"; // Plan 07 A4/A7: confirmed pronunciations, the per-line cache, voice authorization
+import { engineLadder, synthRaw, conditionClip, isQuotaError, errText, nameHeard, canonicalizeHeard, respellKnown } from "./lib/voice-engines.mjs"; // one engine ladder with vo.mjs; quota detection; phonetic name matching
 
 const args = parseArgs();
 function main() {
@@ -216,7 +219,8 @@ async function verify() {
   try { tr = whisperTranscribe(String(args.audio), { model: dec.model.file, lang: dec.lang }); } catch (e) { cannot(`transcription failed: ${String(e.message).split("\n").pop()}`); }
   const maxWer = Number(args["max-wer"] || 0.2);
 
-  const { ref, hyp, link, per, n, m } = align(lines, tr.words);
+  const fz = canonicalizeHeard(tr.words, names); // a phonetic variant of a name ("Razan AI" for RasanAI) is the name; the variants taken are listed per name
+  const { ref, hyp, link, per, n, m } = align(lines, fz.words);
   const findings = [];
   const outLines = lines.map((text, li) => {
     const p = per[li], wer = p.N ? p.err / p.N : 0;
@@ -228,7 +232,7 @@ async function verify() {
   const nameRows = names.map((name) => {
     const toks = norm(name), hits = [];
     for (let k = 0; k + toks.length <= n; k++) if (toks.every((t, d) => ref[k + d].w === t)) hits.push(k);
-    const row = { name, in_script: hits.length, misheard: [] };
+    const row = { name, in_script: hits.length, misheard: [], ...(fz.hits.some((x) => x.name === name) ? { accepted_variants: [...new Set(fz.hits.filter((x) => x.name === name).map((x) => x.heard))] } : {}) };
     if (!toks.length) return row;
     if (!hits.length) { findings.push({ severity: "warning", check: "name-not-in-script", message: `"${name}" is not in the script, so its pronunciation was not checked` }); return row; }
     for (const k of hits) {
@@ -412,29 +416,14 @@ function verifyMix() {
 // ---------------------------------------------------------------- speak
 const KOKORO_DIR = () => [process.env.RASANAI_KOKORO_DIR, process.cwd()].filter(Boolean).find((d) => fs.existsSync(path.join(d, "kokoro-v1.0.onnx")) && fs.existsSync(path.join(d, "voices-v1.0.bin"))) || null;
 const have = (bin) => sh("which", [bin]).status === 0;
-function engineList() {
-  const mu = findSkill("media-use"), tts = mu && path.join(mu, "audio", "scripts", "heygen-tts.mjs");
-  return [
-    { id: "heygen", ok: !!(tts && fs.existsSync(tts) && have("heygen")), why: "needs media-use and the heygen CLI signed in", tts },
-    { id: "kokoro", ok: have("kokoro-tts") && !!KOKORO_DIR(), why: have("kokoro-tts") ? "the kokoro-tts CLI is installed but kokoro-v1.0.onnx and voices-v1.0.bin are not on disk (RASANAI_KOKORO_DIR or the cwd); they are not downloaded here (Apache-2.0 weights, ~330 MB: ask first)" : "the kokoro-tts CLI is not installed" },
-    { id: "edge", ok: have("edge-tts"), why: "the edge-tts CLI is not installed (it also needs the network: Microsoft's online voices, no key)" },
-  ];
-}
+// the ladder is shared with vo.mjs (lib/voice-engines.mjs); speak drives the engines it can run without a key: HeyGen, Kokoro, edge-tts, macOS say
+const engineList = () => engineLadder().filter((e) => ["heygen", "kokoro", "edge", "say"].includes(e.id));
 function synth(eng, text, out, { voice, lang, speed }) {
   const t = tmpDir(), raw = path.join(t, "raw.wav");
   try {
-    if (eng.id === "heygen") execFileSync("node", [eng.tts, text, "-o", raw, ...(voice ? ["--voice", voice] : []), "--lang", lang], { stdio: ["ignore", "pipe", "pipe"], timeout: 180000 });
-    else if (eng.id === "kokoro") {
-      const inp = path.join(t, "in.txt"); fs.writeFileSync(inp, text);
-      execFileSync("kokoro-tts", [inp, raw, "--voice", voice || "af_sarah", "--speed", String(speed), "--lang", lang === "en" ? "en-us" : lang], { cwd: KOKORO_DIR(), stdio: ["ignore", "pipe", "pipe"], timeout: 300000 });
-    } else {
-      const mp3 = path.join(t, "raw.mp3"), pct = Math.round((speed - 1) * 100);
-      execFileSync("edge-tts", ["--text", text, "--voice", voice || ({ en: "en-US-AriaNeural", fr: "fr-FR-DeniseNeural", de: "de-DE-KatjaNeural", es: "es-ES-ElviraNeural", hi: "hi-IN-SwaraNeural", ta: "ta-IN-PallaviNeural", ja: "ja-JP-NanamiNeural" }[lang] || "en-US-AriaNeural"), `--rate=${pct >= 0 ? "+" : ""}${pct}%`, "--write-media", mp3], { stdio: ["ignore", "pipe", "pipe"], timeout: 120000 });
-      execFileSync("ffmpeg", ["-v", "error", "-y", "-i", mp3, "-ar", "24000", "-ac", "1", raw]);
-    }
-    // trim the silence at both ends (keeps 40 ms before and 80 ms after the speech)
-    const r = sh("ffmpeg", ["-v", "error", "-y", "-i", raw, "-af", "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.04,areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.08,areverse", "-ar", "24000", "-ac", "1", out]);
-    if (r.status !== 0) throw new Error("ffmpeg could not trim the take");
+    synthRaw(eng, text, raw, { voice, lang, speed });
+    // trim the silence at both ends (keeps 40 ms before and 80 ms after the speech), then headroom to -3 dBTP; the engine's own rate and channels are kept (HeyGen sources clip at 0 dBFS)
+    conditionClip(raw, out, { tpDb: -3, tempo: eng.id === "say" ? speed : 1 });
   } finally { fs.rmSync(t, { recursive: true, force: true }); }
 }
 function speak() {
@@ -445,7 +434,7 @@ function speak() {
   try { const j = JSON.parse(raw); const a = Array.isArray(j) ? j : j.lines || j.script || []; rates = a.map((x) => (x && typeof x === "object" && x.rate ? Number(x.rate) : null)); } catch {}
   const lines = readScript(String(args.script));
   if (!lines.length) die("the script has no lines");
-  const lang = String(args.lang || "en").toLowerCase(), retakes = Math.max(0, Math.min(3, args.retakes != null ? Number(args.retakes) : 3)), match = Number(args.match || 0.92);
+  const lang = String(args.lang || "en").toLowerCase(), retakes = Math.max(0, Math.min(1, args.retakes != null ? Number(args.retakes) : 1)), match = Number(args.match || 0.92);
   const respell = args.respell && args.respell !== true ? JSON.parse(String(args.respell)) : {};
   const names = String(args.names && args.names !== true ? args.names : "").split(",").map((x) => x.trim()).filter(Boolean);
   const engines = engineList(), want = String(args.engine || "auto");
@@ -468,7 +457,9 @@ function speak() {
   const voiceOf = (e) => ({ id: args.voice && args.voice !== true ? String(args.voice) : "default", provider: e, model: "", version: "unreported", kind: "stock" }); // engines do not report a model version: recorded as unreported, never guessed
   const gd = glossaryDigest(glossary), newSegs = [];
   const probeFmt = (f) => { try { const j = JSON.parse(sh("ffprobe", ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate,channels,channel_layout", "-of", "json", f]).stdout); const st = (j.streams || [])[0] || {}; return { sample_rate: Number(st.sample_rate) || null, channels: Number(st.channels) || null, channel_layout: st.channel_layout || null }; } catch { return {}; } };
-  const apply = (text, k) => (k < 2 ? text : Object.entries(respell).reduce((t, [a, b]) => t.split(a).join(b), text));
+  const userRespell = (text) => Object.entries(respell).reduce((t, [a, b]) => t.split(a).join(b), text); // a confirmed respelling (--respell) applies from take 1
+  const apply = (text, k) => (k < 2 ? userRespell(text) : respellKnown(userRespell(text), names)); // the one retake also respells known brand names phonetically (changed input, never a blind resend)
+  const dead = new Set(), sent = new Set(); // engines stopped by a quota error; (line, engine, text, speed) already sent: never resent unchanged
   let eng = pool[0];
   const rows = [], findings = [];
   lines.forEach((text, i) => {
@@ -479,11 +470,29 @@ function speak() {
     const takes = [];
     for (let k = 1; k <= 1 + retakes; k++) {
       const f = path.join(dir, `line-${nn(i)}-take${k}.wav`);
-      const speed = (rates[i] || Number(args.speed) || 1) * (k > 1 && eng.id !== "heygen" ? 1 + (k % 2 ? -0.03 : 0.03) : 1);
-      let spoke = false;
-      for (const e of [eng, ...pool.filter((p) => p !== eng)]) { try { synth(e, apply(gl(text), k), f, { voice: args.voice && args.voice !== true ? String(args.voice) : undefined, lang, speed }); eng = e; spoke = true; break; } catch (err) { takes.push({ take: k, engine: e.id, error: String(err.stderr || err.message).split("\n").filter(Boolean).pop().slice(0, 140) }); } }
+      const baseSpeed = rates[i] || Number(args.speed) || 1;
+      let spoke = false, same = false;
+      for (const e of [eng, ...pool.filter((p) => p !== eng)]) {
+        if (dead.has(e.id)) continue;
+        const speed = baseSpeed * (k > 1 && e.id !== "heygen" ? 1 + (k % 2 ? -0.03 : 0.03) : 1), spoken = apply(gl(text), k), sig = `${i}|${e.id}|${spoken}|${speed}`;
+        if (sent.has(sig)) { same = true; continue; } // identical input to the same engine gives the same take: no retake
+        sent.add(sig);
+        try { synth(e, spoken, f, { voice: args.voice && args.voice !== true ? String(args.voice) : undefined, lang, speed }); eng = e; spoke = true; break; }
+        catch (err) {
+          const msg = errText(err), last = String(msg).split("\n").filter(Boolean).pop() || "";
+          takes.push({ take: k, engine: e.id, error: last.slice(0, 140) });
+          if (isQuotaError(msg)) {
+            dead.add(e.id);
+            const note = `${e.id}: the voice quota or credit is used up (${last.slice(0, 100)}). Stopped calling it${pool.some((p) => !dead.has(p.id)) ? "; the next engine speaks the rest" : ""}.`;
+            process.stderr.write(`rasanai: ${note}\n`);
+            findings.push({ severity: "warning", check: "engine-quota", message: note, fix: "wait for the allowance to renew, or add ELEVENLABS_API_KEY / OPENAI_API_KEY and use vo.mjs make" });
+            if (!pool.some((p) => !dead.has(p.id))) cannot(`${note} No other speech engine is available.`);
+          }
+        }
+      }
+      if (!spoke) { if (same) break; continue; }
       if (!spoke) continue;
-      const h = listen(f, L), A = align([text], h.words), p = A.per[0], wer = p.N ? p.err / p.N : 0;
+      const h = listen(f, L), A = align([text], canonicalizeHeard(h.words, names).words), p = A.per[0], wer = p.N ? p.err / p.N : 0; // whisper spells a name its own way ("Razan AI"): judged phonetically
       const bad = h.tags.length > 0 || A.maxDrop >= 3 || A.maxAdd >= 3;
       const row = { take: k, engine: eng.id, file: f, wer: r2(wer), heard: p.heard.join(" "), tags: h.tags, dropped_run: A.maxDrop, added_run: A.maxAdd, score: wer + (bad ? 1 : 0), word: h.words.length ? { start: h.words[0].start, end: h.words[h.words.length - 1].end } : null, ok: 1 - wer >= match && !bad };
       takes.push(row);
@@ -499,7 +508,7 @@ function speak() {
       best.tail_trimmed = true;
     } else fs.copyFileSync(best.file, final);
     if (!best.ok) findings.push({ severity: "warning", check: "line-match", line: i + 1, message: `line ${i + 1} "${text.slice(0, 60)}": the best of ${good.length} take(s) matches ${Math.round((1 - best.wer) * 100)}% (needs ${Math.round(match * 100)}%)${best.tags.length ? `, heard a non-speech tag ${best.tags.join(" ")}` : ""}${best.dropped_run >= 3 || best.added_run >= 3 ? `, a run of ${Math.max(best.dropped_run, best.added_run)} words dropped or added` : ""}; heard "${best.heard}"`, fix: "respell the hard words (--respell), another voice, or rewrite the line" });
-    for (const nm of names) if (norm(text).join(" ").includes(norm(nm).join(" ")) && !norm(best.heard).join(" ").includes(norm(nm).join(" "))) findings.push({ severity: "warning", check: "name-misheard", line: i + 1, message: `"${nm}" in line ${i + 1} was heard as "${best.heard}"`, fix: "respell it phonetically for the retake (--respell)" });
+    for (const nm of names) if (norm(text).join(" ").includes(norm(nm).join(" ")) && !nameHeard(nm, best.heard)) findings.push({ severity: "warning", check: "name-misheard", line: i + 1, message: `"${nm}" in line ${i + 1} was heard as "${best.heard}"`, fix: "respell it phonetically for the retake (--respell)" });
     { const fm = probeFmt(final), dur = probeDur(final), w = best.word, lead = w && Number.isFinite(w.start) ? w.start : null, trail = w && Number.isFinite(w.end) ? Math.max(0, dur - w.end) : null;
       const rec = segmentRecord({ segment_id: segId, text, spoken_text: gl(text), locale: lang, voice: voiceOf(best.engine), settings: settingsOf, glossary_digest: gd, file: final, format: { ...fm, duration_s: dur }, silence: { lead_s: lead, trail_s: trail }, handles: { head_s: lead, tail_s: trail } });
       rec.silence.basis = "transcript word times (approximate): not a measured silence"; rec.wer = best.wer; rec.kept_take = best.take; newSegs.push(rec); } // Plan 07 A7: format, lead/trail silence and handles are kept so a later replacement can reconcile pauses
