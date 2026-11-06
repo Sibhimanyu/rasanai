@@ -86,6 +86,7 @@ export function lookStyleOf(run) {
   if (dec.look && typeof dec.look.look_style === "string" && dec.look.look_style.trim()) return dec.look.look_style.trim();
   return null;
 }
+const beatSourceOf = (run) => ["chosen-treatment.json", "intent.json", "chosen.json"].find((f) => rj(P(run, "story", f))) || null;
 const beatsOf = (run) => {
   const t = rj(P(run, "story", "chosen-treatment.json")) || rj(P(run, "story", "intent.json")) || rj(P(run, "story", "chosen.json"));
   return arr(t && (t.beats || (t.treatment && t.treatment.beats)));
@@ -103,6 +104,7 @@ export function creativeLookProfile(run, doc = null) {
   return {
     style: lookStyleOf(run) || (doc && doc.film && doc.film.look_style) || "",
     beatIds: beatIds.length === arr(beatsOf(run)).length ? beatIds : [],
+    beatSource: beatSourceOf(run) ? `beats of story/${beatSourceOf(run)}` : null,
     signatureEvents: events,
     repetitionIntent: arr(brief.repetition_intent).length ? brief.repetition_intent : null,
     protectedText,

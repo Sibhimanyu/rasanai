@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Board layouts are declared, not guessed.** The styleframe designer writes a `layout` per shot from a small enum (`headline-left-ui-right`, `ui-full`, `side-label`, `type-only-center`, `type-over-ui`, `collage`, `image-full`, `diagram`, `split`, `other`); `shots-check` warns `layout-missing` / `layout-unknown`, and `layout-repeat` now fires on declared layouts. A `beat-ref` error now lists the story's beat ids and the file they came from.
+
 - **Treatments flow handoff fixes.** `moves.mjs choose` writes `story/intent.json` from the chosen `intent-<Label>.json` and cuts `story/proof-contracts.json` to the chosen treatment (full set kept as `proof-contracts.all.json`); new `scenes.mjs from-treatment --run` maps treatment roles to scene types and fills `message`; the music step documents `--arc` / score order (it already refuses with exit 2); the concept critic treats `frames/` as if-present; `shots-check` warns `layout-repeat` for 3+ neighbouring boards with one layout; the Look page button reads "Make it with <look>".
 
 ## 1.41.0 (2026-11-07): Launch films get craft research gates, readable exposure and a real-product bar

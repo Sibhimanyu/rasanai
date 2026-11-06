@@ -103,6 +103,7 @@ The dimensional rules (`frames.mjs shots-check` enforces them for a dimensional 
 - 2 readable lines and about 30 characters at most outside one declared density shot;
 - one moment of 35% H or more;
 - the same anchor object in half the shots at most unless it transforms;
+- declare `layout` on every shot (`headline-left-ui-right`, `ui-full`, `side-label`, `type-only-center`, `type-over-ui`, `collage`, `image-full`, `diagram`, `split`, `other`); never the same `layout` in 3 neighbouring shots (`shots-check` warns `layout-missing` and `layout-repeat`): change where the headline and the UI sit;
 - every shot names its key light's side and colour;
 - `film.heroes` names the open, peak and end frames.
 
@@ -244,7 +245,7 @@ The shape of `frames/shots.json`:
                "angle": { "ry": -9, "rx": 5 }, "focus": { "sharp": "the line", "soft": "receipt thumb, the + below (14 px)" },
                "light": { "key": "upper-left", "color": "#ffffff" }, "ground": { "tint": "#efefed", "falloff": "6 L* to lower right" },
                "type": [ { "text": "am I being cheap", "pct": 19 } ], "crop": "composer's left and bottom edges leave frame",
-               "device": "the composer, 12x", "anchor": "composer", "transforms": false,
+               "device": "the composer, 12x", "anchor": "composer", "layout": "type-over-ui", "transforms": false,
                "moment": { "id": "M901", "why": "its click-to-zoom builds this first ask" } } ] }
 ```
 
