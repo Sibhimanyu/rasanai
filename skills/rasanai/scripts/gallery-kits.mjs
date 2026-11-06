@@ -118,8 +118,8 @@ var __rdy = false; window.__extraReady = scene.ready.then(function () { __rdy = 
   // ---- RasanTexture move helpers (launch-moves.md 3, 14, 7/35, 33, 34, 13)
   const tex = rt("rasan-texture.js");
   const texDemo = (id, title, css, code, dur) => out.push(demo({ staticOk: id === "corner-brackets", id: "texture-" + id, title: "Kit: RasanTexture." + title, fn: "RasanTexture", scripts: [moves, tex], css, dur, code }));
-  texDemo("glass-shelf", "glassShelf (words on a frosted slab, reflection, one-settle orb)", "#stage{background:#14161c}",
-    `RasanTexture.glassShelf(tl, 0.2, { target: stage, lead: "You are a really ", text: "busy person", size: 108, orbSize: 36, ground: "dark", duration: 1.5 });`, 3.6);
+  texDemo("glass-shelf", "glassShelf (words on a frosted glass slab, reflection, one-settle orb)", "#stage{background:#14161c}",
+    `RasanTexture.glassShelf(tl, 0.2, { target: stage, lead: "You are a really ", text: "busy person", size: 118, orbSize: 110, ground: "dark", duration: 1.5 });`, 3.6);
   texDemo("glass-wipe", "glassWipe (a slanted pane refracts the line as it travels)", "#stage{background:linear-gradient(120deg,#f4e6dc,#dfe9ee)}",
     `RasanTexture.glassWipe(tl, 0.3, { target: stage, text: "for every conversation", size: 110, duration: 2, ground: "light" });`, 3.4);
   texDemo("type-collage", "typeCollage (serif and sans, rotated chips, assembling on twos)", "#stage{background:#f3efe7}",
@@ -132,7 +132,7 @@ var __rdy = false; window.__extraReady = scene.ready.then(function () { __rdy = 
     `var blk = document.createElement("div"); blk.style.cssText = "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:700 44px/1.15 Inter,sans-serif;color:#16181d;text-align:center"; blk.innerHTML = "And ranks<br>messages by it"; stage.appendChild(blk);
     RasanTexture.cornerBrackets(tl, 0.4, { target: stage, el: blk, color: "#ff6a3d", size: 14, pad: 26, duration: 0.7 });`, 2.8);
   texDemo("slot-list", "slotList (loops, lands on one item, fixed arrow)", "#stage{background:#f4f1ea}",
-    `RasanTexture.slotList(tl, 0.2, { target: stage, lead: "Made for", items: ["direction", "design", "launch", "story", "crafted"], loops: 1, land: 2, fps: 10, duration: 2.2, size: 60, rowH: 90 });`, 3.4);
+    `RasanTexture.slotList(tl, 0.2, { target: stage, lead: "Made for", items: ["direction", "design", "launch", "story", "crafted"], loops: 1, land: 2, fps: 10, duration: 2.2, size: 60, rowH: 90, arrow: true });`, 3.4);
 
   return out;
 }

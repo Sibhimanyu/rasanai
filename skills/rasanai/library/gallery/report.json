@@ -1007,14 +1007,14 @@
   {
    "id": "texture-glass-shelf",
    "kind": "kit",
-   "title": "Kit: RasanTexture.glassShelf (words on a frosted slab, reflection, one-settle orb)",
+   "title": "Kit: RasanTexture.glassShelf (words on a frosted glass slab, reflection, one-settle orb)",
    "fn": "RasanTexture",
    "status": "ok",
    "notes": [],
    "metrics": {
-    "max_stddev": 24.3,
-    "motion": 5.7,
-    "changed_px": 4.15,
+    "max_stddev": 31.8,
+    "motion": 11.7,
+    "changed_px": 13.45,
     "seek_diff": 0
    },
    "duration_s": 3.6,
