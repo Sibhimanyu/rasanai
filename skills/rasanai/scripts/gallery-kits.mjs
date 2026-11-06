@@ -115,5 +115,24 @@ var __rdy = false; window.__extraReady = scene.ready.then(function () { __rdy = 
   const iso = JSON.parse(ex("isometric-system/positive-inputs-to-result.example.json"));
   out.push(demo({ id: "medium-isometric", title: "Kit: MediumIsometric.createMediumScene", fn: "MediumIsometric", scripts: [moves, rt("medium-isometric.js")], dur: 7,
     code: "var ARGS = " + JSON.stringify(iso.createMediumScene_args) + "; ARGS.eventBindings = ARGS.eventBindings || " + JSON.stringify(iso.eventBindings_example) + ";" + drive(6.6).replace("MOUNT", "MediumIsometric.createMediumScene(Object.assign({ root: holder, width: 1920, height: 1080 }, ARGS))") }));
+  // ---- RasanTexture move helpers (launch-moves.md 3, 14, 7/35, 33, 34, 13)
+  const tex = rt("rasan-texture.js");
+  const texDemo = (id, title, css, code, dur) => out.push(demo({ staticOk: id === "corner-brackets", id: "texture-" + id, title: "Kit: RasanTexture." + title, fn: "RasanTexture", scripts: [moves, tex], css, dur, code }));
+  texDemo("glass-shelf", "glassShelf (words on a frosted slab, reflection, one-settle orb)", "#stage{background:#14161c}",
+    `RasanTexture.glassShelf(tl, 0.2, { target: stage, lead: "You are a really ", text: "busy person", size: 108, orbSize: 36, ground: "dark", duration: 1.5 });`, 3.6);
+  texDemo("glass-wipe", "glassWipe (a slanted pane refracts the line as it travels)", "#stage{background:linear-gradient(120deg,#f4e6dc,#dfe9ee)}",
+    `RasanTexture.glassWipe(tl, 0.3, { target: stage, text: "for every conversation", size: 110, duration: 2, ground: "light" });`, 3.4);
+  texDemo("type-collage", "typeCollage (serif and sans, rotated chips, assembling on twos)", "#stage{background:#f3efe7}",
+    `RasanTexture.typeCollage(tl, 0.2, { target: stage, fps: 12, duration: 1.6, words: [{ t: "your", x: .26, y: .34, size: 90, serif: true, italic: true }, { t: "product", x: .5, y: .5, size: 250 }, { t: "is", x: .79, y: .3, size: 80, serif: true, italic: true }, { t: "weak.", x: .64, y: .76, size: 120 }],
+      chips: [{ t: "Weak", x: .38, y: .44, rot: -7, bg: "#ff6a3d", size: 60 }, { html: '<div style="padding:18px 22px;font:600 26px Inter,sans-serif;color:#16181d">Inbox<br><span style="font-weight:400;color:#666">12 unread</span></div>', x: .82, y: .64, w: 220, h: 110, rot: 5 }, { t: "v2", x: .2, y: .7, rot: 8, bg: "#16181d", size: 48 }] });`, 3.4);
+  texDemo("bleed-type", "bleedType (huge lines enter past the edge, settle cropped, data-text-fit=bleed)", "#stage{background:#0c0c0f}",
+    `var r = RasanTexture.bleedType(tl, 0.2, { target: stage, lines: ["26Keys", "improves", "you."], size: 290, crop: 0.1, ink: "#f4f1ea" });
+    window.__bleedAttr = r.lines.map(function (e) { return e.getAttribute("data-text-fit"); }).join(",");`, 3.4);
+  texDemo("corner-brackets", "cornerBrackets (accent squares snap to a block's corners)", "#stage{background:linear-gradient(120deg,#f6e9df,#e2edf0)}",
+    `var blk = document.createElement("div"); blk.style.cssText = "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:700 44px/1.15 Inter,sans-serif;color:#16181d;text-align:center"; blk.innerHTML = "And ranks<br>messages by it"; stage.appendChild(blk);
+    RasanTexture.cornerBrackets(tl, 0.4, { target: stage, el: blk, color: "#ff6a3d", size: 14, pad: 26, duration: 0.7 });`, 2.8);
+  texDemo("slot-list", "slotList (loops, lands on one item, fixed arrow)", "#stage{background:#f4f1ea}",
+    `RasanTexture.slotList(tl, 0.2, { target: stage, lead: "Made for", items: ["direction", "design", "launch", "story", "crafted"], loops: 1, land: 2, fps: 10, duration: 2.2, size: 60, rowH: 90 });`, 3.4);
+
   return out;
 }

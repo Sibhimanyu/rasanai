@@ -13,6 +13,11 @@
  *   RasanTexture.objectSplitsWord(tl, at, { target, text: "here", splitAt: 1, object: { w: 150, h: 420, html: "..." } })
  *   RasanTexture.redactionSlash(tl, at, { target, word: "Woah", color: "#e5322d" })
  *   RasanTexture.slotList(tl, at, { target, items: ["direction", "design", "crafted"], fps: 10, duration: 2.4 })
+ *   RasanTexture.glassShelf(tl, at, { target, lead: "You are a really ", text: "busy person", ground: "dark" })   // move 3
+ *   RasanTexture.glassWipe(tl, at, { target, text: "for every conversation", duration: 1.1 })   // move 33
+ *   RasanTexture.typeCollage(tl, at, { target, words: [{ t: "product", x: .3, y: .5, size: 220 }], chips: [{ t: "Weak", x: .6, y: .5, rot: -6 }], fps: 12 })   // move 14
+ *   RasanTexture.bleedType(tl, at, { target, lines: ["26Keys", "improves", "you."], size: 300 })   // moves 7, 35: each line carries data-text-fit="bleed"
+ *   RasanTexture.cornerBrackets(tl, at, { target, el: block, color: "#ff6a3d" })   // move 34
  *   RasanTexture.scaleTransition(tl, at, { el, from: 6, to: 0.4, duration: 0.9, next: sceneElBehind })
  *   RasanTexture.irisThrough(tl, at, { target, keep: objectEl, cx: 0.5, cy: 0.5, color: "#0b0d12" })
  *   RasanTexture.cutsUnder(tl, at, { layers: [shotA, shotB, shotC], times: [0, 0.9, 1.7], end: 2.6 })   // persistent type over cuts: the type sits on a higher track
@@ -136,14 +141,141 @@
     var host = mk("div", "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:" + px(60 * u), S.c);
     if (o.lead) mk("div", "font:700 " + px((o.size || 110) * u) + "/1 " + (o.font || FONT) + ";color:" + (o.ink || "#111"), host, o.lead);
     var win = mk("div", "position:relative;height:" + px(rowH * 3) + ";overflow:hidden;min-width:" + px(700 * u), host), col = mk("div", "position:absolute;left:0;top:" + px(rowH) + ";width:100%", win);
-    var rows = items.map(function (t) { return mk("div", "height:" + px(rowH) + ";line-height:" + px(rowH) + ";font:700 " + px((o.size || 110) * u) + "/" + px(rowH) + " " + (o.font || FONT) + ";color:" + (o.ink || "#111"), col, t); });
-    var steps = Math.max(1, Math.round(d * fps)), shown = -1;
+    var loops = Math.max(0, o.loops | 0), land = clamp(o.land == null ? n - 1 : o.land, 0, n - 1), all = []; for (var L = 0; L <= loops; L++) all = all.concat(items);
+    if (o.arrow !== false) { col.style.paddingLeft = px(52 * u); mk("div", "position:absolute;left:0;top:" + px(rowH * 1.5) + ";width:0;height:0;margin-top:" + px(-14 * u) + ";border-left:" + px(24 * u) + " solid " + (o.accent || "#ff6a3d") + ";border-top:" + px(14 * u) + " solid transparent;border-bottom:" + px(14 * u) + " solid transparent;z-index:2", win); }
+    var rows = all.map(function (t) { return mk("div", "height:" + px(rowH) + ";line-height:" + px(rowH) + ";font:700 " + px((o.size || 110) * u) + "/" + px(rowH) + " " + (o.font || FONT) + ";color:" + (o.ink || "#111"), col, t); });
+    var steps = Math.max(1, Math.round(d * fps)), shown = -1, travel = loops * n + land;
     prog(tl, at, d, "power2.out", function (p) { // p is eased; quantise to the stepped frame, land exactly on the last item
-      var f = p >= 1 ? steps : Math.floor(p * steps), pos = clamp((f / steps) * (n - 1), 0, n - 1), idx = Math.round(pos);
+      var f = p >= 1 ? steps : Math.floor(p * steps), pos = clamp((f / steps) * travel, 0, travel), idx = Math.round(pos);
       if (idx === shown && p < 1) return; shown = idx;
       col.style.transform = "translateY(" + px(-pos * rowH) + ")"; rows.forEach(function (r, i) { r.style.opacity = i === idx ? "1" : "0.18"; });
     });
     return { end: at + d, el: host };
+  };
+
+  // ------------------------------------------------------------ glass shelf, glass wipe, type collage, bleed type, brackets
+  // Glass shelf (move 3): words land on a frosted slab; a flipped, masked 20% copy is the reflection; an orb drops on to the slab and settles once (about 5%).
+  //   RasanTexture.glassShelf(tl, at, { target, lead: "You are a really ", text: "busy person", size: 78, ground: "dark" | "light", orb: "#ff9a5a" })
+  API.glassShelf = function (tl, at, o) {
+    var S = stage(o), u = S.u, d = o.duration || 1.4, dark = o.ground !== "light", ink = o.ink || (dark ? "#f4f1ea" : "#16181d"), sz = (o.size || 78) * u;
+    var host = mk("div", "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden", S.c);
+    host.setAttribute("data-overlap", "ok"); // the slab, reflection and orb deliberately sit over and under the words
+    var wrap = mk("div", "position:relative;display:inline-block;white-space:pre;font:600 " + px(sz) + "/1.15 " + (o.font || FONT) + ";color:" + ink, host);
+    var lead = mk("span", "", wrap, o.lead == null ? "You are a really " : o.lead);
+    var key = mk("span", "background:linear-gradient(180deg," + ink + " 30%," + (o.tint || "#ff9a5a") + " 140%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent", wrap, o.text || "busy person");
+    var refl = mk("div", "position:absolute;left:0;top:100%;width:100%;white-space:pre;transform:scaleY(-1);transform-origin:50% 0;opacity:.2;pointer-events:none;-webkit-mask-image:linear-gradient(0deg,transparent 0%,#000 100%);mask-image:linear-gradient(0deg,transparent 0%,#000 100%);margin-top:" + px(sz * 0.16), wrap);
+    refl.setAttribute("aria-hidden", "true"); refl.innerHTML = lead.outerHTML + key.outerHTML;
+    var slab = mk("div", "position:absolute;left:" + px(-sz * 0.5) + ";right:" + px(-sz * 0.5) + ";top:100%;margin-top:" + px(sz * 0.08) + ";height:" + px(sz * 0.34) + ";border-radius:" + px(sz * 0.06) + ";background:" + (dark ? "rgba(255,255,255,.07)" : "rgba(20,24,40,.06)") + ";backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid " + (dark ? "rgba(255,255,255,.75)" : "rgba(255,255,255,.95)") + ";box-shadow:0 " + px(sz * 0.2) + " " + px(sz * 0.5) + " rgba(0,0,0," + (dark ? ".5" : ".12") + ")", wrap);
+    var r = (o.orbSize || 30) * u, orb = mk("div", "position:absolute;left:" + px(wrap.offsetWidth * (o.orbAt == null ? 0.18 : o.orbAt)) + ";top:0;width:" + px(r) + ";height:" + px(r) + ";margin-left:" + px(-r / 2) + ";border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0%," + (o.orb || "#ff9a5a") + " 55%,#c4572a 100%)", wrap);
+    var restY = wrap.offsetHeight + sz * 0.08 - r * 0.62, drop = sz * 1.6;
+    gsap.set(wrap, { opacity: 0 }); gsap.set([refl, slab], { opacity: 0 }); gsap.set(orb, { y: restY - drop, opacity: 0 });
+    tl.to(wrap, { opacity: 1, duration: d * 0.3, ease: "power2.out" }, at);
+    tl.to(slab, { opacity: 1, duration: d * 0.3, ease: "power2.out" }, at);
+    tl.to(refl, { opacity: 0.2, duration: d * 0.3, ease: "power2.out" }, at + d * 0.1);
+    tl.set(orb, { opacity: 1 }, at + d * 0.2);
+    tl.to(orb, { y: restY, duration: d * 0.42, ease: "power2.in" }, at + d * 0.2);                       // the fall
+    tl.to(orb, { y: restY - r * 0.28, duration: d * 0.12, ease: "power2.out" }, at + d * 0.62);          // one settle
+    tl.to(orb, { y: restY, duration: d * 0.12, ease: "power2.in" }, at + d * 0.74);
+    return { end: at + d, el: host, words: wrap, slab: slab, orb: orb };
+  };
+
+  // Glass-pane refraction wipe (move 33): a slanted pane travels across a line; inside it the type is refracted (magnified, shifted, softened by a backdrop blur), outside it stays sharp.
+  //   RasanTexture.glassWipe(tl, at, { target, text: "for every conversation", size: 120, duration: 1.1, ground: "light" })
+  API.glassWipe = function (tl, at, o) {
+    var S = stage(o), u = S.u, d = o.duration || 1.1, dark = o.ground === "dark", ink = o.ink || (dark ? "#f4f1ea" : "#16181d"), sz = (o.size || 120) * u, text = o.text || "for every conversation";
+    var host = mk("div", "position:absolute;inset:0;overflow:hidden", S.c);
+    host.setAttribute("data-overlap", "ok"); // the pane deliberately covers the line
+    var css = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;white-space:pre;font:600 " + px(sz) + "/1 " + (o.font || FONT) + ";color:" + ink;
+    mk("div", css, host, text);
+    var pane = mk("div", "position:absolute;inset:0;backdrop-filter:blur(" + px(7 * u) + ");-webkit-backdrop-filter:blur(" + px(7 * u) + ");background:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.04) 60%,rgba(255,255,255,.14));visibility:hidden", host);
+    var inner = mk("div", css + ";transform:scale(1.14,1.02) translateX(" + px(sz * 0.06) + ");filter:blur(" + px(1.2 * u) + ");opacity:.85;pointer-events:none", pane, text); inner.setAttribute("aria-hidden", "true");
+    var edge = mk("div", "position:absolute;top:0;bottom:0;width:" + px(3 * u) + ";background:rgba(255,255,255,.9);box-shadow:0 0 " + px(14 * u) + " rgba(255,255,255,.5);opacity:0", host);
+    var W = S.W, wd = (o.width || 0.2) * W, slant = (o.slant == null ? 0.06 : o.slant) * W, vis = -1;
+    prog(tl, at, d, o.ease || "power2.inOut", function (p) {
+      var x = -wd - slant + p * (W + wd + slant * 2), x2 = x + wd;
+      pane.style.clipPath = "polygon(" + px(x + slant) + " 0," + px(x2 + slant) + " 0," + px(x2 - slant) + " 100%," + px(x - slant) + " 100%)";
+      edge.style.left = px(x - 1.5 * u); edge.style.transform = "skewX(" + (Math.atan(slant * 2 / S.H) * 180 / Math.PI).toFixed(2) + "deg)";
+      var v = p <= 0 || p >= 1 ? 0 : 1; edge.style.opacity = String(v); if (v !== vis) { vis = v; pane.style.visibility = v ? "visible" : "hidden"; }
+    });
+    return { end: at + d, el: host, pane: pane };
+  };
+
+  // Mixed type collage (move 14): words at 2 to 3 sizes (one italic serif), rotated chips and UI objects layered across them, assembling on twos/threes in a seeded order.
+  // x, y are frame fractions (the centre of the piece). A chip is { t } text or { html, w, h } (a UI card, an image) with rot, bg, color.
+  //   RasanTexture.typeCollage(tl, at, { target, words: [{ t: "product", x: .3, y: .5, size: 220 }, { t: "is", x: .5, y: .35, size: 70, serif: true, italic: true }], chips: [{ t: "Weak", x: .6, y: .52, rot: -6, bg: "#ff6a3d" }], fps: 12, duration: 1.4 })
+  API.typeCollage = function (tl, at, o) {
+    var S = stage(o), u = S.u, fps = o.fps || 12, d = o.duration || 1.4, seed = o.seed | 0, ink = o.ink || "#16181d";
+    var host = mk("div", "position:absolute;inset:0;overflow:hidden", S.c);
+    host.setAttribute("data-overlap", "ok"); // layered on purpose: chips and objects cross the letters
+    var SERIF = "'Instrument Serif', 'Playfair Display', Georgia, 'Times New Roman', serif", pieces = [];
+    (o.words || []).forEach(function (w, i) {
+      var e = mk("div", "position:absolute;left:" + (w.x * 100) + "%;top:" + (w.y * 100) + "%;white-space:pre;z-index:" + (1 + i % 2) + ";font:" + (w.italic ? "italic " : "") + (w.weight || (w.serif ? 400 : 700)) + " " + px((w.size || 120) * u) + "/1 " + (w.serif ? SERIF : (o.font || FONT)) + ";letter-spacing:" + (w.serif ? "-0.01em" : "-0.04em") + ";color:" + (w.color || ink), host, w.t);
+      pieces.push({ e: e, rot: w.rot || 0 });
+    });
+    (o.chips || []).forEach(function (c, i) {
+      var css = "position:absolute;left:" + (c.x * 100) + "%;top:" + (c.y * 100) + "%;z-index:" + (10 + i) + ";border-radius:" + px((c.r == null ? 18 : c.r) * u) + ";overflow:hidden;box-shadow:0 " + px(14 * u) + " " + px(36 * u) + " rgba(0,0,0,.18)" + (c.w ? ";width:" + px(c.w * u) + ";height:" + px((c.h || c.w) * u) : ""), e;
+      if (c.html) { e = mk("div", css + ";background:" + (c.bg || "#fff"), host); e.innerHTML = c.html; }
+      else e = mk("div", css + ";background:" + (c.bg || "#ff6a3d") + ";color:" + (c.color || "#fff") + ";padding:" + px(14 * u) + " " + px(30 * u) + ";white-space:pre;font:700 " + px((c.size || 54) * u) + "/1 " + (o.font || FONT), host, c.t || "");
+      pieces.push({ e: e, rot: c.rot || 0 });
+    });
+    need(pieces.length >= 2, "typeCollage needs words and/or chips");
+    var n = pieces.length, frames = Math.max(n + 2, Math.round(d * fps)), order = pieces.map(function (_, i) { return i; });
+    for (var i = n - 1; i > 0; i--) { var j = Math.floor(hash(seed, i, 7) * (i + 1)), t = order[i]; order[i] = order[j]; order[j] = t; } // seeded shuffle of the arrival order
+    var start = []; order.forEach(function (idx, k) { start[idx] = Math.floor(k * (frames - 3) / n); });
+    pieces.forEach(function (p) { p.e.style.translate = "-50% -50%"; p.e.style.visibility = "hidden"; });
+    var last = -2;
+    prog(tl, at, d, "none", function (p) {
+      var f = p >= 1 ? frames : Math.floor(p * frames); if (f === last) return; last = f;
+      pieces.forEach(function (pc, i) {
+        var a = f - start[i]; if (a < 0) { pc.e.style.visibility = "hidden"; return; }
+        var s = a === 0 ? 0.72 : a === 1 ? 1.07 : 1, jr = a < 2 ? (hash(seed, i, a) - 0.5) * 6 : 0; // pop in on steps: small, overshoot, rest
+        pc.e.style.visibility = "visible"; pc.e.style.transform = "rotate(" + (pc.rot + jr).toFixed(2) + "deg) scale(" + s + ")";
+      });
+    });
+    return { end: at + d, el: host, pieces: pieces.map(function (p) { return p.e; }) };
+  };
+
+  // Oversized bleed type (moves 7 and 35): each line is its own element with data-text-fit="bleed", huge (cap height >= 12% of the frame), entering from beyond the edge and settling with a slice
+  // of its first or last letters still cropped by the frame (crop <= 30% of the line, so every word stays recognisable at rest). Lines are staggered and alternate sides.
+  //   RasanTexture.bleedType(tl, at, { target, lines: ["26Keys", "improves", "you."], size: 300, crop: 0.12, stagger: 0.14, duration: 0.9, ink: "#fff" })
+  API.bleedType = function (tl, at, o) {
+    var S = stage(o), u = S.u, lines = o.lines || ["26Keys", "improves", "you."], d = o.duration || 0.9, st = o.stagger == null ? 0.14 : o.stagger, crop = clamp(o.crop == null ? 0.12 : o.crop, 0, 0.3), sz = Math.max((o.size || 300) * u, 0.2 * S.H);
+    var host = mk("div", "position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:" + px(sz * 0.02), S.c);
+    host.setAttribute("data-overlap", "ok");
+    var els = lines.map(function (t) {
+      var e = mk("div", "position:relative;white-space:pre;width:max-content;font:" + (o.weight || 800) + " " + px(sz) + "/0.9 " + (o.font || FONT) + ";letter-spacing:-0.045em;color:" + (o.ink || "#fff"), host, t);
+      e.setAttribute("data-text-fit", "bleed"); // the gate reads the line itself: cap height >= 12% of the frame, >= 60% of each word inside at rest
+      return e;
+    });
+    var W = S.W;
+    els.forEach(function (e, i) {
+      var w = e.offsetWidth, fromLeft = (o.side === "right") ? i % 2 === 1 : i % 2 === 0, rest = fromLeft ? -w * crop : W - w * (1 - crop);
+      gsap.set(e, { x: fromLeft ? -W - w : W });
+      tl.to(e, { x: rest, duration: d, ease: o.ease || "expo.out" }, at + i * st);
+    });
+    return { end: at + d + (lines.length - 1) * st, el: host, lines: els };
+  };
+
+  // Corner selection brackets (move 34): four small accent squares (or L-brackets) frame a block; they start wide and snap in to its corners. Pass el (measured) or box { x, y, w, h } in 1080p frame px.
+  //   RasanTexture.cornerBrackets(tl, at, { target, el: textBlock, color: "#ff6a3d", size: 14, pad: 28, style: "squares" | "brackets", duration: 0.6 })
+  API.cornerBrackets = function (tl, at, o) {
+    var S = stage(o), u = S.u, d = o.duration || 0.6, pad = (o.pad == null ? 28 : o.pad) * u, sq = (o.size || 14) * u, col = o.color || "#ff6a3d", box = o.box, measured = false;
+    if (o.el) { var a = R(o.el).getBoundingClientRect(), b = S.c.getBoundingClientRect(), sc = b.width / S.W || 1; box = { x: (a.left - b.left) / sc, y: (a.top - b.top) / sc, w: a.width / sc, h: a.height / sc }; measured = true; }
+    need(box, "cornerBrackets needs opts.el or opts.box");
+    var m = measured ? 1 : u, bx = box.x * m - pad, by = box.y * m - pad, bw = box.w * m + 2 * pad, bh = box.h * m + 2 * pad;
+    var host = mk("div", "position:absolute;left:" + px(bx) + ";top:" + px(by) + ";width:" + px(bw) + ";height:" + px(bh) + ";pointer-events:none;z-index:8", S.c);
+    host.setAttribute("data-overlap", "ok"); // the brackets sit around, and may touch, the block's text
+    var t = Math.max(2, sq * 0.22);
+    var cs = [[0, 0], [1, 0], [1, 1], [0, 1]].map(function (c) {
+      var pos = "position:absolute;left:" + (c[0] * 100) + "%;top:" + (c[1] * 100) + "%;";
+      var css = o.style === "brackets"
+        ? pos + "width:" + px(sq * 2.2) + ";height:" + px(sq * 2.2) + ";margin:" + px(c[1] ? -sq * 2.2 : 0) + " 0 0 " + px(c[0] ? -sq * 2.2 : 0) + ";border:0 solid " + col + ";border-top-width:" + px(c[1] ? 0 : t) + ";border-bottom-width:" + px(c[1] ? t : 0) + ";border-left-width:" + px(c[0] ? 0 : t) + ";border-right-width:" + px(c[0] ? t : 0)
+        : pos + "width:" + px(sq) + ";height:" + px(sq) + ";margin:" + px(-sq / 2) + " 0 0 " + px(-sq / 2) + ";background:" + col;
+      return mk("div", css, host);
+    });
+    var out = o.from == null ? 0.18 : o.from, ox = bw * out, oy = bh * out;
+    cs.forEach(function (e, i) { var c = [[-1, -1], [1, -1], [1, 1], [-1, 1]][i]; gsap.set(e, { x: c[0] * ox, y: c[1] * oy, opacity: 0, scale: 0.6 }); tl.to(e, { x: 0, y: 0, opacity: 1, scale: 1, duration: d, ease: o.ease || "expo.out" }, at + (o.stagger == null ? 0.04 : o.stagger) * i); });
+    return { end: at + d + 0.12, el: host, corners: cs };
   };
 
   // Scale as transition: the line starts frame-filling (or tiny) and scales continuously; the zoom IS the cut. `next` (optional) is revealed behind it as it passes.
