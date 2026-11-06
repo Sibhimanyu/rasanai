@@ -1,7 +1,7 @@
 // Layered stem mix, driven from Node, rendered by ffmpeg. Never mutes: it carves and shaves.
 //   music, VO and SFX are rendered as separate 48 kHz stereo float stems, then summed, glued and mastered to the platform's loudness.
 //   - the music bed is EQ-carved at 150-300 Hz (and 1.8 kHz) when a voice is present, and NOT ducked by default (the favourites keep the bed constant; SFX sit 0-6 dB over it). A duck (spec.duck_db, 0-9 dB) is an option for VO intelligibility when measured masking needs it,
-//     by a smooth gain lane (0.3 s in, hold, 0.8 s out) computed from the word timings: deterministic, no pumping, nothing ever muted
+//     by a smooth gain lane (0.3 s in, hold 0.25 s, 0.35 s out; one span per phrase, merged only across gaps under 0.6 s, so the bed comes back up in the breaths) computed from the word timings: deterministic, no pumping, nothing ever muted
 //   - SFX are placed by their measured sync point on the picture's hit points (within 60 ms) or the beat grid (within 60 ms); risers end on the hit, whooshes land
 //     3 frames early, impacts on the frame; each gets a stereo position (screen x -> pan, never past 70%), a role-based level against the bed and a band-limit by kind
 //   - master: glue compressor, then masterFile (static gain + 4x-oversampled true-peak limiter): web -14, keynote -16, broadcast -23 LUFS
@@ -76,9 +76,11 @@ export function panGains(p) {
 // ---------------------------------------------------------------- duck lane
 
 const nestMax = (xs) => (xs.length === 0 ? "0" : xs.length === 1 ? xs[0] : `max(${xs[0]},${nestMax(xs.slice(1))})`);
-// linear gain expression of t: -duckDb under VO spans, -keyDb under key cues; 0.3 s in (starting 0.25 s before the first word), hold 0.4 s after, 0.8 s out
+// linear gain expression of t: -duckDb under VO spans, -keyDb under key cues; 0.3 s in (starting 0.25 s before the first word), hold 0.25 s after, 0.35 s out:
+// the lane is fully released 0.6 s after a phrase ends, so a gap longer than that lets the bed come back up (the duck breathes under narration)
+export const DUCK_MERGE_S = 0.6; // phrases closer than this are one span
 export function duckExpr(spans, keyTimes, duckDb, keyDb) {
-  const vo = spans.map(([a, b]) => `min(clip((t-${r3(a - 0.25)})/0.3,0,1),clip((${r3(b + 1.2)}-t)/0.8,0,1))`);
+  const vo = spans.map(([a, b]) => `min(clip((t-${r3(a - 0.25)})/0.3,0,1),clip((${r3(b + 0.6)}-t)/0.35,0,1))`);
   const key = keyTimes.map((T) => `min(clip((t-${r3(T - 0.15)})/0.1,0,1),clip((${r3(T + 0.9)}-t)/0.4,0,1))`);
   return `pow(10,-(${duckDb}*${nestMax(vo)}+${keyDb}*${nestMax(key)})/20)`;
 }
@@ -87,8 +89,24 @@ export function voSpans(vo) {
   let words = vo && vo.words;
   if (typeof words === "string") { const j = JSON.parse(fs.readFileSync(words, "utf8")); words = j.words || j; }
   if (!words || !words.length) return [];
-  return phrasesFromWords(words, 1.2);
+  return phrasesFromWords(words, DUCK_MERGE_S);
 }
+
+// presence / sibilance of a voice stem, in dB relative to its mid band (volumedetect mean volumes): decides the EQ so a bright voice is not pushed brighter
+const bandMean = (file, af) => {
+  const r = spawnSync("ffmpeg", ["-nostdin", "-hide_banner", "-i", file, "-af", `${af},volumedetect`, "-f", "null", "-"], { encoding: "utf8", maxBuffer: 1 << 28 });
+  const m = String(r.stderr || "").match(/mean_volume:\s*(-?[\d.]+)\s*dB/);
+  return m ? Number(m[1]) : null;
+};
+export function voTone(file) {
+  const mid = bandMean(file, "highpass=f=200,lowpass=f=2000"), pres = bandMean(file, "highpass=f=2000,lowpass=f=4500"), sib = bandMean(file, "highpass=f=5000,lowpass=f=10000");
+  if (mid == null || pres == null) return { presence_db: null, sibilance_db: null };
+  return { presence_db: r1(pres - mid), sibilance_db: sib == null ? null : r1(sib - mid) };
+}
+// +2 dB at 3.5 kHz only for a dull voice (HeyGen: about -22); +1 for a middling one; none for a bright one (edge Aria / Guy: about -11)
+export const presenceBoostDb = (presence) => (presence == null ? 2 : presence < -17 ? 2 : presence < -13 ? 1 : 0);
+// gentle de-esser: stronger the more 5-10 kHz energy the voice carries
+export const deessIntensity = (sib) => (sib == null ? 0.3 : sib > -18 ? 0.5 : sib > -22 ? 0.35 : 0.2);
 
 const complement = (spans, D) => {
   const out = [];
@@ -158,10 +176,11 @@ export async function mixFilm(spec, out, { workDir, log = () => {} } = {}) {
     const v = loudness(spec.vo.file);
     const gain = v.lufs != null ? -18 - v.lufs : 0;
     const f = path.join(workDir, "vo.wav");
-    const chain = [STEREO, "highpass=f=80", "equalizer=f=200:t=q:w=1:g=-2", "equalizer=f=3500:t=q:w=1:g=2", `volume=${gain.toFixed(2)}dB`, "acompressor=threshold=0.125:ratio=3:attack=10:release=120:makeup=1.6", "alimiter=limit=0.89:level=disabled", `apad=whole_dur=${D}`, `atrim=end=${D}`].join(",");
+    const tone = voTone(spec.vo.file), boost = presenceBoostDb(tone.presence_db), ess = deessIntensity(tone.sibilance_db);
+    const chain = [STEREO, "highpass=f=80", `deesser=i=${ess}:m=0.5:f=0.5`, "equalizer=f=200:t=q:w=1:g=-2", ...(boost ? [`equalizer=f=3500:t=q:w=1:g=${boost}`] : []), `volume=${gain.toFixed(2)}dB`, "acompressor=threshold=0.125:ratio=3:attack=10:release=120:makeup=1.6", "alimiter=limit=0.89:level=disabled", `apad=whole_dur=${D}`, `atrim=end=${D}`].join(",");
     run([["-i", spec.vo.file]], `[0:a]${chain}[o]`, "o", f, "vo stem", workDir);
     stems.vo = f;
-    voRef = { lufs: loudness(f).lufs, spans: spans.map(([a, b]) => [r3(a), r3(b)]) };
+    voRef = { lufs: loudness(f).lufs, tone, presence_boost_db: boost, deess: ess, spans: spans.map(([a, b]) => [r3(a), r3(b)]) };
   }
 
   // ---- SFX stem
