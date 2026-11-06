@@ -520,7 +520,32 @@ if (cmd === "pack") {
   const merged = { ...mv, label, ranking, heroes, chosen_from: `moves-${label}.json` };
   const f = path.join(run, "story", "moves.json");
   writeFile(f, JSON.stringify(merged, null, 2) + "\n");
-  out({ ok: true, file: cwdRel(f), label, heroes, ranking });
+  // the treatments flow writes intent-<Label>.json only: the chosen one becomes story/intent.json, and the proof contracts shrink to the chosen treatment
+  const handoff = {};
+  const sdir = path.join(run, "story");
+  const intentSrc = path.join(sdir, `intent-${label}.json`);
+  if (fs.existsSync(intentSrc)) { fs.copyFileSync(intentSrc, path.join(sdir, "intent.json")); handoff.intent = "story/intent.json"; }
+  const pcf = path.join(sdir, "proof-contracts.json"), allf = path.join(sdir, "proof-contracts.all.json");
+  const pcRaw = jsonMaybe(fs.existsSync(allf) ? allf : pcf);
+  if (pcRaw && typeof pcRaw === "object") {
+    const list = Array.isArray(pcRaw) ? pcRaw : Array.isArray(pcRaw.contracts) ? pcRaw.contracts : null;
+    if (list) {
+      if (!fs.existsSync(allf)) writeFile(allf, JSON.stringify(pcRaw, null, 2) + "\n");
+      const pitch = jsonMaybe(path.join(sdir, `pitch-${label}.json`)) || {};
+      const tr = pitch.treatment || {};
+      const ids = new Set((Array.isArray(pitch.beats) ? pitch.beats : []).map((b) => b && b.id).filter(Boolean));
+      const mine = new Set([label, tr.id, tr.tag, pitch.treatment_id].filter(Boolean).map(String));
+      const keep = list.filter((c) => {
+        if (!c || typeof c !== "object") return false;
+        const own = [c.treatment_id, c.treatment, c.tag, c.label].filter((x) => x != null).map(String);
+        if (own.length) return own.some((x) => mine.has(x));
+        return ids.size ? ids.has(String(c.beat_id)) : true;
+      });
+      writeFile(pcf, JSON.stringify(Array.isArray(pcRaw) ? keep : { ...pcRaw, contracts: keep }, null, 2) + "\n");
+      handoff.proof_contracts = { kept: keep.length, of: list.length, all: "story/proof-contracts.all.json" };
+    }
+  }
+  out({ ok: true, file: cwdRel(f), label, heroes, ranking, ...handoff });
 } else if (cmd === "record") {
   const run = runDir();
   const mv = jsonMaybe(path.join(run, "story", "moves.json"));
