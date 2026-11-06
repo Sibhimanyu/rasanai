@@ -4,7 +4,7 @@
 //   node brand.mjs read  --file DESIGN.md [--mode light|dark]      -> normalized brand tokens (JSON)
 //   node brand.mjs frame --file DESIGN.md --out <frame.md> [--mode] -> a HyperFrames frame.md (checked with HyperFrames' parser)
 //   node brand.mjs tokens --file DESIGN.md --out <tokens.json>     -> capture/extracted/tokens.json for build-frame.mjs (a preset layout in the brand)
-//   node brand.mjs board --file DESIGN.md --out <dir> [--aspect 16:9] [--mode] -> a brand board (HTML + PNG) for the console
+//   node brand.mjs board --file DESIGN.md --out <dir | file.html> [--aspect 16:9] [--mode] -> a brand board (HTML + PNG) for the console
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, die, writeFile, esc, chromeScreenshot, readLook, normalizeAspect } from "./lib/common.mjs";
@@ -119,8 +119,11 @@ if (cmd === "detect") {
   </div><div><div class="tag">Palette by role</div><div class="chips">${chips.map(([k, v]) => `<div class="chip"><i style="background:${v}"></i><span>${esc(k)}<br>${v}</span></div>`).join("")}</div>
   <div class="card"><div class="tag">Radius ${rad}px${B.shadows.length ? " · shadow from the brand" : " · flat"}</div><p style="margin-top:8px">${B.dos.length ? esc(B.dos[0]) : "One focal element per frame; the accent marks it."}</p></div>
   </div></div></body></html>`;
-  const dir = path.resolve(String(args.out));
-  writeFile(path.join(dir, "brand-board.html"), html);
-  chromeScreenshot(`file://${path.join(dir, "brand-board.html")}`, path.join(dir, "brand-board.png"), W, H, 5000);
-  console.log(JSON.stringify({ ok: true, board: path.relative(process.cwd(), path.join(dir, "brand-board.html")), still: path.relative(process.cwd(), path.join(dir, "brand-board.png")), brand: summary(B) }, null, 2));
+  // --out is a folder, or a file path ending in .html (the still goes beside it with a .png name)
+  const o = path.resolve(String(args.out)), isFile = /\.html?$/i.test(o);
+  const dir = isFile ? path.dirname(o) : o;
+  const htmlP = isFile ? o : path.join(dir, "brand-board.html"), pngP = isFile ? o.replace(/\.html?$/i, ".png") : path.join(dir, "brand-board.png");
+  writeFile(htmlP, html);
+  chromeScreenshot(`file://${htmlP}`, pngP, W, H, 5000);
+  console.log(JSON.stringify({ ok: true, board: path.relative(process.cwd(), htmlP), still: path.relative(process.cwd(), pngP), brand: summary(B) }, null, 2));
 } else die("usage: brand.mjs detect|read|frame|tokens|board (see the header)");

@@ -136,7 +136,18 @@ if (cmd === "local-find") {
         if (m.title && slug(m.title).includes(want)) why.push("README title");
         if (m.remote && slug(m.remote).includes(want)) why.push("git remote");
         if (domain && ((m.homepage && m.homepage.toLowerCase().includes(domain)) || (m.remote && m.remote.toLowerCase().includes(domain.split(".")[0])))) why.push("domain");
-        if (why.length) found.push({ dir: tilde(dir), why, title: m.title || null, remote: m.remote || null, design_md: m.design_md, score: why.length + (why.includes("name") ? 1 : 0) });
+        // a Conductor shell repo holds only its git folder: never offer it empty; offer its worktrees that have files instead
+        let onlyGit = false;
+        try { onlyGit = fs.readdirSync(dir).every((n) => n.startsWith(".")); } catch {} // only dot folders (.git, .conductor, .claude...)
+        if (why.length && onlyGit) {
+          const wt = spawnSync("git", ["-C", dir, "worktree", "list", "--porcelain"], { encoding: "utf8", timeout: 5000 });
+          for (const l of (wt.stdout || "").split("\n")) {
+            const w = l.startsWith("worktree ") ? l.slice(9).trim() : "";
+            let has = false;
+            try { has = !!w && path.resolve(w) !== path.resolve(dir) && fs.readdirSync(w).some((n) => !n.startsWith(".")); } catch {}
+            if (has && !found.some((f) => f.dir === tilde(w))) { const wm = projectMeta(w); found.push({ dir: tilde(w), why: [...why, `worktree of ${tilde(dir)} (that folder holds only its git folder)`], title: wm.title || null, remote: m.remote || null, design_md: wm.design_md, score: why.length + 1 }); }
+          }
+        } else if (why.length) found.push({ dir: tilde(dir), why, title: m.title || null, remote: m.remote || null, design_md: m.design_md, score: why.length + (why.includes("name") ? 1 : 0) });
         if (depth >= 2) return; // don't descend into a project's own subfolders past one level
       }
     }

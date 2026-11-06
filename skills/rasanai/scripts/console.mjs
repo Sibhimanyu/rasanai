@@ -599,6 +599,20 @@ function applyAction(s, action) {
   if (action.step === "brief" && action.type === "submit" && isObj(action.value) && isObj(action.value.sound)) {
     try { const rec = normalizeChoices(action.value.sound); if (!rec.legacy) { const w = writeSoundChoices(RUN, rec); if (!w.ok) activity(s, `Sound choices not saved: ${(w.errors || []).join("; ")}`, "warn", null); } } catch (e) { activity(s, `Sound choices not saved: ${e.message}`, "warn", null); }
   }
+  // the crew reads <run>/brief.json: write what the user actually submitted into it (best effort, never blocks the answer)
+  if (action.step === "brief" && action.type === "submit" && isObj(action.value)) {
+    try {
+      const v = action.value, flat = isObj(v.fields) ? { ...v.fields, ...(v.format !== undefined ? { format: v.format } : {}) } : { ...v };
+      delete flat.sound; delete flat.source;
+      const bp = path.join(RUN, "brief.json"); let b = {}; try { b = JSON.parse(fs.readFileSync(bp, "utf8")); } catch {}
+      if (!isObj(b)) b = {};
+      const tgt = isObj(b.fields) ? b.fields : b;
+      for (const [k, x] of Object.entries(flat)) if (x !== null && x !== undefined) tgt[k] = x;
+      if (flat.length_s === undefined && flat.length !== undefined && flat.length !== null && flat.length !== "" && Number.isFinite(Number(flat.length))) tgt.length_s = Number(flat.length); // a submitted length wins over the pushed one
+      b.submitted = { ts: action.ts, by: "console" };
+      writeJSON(bp, b);
+    } catch (e) { activity(s, `Brief answer not copied to brief.json: ${e.message}`, "warn", null); }
+  }
   if (revisionHook(s, action)) return;
   const typoReply = typographyNoteHook(s, action);
   if (jobControlHook(s, action)) return;
@@ -1118,6 +1132,8 @@ if (cmd === "push") {
     } catch {}
   }
   fs.rmSync(F.console, { force: true });
+  // `stop` stops the auto-restart (address.json goes) but keeps the port and token for the next `serve` of this run, so an open tab reconnects
+  { const a = readJSON(F.address, null); if (a) writeJSON(path.join(RUN, "address.last.json"), a); }
   fs.rmSync(F.address, { force: true });
   console.log(JSON.stringify({ stopped: true }));
 } else if (cmd === "serve") {
@@ -1147,7 +1163,7 @@ function serve() {
       fs.rmSync(F.console, { force: true });
     }
     // a restart keeps the address (unless --port asks for another), so the open tab picks it up again
-    const addr = args.port ? null : readJSON(F.address, null);
+    const addr = args.port ? null : readJSON(F.address, null) || readJSON(path.join(RUN, "address.last.json"), null);
     const c = waitForServer(spawnServer(root, addr));
     if (!c) die("console server did not start");
     console.log(JSON.stringify({ ok: true, url: c.url, pid: c.pid, ...(addr && c.url.includes(addr.token) ? { same_address: true } : {}) }));
