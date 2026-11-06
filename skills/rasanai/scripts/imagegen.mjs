@@ -27,7 +27,7 @@
 //        image is made first and passed as an extra reference to every other image. Paths are relative to the plan.
 //   node imagegen.mjs plan-from-score --score <run>/motion/score.json --out <assets/images/launch-plan.json> [--style "<world style line>"]
 //     launch films: reads the score's per-beat `imagery` refs (a beat names an id from score.imagery_plan[] {id, prompt, aspect?, transparent?, role?}, or "none") and writes the
-//     batch plan for exactly the images the beats use (1 to 4 per film; more is warned). Then: imagegen.mjs batch --plan <that file>. Paths in the plan are relative to it.
+//     batch plan for exactly the images the beats use (4 to 8 per film when Codex is ready; more is warned). Then: imagegen.mjs batch --plan <that file>. Paths in the plan are relative to it.
 //     When art/world.json exists, run `batch --world art/world.json` instead so the images share the world bible; this command then only checks the refs.
 //   node imagegen.mjs sheet --plan <images.json> --out <sheet.jpg>     contact sheet of every image, labelled with its id
 //
@@ -47,7 +47,7 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { parseArgs, normalizeAspect, ASPECTS } from "./lib/common.mjs";
-import { imageryPromptRisk, IMAGERY_STYLE, IMAGERY_AVOID } from "./lib/launch-beats.mjs";
+import { imageryPromptRisk, IMAGERY_STYLE, IMAGERY_AVOID, LB } from "./lib/launch-beats.mjs";
 import { findCodex, codexHome, imageModels, loginStatus, rememberModel, forgetModel, rememberedModel } from "./lib/codex.mjs";
 
 const args = parseArgs();
@@ -338,7 +338,7 @@ function cmdPlanFromScore() {
   const ids = [...new Set(beats.map(ref).filter((v) => v && !/^(none|no|-|n\/a)$/i.test(v)))], problems = [];
   const images = ids.map((id) => { const e = bank.find((x) => x && String(x.id) === id); if (!e || !String(e.prompt || "").trim()) { problems.push(`beat imagery "${id}" has no entry with a prompt in score.imagery_plan[]`); return null; }
     return { id, prompt: String(e.prompt), out: `${id}.png`, ...(e.aspect ? { aspect: String(e.aspect) } : {}), ...(e.transparent ? { transparent: true } : {}) }; }).filter(Boolean);
-  if (images.length > 4) problems.push(`${images.length} images (1 to 4 per launch film: only where they add meaning)`);
+  if (images.length > LB.imagery_max) problems.push(`${images.length} images (${LB.imagery_max} at most per launch film: reuse the strongest 2 to 3 times instead)`);
   // style direction + negative guidance for launch imagery: editorial still life, no people, no neon or blue-glow AI look (references/imagery.md "Launch imagery")
   const peopleOk = sc.imagery_people === true || sc.brief_requires_people === true || sc.people_ok === true || !!args["allow-people"];
   const warnings = peopleOk ? [] : images.map((i) => { const r = imageryPromptRisk(i.prompt); return r.length ? `image "${i.id}" prompt mentions ${r.join(", ")}: people or a neon/glow look reads as AI-generated; draw still-life objects, props, places without people, materials or printed matter (imagery_people: true when the brief requires people)` : ""; }).filter(Boolean);

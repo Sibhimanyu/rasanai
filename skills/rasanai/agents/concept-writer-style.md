@@ -103,7 +103,7 @@ Read `references/launch-grammar.md` (sections 1 to 4, 8 and 11). On a launch fil
 - `signature_transition` is one of: hard cut on a hit | stepped smash | flicker cut | mask/wipe | push/pull | whip | morph | match cut | type morph, with the specific idea; no one transition on more than 30% of the seams.
 - `ground` is `neutral` | `brand-gradient` | `dark`; `type_pairing` names the type pairing.
 - `carrier` is optional: `{ "what", "kind", "beats", "handoff" }`, local, linking 2 or 3 neighbouring beats or bookending, 40% of beats at most; no carrier at all is fine.
-- Call for Codex imagery where a scene needs meaning (a world inside a UI card, an object shot, a cinematic plate; 1 to 4 per film; `shots[].image`).
+- Call for Codex imagery where a scene needs meaning (a world inside a UI card, an object shot, a cinematic plate; 4 to 8 per film when Codex is ready, reused 2 to 3 times; `shots[].image`).
 - Put `ui_proof` on the shots too: each capability's shot in `shots[]` carries `ui_proof` (the one simplified UI mockup that proves the line, e.g. "an inbox list with one reply drafted"), because `story-plates.mjs` reads it from the shot and a capability shot without it is drawn with no proof. Other shots may leave it out.
 - `style_world` is optional. The default is the kinetic-launch grammar (kinetic type, varied scenes, on a neutral, brand-gradient or lit dark ground). Name a world only if the brief asks for one or the idea truly needs it; at most 1 of the jury's 3 picks may use a non-default world.
 - The world-spread rules above (6+ worlds, 4 calm at most, 2+ bold) do not apply on a launch film. Spread is checked on hook, scene plan and signature transition: 3+ distinct per lane, 6+ across the pool, at most 2 ideas sharing any one.

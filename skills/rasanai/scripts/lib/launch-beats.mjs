@@ -12,8 +12,12 @@
 //                   carried-element, zoom-through, ...) (older scores: the seam into the scene, score.seams[{from,to,kind}])
 //   moves           the reference moves the beat uses, by catalogue name (REF_MOVES below; references/launch-moves.md): strings in scenes[].moves[] (the per-tween
 //                   objects the motion laws read may sit in the same array). No move in more than 2 beats. AI-cliche names are warnings (CLICHE_MOVES).
-//   emphasis / line_build   OPTIONAL: how the beat's key word is emphasised, and how its line builds ("typed" | "word-fade" | "slot" | "swap" | "split" ...)
-//   imagery         OPTIONAL: the Codex image the beat uses (a ref into crew/imagery.json / art/assets.json) or "none"
+//   emphasis / line_build   OPTIONAL: how the beat's key word is emphasised ({word, kind}: kind from EMPHASIS_KINDS; a plain string is still read), and how its line builds ("typed" | "word-fade" | "slot" | "swap" | "split" ...)
+//   type_treatment  OPTIONAL: the display treatment of the beat's line (an id from score.type_treatments[]: TYPE_TREATMENTS below)
+//   layout          capability beats: ui-full | side-label | type-then-ui | type-over-ui (title-over-card at most once)
+//   ui_build        proof beats: the steps the UI builds through in place (shell, populate, state-change, result); score.ui_camera names the film's one camera treatment
+//   ground_material OPTIONAL, 1 to 3 beats: grid | hex | halftone | paper | stone | light-shaft | plate
+//   imagery        OPTIONAL: the Codex image the beat uses (a ref into crew/imagery.json / art/assets.json) or "none"
 //   density         "dense" (3+ elements, a collage, a full UI or a full-frame object) | "sparse" (one small line or one object on an empty ground)
 //   logo            true when the mark or wordmark is on screen in the beat
 import { buzzwordHits, buzzwordMessage, BUZZWORD_FIX, ctaProblems, CTA_HOLD_MIN_S } from "./copy-lint.mjs";
@@ -29,7 +33,7 @@ function soft(F, dep, rule, check, message, fix, see) {
   else F.push({ severity: "warning", check, message: `${message} (a default, not a law)`, fix: `${fix}; or keep it and record { rule: "${rule}", why } in score.departures${see ? `; ${see}` : ""}`, basis: "score" });
 }
 
-export const LB = { max_plain_cuts_warn: 0, max_plain_cuts_error: 2, max_logo: 3, carrier_share_max: 0.4, scene_min_types_40s: 5, scene_share_max: 0.3, nonsmooth_min: 0.15, nonsmooth_max: 0.4, transition_share_max: 0.3, imagery_max: 4, max_words_line: 9, min_density_alternations: 2, max_dense_run: 2, beat_median_warn_s: 5 };
+export const LB = { max_plain_cuts_warn: 0, max_plain_cuts_error: 2, max_logo: 3, carrier_share_max: 0.4, scene_min_types_40s: 5, scene_share_max: 0.3, nonsmooth_min: 0.15, nonsmooth_max: 0.4, transition_share_max: 0.3, imagery_max: 8, imagery_ready_min: 4, type_treatments_min_40s: 5, emphasis_kind_max_lines: 2, title_over_card_max: 1, ui_proof_min_area: 25, ground_material_max: 3, max_words_line: 9, min_density_alternations: 2, max_dense_run: 2, beat_median_warn_s: 5 };
 
 // signature curve (references/craft.md "A curve per role"): a launch film puts 70-85% of its moves on one declared curve; the gates warn under 60%
 export const SIG = { share_warn: 0.6, share_aim: [0.7, 0.85], min_moves: 10 };
@@ -173,9 +177,11 @@ export function launchBeatFindings({ plan = null, waived = {} } = {}) {
   F.push(...textureFindings(plan, rows, see, dep));
   // 3c2. AI cliches and move variety
   F.push(...clicheFindings(plan, rows));
-  // 3d. imagery: Codex stills used where they add meaning (1 to 4 per film)
+  // 3d. imagery: Codex stills as content (4 to 8 per film when Codex is ready, reused 2 to 3 times; references/imagery.md "Launch imagery")
   { const refs = [...new Set(rows.map((r) => r.imagery).filter((v) => v && !/^(none|no|-|n\/a)$/i.test(v)))];
-    if (refs.length > LB.imagery_max) F.push({ severity: "warning", check: "imagery-count", message: `${refs.length} distinct Codex images (${LB.imagery_max} at most): use imagery only where it adds meaning, never as wallpaper`, fix: `keep the images that carry meaning (a world inside a UI card, an object shot, a cinematic plate); ${see}`, basis: "score" }); }
+    if (refs.length > LB.imagery_max) F.push({ severity: "warning", check: "imagery-count", message: `${refs.length} distinct Codex images (${LB.imagery_max} at most): reuse the strongest 2 to 3 times instead of adding more`, fix: `keep the images that carry meaning (a world inside a UI card, a collage plate, an object shot) and reuse them; ${see}`, basis: "score" });
+    else if (String(plan.imagegen || "").toLowerCase() === "ready" && refs.length < LB.imagery_ready_min) F.push({ severity: "warning", check: "imagery-count", message: `Codex imagery is ready but the score uses ${refs.length} image(s) (${LB.imagery_ready_min} to ${LB.imagery_max} is the default): the references fill UI cards and collages with still-life worlds`, fix: `plan 4 to 8 still-life or world images used as content inside UI cards and collages, each reused 2 to 3 times; ${see} section 4d`, basis: "score" }); }
+  F.push(...varietyFindings(plan, rows, see, dep));
   F.push(...imageryPromptFindings(plan));
   // 4. copy: one thought per beat; lines over about 9 words on screen at once
   const long = rows.map((r) => ({ r, n: words(r.line) })).filter((x) => x.n > LB.max_words_line);
@@ -267,7 +273,7 @@ export function clicheFindings(plan, rows, see = "references/launch-moves.md") {
   const w = (check, message, fix) => F.push({ severity: "warning", check, message, fix: `${fix}; ${see}`, basis: "score" });
   const per = sc.map((b, i) => {
     const names = moveNamesOf(b), recs = Array.isArray(b.moves) ? b.moves.filter((m) => m && typeof m === "object") : [];
-    const text = [b.emphasis, b.line_build, b.entrance, b.move_note].concat(names).filter((v) => v != null).map(String).join(" ");
+    const text = [emphText(b.emphasis), b.line_build, b.entrance, b.move_note].concat(names).filter((v) => v != null).map(String).join(" ");
     const recText = recs.map((m) => [m.entrance, m.kind, m.effect, m.layer, m.element, m.target, m.what].filter((v) => v != null).join(" ")).join(" ");
     return { id: String(b.id != null ? b.id : b.n != null ? b.n : i + 1), names, text, recs, recText, typed: b.typed === true || /^typed?$/i.test(String(b.line_build || "")) || CLICHE.typed.test(text) };
   });
@@ -368,6 +374,71 @@ export function spikeFinding({ hardCuts, dur, plan = null }) {
 
 // Clarity, proof and call to action (references/launch-grammar.md section 14; fields in references/score.md "Clarity, proof and CTA").
 // All warnings: the film says what it is and who it is for by the turn, shows real UI by about 40%, proves the core job, ends on a held CTA, and says one thing.
+// Type, layout, UI-build and ground variety (all warnings; references/launch-grammar.md sections 2, 5 and 12). The reference films use 7 to 12 type treatments,
+// 4 to 7 emphasis kinds, UI at 30 to 100% of the frame and material grounds; ours used 2, 1 and a headline over a centred card (.context night-1106 grammar findings).
+export const TYPE_TREATMENTS = ["halftone-mega", "outline", "mixed-serif-sans", "dot-matrix", "black-band-bleed", "caption-on-image", "oversized-bleed", "tiny-inline", "split-card", "mono-caption", "stacked-scale", "type-collage"];
+export const EMPHASIS_KINDS = ["gradient-fill", "redaction", "glass-shelf", "word-on-bar", "icon-chip", "serif-swap", "scale", "object-split", "outline", "colour", "weight", "italic"];
+export const CAP_LAYOUTS = ["ui-full", "side-label", "type-then-ui", "type-over-ui", "title-over-card"];
+export const UI_CAMERAS = ["tilted-ui-dolly", "macro-push", "pull-back"];
+export const GROUND_MATERIALS = ["grid", "hex", "halftone", "paper", "stone", "light-shaft", "plate"];
+const COLOUR_ONLY = /^(colou?r|weight|italic)$/;
+export const emphText = (v) => (v && typeof v === "object" ? [v.word, v.kind].filter((x) => x != null).join(" ") : v);
+export const emphKind = (v) => {
+  const t = String(v && typeof v === "object" ? v.kind || "" : v || "").toLowerCase();
+  if (!t.trim()) return null;
+  if (/gradient/.test(t)) return "gradient-fill"; if (/redact|slash/.test(t)) return "redaction"; if (/glass|shelf/.test(t)) return "glass-shelf";
+  if (/\bbar\b|band|pill/.test(t)) return "word-on-bar"; if (/icon|chip/.test(t)) return "icon-chip"; if (/serif/.test(t)) return "serif-swap";
+  if (/split/.test(t)) return "object-split"; if (/outline|stroke/.test(t)) return "outline"; if (/scale|size|zoom|huge/.test(t)) return "scale";
+  if (/colou?r|accent|tint|hue/.test(t)) return "colour"; if (/weight|bold/.test(t)) return "weight"; if (/italic/.test(t)) return "italic";
+  return sceneKey(t);
+};
+const idOf = (v) => sceneKey(v && typeof v === "object" ? v.id || v.kind || v.name || "" : v);
+export function varietyFindings(plan, rows, see = "references/launch-grammar.md", dep = depOf(plan)) {
+  const F = [], sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
+  const w = (check, message, fix) => F.push({ severity: "warning", check, message, fix: `${fix}; ${see}`, basis: "score" });
+  const ids = (a) => a.slice(0, 6).join(", ");
+  const refFilm = /^launch-beats@/.test(String(plan && plan.format || "")); // a reference analysis (library/benchmarks/launch-refs) records beats, not the film-level fields below
+  const total = rows.every((r) => r.dur > 0) ? rows.reduce((a, r) => a + r.dur, 0) : Number(plan && (plan.duration || plan.duration_s)) || 0;
+  // 1. type treatments: a film-level palette of 5+ display treatments in 45 s (score.type_treatments[] plus each beat's type_treatment)
+  { const set = new Set((Array.isArray(plan.type_treatments) ? plan.type_treatments : []).map(idOf).concat(sc.map((s) => idOf(s && s.type_treatment))).filter(Boolean));
+    const need = total >= 40 ? LB.type_treatments_min_40s : total >= 20 ? 3 : 0;
+    if (need && !refFilm && set.size < need) soft(F, dep, "type-treatment-variety", "type-treatment-variety", `${set.size} type treatment(s) declared (${need}+ is the default for a ${Math.round(total)} s film${set.size ? `: ${[...set].join(", ")}` : ""}): the references change the type treatment cut to cut`, `declare score.type_treatments[] (${TYPE_TREATMENTS.slice(0, 6).join(", ")} ...) and set type_treatment per beat`, `${see} section 2`); }
+  // 2. emphasis: one per line, its kind varies; one kind (or colour/weight alone) on more than 2 lines is monotone
+  { const em = rows.map((r, i) => ({ id: r.id, k: words(r.line) > 0 ? emphKind(sc[i] && sc[i].emphasis) : undefined })).filter((x) => x.k !== undefined);
+    const kinds = em.filter((x) => x.k), n = {}; kinds.forEach((x) => { n[x.k] = (n[x.k] || 0) + 1; });
+    const over = Object.entries(n).filter(([, c]) => c > LB.emphasis_kind_max_lines), colour = kinds.filter((x) => COLOUR_ONLY.test(x.k));
+    if (em.length >= 4 && kinds.length < Math.ceil(em.length / 2)) F.push({ severity: "note", check: "emphasis-undeclared", message: "few beats declare emphasis {word, kind}: emphasis variety cannot be checked", fix: `set emphasis: {word, kind} per line (${EMPHASIS_KINDS.slice(0, 8).join(", ")}); ${see} section 2`, basis: "score" });
+    else if (over.length || colour.length > LB.emphasis_kind_max_lines) w("emphasis-monotone", `${over.length ? over.map(([k, c]) => `"${k}" on ${c} lines`).join(", ") : `colour or weight alone on ${colour.length} lines (${ids(colour.map((x) => x.id))})`} (${LB.emphasis_kind_max_lines} at most): the same last-word colour on every line is the AI tell`, "vary the kind line to line: gradient fill, redaction bar, glass shelf, word on a bar, inline icon chip, serif swap, scale, an object splitting the word"); }
+  // 3. capability layout: never a template of headline over a centred card
+  { const cap = rows.map((r, i) => ({ r, s: sc[i] || {} })).filter((x) => /^capabilit/.test(x.r.role));
+    const lay = cap.map((x) => ({ id: x.r.id, l: sceneKey(x.s.layout || "") })).filter((x) => x.l);
+    const toc = lay.filter((x) => /title|headline/.test(x.l) && /card|cent/.test(x.l));
+    if (cap.length >= 2 && !lay.length) w("slide-layout", `capability beat(s) ${ids(cap.map((x) => x.r.id))} declare no layout: the default render is a headline over a centred card`, `set layout per capability beat: ${CAP_LAYOUTS.slice(0, 4).join(" | ")}`);
+    else if (toc.length > LB.title_over_card_max) w("slide-layout", `${toc.length} beats are a title over a centred card (${ids(toc.map((x) => x.id))}; ${LB.title_over_card_max} at most)`, "let the UI fill the frame (ui-full), sit beside a small label (side-label: UI 40 to 60%, label 2 to 4% of the height), follow its line (type-then-ui) or carry the line over it (type-over-ui)");
+    else if (lay.length >= 3 && new Set(lay.map((x) => x.l)).size === 1) w("slide-layout", `every capability beat uses the "${lay[0].l}" layout: the proofs read as one template`, "give the capability beats different layouts"); }
+  // 4. UI proof: big, built in place, one camera treatment for the film
+  { const proof = rows.map((r, i) => ({ r, s: sc[i] || {} })).filter((x) => /^capabilit/.test(x.r.role) || truthy(x.s.core_job_demo) || x.r.scene_type === "ui-proof");
+    const small = proof.filter((x) => Number(x.s.ui_scale) > 0 && Number(x.s.ui_scale) < LB.ui_proof_min_area);
+    if (small.length) w("ui-scale-small", `proof beat(s) ${ids(small.map((x) => `${x.r.id} (${x.s.ui_scale}%)`))} declare UI under ${LB.ui_proof_min_area}% of the frame: a chip, not a proof`, "fill 35 to 60% (or the full frame, tilted or macro); crop the UI rather than shrink it");
+    const withUi = proof.filter((x) => Number(x.s.ui_scale) > 0 || x.r.scene_type === "ui-proof");
+    const steps = (b) => (Array.isArray(b) ? b.length : String(b || "").split(/[>,→\s]+/).filter(Boolean).length);
+    const flat = withUi.filter((x) => steps(x.s.ui_build) < 3);
+    if (flat.length) w("ui-build", `proof beat(s) ${ids(flat.map((x) => x.r.id))} arrive complete (no ui_build of 3 or more steps)`, "build the UI in place: ui_build: [\"shell\", \"populate\", \"state-change\", \"result\"]");
+    const cams = new Set(sc.map((s) => sceneKey(s && s.ui_camera || "")).filter((v) => v && v !== "none"));
+    const film = sceneKey(plan.ui_camera && typeof plan.ui_camera === "object" ? plan.ui_camera.kind || "" : plan.ui_camera || "");
+    if (film && film !== "none") cams.add(film);
+    if (withUi.length && !cams.size) w("ui-camera", "the score names no UI camera treatment (score.ui_camera): every proof sits flat and square to the lens", `pick one for the film: ${UI_CAMERAS.join(" | ")}`);
+    else if (cams.size > 1) w("ui-camera", `${cams.size} UI camera treatments (${[...cams].join(", ")}): one per film reads as a camera language`, "keep one treatment and vary its framing"); }
+  // 5. ground material on 1 to 3 beats; gradients with shape, never blobs
+  { const mat = rows.filter((r, i) => { const v = sceneKey(sc[i] && sc[i].ground_material || ""); return v && v !== "none"; });
+    if (total >= 30 && !mat.length && !refFilm) w("ground-material", "no beat declares a ground_material: every ground is a haze", `put a material ground on 1 to 3 beats (${GROUND_MATERIALS.join(", ")})`);
+    else if (mat.length > LB.ground_material_max) w("ground-material", `${mat.length} beats carry a ground material (${LB.ground_material_max} at most): a material is an accent`, "keep it on 1 to 3 beats, with plain lit grounds between");
+    const BLOB = /blob|aurora|lava|bokeh|mesh[-_ ]?blur|soft[-_ ]?glow/i;
+    const blob = rows.filter((r, i) => BLOB.test([sc[i] && sc[i].ground, sc[i] && sc[i].ground_material, sc[i] && sc[i].gradient].filter((v) => typeof v === "string").join(" ")));
+    if (blob.length || BLOB.test(String(plan.ground_motion || ""))) w("ground-blob", `blob or aurora gradients in ${blob.length ? `beat(s) ${ids(blob.map((r) => r.id))}` : "score.ground_motion"}: shapeless colour reads as AI atmosphere`, "give the gradient a shape: a hard-edged sweep, a band, a lit plane"); }
+  return F;
+}
+
 export const CL = { ui_by: 0.4, clarity_by: 0.25, ui_min_scale: 35, cta_hold_s: CTA_HOLD_MIN_S };
 const S = (v) => String(v == null ? "" : typeof v === "object" ? v.text || v.what || v.name || "" : v).trim();
 export function clarityFindings(plan, rows, see = "references/launch-grammar.md section 14") {

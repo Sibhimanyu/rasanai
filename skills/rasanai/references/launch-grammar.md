@@ -43,6 +43,7 @@ The numbers below came from the house references and the owner's reviews. The pr
 | One transition family | at most about 30% of the designed seams (hard cuts are not counted) | `transition-variety` | a cut is a valid choice; three transition types is not a professional standard |
 | Texture share | stepped, flicker and glitch about 15 to 40% of the runtime | `texture` | stepped motion is a per-track choice, and no source sets its share |
 | Display-scale type | cap height 9% of the frame at least once | `display-scale` | no source supports a minimum type size; crowded copy is cured by editing first |
+| Type treatments | 5 or more in a 45 s film (3 at 20 to 40 s) | `type-treatment-variety` | measured on the four references (7 to 12), not a published standard |
 | Plain cuts | a bare cut names what it lands on | `hard-cuts` | cutting on the beat is neither always right nor always wrong |
 | Dense and sparse | two alternations | `rhythm` | no source gives a dense:sparse ratio |
 | Designed SFX per 10 s | the band for the sound mode (`sound.md`) | `sfx-density` | no source sets an SFX-per-second target |
@@ -108,7 +109,10 @@ Set the character of the motion by beat, because the `beat-profile` warning read
 
 - Give each beat one thought and default to one line, two at most, because the viewer reads while the picture moves.
 - Write second person in plain words ("Your next deal is in here somewhere", "You are a really busy person", "Nobody's watching it") and skip the feature list read aloud, because it sounds like a brochure.
-- Build lines word by word or swap word in place, and give every line exactly one emphasised word (colour, weight, size or italic), the word that carries the turn of the line, because one emphasis is what the eye lands on.
+- Build lines word by word or swap word in place, and give each line one emphasis, the word that carries its turn, and vary its kind line to line, because the eye lands on one word and the same last-word colour on every line is the AI tell (our films: 7 to 9 of 9 lines; the references: 0 or 1).
+  - Declare it per beat as `emphasis: {word, kind}`, kind from: `gradient-fill`, `redaction` (a bar across the word), `glass-shelf`, `word-on-bar`, `icon-chip` (an inline icon between words), `serif-swap`, `scale`, `object-split`, `outline`; `colour`, `weight` and `italic` alone are the plain kinds.
+  - Check: `emphasis-monotone` warns when one kind, or colour or weight alone, carries more than 2 lines.
+- Give the film a type-treatment palette, `type_treatments[]` on the score (5 or more in 45 s), and set `type_treatment` per beat, because the references change the treatment cut to cut (Kinso about 11, TaskShelf about 12) and ours held one sans with a coloured last word. Choose from: `halftone-mega` (halftone display type), `outline`, `mixed-serif-sans`, `dot-matrix`, `black-band-bleed` (oversized type on a black band bleeding off frame), `caption-on-image`, `oversized-bleed`, `tiny-inline`, `split-card`, `mono-caption`, `stacked-scale`, `type-collage`. One display and one body face is not the limit on a launch film; the brand face stays on the claim and end lines when a brand lock holds (`type-treatment-variety`, a default).
 - Open the hook with the viewer's problem or a small surprise, and hold the brand, the product name, a tagline and "introducing" for the meet, because a brand-first open loses the viewer.
 - Take every number, claim and feature from `research/claims.json`, and keep social proof real or absent, because an invented claim breaks trust.
 - Show 3 to 7 words on screen at once and split a longer line into two beats, because readability limits the line.
@@ -168,11 +172,11 @@ Checked by `launch-beats` as guidance (`scene-variety`, `scene-share`, `scene-ne
 
 ### 4d. Codex imagery where a scene needs meaning
 
-Ask for a generated image when a beat would otherwise be an empty card or abstract shapes (`references/imagery.md`, "Launch imagery"; the concept, the designer or the motion director may ask). The three uses are a world inside a UI card (Minase fills its landing pages and cards with generated grass hills, a chair on a mound, flowers), an object or metaphor shot, and a cinematic plate behind type.
+When Codex imagery is ready (`IMAGEGEN=ready`), plan it by default as content (`references/imagery.md`, "Launch imagery"): Minase shows imagery in 44% of its frames, Sovra 35%, ours none. The uses are a world inside a UI card or landing page (Minase: grass hills, a chair on a mound, flowers), a collage plate, an object or metaphor shot, and a cinematic plate behind type.
 
 - Prompt it from the concept and the brand palette, and keep it consistent through the world bible (`art/world.json`), because shared style makes the set one world.
 - Animate it with parallax layers, a push, a light sweep or a stepped reveal, and hold a still at most about 1.2 s, because a static still reads as a slide.
-- Use 1 to 4 images per film, only where they add meaning, because wallpaper adds nothing (`imagery-count` warns above 4).
+- Use 4 to 8 still-life or world images per film when Codex is ready, each reused 2 to 3 times (in a card, then a collage, then behind the payoff), and allow one burst of 5 to 6 plates used once each, because reuse makes a world and wallpaper adds nothing. Without Codex, draw the scene and skip the count. Record `imagegen: "ready"` on the score so the check knows (`imagery-count` warns under 4 when ready, and above 8).
 - Declare it in the score: `imagery_plan[]` {id, prompt, aspect?} at score level and `imagery: "<id>" | "none"` per beat; `node scripts/imagegen.mjs plan-from-score --score motion/score.json --out assets/images/launch-plan.json` writes the batch plan, then `imagegen.mjs batch`.
 - Capture or rebuild UI and a real product's look, and generate none of UI, text, logos or a real person, because the model draws them wrongly and they belong to research.
 - Make the images editorial and tactile (still-life objects and props in natural light, real materials, warm or neutral palettes), keep generated people and neon or blue-glow "cinematic AI" looks out, and take the full style direction, the example prompts and the `imagery-people-or-glow` check from `imagery.md` § Launch imagery, which is their single home, because a person lit by a blue glow reads as AI-generated and hurts a film made with AI.
@@ -188,8 +192,10 @@ Ask for a generated image when a beat would otherwise be an empty card or abstra
 
 - Recreate the UI in simplified form (an inbox list, a phone with a notification, a prompt box, a stat card, a toggle row), because a full-screen screenshot, the whole site or a screen recording is unreadable at film speed.
 - Give each mockup one idea, 3 to 7 rows or elements, real words from the claims and greyed placeholders for the rest, so the viewer reads the one thing it proves.
-- Land the mockup next to the line it proves (type and UI share the frame), enter it by the beat's own move (a mask, a stepped pop, a push, a fly-in) and leave it by the next transition.
-- Crop, tilt or float it as a card if you like, and fill 35 to 60 percent of the frame when it is the proof of a line, because under 25 percent is a chip and not a proof (section 12). One mockup per film may fill 50 percent or more (the hero proof).
+- Lay out each capability beat as one of `layout`: `ui-full` (the UI fills or bleeds off the frame), `side-label` (UI 40 to 60% of the frame, a label 2 to 4% of the height beside it), `type-then-ui` (the line, then the UI replaces it), `type-over-ui` (the line sits on the UI). A title over a centred card is allowed on 1 beat at most, because it is the slide template the references never use (ours: 20 to 60% of frames; Kinso and TaskShelf: none). Check: `slide-layout`.
+- Build the UI in place, never popping in complete: shell, populate, state change, result (`ui_build: ["shell", "populate", "state-change", "result"]`; `ui-build`), with type and UI sharing the frame, and leave by the next transition.
+- Give the film one UI camera treatment (`ui_camera`: `tilted-ui-dolly`, `macro-push` or `pull-back`) and vary its framing beat to beat, because one camera language reads as directed (TaskShelf: about 12 s tilted; `ui-camera`).
+- Fill at least 25 percent of the frame on a proof beat and aim for 35 to 60 (or full-frame, tilted or macro), because under 25 percent is a chip and not a proof (section 12; `ui-scale-small`). One mockup per film may fill 50 percent or more (the hero proof).
 - Enter a mockup with travel or scale paired to its fade, from 0.92 to 0.95 up, because opacity-only and `scale(0)` entrances look cheap. Land heavy UI (the panel, the hero mockup) with no overshoot, and let chips and pills settle only when thrown (`craft.md`, "Weight classes").
 - Use real product pixels (a captured screenshot) only where the product's look itself is the point and the user supplied it; otherwise recreate in the film's palette and type.
 
@@ -227,7 +233,7 @@ Name one of these in the beat's `transition_in` for every beat change:
 
 ## 8. Concept fields for a launch film
 
-Name these in every launch-film concept: `hook_lines` (2 to 4), `turn_line`, `meet` (the reveal beat: what appears, where, how small), `capabilities` (2 or 3 of `{line, ui_proof}`), `payoff` (line plus CTA), `scene_plan[]` (one entry per beat: `{beat, scene_type, texture, move, imagery?}`; 5+ types in 45 s, none over 30%, neighbours differ), `clarity {category, audience, beat}`, `one_message`, `cta` (section 14), `texture_accents[]` (where the stepped or flicker sections are and why), `signature_transition`, `ground` (`neutral` | `brand-gradient` | `dark`), `type_pairing`, plus the usual `signature_moment`, `sound_mode` and `shots[]`.
+Name these in every launch-film concept: `hook_lines` (2 to 4), `turn_line`, `meet` (the reveal beat: what appears, where, how small), `capabilities` (2 or 3 of `{line, ui_proof}`), `payoff` (line plus CTA), `scene_plan[]` (one entry per beat: `{beat, scene_type, texture, move, imagery?}`; 5+ types in 45 s, none over 30%, neighbours differ), `clarity {category, audience, beat}`, `one_message`, `cta` (section 14), `texture_accents[]` (where the stepped or flicker sections are and why), `signature_transition`, `ground` (`neutral` | `brand-gradient` | `dark`), `type_pairing`, `type_treatments[]` (5+ in 45 s, section 2), plus the usual `signature_moment`, `sound_mode` and `shots[]`.
 
 - Treat `carrier {what, kind, beats, handoff}` as optional (local, 40% of beats at most) and `style_world` as optional (absent means the kinetic-launch default); let at most 1 of the jury's 3 picks name a non-default world.
 - Diversify ideas and jury picks by hook, scene plan and signature transition and keep the art style shared, because the jury rewards scene variety and penalises a one-gimmick film.
@@ -249,7 +255,7 @@ This section is the home of the Look rules (section 11 and the Look agents link 
 - Give at least one look a lit atmosphere (a soft brand gradient as in Kinso, OR a coloured light or glow on dark as in Sovra.fm, one dark ground lit by moving purple light, OR a lit white), because lit atmosphere is what the references share. Three different grounds are a recommendation, not a rule.
 - Declare a `motion_language` on every look (in `blend.json` `treatment`) and carry the chosen one onto the score beside `signature_ease`, because one direction of travel and one kind of physics through the whole film is what reads as a motion personality. Every beat's moves follow it (a `heavy` film settles late and never snaps; a `crisp` film cuts clean; an `upward` film rises on every entrance). `motion-language-missing` warns when it is absent.
 - Use the brand palette as atmosphere and keep the logo small on every look.
-- Take a soft brand-gradient ground from the brand's own palette and keep it subtle, and use a blue or purple glow only when the brand palette calls for it, because a default blue or purple glow is the AI look. The references use white, near-black and the brand's own atmosphere.
+- Take a brand-gradient ground from the brand's own palette and give it shape (a hard-edged sweep, a band, a lit plane), never shapeless blobs or aurora haze, and never a blue or purple glow, even for a blue brand, because the owner banned blue glow as the AI look (`ground-blob`). The references use white, near-black, the brand's own atmosphere and material grounds (section 12).
 
 ## 10. Critic checklist
 
@@ -257,10 +263,10 @@ Each item points to the section that holds the rule.
 
 1. The arc is present and in order, within the template timings (section 1).
 2. The hook carries no logo and no product name, and states a problem (sections 1, 2).
-3. Each beat has one thought and one emphasised word (section 2).
+3. Each beat has one thought and one emphasis, the emphasis kind varies line to line, and the film uses 5 or more type treatments (section 2).
 4. The logo count and size follow section 3.
 5. Scene variety holds (4a), texture is mixed (`launch-moves.md` § Motion texture), any carrier is local (4c), and no move is in more than 2 beats (4e).
-6. Each capability has exactly one simplified UI proof beside its line, and none is a screenshot (section 5).
+6. Each capability has exactly one simplified UI proof that builds in place, in a declared layout (title over a centred card once at most), under one camera treatment, and none is a screenshot (section 5).
 7. Seams are named and varied, hard cuts on music hits are fine, and the signature transition recurs 2 to 3 times (section 6).
 8. Dense and sparse alternate and grounds stay neutral or brand atmosphere (sections 7, 12).
 9. Every claim is real (section 2).
@@ -300,6 +306,7 @@ This section is the home of ground and light. It exists because a film made on e
 - Change the ground on the turn, on the meet and on at least one capability, on a music hit and carried by the carrier or a wipe, because a fade to a new colour is a plain fade.
 - Show brand-colour atmosphere (gradient, glow, tint or a flat brand slate) for at least 30% of the film, because a film that is one neutral ground is wrong even when every other gate passes. Declare `ground` per beat (`brand-gradient | dark | white | brand-slate`).
 - Keep the logo small and rare and the colour everywhere, because light brand does not mean no brand.
+- Put a material ground on 1 to 3 beats (`ground_material`: `grid`, `hex`, `halftone`, `paper`, `stone`, `light-shaft`, `plate`), because the references stand type and UI on a surface (Kinso's dark hex slate, Minase's paper and plates) and a film of hazy gradients has no material (`ground-material`).
 - Light small content: small content in a flat, unlit, static void is the defect (the 1.36 film), while small type in a frame lit by colour glow with something moving every second is allowed (Sovra.fm). The gate errors only when coverage is low AND the ground is unlit AND the brand colour is scarce.
 
 **Always moving**
@@ -314,7 +321,7 @@ This section is the home of ground and light. It exists because a film made on e
 
 **3D renders.** Use 3D only when it is lit in the brand atmosphere (brand-colour key and rim light, a gradient ground, no neutral grey studio) and earns its time: it moves, it becomes something (the next scene), and it stays on screen for at most a quarter of the hook. A flat 2D card or kinetic type beats a grey keyboard every time.
 
-**The score fields** (all required on a launch film; `crew.mjs check` refuses a launch score without them): per beat `ground`, `role` (hook | turn | meet | capability | payoff), `hero_scale` (cap height of the biggest line, % of frame height), `ui_scale` (the UI proof's % of frame area, 0 if none) and `hold_s` (longest static hold, s); plus `line`, `scene_type`, `texture` (+ `fps` when stepped), `transition_in`, `density`, `logo`; optional `carrier_state`, `moves_named[]` (catalogue names; `moves[]` is the per-tween records), `imagery`, `cursor_reason` (section 4).
+**The score fields** (all required on a launch film; `crew.mjs check` refuses a launch score without them): per beat `ground`, `role` (hook | turn | meet | capability | payoff), `hero_scale` (cap height of the biggest line, % of frame height), `ui_scale` (the UI proof's % of frame area, 0 if none) and `hold_s` (longest static hold, s); plus `line`, `scene_type`, `texture` (+ `fps` when stepped), `transition_in`, `density`, `logo`; optional `carrier_state`, `moves_named[]` (catalogue names; `moves[]` is the per-tween records), `imagery`, `cursor_reason` (section 4), `emphasis {word, kind}`, `type_treatment` (section 2), `layout`, `ui_build`, `ui_camera` (section 5), `ground_material`; score level `type_treatments[]`, `ui_camera`, `imagegen`.
 
 **The reference jury.** After the draft render and the critics' fixes, and before the Final call, the `reference-juror` (`agents/reference-juror.md`) looks at the film's 1.5 fps contact sheet (`crew.mjs refsheet`) beside the three house reference sheets and scores 1 to 10 on story clarity, typography scale and craft, ground and atmosphere rhythm, motion choreography, scene variety, motion texture contrast, brand-light presence and pacing.
 - Run one targeted fix round (a concrete fix per beat) for any score under 7, then re-check, and put the scores in the Final push.

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Launch films: type, layout, UI and ground variety (doctrine and score warnings).** Each line keeps one emphasis but varies its kind (`emphasis {word, kind}`: gradient fill, redaction, glass shelf, word on a bar, icon chip, serif swap, scale), and the film declares a palette of 5+ `type_treatments` (halftone mega type, outline, mixed serif and sans, dot-matrix, black-band bleed, caption on image). Capability beats declare a `layout` (`ui-full`, `side-label`, `type-then-ui`, `type-over-ui`; title over a centred card once at most), build their UI in place (`ui_build`), share one `ui_camera` (tilted dolly, macro push, pull-back) and fill 25%+ of the frame. 1 to 3 beats get a `ground_material` (grid, hex, halftone, paper, stone, light shaft, plate); gradients take a shape, never blobs, and the blue-glow allowance for blue brands is gone. With Codex ready a film plans 4 to 8 still-life images reused 2 to 3 times (`imagery_max` 4 to 8). New warnings in `lib/launch-beats.mjs`: `type-treatment-variety`, `emphasis-monotone`, `slide-layout`, `ui-build`, `ui-camera`, `ui-scale-small`, `ground-material`, `ground-blob`.
+
 ## 1.40.0 (2026-11-03): Craft research gates and pip/npm tool answers
 
 - **`console.mjs` accepts `tool-ready:` answers with a `pip:` / `npm:` / `app:` prefix (skip answers already match the option text), and the director's launch prompt teaches those prefixes for `install-tool:` asks (Python packages, npm packages, apps).**

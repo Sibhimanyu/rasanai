@@ -106,7 +106,7 @@ Unless the concept is type-only or pure UI, write the world bible before any sce
 2. Anchor first. One master plate, with room for type and about 12% bleed for camera travel, regenerated until it is right. A weak anchor is a weak film.
 3. Style line, 30 to 45 words, frozen: medium, lens, light direction, palette in words, texture, haze, calm side, what is never in it. Use no hex codes. It rides on every prompt.
 4. Usually 3 to 6 images in all. Zero is valid when the type and the UI carry the film.
-   - On a launch film 1 to 4 images go where a scene needs meaning: a world inside a UI card, an object or metaphor shot, a cinematic plate, per `references/imagery.md` "Launch imagery". A burst of 5-6 plates used once each is valid.
+   - On a launch film 4 to 8 images (when Codex is ready, each reused 2 to 3 times) go where a scene needs meaning: a world inside a UI card, an object or metaphor shot, a cinematic plate, per `references/imagery.md` "Launch imagery". A burst of 5-6 plates used once each is valid.
    - The set is the anchor, 1 to 3 plates, an optional character or object sheet (shots that show it list it in `needs`: it becomes a `--ref`), and an optional blank mockup plate ("an empty hoarding, flat blank white panel, no text").
    - For faces use back of head, silhouette, distant figures.
 5. `used_by` for every image: three or more shots, each with `start`, `end` and a mover (T1 to T9 in `references/imagery.md`: parallax, push, dissolve, morph, wipe, pin, drift, atmosphere).
