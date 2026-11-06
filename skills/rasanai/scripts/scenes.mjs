@@ -45,7 +45,7 @@ if (args._[0] === "from-treatment") {
   if (!bs.length) die(`from-treatment: ${path.basename(src)} has no beats[]`);
   const MAP = { hook: "hook", open: "hook", cold_open: "hook", problem: "pain_point", pain: "pain_point", pain_point: "pain_point", turn: "benefit_highlight", meet: "product_intro", intro: "product_intro", hero: "product_intro", product_intro: "product_intro",
     proof: "feature_showcase", capability: "feature_showcase", demo: "feature_showcase", feature: "feature_showcase", feature_showcase: "feature_showcase", rung: "feature_showcase", payoff: "benefit_highlight", benefit: "benefit_highlight", benefit_highlight: "benefit_highlight",
-    social_proof: "social_proof", testimonial: "social_proof", statement: "branding", brand: "branding", branding: "branding", cta: "cta", close: "cta", end: "cta" };
+    proposition: "benefit_highlight", demonstration: "feature_showcase", accumulation: "benefit_highlight", invitation: "cta", social_proof: "social_proof", testimonial: "social_proof", statement: "branding", brand: "branding", branding: "branding", cta: "cta", close: "cta", end: "cta" };
   const T = (v) => (v == null ? "" : String(v).replace(/\s+/g, " ").trim());
   const notes = [];
   const scenes = bs.map((b, i) => {
