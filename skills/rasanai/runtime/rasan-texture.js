@@ -19,6 +19,9 @@
  * Motion blur (references/craft.md "Craft research"):
  *   RasanTexture.motionBlur(tl, at, { el: card, dx: 900, dy: 0, duration: 0.6, ease: "expo.out", fps: 24, shutter: 0.5 })   // a directional blur that follows the SPEED of your own move (same dx, dy, duration, ease); 0 at rest
  *
+ * Gate attributes: objectSplitsWord and redactionSlash set data-overlap="ok" on the host they build (the object deliberately overlaps the word). Hand-built layered type
+ * (a glass shelf, a type collage) sets data-overlap="ok" itself; deliberate oversized bleed type (moves 7 and 35) sets data-text-fit="bleed" (cap height >= 12% of the frame, motion-gate text-fit).
+ *
  * Seek-safety (HyperFrames renders by seeking a paused timeline): every state is a tween on `tl`, or a DOM write inside a tween setter that is a PURE
  * function of that tween's progress (no Math.random: seeded hashes; no clock, no rAF, no timers). `stepped` drives a DETACHED paused helper timeline
  * from one tween on `tl`, quantising its time to 1/fps: seek to 3 s, then 1 s, then 3 s and the pixels are identical. Load after GSAP.
@@ -102,6 +105,7 @@
   API.objectSplitsWord = function (tl, at, o) {
     var S = stage(o), u = S.u, d = o.duration || 1.4, text = o.text || "here", cut = clamp(o.splitAt == null ? Math.floor(text.length / 2) : o.splitAt, 1, text.length - 1);
     var host = mk("div", "position:absolute;inset:0;display:flex;align-items:center;justify-content:center", S.c);
+    host.setAttribute("data-overlap", "ok"); // the object deliberately overlaps the word: text-overlap opts out
     var row = mk("div", "position:relative;display:flex;align-items:center;font:" + (o.weight || 700) + " " + px((o.size || 300) * u) + "/1 " + (o.font || FONT) + ";color:" + (o.ink || "#111") + ";white-space:pre", host);
     var a = mk("span", "display:inline-block", row, text.slice(0, cut)), b = mk("span", "display:inline-block", row, text.slice(cut));
     var ob = o.object || {}, w = (ob.w || 150) * u, h = (ob.h || 420) * u;
@@ -118,6 +122,7 @@
   // The redaction slash: a bar cuts across the middle of the word (the object acts on the word; nothing underlines it).
   API.redactionSlash = function (tl, at, o) {
     var S = stage(o), u = S.u, d = o.duration || 0.5, host = mk("div", "position:absolute;inset:0;display:flex;align-items:center;justify-content:center", S.c);
+    host.setAttribute("data-overlap", "ok"); // the bar deliberately crosses the word: text-overlap opts out
     var pill = mk("div", "position:relative;display:inline-block;padding:" + px(40 * u) + " " + px(90 * u) + ";border-radius:999px;background:" + (o.pillBg || "#fff") + ";font:" + (o.weight || 800) + " " + px((o.size || 220) * u) + "/1 " + (o.font || FONT) + ";color:" + (o.ink || "#111"), host, o.word || "Woah");
     var bar = mk("div", "position:absolute;left:-4%;width:108%;top:50%;height:" + px((o.barH || 30) * u) + ";margin-top:" + px(-(o.barH || 30) * u / 2) + ";background:" + (o.color || "#e5322d") + ";transform-origin:0 50%;transform:rotate(" + (o.angle == null ? -6 : o.angle) + "deg) scaleX(0)", pill);
     tl.to(bar, { scaleX: 1, duration: d, ease: "expo.out" }, at);

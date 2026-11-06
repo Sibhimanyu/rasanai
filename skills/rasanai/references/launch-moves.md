@@ -172,6 +172,8 @@ The score's per-beat `moves_named[]` names these ids. The first four columns are
 |---|---|---|---|
 | 35. `oversized-emerging-type` (recommended payoff move) | the payoff line is where the film spends everything on type | the line emerges at huge scale, offset and staggered line by line, bleeding toward the frame edge, then settles (the v3 "26Keys / improves / you.") | the payoff needs the longest hold of the film more than motion |
 
+**Gate attributes for the type-object and oversized-type moves (1, 2, 3, 7, 14, 35).** Where a move deliberately puts an object, bar or shelf over words, the element carries `data-overlap="ok"` so `text-overlap` does not fail it; `RasanTexture.objectSplitsWord` and `redactionSlash` set it themselves, a hand-built glass shelf or type collage sets it on its wrapper. Moves 7 and 35 (oversized type that bleeds off the frame) mark the line `data-text-fit="bleed"`: it passes `text-fit` as the note `text-bleed` when its cap height is at least 12% of the frame height and at some sampled time at least 60% of every word's glyph box is inside the frame. A smaller line, or one never recognisable, still fails `text-cropped`; do not use `bleed` for accidental crops.
+
 ## AI cliches: replace, or use rarely
 
 The checks are warnings in `launch-beats` (`clicheFindings`, `craftResearchFindings`). The last nine rows come from the professional research's AI-tells list (`.context/motion-craft-research.md`), a ranked editorial diagnosis and not a validated detector; its community critiques are opinions, not studio consensus. Two true invariants, no pulsing glows and no bokeh or floating particles as atmosphere, have no allowed use. Everything else has a replacement or a rare budget.

@@ -61,6 +61,13 @@ ${body}
   const near = tc.find((f) => /Too close/.test(f.text));
   ok("text-fit: motion-gate fails (exit 2) an overflowing line with error text-cropped, its text and its time range", g2.status === 2 && big && big.severity === "error" && big.from === 0 && big.to === 3 && /crosses the left edge/.test(big.message), JSON.stringify(tc).slice(0, 400));
   ok("text-fit: a line outside the 6% safe area at rest is text-cropped too; the fitting line is not", !!near && /safe area/.test(near.message) && !tc.some((f) => /Ask anything/.test(f.text)), JSON.stringify(tc).slice(0, 400));
+  // data-text-fit="bleed": deliberate oversized type passes with a note; the same crop without the attribute, or a bleed too small, still fails
+  const bleedEl = (attr, size) => `<h1 id="bl" ${attr} style="position:absolute;left:-250px;top:300px;font:900 ${size}px/1 Arial;white-space:nowrap;margin:0">Waitlist</h1>`;
+  const bj = (attr, size) => json(node("motion-gate.mjs", ["--project", mk(`bleed-${size}${attr ? "-b" : ""}`, fits + bleedEl(attr, size)), "--json"]));
+  const bOk = bj('data-text-fit="bleed"', 300), bPlain = bj("", 300), bSmall = bj('data-text-fit="bleed"', 100);
+  const crop = (j) => (j.findings || []).filter((f) => f.check === "text-cropped" && /Waitlist/.test(f.text));
+  ok("text-fit: an intentional bleed (data-text-fit=bleed, cap height over 12%, words mostly in frame) is not text-cropped and is reported as the note text-bleed", !crop(bOk).length && (bOk.findings || []).some((f) => f.check === "text-bleed" && /note/.test(f.message)), JSON.stringify(bOk.findings || []).slice(0, 400));
+  ok("text-fit: the same crop without data-text-fit=bleed, and a bleed under 12% cap height, still fail text-cropped", crop(bPlain).length === 1 && crop(bSmall).length === 1, JSON.stringify([crop(bPlain), crop(bSmall)]).slice(0, 400));
   ok("text-fit: --no-text-fit skips the measurement", !(json(node("motion-gate.mjs", ["--project", over1, "--no-text-fit", "--json"])).findings || []).some((f) => f.check === "text-cropped"));
   const s2 = node("slop.mjs", ["--project", over1, "--json"]);
   const sj = json(s2);
