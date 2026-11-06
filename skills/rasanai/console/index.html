@@ -1672,19 +1672,21 @@
     if (!out.length && Array.isArray(st.shots) && st.shots.length) out.push({ shots: st.shots });
     return out;
   }
+  // a board image is relative to the run folder: no absolute path, no "..", no scheme (the server also checks its roots)
+  function boardSrc(v) { v = txt(v); return v && !/^([a-z]+:|\/|\\)/i.test(v) && v.split(/[\/\\]/).indexOf("..") < 0 ? fsUrl(v) : ""; }
   function boardsNode(list, fmt) {
     var wrap = h("div", { class: "boards" });
     list.forEach(function (b) {
       var col = h("div", { class: "board-col", style: "display:grid;gap:10px" });
       var meta = [b.style_world, b.carrier, b.signature_moment, b.sound_mode].map(txt).filter(Boolean).join(" · ");
-      if (b.image) col.appendChild(h("img", { class: "board-img", src: fsUrl(txt(b.image)), alt: "Story board", loading: "lazy", onclick: function () { lightbox(fsUrl(txt(b.image))); } }));
+      if (boardSrc(b.image)) col.appendChild(h("img", { class: "board-img", src: boardSrc(b.image), alt: "Story board", loading: "lazy", onclick: function () { lightbox(boardSrc(b.image)); } }));
       var shots = (Array.isArray(b.shots) ? b.shots : []).filter(function (x) { return x && (typeof x === "object" || typeof x === "string"); });
       if (shots.length) col.appendChild(h("div", { class: "board-strip" }, shots.map(function (x, i) {
         if (typeof x === "string") x = { image: x };
         var cap = txt(x.caption || x.words || x.move), tn = Number(x.t);
         var fig = h("figure", { class: "board-shot" }, [
-          x.image ? h("img", { src: fsUrl(txt(x.image)), alt: cap, loading: "lazy", onclick: function () { lightbox(fsUrl(txt(x.image))); } }) : h("div", { class: "bs-text", text: cap || "Shot " + (i + 1) }),
-          cap || isFinite(tn) && x.t != null ? h("figcaption", { title: cap }, [x.t != null && isFinite(tn) ? h("span", { text: fmt(tn) }) : null, x.image ? cap : ""]) : null
+          boardSrc(x.image) ? h("img", { src: boardSrc(x.image), alt: cap, loading: "lazy", onclick: function () { lightbox(boardSrc(x.image)); } }) : h("div", { class: "bs-text", text: cap || "Shot " + (i + 1) }),
+          cap || isFinite(tn) && x.t != null ? h("figcaption", { title: cap }, [x.t != null && isFinite(tn) ? h("span", { text: fmt(tn) }) : null, boardSrc(x.image) ? cap : ""]) : null
         ]);
         return fig;
       })));
@@ -1973,6 +1975,13 @@
       var f = cands[i]; if (!f || typeof f !== "object") continue;
       var n = Number(f.minutes_left), call = txt(f.next_call);
       if (call && isFinite(n) && f.minutes_left != null) return "About " + Math.max(1, Math.round(n)) + " min until " + call;
+    }
+    // `crew.mjs eta --push` writes the feed line "About N minutes until your Story call" (console.mjs activity): read the newest one
+    var act = Array.isArray(S.activity) ? S.activity : [];
+    for (var j = act.length - 1; j >= 0; j--) {
+      var am = act[j] && typeof act[j].msg === "string" ? act[j].msg : "", m = /^About (\d+) minutes? until your (\w+) call/.exec(am);
+      if (m) return "About " + m[1] + " min until " + m[2].toLowerCase();
+      if (/^Your \w+ call is ready$/.test(am)) return "";
     }
     return "";
   }

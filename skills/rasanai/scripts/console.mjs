@@ -1263,7 +1263,7 @@ function serve() {
       req.on("end", () => {
         let m = "";
         try { m = String(JSON.parse(body).message || ""); } catch {}
-        m = m.replace(/[\u0000-\u001f]/g, " ").slice(0, 300);
+        m = m.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").slice(0, 300);
         if (m) withLock(F.sessionLock, () => { const s = session(); activity(s, `Console could not show part of a screen: ${m}`, "warn", s.working && s.working.msg); saveSession(s); });
         send(200, { ok: true });
       });
