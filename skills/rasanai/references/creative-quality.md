@@ -38,6 +38,8 @@ never approval (that is the user's stage decisions).
   existing screens; a recommendation, a model score, speed or a known brand is never approval.
 - Restraint is a valid choice. Nothing here requires 3D, depth of field, camera moves, giant type, a twist or a
   hero effect per cut.
+- `native_material` is an array of objects `{ "id": "<stable-id>", "kind": "<screen|copy|data|asset|...>", "source_ref": "<a source named in the research>" }`; all three are required for each item.
+- At the proposal stage a signature event needs no `beat_ids` (beats do not exist before the Story); `crew.mjs creative revise --mode story|look` and later checks require them.
 - One or two signature events is a starting heuristic for a launch film, not a rule. A signature event may be
   subtle, silent or static in composition. It must help explain the product. Empty is valid with a reason.
 - Use a different layout when the information changes, never to satisfy a variety quota. Say what repetition is

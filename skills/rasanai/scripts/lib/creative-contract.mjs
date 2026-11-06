@@ -102,8 +102,8 @@ export function validateCreativeBrief(doc, context = {}) {
       if (!ID_RE.test(str(e.id))) errors.push(err("bad_id", `${p}.id`, "id must be a stable identifier"));
       else if (seen.has(e.id)) errors.push(err("duplicate_id", `${p}.id`, `duplicate signature id ${e.id}`));
       else seen.add(e.id);
-      if (!Array.isArray(e.beat_ids) || !e.beat_ids.length) errors.push(err("bad_signature", `${p}.beat_ids`, "assign at least one beat id"));
-      arr(e.beat_ids).forEach((b, j) => {
+      if (later && (!Array.isArray(e.beat_ids) || !e.beat_ids.length)) errors.push(err("bad_signature", `${p}.beat_ids`, "assign at least one beat id"));
+      arr(e.beat_ids).forEach((b, j) => { // proposal: beat ids do not exist before the Story, so none are required (any given are still checked)
         if (!ID_RE.test(str(b))) errors.push(err("bad_id", `${p}.beat_ids[${j}]`, "bad beat id"));
         else if (beats && !beats.has(b)) errors.push(err("unresolved_ref", `${p}.beat_ids[${j}]`, `unknown beat ${b}`));
       });

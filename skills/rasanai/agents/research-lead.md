@@ -55,7 +55,7 @@ The researchers each bring back one slice. You turn the slices into one truth th
 ## House grammar             the precedent's 4-6 rules with numbers (if it ran)
 ## Avoid                     the category clichés and anything no longer true
 ## Resolved                  conflicts and how you decided
-## Ask the user              questions only the user can answer (unreleased features, login-only screens), each with a recommended default
+## Ask the user              questions only the user can answer (unreleased features, login-only screens), each with a recommended default; never list a field the brief already carries (length, narration, aspect, kind, brand, sentence): the user answered it, so use their value
 ```
 
 - Check: `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role research-lead` exits 0: the truth sheet has no gaps, every Proof item is in the ledger, the asset kit's files exist, and the briefing fits on a page.

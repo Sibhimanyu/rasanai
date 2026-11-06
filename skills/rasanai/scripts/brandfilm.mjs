@@ -2,6 +2,7 @@
 // brandfilm.mjs: learn a brand's real film style, and check our film against it.
 //
 //   find     --brand "<name>" [--url <site>] [--product "<p>"] --out <dir>   candidate official videos (no download); a result must name the brand AND (the site domain or the official channel), else none
+//   site     --url <site> [--out <dir>] [--frames 12]            ~12 headless scroll frames of the website (the fallback when no film is found; measure --in <dir> reads them)
 //   fetch    --url <url> | --file <path> --out <dir> [--max-height 720] [--max-duration 180]
 //   frames   --in <video> --out <dir>                            cut-detected + 1 fps frames (<=60 JPGs, 640 px) and 6x6 contact sheets
 //   measure  --in <video|frames dir> --out <grammar.json> [--film <name>] [--structure one-take|montage|...]
@@ -31,6 +32,8 @@ const HELP = `brandfilm.mjs: learn a brand's real film style and gate our film a
 
 Usage
   node brandfilm.mjs find     --brand "OpenAI" [--product "ChatGPT"] --out <dir>
+  node brandfilm.mjs find     --url <site> --run <run folder>    (--brand defaults to the site's host name, --out to <run>/brand-film/find)
+  node brandfilm.mjs site     --url <site> --out <dir>           (no film found: ~12 scroll frames of the website; then measure --in <dir>)
   node brandfilm.mjs fetch    --url <url> | --file <path> --out <dir> [--max-height 720] [--max-duration 180]
   node brandfilm.mjs frames   --in <video> --out <dir>
   node brandfilm.mjs measure  --in <video|frames dir> --out <dir>/grammar.json [--film "refreshed" --structure montage]
@@ -289,9 +292,14 @@ function measure(input) {
 }
 
 // ---------- subcommands ----------
+// the brand name from a site's host ("https://www.rasanai.app/x" -> "rasanai"); the run's brand-film folder from --run / $RUN
+const hostBrand = (u) => { try { return new URL(/^https?:/.test(u) ? u : "https://" + u).hostname.replace(/^www\./, "").split(".")[0]; } catch { return ""; } };
+const runDir = (sub) => { const r = opt("run") || process.env.RUN; return r ? path.join(r, "brand-film", sub) : ""; };
+
 function find() {
-  const brand = opt("brand"), product = opt("product", ""), dir = opt("out");
-  if (!brand || !dir) fail("find needs --brand and --out");
+  const url0 = opt("url", "");
+  const brand = opt("brand") || hostBrand(url0), product = opt("product", ""), dir = opt("out") || runDir("find");
+  if (!brand || !dir) fail("find needs --url <site> (or --brand), and --run <run folder> (or --out)");
   mkdir(dir);
   const flat = (q, n) => {
     const r = run(YTDLP, ["--flat-playlist", "--dump-json", "--no-warnings", "--playlist-end", String(n), q], { timeout: 90000 });
@@ -565,6 +573,50 @@ function compareCmd() {
 }
 
 if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") { console.log(HELP); process.exit(cmd ? 0 : 2); }
-const table = { find, fetch: fetchCmd, frames: framesCmd, measure: measureCmd, card: cardCmd, compare: compareCmd };
+// site: ~12 scroll frames of a website, headless Chrome over the DevTools protocol (no new dependencies), for the "no film found" fallback
+async function siteCmd() {
+  const url = opt("url"), dir = opt("out") || runDir("site"), n = Math.max(2, parseInt(opt("frames", "12"), 10) || 12);
+  const W = parseInt(opt("width", "1440"), 10), H = parseInt(opt("height", "900"), 10);
+  if (!url || !dir) fail("site needs --url <site> and --out <dir> (or --run <run folder>)");
+  mkdir(dir);
+  const { chromePath } = await import("./lib/common.mjs");
+  const { spawn } = await import("node:child_process");
+  const udd = fs.mkdtempSync(path.join(os.tmpdir(), "bf-site-"));
+  const chrome = spawn(chromePath(), ["--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", "--remote-debugging-port=0", `--user-data-dir=${udd}`, `--window-size=${W},${H}`, "about:blank"], { stdio: "ignore" });
+  const cleanup = () => { try { chrome.kill("SIGKILL"); } catch {} try { fs.rmSync(udd, { recursive: true, force: true }); } catch {} };
+  try {
+    const pf = path.join(udd, "DevToolsActivePort");
+    for (let i = 0; i < 100 && !fs.existsSync(pf); i++) await new Promise((r) => setTimeout(r, 100));
+    if (!fs.existsSync(pf)) throw new Error("Chrome did not start (set RASANAI_CHROME)");
+    const [port] = fs.readFileSync(pf, "utf8").split("\n");
+    const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+    const ws = new WebSocket(targets.find((t) => t.type === "page").webSocketDebuggerUrl);
+    await new Promise((res, rej) => { ws.onopen = res; ws.onerror = () => rej(new Error("DevTools connection failed")); });
+    let id = 0; const pend = new Map();
+    ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pend.has(d.id)) { pend.get(d.id)(d); pend.delete(d.id); } };
+    const send = (method, params = {}) => new Promise((res, rej) => { const i = ++id; pend.set(i, (d) => d.error ? rej(new Error(d.error.message)) : res(d.result)); ws.send(JSON.stringify({ id: i, method, params })); });
+    const ev = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true })).result.value;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    await send("Page.enable");
+    await send("Emulation.setDeviceMetricsOverride", { width: W, height: H, deviceScaleFactor: 1, mobile: false });
+    await send("Page.navigate", { url });
+    await sleep(4000);
+    const total = Math.max(H, (await ev("Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)")) || H);
+    const maxY = Math.max(0, total - H), files = [];
+    for (let i = 0; i < n; i++) {
+      const y = Math.round(n === 1 ? 0 : (maxY * i) / (n - 1));
+      await ev(`window.scrollTo(0, ${y})`);
+      await sleep(900);
+      const shot = await send("Page.captureScreenshot", { format: "png" });
+      const f = path.join(dir, `site-${String(i + 1).padStart(2, "0")}.png`);
+      fs.writeFileSync(f, Buffer.from(shot.data, "base64")); files.push(f);
+    }
+    ws.close(); cleanup();
+    out({ ok: true, url, frames: files.length, pageHeight: total, dir, files, next: `brandfilm.mjs measure --in ${dir} --out <run>/brand-film/grammar.json, then card --dir <run>/brand-film` });
+  } catch (e) { cleanup(); fail(`site capture failed: ${e.message}`, 1); }
+  finally { cleanup(); }
+}
+
+const table = { find, site: siteCmd, fetch: fetchCmd, frames: framesCmd, measure: measureCmd, card: cardCmd, compare: compareCmd };
 if (!table[cmd]) fail(`unknown subcommand "${cmd}"\n${HELP}`);
 table[cmd]();
