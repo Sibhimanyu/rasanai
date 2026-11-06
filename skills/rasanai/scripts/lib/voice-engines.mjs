@@ -45,8 +45,8 @@ export function engineLadder() {
 }
 
 // ---------------------------------------------------------------- quota
-export const QUOTA_RE = /seconds?\s+left|renews?\s+(next|in|on)|out of (voice )?(credits?|seconds|minutes)|quota|insufficient (credits?|balance|funds)|credits? (exhausted|used up|depleted)|usage limit|payment required|billing|limit (reached|exceeded)|allowance/i;
-export const isQuotaError = (s) => QUOTA_RE.test(String(s || ""));
+export const QUOTA_RE = /seconds?\s+left|renews?\s+(next|in|on)|out of (voice )?(credits?|seconds|minutes)|quota|insufficient (credits?|balance|funds)|credits? (exhausted|used up|depleted)|usage limit|payment required|billing|(credit|quota|usage|monthly|daily|free|plan) limit (reached|exceeded)|allowance/i;
+export const isQuotaError = (s) => QUOTA_RE.test(String(s || "")) && !/rate.?limit|too many requests|\b429\b/i.test(String(s || "")) ; // a 429 rate limit passes with a wait, it is not an empty allowance
 export const errText = (err) => [err && err.stderr, err && err.stdout, err && err.message].map((x) => (x ? String(x) : "")).join("\n").trim();
 
 // ---------------------------------------------------------------- names: phonetic matching
@@ -69,6 +69,8 @@ export const phoneticKey = (s) => {
   t = t.replace(/ph/g, "f").replace(/[zx]/g, "s").replace(/ck|q|c(?=[aou])/g, "k").replace(/c/g, "s").replace(/(.)\1+/g, "$1");
   return t[0] + t.slice(1).replace(/[aeiouyhw]+/g, "");
 };
+// a variant must be close in spelling AND share the consonant skeleton, so "Motion" / "Nation" never pass for "Notion"
+const winMatch = (win, want) => want.length >= 4 && lev(win, want) <= Math.max(1, Math.round(want.length * 0.25)) && phoneticKey(win) === phoneticKey(want);
 const keyNear = (a, b) => !!a && !!b && (a === b || (Math.min(a.length, b.length) >= 4 && lev(a, b) <= 1));
 // is `name` (e.g. "RasanAI") heard in `heard` (whisper's text)? Exact, then a phonetic / edit-distance match over every window of heard words.
 export function nameHeard(name, heard) {
@@ -79,8 +81,7 @@ export function nameHeard(name, heard) {
   const want = nm.join(""), wantKey = phoneticKey(want);
   for (let size = 1; size <= nm.length + 2; size++) for (let k = 0; k + size <= hw.length; k++) {
     const win = hw.slice(k, k + size).join("");
-    if (lev(win, want) <= Math.max(1, Math.round(want.length * 0.25))) return true;
-    if (want.length >= 4 && keyNear(phoneticKey(win), wantKey)) return true;
+    if (winMatch(win, want)) return true;
   }
   return false;
 }
@@ -176,7 +177,7 @@ export function paceFix(words, dur, speed = 1) {
 
 // ---------------------------------------------------------------- names in whisper's text
 const normTok = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-const winMatch = (win, want) => want.length >= 4 && (lev(win, want) <= Math.max(1, Math.round(want.length * 0.25)) || keyNear(phoneticKey(win), phoneticKey(want)));
+
 // words: [{text,start,end}] from whisper. Wherever a window of heard words is a phonetic variant of a name ("Razan AI" for RasanAI), replace it by the name's own words,
 // so the line's word error rate and the name check judge the voice, not whisper's spelling. Exact hits and non-matches are left alone.
 export function canonicalizeHeard(words, names = []) {
