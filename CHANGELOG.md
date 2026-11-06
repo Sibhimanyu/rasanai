@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.41.0 (2026-11-07): Launch films get craft research gates, readable exposure and a real-product bar
 
 - **Launch gates measure the render's grammar (`lib/grammar-readout.mjs`).** Bleed share, density rhythm and sparse seconds, stepped and non-smooth share, unchanged share and longest still, events per 10 s and a headline-over-card estimate, with bands from the four house reference films. `launch-gates.mjs` adds warnings only: `texture-nonsmooth-low` (a note with a recorded texture departure), `texture-declared-not-rendered` and `holds-unchanged` (unchanged share over 0.10 or a still over 1.5 s outside the end card). `crew.mjs refsheet` writes `crew/ref-jury/readout.json` for the reference juror.
 - **Intentional bleed type and type-object overlaps pass the gates.** `data-text-fit="bleed"` on the line itself passes `text-fit` as the note `text-bleed` when its cap height is 12%+ of the frame and every word is at least 60% inside the frame while it rests; accidental crops still fail. `RasanTexture.objectSplitsWord` and `redactionSlash` set `data-overlap="ok"` on their own host.
