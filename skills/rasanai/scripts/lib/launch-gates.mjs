@@ -18,6 +18,7 @@
 //   node lib/launch-gates.mjs --video <mp4> [--project <dir>] [--score <score.json>] [--text-rows <json>] [--end-hold 4.0] [--json]
 import fs from "node:fs";
 import path from "node:path";
+import { grammarReadout } from "./grammar-readout.mjs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { grammarWaivers } from "./gate-profile.mjs";
@@ -257,6 +258,22 @@ export async function launchGates({ video, project = null, score = null, textRow
       else if (tx.nonsmooth_share > G.nonsmooth_max) soft("texture-all-stutter", `${Math.round(tx.nonsmooth_share * 100)}% of the film is stepped or flicker (about 15-40% is the starting value): let the calm beats (meet, payoff, end) move smoothly`);
     }
   } catch (e) { measured.texture_unmeasured = String(e.message).slice(0, 120); }
+
+  // 3c grammar readout (warnings only): texture below the floor / declared and not rendered (gap 7), holds (gap 9), and the readout for the reference juror (gap 6)
+  try {
+    const tx = measured.texture || {}, ro = grammarReadout(path.resolve(video), { stepped_share: tx.stepped_share, nonsmooth_share: tx.nonsmooth_share, unchanged_share: measured.unchanged_share, longest_still_s: measured.longest_unchanged_s });
+    measured.grammar_readout = ro;
+    const declared = (sc && Array.isArray(sc.scenes) ? sc.scenes : []).map((b) => String(b.texture || "").toLowerCase()).filter((t) => /step|stutter|twos|threes|flicker|glitch/.test(t));
+    if (tx.nonsmooth_share != null && dur >= 20) {
+      if (declared.length && tx.nonsmooth_share <= 0.02) add("texture-declared-not-rendered", "warning", `the score declares ${declared.length} stepped/flicker beat(s) but the render measures ${Math.round(tx.nonsmooth_share * 100)}% non-smooth: the stepped motion did not reach the frames (frame rate, easing or the hold step)`);
+      else if (tx.nonsmooth_share > 0 && tx.nonsmooth_share < G.nonsmooth_min) {
+        const msg = `only ${Math.round(tx.nonsmooth_share * 100)}% of the film is stepped or flicker (${Math.round(G.nonsmooth_min * 100)}% is the floor; Minase runs .52)`;
+        if (dep.texture) add("texture-nonsmooth-low", "note", `departs by choice (${dep.texture}): ${msg}`); else add("texture-nonsmooth-low", "warning", `${msg}: add a stepped or flicker section, or record { rule: "texture", why } in score.departures`);
+      }
+    }
+    const longOut = (measured.unchanged_runs_ge_1s || []).filter((r) => r.s > 1.5); // runs exclude the end card's tail hold
+    if (measured.unchanged_share > 0.1 || longOut.length) add("holds-unchanged", "warning", `${Math.round(measured.unchanged_share * 100)}% of the film is unchanged in holds of 1 s or more (.10 at most)${longOut.length ? `; stretches over 1.5 s: ${longOut.map((r) => `${r.s} s at ${r.at} s`).join(", ")}` : ""}: add a secondary event at least every second while a proof is on screen`);
+  } catch (e) { measured.grammar_readout_unmeasured = String(e.message).slice(0, 120); }
 
   // 4 hook
   const meet = beats.find((b) => /meet|reveal/i.test(b.role));

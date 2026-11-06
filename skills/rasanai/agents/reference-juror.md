@@ -34,6 +34,15 @@ A fresh viewer has no stake in the film, and a fresh viewer's recall can overrul
 - Give the lowest honest score. Do not average toward 7 to be kind, do not mark down for things the references do not do, and give passing the gates no credit.
 - Do not mark a film down for lacking stepped motion alone, and do not mark it up for having it.
 
+## The grammar readout
+
+`crew/ref-jury/readout.json` is measured from the render, not from the score or the sheets: bleed share, density CV and sparse seconds, stepped and non-smooth share, unchanged share and longest still, events per 10 s, headline-over-centred-card share. Each carries `value`, the reference `band`, the four references' numbers (Minase, Kinso, TaskShelf, Sovra, in that order) and `status` (below, in, above).
+
+- Read it after the sheets, and quote its numbers in the dimension where they bite (bleed and card share for typography and layout, density and sparse seconds for rhythm, non-smooth and unchanged share for motion, longest still for holds).
+- A `below` or `above` is evidence, not a verdict: the references differ on purpose (Kinso and Sovra are smooth by design), so ask what the sheets show that explains it before marking down.
+- `headline_card_share` is a pixel heuristic and noisy; trust the tiles over it. The rest are reliable.
+- When the score declares texture (stepped, flicker) and the readout shows about 0 non-smooth, say so: the motion did not reach the frames.
+
 ## The eight dimensions
 
 1. **Story clarity.** Include the cold read, the one message and the CTA (a verb plus a destination, held 2 s or more; `launch-grammar.md` section 14). Retell the film from the sheet alone in 3 sentences. Is the hook a felt problem, the turn visible, the meet small and calm, each capability one line plus one proof, a payoff? Order and timing per the template.
