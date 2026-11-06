@@ -40,6 +40,7 @@ Then the `frame-juror` (key `frames-1`) judges every board next to reference sti
 | `crop` | what leaves the frame |
 | `device` | the recurring graphic device in this frame |
 | `anchor`, `transforms` | the anchor object, and whether it becomes something else here |
+| `layout` | where the picture's weight sits, one of `headline-left-ui-right`, `ui-full`, `side-label`, `type-only-center`, `type-over-ui`, `collage`, `image-full`, `diagram`, `split`, `other`. `shots-check` warns `layout-missing` when absent and `layout-repeat` for 3+ neighbours with the same value (`other` never repeats) |
 
 `frames.mjs shots-check` (errors exit 2; for a dimensional or unclassified list): every field; no two neighbours share size and hero; 3 sizes or more in a film of 20 s or more; one WS per 30 s at most; hero 25% H or more (a TYPE shot's line 12% H or more; the end card is exempt, its line 8% H or more); at most 2 readable lines and about 30 characters outside one density shot; one moment of 35% H or more; one anchor in half the shots at most unless it transforms; every key light named by side and colour; three heroes. Warnings: a tilt past 35 degrees or on three axes, fewer than 10% of shots with a 20% H line, a biggest-line p90/p10 under 5, no device.
 

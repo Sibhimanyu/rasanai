@@ -67,6 +67,7 @@ export function craftProfile(creativePolicy) {
     approvedTargets: arr(pick(L, "approvedTargets", "approved_targets")),
     protectedText: arr(pick(L, "protectedText", "protected_text")),
     repetitionIntent: pick(L, "repetitionIntent", "repetition_intent") || null,
+    beatSource: pick(L, "beatSource", "beat_source") || null,
   };
 }
 
@@ -76,6 +77,7 @@ export function craftProfile(creativePolicy) {
 // only structure stays an error. `review` is returned only in policy mode.
 // Part 2 (new path only): `mediumSkip` = rule ids a medium contract qualified for every layer of this look (the caller's resolveMediumRules / scopedSkips result). "multi-plane-depth" (the
 // 3+ planes / tilt / lit-ground / UI-scale craft) moves behind review like a non-dimensional look's, and the exception is returned as `medium_scoped`; hard findings (structure, text, proof) never move.
+export const LAYOUTS = ["headline-left-ui-right", "ui-full", "side-label", "type-only-center", "type-over-ui", "collage", "image-full", "diagram", "split", "other"];
 export function checkShots(doc, { duration = null, creativePolicy = null, lookProfile = null, mediumSkip = null } = {}) {
   const E = [], W = [];
   if (!doc || !Array.isArray(doc.shots)) return { errors: ["frames/shots.json is missing or has no shots[]"], warnings: W, stats: {} };
@@ -119,6 +121,7 @@ export function checkShots(doc, { duration = null, creativePolicy = null, lookPr
   // layout-repeat: 3 or more neighbouring boards with the same layout signature (the declared layout, else the anchor, the device and where the text blocks sit)
   const bucket = (v, n) => { const x = Number(v && typeof v === "object" ? v.x ?? v.left : v); return Number.isFinite(x) ? Math.min(2, Math.max(0, Math.floor((x > 1 ? x / 100 : x) * 3))) : null; };
   const layoutSig = (s) => {
+    if (typeof s.layout === "string" && norm(s.layout) === "other") return "";
     if (filled(s.layout)) return `layout:${norm(typeof s.layout === "string" ? s.layout : JSON.stringify(s.layout))}`;
     const pos = (Array.isArray(s.type) ? s.type : []).filter((t) => t && typeof t === "object" && t.readable !== false).map((t) => {
       const w = norm(t.place || t.at || t.pos || t.position || t.align || t.anchor || "");
@@ -130,6 +133,11 @@ export function checkShots(doc, { duration = null, creativePolicy = null, lookPr
     return pos.length || dev || anchor ? `${anchor}|${dev}|${pos.join(",")}` : "";
   };
   const sigs = S.map(layoutSig);
+  // layout-missing: the designer declares each board's layout from LAYOUTS (the anchor and text positions are too loose to compare boards)
+  const noLayout = S.filter((s) => !filled(s.layout)).map((s) => s.id);
+  if (S.length >= 3 && noLayout.length) W.push(`layout-missing: ${noLayout.join(", ")} declare no "layout" (one of ${LAYOUTS.join(", ")}): without it layout-repeat can only guess from the anchor and device`);
+  const badLayout = S.filter((s) => typeof s.layout === "string" && filled(s.layout) && !LAYOUTS.map(norm).includes(norm(s.layout))).map((s) => `${s.id} "${s.layout}"`);
+  if (badLayout.length) W.push(`layout-unknown: ${badLayout.join(", ")} (one of ${LAYOUTS.join(", ")}; use "other" for a layout none of them names)`);
   for (let i = 0; i < S.length; ) {
     let j = i; while (j + 1 < S.length && sigs[i] && sigs[j + 1] === sigs[i]) j++;
     if (j - i >= 2) W.push(`layout-repeat: ${S.slice(i, j + 1).map((s) => s.id).join(", ")} share one layout (${sigs[i].slice(0, 60)}): vary where the headline and the UI sit, or the boards read as one slide repeated`);
@@ -184,7 +192,7 @@ function structuralPolicyChecks(S, ids, dur, pol, E, R) {
   const beats = new Set(pol.beatIds);
   if (beats.size) for (const s of S) {
     const b = s.beat_id != null ? String(s.beat_id) : null;
-    if (b && !beats.has(b)) E.push(`beat-ref: ${s.id} names beat ${b}, which is not a beat of the approved story`);
+    if (b && !beats.has(b)) E.push(`beat-ref: ${s.id} names beat ${b}, which is not a beat of the approved story${pol.beatSource ? ` (${pol.beatSource}: ${[...beats].join(", ")})` : ""}: set beat_id to one of those, or fix the story file if the shot list is the right one`);
   }
   for (const ev of pol.signatureEvents) {
     if (!ev) continue;
