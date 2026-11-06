@@ -3382,6 +3382,15 @@ catch (e) { ok("plates: tests ran", false, String((e && e.stack) || e).split("\n
   ok("precedent: the third-party licence, notice and data ship in the skill", ["LICENSE", "NOTICE", "README.md", "moments.jsonl"].every((f) => fs.existsSync(path.join(HERE, "..", "third_party", "motionmaxxing", f))) && /Apache License/.test(fs.readFileSync(path.join(HERE, "..", "third_party", "motionmaxxing", "LICENSE"), "utf8")));
 }
 
+// grammar readout (lib/grammar-readout.mjs): a 4 s lavfi clip (a drifting box, a steady box) gives finite measures and band verdicts
+{
+  const clip = path.join(TMP, "readout.mp4");
+  const mk = spawnSync("ffmpeg", ["-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=12:duration=4", "-pix_fmt", "yuv420p", clip], { encoding: "utf8" });
+  let ro = null, err = "";
+  try { const { grammarReadout } = await import("./lib/grammar-readout.mjs"); ro = grammarReadout(clip); } catch (e) { err = String(e.message); }
+  ok("grammar-readout: a short clip reads bleed, density, texture, holds, events and the band verdicts", mk.status === 0 && !!ro && ["bleed_share", "density_cv", "nonsmooth_share", "unchanged_share", "events_per_10s", "headline_card_share"].every((k) => Number.isFinite(ro[k])) && ro.bands && ["below", "in", "above"].includes(ro.bands.bleed_share.status), err || (ro ? JSON.stringify(ro).slice(0, 160) : "no ffmpeg"));
+}
+
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(failed ? `\n${failed} check(s) failed` : "\nall checks passed");
 process.exit(failed ? 1 : 0);

@@ -1460,6 +1460,7 @@ function contextFor(run, role, key, plan) {
       I("the brief and the briefing (what the product is and who it is for: compare your cold read with it only AFTER writing the cold read; the concept's one_message sits in story/chosen.json)", R(run, "research", "BRIEFING.md"));
       for (const id of ["kinso", "minase", "sovra"]) I(`house reference ${id}: 1 fps contact sheet (8 tiles a row; look at it BEFORE the film)`, path.join(hdir, id, "thumbs", "1fps-contact-sheet.jpg"));
       for (const id of ["kinso", "minase", "sovra"]) I(`house reference ${id}: beat table`, path.join(hdir, id, "beats.json"));
+      I("THE GRAMMAR READOUT (measured from the render, with the four house references' bands: bleed, density rhythm, texture, holds, headline-over-card; read it AFTER the sheets, use its numbers in your per-dimension findings, agents/reference-juror.md)", R(run, "crew", "ref-jury", "readout.json"));
       I("the score (per-beat ground, hero_scale, ui_scale, role, hold_s: compare what it promises with what the sheet shows)", R(run, "motion", "score.json"));
       I("the motion gate's report on the draft", R(run, "crew", "motion-gate.json"));
       I("launch grammar (sections 1 to 12; section 12 is your rubric)", path.join(SKILL_DIR, "references", "launch-grammar.md"));
@@ -4602,7 +4603,14 @@ if (cmd === "plan") {
   const phone = path.join(dir, "phone-sheet.jpg"), pfps = dur > 90 ? 0.5 : 1, prow = Math.max(1, Math.ceil(dur * pfps / 4));
   const rp = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", file, "-vf", `fps=${pfps},scale=390:-2,tile=4x${prow}`, "-frames:v", "1", "-q:v", "4", phone], { encoding: "utf8" });
   if (rp.status !== 0 || !exists(phone)) die("ffmpeg could not draw the phone-size sheet: " + String(rp.stderr || "").slice(0, 200));
-  out({ ok: true, sheet: rel(sheetPath), first5s_sheet: rel(first5), phone_sheet: rel(phone), phone_tile_width_px: 390, duration_s: Math.round(dur * 10) / 10, tiles: Math.round(dur * 1.5), seconds_per_tile: 0.667, next: "dispatch the reference-juror (crew.mjs brief --role reference-juror --key jury-1)" });
+  // the grammar readout (lib/grammar-readout.mjs): bleed, density rhythm, texture, holds, headline-over-card, with the reference bands, for the juror
+  let readoutRel = null;
+  try {
+    const { grammarReadout } = await import("./lib/grammar-readout.mjs"), ro = grammarReadout(file);
+    try { const g = (await (await import("./lib/launch-gates.mjs")).launchGates({ video: file })).measured; for (const [k, v] of Object.entries({ stepped_share: g.texture && g.texture.stepped_share, nonsmooth_share: g.texture && g.texture.nonsmooth_share, unchanged_share: g.unchanged_share, longest_still_s: g.longest_unchanged_s })) if (Number.isFinite(v)) ro[k] = v; const { compareBands } = await import("./lib/grammar-readout.mjs"); ro.bands = compareBands(ro); } catch { /* keep the estimate */ }
+    fs.writeFileSync(path.join(dir, "readout.json"), JSON.stringify(ro, null, 2)); readoutRel = rel(path.join(dir, "readout.json"));
+  } catch (e) { readoutRel = null; }
+  out({ ok: true, sheet: rel(sheetPath), first5s_sheet: rel(first5), phone_sheet: rel(phone), readout: readoutRel, phone_tile_width_px: 390, duration_s: Math.round(dur * 10) / 10, tiles: Math.round(dur * 1.5), seconds_per_tile: 0.667, next: "dispatch the reference-juror (crew.mjs brief --role reference-juror --key jury-1)" });
 } else if (cmd === "marks") {
   const run = runDir();
   const file = args.file && args.file !== true ? path.resolve(String(args.file)) : die("--file <draft.mp4 | composition.html> required (the render the notes were left on)");
