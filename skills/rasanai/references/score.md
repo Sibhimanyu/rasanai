@@ -126,7 +126,7 @@ The gates read these per-beat fields (`lib/launch-beats.mjs`; the rules are in `
 | `ui_build` | array of steps (`shell`, `populate`, `state-change`, `result`) | proof beats with UI | The UI builds in place; fewer than 3 steps warns (`ui-build`). |
 | `ui_camera` | `tilted-ui-dolly \| macro-push \| pull-back` (score level, or per beat) | launch films with UI proof | One camera treatment per film (`ui-camera`). |
 | `ground_material` | `grid \| hex \| halftone \| paper \| stone \| light-shaft \| plate` | 1 to 3 beats | A material ground; none in a 30 s+ film, or more than 3, warns (`ground-material`); a blob or aurora gradient warns (`ground-blob`). |
-| `imagegen` | `ready \| off` (score level, from `setup.sh`) | launch films | Tells `imagery-count` that Codex imagery was available. |
+| `imagegen` | `ready \| off` (score level, from `setup.sh`) | launch films | Tells `imagery-count` that Codex imagery was available. Write it when you write the score (the `IMAGEGEN=` line from `setup.sh`, or `imagegen` in `crew/plan.json`); when it is absent the check reads `crew/plan.json`. |
 | `hold_s` | seconds | every launch beat | The longest static hold in the beat, about 1.2 at most, filled with secondary motion. With `ground`, `role`, `hero_scale` and `ui_scale` it is what the reference jury (`agents/reference-juror.md`) compares with the contact sheet: a declared number the sheet does not show is a finding. |
 
 ### Departures (launch and promo films)

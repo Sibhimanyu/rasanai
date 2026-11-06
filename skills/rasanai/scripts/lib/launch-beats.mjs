@@ -397,11 +397,12 @@ export function varietyFindings(plan, rows, see = "references/launch-grammar.md"
   const F = [], sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
   const w = (check, message, fix) => F.push({ severity: "warning", check, message, fix: `${fix}; ${see}`, basis: "score" });
   const ids = (a) => a.slice(0, 6).join(", ");
+  const refFilm = /^launch-beats@/.test(String(plan && plan.format || "")); // a reference analysis (library/benchmarks/launch-refs) records beats, not the film-level fields below
   const total = rows.every((r) => r.dur > 0) ? rows.reduce((a, r) => a + r.dur, 0) : Number(plan && (plan.duration || plan.duration_s)) || 0;
   // 1. type treatments: a film-level palette of 5+ display treatments in 45 s (score.type_treatments[] plus each beat's type_treatment)
   { const set = new Set((Array.isArray(plan.type_treatments) ? plan.type_treatments : []).map(idOf).concat(sc.map((s) => idOf(s && s.type_treatment))).filter(Boolean));
     const need = total >= 40 ? LB.type_treatments_min_40s : total >= 20 ? 3 : 0;
-    if (need && set.size < need) soft(F, dep, "type-treatment-variety", "type-treatment-variety", `${set.size} type treatment(s) declared (${need}+ is the default for a ${Math.round(total)} s film${set.size ? `: ${[...set].join(", ")}` : ""}): the references change the type treatment cut to cut`, `declare score.type_treatments[] (${TYPE_TREATMENTS.slice(0, 6).join(", ")} ...) and set type_treatment per beat`, `${see} section 2`); }
+    if (need && !refFilm && set.size < need) soft(F, dep, "type-treatment-variety", "type-treatment-variety", `${set.size} type treatment(s) declared (${need}+ is the default for a ${Math.round(total)} s film${set.size ? `: ${[...set].join(", ")}` : ""}): the references change the type treatment cut to cut`, `declare score.type_treatments[] (${TYPE_TREATMENTS.slice(0, 6).join(", ")} ...) and set type_treatment per beat`, `${see} section 2`); }
   // 2. emphasis: one per line, its kind varies; one kind (or colour/weight alone) on more than 2 lines is monotone
   { const em = rows.map((r, i) => ({ id: r.id, k: words(r.line) > 0 ? emphKind(sc[i] && sc[i].emphasis) : undefined })).filter((x) => x.k !== undefined);
     const kinds = em.filter((x) => x.k), n = {}; kinds.forEach((x) => { n[x.k] = (n[x.k] || 0) + 1; });
@@ -430,7 +431,7 @@ export function varietyFindings(plan, rows, see = "references/launch-grammar.md"
     else if (cams.size > 1) w("ui-camera", `${cams.size} UI camera treatments (${[...cams].join(", ")}): one per film reads as a camera language`, "keep one treatment and vary its framing"); }
   // 5. ground material on 1 to 3 beats; gradients with shape, never blobs
   { const mat = rows.filter((r, i) => { const v = sceneKey(sc[i] && sc[i].ground_material || ""); return v && v !== "none"; });
-    if (total >= 30 && !mat.length) w("ground-material", "no beat declares a ground_material: every ground is a haze", `put a material ground on 1 to 3 beats (${GROUND_MATERIALS.join(", ")})`);
+    if (total >= 30 && !mat.length && !refFilm) w("ground-material", "no beat declares a ground_material: every ground is a haze", `put a material ground on 1 to 3 beats (${GROUND_MATERIALS.join(", ")})`);
     else if (mat.length > LB.ground_material_max) w("ground-material", `${mat.length} beats carry a ground material (${LB.ground_material_max} at most): a material is an accent`, "keep it on 1 to 3 beats, with plain lit grounds between");
     const BLOB = /blob|aurora|lava|bokeh|mesh[-_ ]?blur|soft[-_ ]?glow/i;
     const blob = rows.filter((r, i) => BLOB.test([sc[i] && sc[i].ground, sc[i] && sc[i].ground_material, sc[i] && sc[i].gradient].filter((v) => typeof v === "string").join(" ")));
