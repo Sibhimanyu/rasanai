@@ -68,6 +68,7 @@
 import fs from "node:fs";
 import { conceptPrior, explorationIndex, profile as tasteProfile } from "./taste.mjs"; // taste memory: a soft prior, never a ban
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, SKILL_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { isLabelOnly } from "./lib/moves-lib.mjs";
@@ -861,6 +862,13 @@ function storyPayload() {
   if (!list.length) die(`no story/treatments.json or story/pitch-*.json in ${run}: nothing to push`);
   const notes = rd(path.join(sdir, "edit-notes.json")) || {};
   const plates = rd(path.join(sdir, "plates", "plates.json")) || {};
+  // plates are the Director's step (the writer cannot run them): the Story push waits for them when image generation is ready; --no-plates pushes the type template anyway
+  if (!fs.existsSync(path.join(sdir, "plates", "plates.json")) && !args["no-plates"]) {
+    let ig = ""; try { ig = JSON.parse(spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "imagegen.mjs"), "status"], { encoding: "utf8" }).stdout || "{}").state || ""; } catch { /* unknown */ }
+    const how = `node scripts/story-plates.mjs --concept ${path.join(sdir, "treatments.json")} --out ${path.join(sdir, "plates")}`;
+    if (ig === "ready") die(`story/plates/plates.json is missing and image generation is ready: the Director runs story plates before the Story push (one Codex plate per hero shot, in the brand palette): ${how}   (--no-plates to push the type template anyway)`);
+    warnings.push(`story/plates/plates.json is missing (image generation is ${ig || "unknown"}): run ${how} once; it records 'unavailable' when image generation is off`);
+  }
   if (plates.state === "unavailable") warnings.push(`story plates unavailable (${plates.reason || "image generation"}): the boards show the type template`);
   const noteRows = Array.isArray(notes.treatments) ? notes.treatments : Array.isArray(notes.pitches) ? notes.pitches : [];
   const stories = [], boards = [];

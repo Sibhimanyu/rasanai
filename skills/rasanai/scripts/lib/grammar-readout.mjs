@@ -106,15 +106,20 @@ export function compareBands(m) {
   return res;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  const i = process.argv.indexOf("--video"), v = i > 0 ? process.argv[i + 1] : process.argv[2];
+async function main() {
+  const i =process.argv.indexOf("--video"), v = i > 0 ? process.argv[i + 1] : process.argv[2];
   if (!v) { console.error("usage: node lib/grammar-readout.mjs --video <mp4>"); process.exit(1); }
   const video = path.resolve(v), ov = {};
   if (!process.argv.includes("--quick")) { // the gates' own texture and stillness numbers (calibrated on the references); --quick skips that pass
     try {
+      // lazy import: launch-gates imports this file, so a top-level await here deadlocks the module graph
       const { launchGates } = await import("./launch-gates.mjs"), g = (await launchGates({ video })).measured;
       Object.assign(ov, { stepped_share: g.texture && g.texture.stepped_share, nonsmooth_share: g.texture && g.texture.nonsmooth_share, unchanged_share: g.unchanged_share, longest_still_s: g.longest_unchanged_s });
-    } catch { /* keep the readout's own scene-score estimate */ }
+    } catch (e) { console.error("gates pass skipped: " + (e && e.message || e)); /* keep the readout's own scene-score estimate */ }
   }
   console.log(JSON.stringify(grammarReadout(video, ov), null, 2));
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch((e) => { console.error(e && e.stack || e); process.exit(1); });
 }

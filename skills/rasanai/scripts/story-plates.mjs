@@ -13,6 +13,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die } from "./lib/common.mjs";
 import { imageryPromptRisk, IMAGERY_STYLE, IMAGERY_AVOID } from "./lib/launch-beats.mjs";
+import { plateBrand, brandedPrompt } from "./lib/plate-brand.mjs";
 import { ensureShotIds, styleWorldId, carrierOf, signatureOf, atlasArt } from "./lib/concept-schema.mjs";
 
 const args = parseArgs();
@@ -56,6 +57,24 @@ if (!targets.length) die(`${args.concept}: no concept with shots[] to make plate
 targets.forEach(ensureShotIds);
 fs.mkdirSync(out, { recursive: true });
 
+// a branded run (decisions.json use_brand + brand file): default-world concepts are drawn in the brand's palette, with the real UI captures as references
+const BRAND = args["no-brand"] ? null : plateBrand({ out, run: args.run, brand: args.brand });
+const brandedWorld = (c) => !!BRAND && (isLaunchPlate(c) || DEFAULT_WORLDS.includes(styleWorldId(c).toLowerCase()));
+if (BRAND) log(`brand ${BRAND.name}: palette ${BRAND.hexes.join(" ")}, face ${BRAND.face || "?"}, ${BRAND.refs.length} UI reference(s)`);
+function promptFor(c, sh) {
+  const world = styleWorldId(c), art = world ? atlasArt(world) : null, carrier = carrierOf(c).what;
+  const cs = carrier && s(sh.carrier_state) ? `${carrier}: ${s(sh.carrier_state)}` : "";
+  if (brandedWorld(c)) return { prompt: brandedPrompt(s(sh.see), BRAND, { carrier: cs || carrier, ui: s(sh.ui_proof || sh.ui), imageryStyle: IMAGERY_STYLE }), style: "", palette: "", refs: BRAND.refs };
+  // the picture only: the film's own type lays over it, so none in the image (the board and the build add the words)
+  const see = [s(sh.see), cs, "No text, letters, logos or watermarks in the image."].filter(Boolean).join(" ");
+  const launch = isLaunchPlate(c), palette = c.style && c.style.palette_id ? s(c.style.palette_id) : "";
+  return { prompt: launch ? launchPrompt(c, sh) : art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`, style: art && !launch ? world : "", palette: launch ? "" : palette, refs: [] };
+}
+if (args["dry-prompt"]) { // print what each hero plate would send; spends nothing
+  targets.forEach((c, n) => { const { idx } = heroIdx(c); for (const i of idx) { const q = promptFor(c, c.shots[i]); console.log(JSON.stringify({ concept: s(c.id) || `c${n + 1}`, shot: s(c.shots[i].id), style: q.style, refs: q.refs, prompt: q.prompt }, null, 2)); } });
+  process.exit(0);
+}
+
 const report = { ok: true, state: "ready", reason: "", concepts: {}, made: 0, failed: 0 };
 const writeReport = () => fs.writeFileSync(path.join(out, "plates.json"), JSON.stringify(report, null, 2) + "\n");
 
@@ -83,7 +102,7 @@ function generate(prompt, outFile, style, palette, ref) {
     const a = ["generate", "--out", outFile, "--aspect", "16:9"];
     if (style) a.push("--style", style, ...(palette ? ["--palette", palette] : []));
     a.push("--prompt", prompt);
-    if (ref) a.push("--ref", ref);
+    const rl = [].concat(ref || []).filter(Boolean); if (rl.length) a.push("--ref", rl.join(","));
     if (args.force) a.push("--force");
     const p = spawn(process.execPath, [IMAGEGEN, ...a], { stdio: ["ignore", "pipe", "inherit"] });
     let buf = ""; p.stdout.on("data", (d) => (buf += d));
@@ -104,13 +123,10 @@ async function runConcept(c, n) {
   let anchorFile = "";
   for (const i of order) {
     const sh = c.shots[i], f = path.join(dir, `${s(sh.id)}.png`);
-    // the picture only: the film's own type lays over it, so none in the image (the board and the build add the words)
-    const see = [s(sh.see), carrier && s(sh.carrier_state) ? `${carrier}: ${s(sh.carrier_state)}` : "", "No text, letters, logos or watermarks in the image."].filter(Boolean).join(" ");
-    const launch = isLaunchPlate(c);
-    const prompt = launch ? launchPrompt(c, sh) : art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`;
+    const launch = isLaunchPlate(c), q = promptFor(c, sh);
     if (launch && !args["allow-people"]) { const risk = imageryPromptRisk([s(sh.see), s(sh.ui_proof || sh.ui), s(sh.carrier_state)].join(" ")); if (risk.length) log(`WARNING ${id} ${s(sh.id)}: the shot asks for people or a neon/glow look (${risk.join(", ")}): it reads as AI-generated; use still-life objects, props, places and printed matter (pass --allow-people when the brief requires people)`); }
     log(`${id} ${s(sh.id)}${i === anchor ? " (anchor)" : ""}: generating`);
-    const r = await generate(prompt, f, art && !launch ? world : "", launch ? "" : palette, i === anchor ? "" : anchorFile);
+    const r = await generate(q.prompt, f, q.style, q.palette, [...q.refs, ...(i === anchor ? [] : [anchorFile])]);
     if (r.ok && fs.existsSync(f)) {
       sh.image = f; rec.plates.push({ shot: s(sh.id), image: f }); report.made++;
       if (i === anchor) anchorFile = f;
@@ -144,11 +160,9 @@ for (let pass = 0; pass < 2; pass++) {
     log(`${d.cid} ${d.pl.shot}: byte-identical to ${d.of.cid}/${d.of.shot}; ${pass === 0 ? "regenerating" : "marking failed"}`);
     const keep = () => { d.rec.plates = d.rec.plates.filter((x) => x !== d.pl); report.made--; };
     if (pass === 0) {
-      const see = [s(sh.see), carrier && s(sh.carrier_state) ? `${carrier}: ${s(sh.carrier_state)}` : "", "No text, letters, logos or watermarks in the image."].filter(Boolean).join(" ");
-      const launch = isLaunchPlate(c);
-      const prompt = launch ? launchPrompt(c, sh) : art ? see : `${see} Style: ${s(c.style_world && c.style_world.description) || world || "one consistent art direction"}.`;
+      const q = promptFor(c, sh);
       const savedForce = args.force; args.force = true;
-      const r = await generate(prompt, d.pl.image, art && !launch ? world : "", !launch && c.style && c.style.palette_id ? s(c.style.palette_id) : "", "");
+      const r = await generate(q.prompt, d.pl.image, q.style, q.palette, q.refs);
       args.force = savedForce;
       if (!r.ok || !fs.existsSync(d.pl.image)) { try { fs.rmSync(d.pl.image, { force: true }); } catch { /* gone */ } keep(); delete sh.image; d.rec.failed.push({ shot: d.pl.shot, error: `duplicate of ${d.of.cid}/${d.of.shot} and the regeneration failed` }); report.failed++; }
     } else { try { fs.rmSync(d.pl.image, { force: true }); } catch { /* gone */ } keep(); delete sh.image; d.rec.failed.push({ shot: d.pl.shot, error: `byte-identical to ${d.of.cid}/${d.of.shot} after a regeneration: marked failed` }); report.failed++; }

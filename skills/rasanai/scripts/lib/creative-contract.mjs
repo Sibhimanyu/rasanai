@@ -107,8 +107,9 @@ export function validateCreativeBrief(doc, context = {}) {
         if (!ID_RE.test(str(b))) errors.push(err("bad_id", `${p}.beat_ids[${j}]`, "bad beat id"));
         else if (beats && !beats.has(b)) errors.push(err("unresolved_ref", `${p}.beat_ids[${j}]`, `unknown beat ${b}`));
       });
-      for (const k of ["before", "change", "after", "why_motion", "fallback"]) if (!filled(e[k])) errors.push(err("bad_signature", `${p}.${k}`, `${k} must say something concrete`));
-      for (const k of ["proof_refs", "must_preserve"]) if (!Array.isArray(e[k])) errors.push(err("bad_signature", `${p}.${k}`, `${k} must be an array`));
+      // every missing field of the event in ONE error (the writer fixes them in one round), with the doc that defines them
+      const noText = ["before", "change", "after", "why_motion", "fallback"].filter((k) => !filled(e[k])), noList = ["proof_refs", "must_preserve"].filter((k) => !Array.isArray(e[k]));
+      if (noText.length || noList.length) errors.push(err("bad_signature", p, `${p} (${str(e.id) || "no id"}) is missing ${[...noText.map((k) => `${k} (one concrete sentence)`), ...noList.map((k) => `${k} (an array)`)].join(", ")}. A signature event needs: id, beat_ids (after the Story), before, change, after, why_motion, fallback (strings), proof_refs, must_preserve (arrays). See skills/rasanai/references/creative-quality.md, section "Signature events"`));
       arr(e.must_preserve).forEach((m, j) => { if (!filled(m)) errors.push(err("bad_signature", `${p}.must_preserve[${j}]`, "empty must_preserve entry")); });
       arr(e.proof_refs).forEach((r, j) => {
         if (!filled(r)) return errors.push(err("unresolved_ref", `${p}.proof_refs[${j}]`, "empty proof ref"));
