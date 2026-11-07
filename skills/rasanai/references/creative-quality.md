@@ -63,6 +63,40 @@ never approval (that is the user's stage decisions).
   path to `ready`. Still images cannot establish timing or sound; tool logs show an asset arrived, not that it was
   understood.
 
+## Signature events
+
+`creative/brief.json` `signature_events[]` is the only event collection. An empty array is valid when
+`signature_events_reason` says why that suits the format. Each event is one object; `crew.mjs creative check`
+requires every field below and lists all that are missing in one error per event.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | stable identifier, unique in the brief |
+| `beat_ids` | string[] | the beats that carry it; not needed at the proposal stage (no beats exist before the Story), required once they do |
+| `before` | string | what the viewer sees or believes just before the event |
+| `change` | string | the one visible change, concrete enough to storyboard |
+| `after` | string | the state the film is left in |
+| `why_motion` | string | why this needs motion or time rather than a still |
+| `fallback` | string | what stands in if the event cannot be built as drawn (a quieter, still-true version) |
+| `proof_refs` | string[] | claim or source ids that make what it shows true (may be `[]` when it shows nothing factual) |
+| `must_preserve` | string[] | what a builder must not lose or swap (exact sentence, colour, order, timing) |
+
+Optional: `shot_ids` (string[]), `kind`, `depends_on`; requirement, owner, scope and objects live under
+`extensions.creative_thinking`.
+
+```json
+{
+  "id": "sentence-becomes-films",
+  "before": "One typed sentence sits alone in the dark prompt box.",
+  "change": "The caret sends it and the sentence splits into three film posters that slide into the Story row.",
+  "after": "The row holds three finished-looking stories; the box is empty again.",
+  "why_motion": "The split and the slide show one input becoming several options, which a still cannot.",
+  "fallback": "A hard cut from the box to the three posters, held for one second.",
+  "proof_refs": ["claim-three-stories"],
+  "must_preserve": ["the typed sentence reads word for word", "three posters, never two or four"]
+}
+```
+
 ## Integration calls (plain data)
 
 ```js
