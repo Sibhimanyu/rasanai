@@ -110,7 +110,7 @@ The user is never kept waiting by the crew. Research starts the moment the brief
 ```bash
 node $SKILL_DIR/scripts/crew.mjs plan --run "$RUN" --route <route> --subject "<name>" [--url <url>] [--public] [--local "<approved dirs>"] [--may-run] [--scenes N] [--length s] [--project videos/<name>] [--budget lean|standard|full] [--spike <scene>] [--brand "<brand>"] [--kind launch|promo|brand] [--pace fast]
 node $SKILL_DIR/scripts/crew.mjs brief --run "$RUN" --role <role> [--key <k>] [--project videos/<name>]    # writes the prompt file, prints the Agent call
-# dispatch: Agent(description: <printed>, prompt: "Read <prompt file> in full, then do the job it describes.", run_in_background: true[, model: "sonnet" for fast roles])
+# dispatch: Agent(description: <printed>, prompt: "Read <prompt file> in full, then do the job it describes.", run_in_background: true, model: "<the line's model>")
 node $SKILL_DIR/scripts/crew.mjs check --run "$RUN" --role <role> [--key <k>] [--project videos/<name>]    # exit 0 = accepted
 node $SKILL_DIR/scripts/crew.mjs status --run "$RUN"                                                     # who is planned, dispatched, accepted
 ```

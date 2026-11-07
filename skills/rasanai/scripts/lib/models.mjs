@@ -108,11 +108,18 @@ export function tierFor(role, profile) {
   // Gathering researchers stay on Sonnet (the existing FAST_ALIAS). On Codex the same model runs at an effort set by the role.
   let model = null, effort = null;
   if (profile.family === "claude") {
-    model = CREATIVE.has(role) ? "opus" : MECHANICAL.has(role) ? "haiku" : BUILDERS.has(role) ? "sonnet" : gather ? FAST_ALIAS.claude : null;
+    model = CREATIVE.has(role) ? "opus" : MECHANICAL.has(role) ? "haiku" : BUILDERS.has(role) ? "sonnet" : gather ? FAST_ALIAS.claude : "opus"; // an unlisted role is judging/merging work: Opus, never the silent session default
     effort = CREATIVE.has(role) ? "high" : null;
   } else if (profile.family === "gpt") effort = gather ? "low" : prefer === "frontier" ? "high" : "medium";
   const useLight = profile.family === "claude" ? model === "sonnet" || model === "haiku" : useFast;
   return { role, min, prefer, ok, fast: useLight, creative: CREATIVE.has(role), model, effort, note: ok ? undefined : `${role} never goes below ${min}: run it on a ${min} model or the session's` };
+}
+
+// The one role -> model table (Claude): what references/models.md "Roles by tier" points to. crew.mjs plan/brief and crew/plan.json read it, nothing else decides.
+export function roleModelTable(profile) {
+  const p = profile || profileFor("claude");
+  const all = [...GATHER, ...CREATIVE, ...BUILDERS, ...MECHANICAL];
+  return Object.fromEntries([...new Set(all)].map((r) => { const T = tierFor(r, p); return [r, { model: T.model, effort: T.effort }]; }));
 }
 
 // ---------------------------------------------------------------- adapt
