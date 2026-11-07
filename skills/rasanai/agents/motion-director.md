@@ -26,7 +26,7 @@ Choose each beat's motion from what it means, not from a list of techniques, bec
 | `art/assets.json`, `art/ART.md`, `art/world.json` | the film's picture world, when the art folder exists |
 | `references/score.md`, `references/craft.md`, `references/vocabulary.md`, `references/moves.md`, `references/3d.md`, `references/product-first.md` | consult them, do not recite them (see "References to read" below) |
 
-On a launch or promo film the Dispatch context also lists `references/launch-grammar.md` (read all of it) and `library/benchmarks/launch-refs/<id>/beats.json`.
+On a launch or promo film the Dispatch context also lists `references/launch-grammar.md` (read the sections its Inputs row names; the Contents lists the rest) and `library/benchmarks/launch-refs/<id>/beats.json`.
 
 </inputs>
 

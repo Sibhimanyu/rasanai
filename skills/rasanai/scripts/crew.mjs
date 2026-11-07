@@ -99,6 +99,7 @@ import { showSeries, seriesRulesBlock } from "./lib/series.mjs";
 import { recentFilms } from "./memory.mjs";
 import { shapeProblems, tooClose, shapeLine, SHAPE_VOCAB, ASPECTS, MIN_DIFFER, RECENT } from "./lib/film-shape.mjs";
 import { readBudget, checkBudget } from "./lib/budget.mjs";
+import { slimInputs, pruneRoleText } from "./lib/brief-trim.mjs";
 import { readDesignMd } from "./lib/design-md.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { upsertMarked } from "./lib/install.mjs";
@@ -276,14 +277,19 @@ export const BUDGETS = {
   standard: { fix_rounds: 2, label: "Standard", summary: "every desk, two fix rounds, the film lens joins the review, a blind A/B on each round" },
   full: { fix_rounds: 3, label: "Full", summary: "every desk and every pass, up to three fix rounds, the precedent study and a separate film review" },
 };
-const tokensFor = (role, key) => TOKEN_KEYS[`${role}:${key}`] || TOKENS[role] || 30000;
+// CALIBRATION (night 2026-11-06, film1: a 40 s launch film, direct path, standard): the plan said ~2.05M and the subagents actually used ~4.2M over ~25 Opus
+// dispatches (each member re-reads its brief and every reference it opens on every turn, so a member costs about twice its output-only guess). The table above
+// stays the relative sizing of a member; this factor makes the totals the user sees match what a run really costs. Set it from `crew.mjs check --tokens` actuals
+// when enough are recorded: sum(actual) / sum(estimate at factor 1).
+export const REAL_COST_FACTOR = 2.05;
+const tokensFor = (role, key) => Math.round((TOKEN_KEYS[`${role}:${key}`] || TOKENS[role] || 30000) * REAL_COST_FACTOR / 1000) * 1000;
 const kTok = (n) => (n >= 1e6 ? (n / 1e6).toFixed(2).replace(/0$/, "") + "M" : Math.round(n / 1000) + "k");
 function estimateFor(p, phases) {
   const b = BUDGETS[p.budget || "standard"] || BUDGETS.standard;
   const rows = phases.map((ph) => ({ phase: ph.phase, tokens: (ph.dispatch || []).filter((x) => !x.conditional).reduce((a, x) => a + tokensFor(x.role, x.key), 0) })).filter((r) => r.tokens);
-  const fixes = b.fix_rounds * (FIX_ROUND + tokensFor("ab-juror"));
+  const fixes = b.fix_rounds * (Math.round(FIX_ROUND * REAL_COST_FACTOR / 1000) * 1000 + tokensFor("ab-juror"));
   const total = rows.reduce((a, r) => a + r.tokens, 0) + fixes;
-  return { budget: p.budget || "standard", fix_rounds: b.fix_rounds, phases: rows, fix_rounds_tokens: fixes, total, total_label: "~" + kTok(total), note: "estimates from measured runs (crew.mjs TOKENS); `crew.mjs check --tokens N` records the real figure per member, and status reports both. A lean film is meant to stay near 0.8M" };
+  return { budget: p.budget || "standard", fix_rounds: b.fix_rounds, phases: rows, fix_rounds_tokens: fixes, total, total_label: "~" + kTok(total), note: `calibrated to a measured run (film1: planned 2.05M, used ~4.2M; factor ${REAL_COST_FACTOR} on crew.mjs TOKENS); \`crew.mjs check --tokens N\` records the real figure per member, and status reports both. The cheaper levels cost less in proportion` };
 }
 
 // ---------------------------------------------------------------- plan
@@ -1775,9 +1781,13 @@ const DARES = {
 };
 
 function promptFor(run, role, key, plan) {
-  const { ctx, inputs, outputs } = contextFor(run, role, key, plan);
+  const ctx0 = contextFor(run, role, key, plan);
+  const { ctx } = ctx0;
+  // night2/token-trim (lib/brief-trim.mjs): one row per path, long references by path + this role's sections, outputs listed once; the mandatory material is untouched
+  const slim = slimInputs({ role, inputs: ctx0.inputs, skillDir: SKILL_DIR, resolve: (p) => path.resolve(WS, p) });
+  const inputs = slim.inputs, outputs = [...new Set(ctx0.outputs)];
   const shared = fs.readFileSync(path.join(AGENTS, "_crew.md"), "utf8").trim();
-  const roleText = fs.readFileSync(path.join(AGENTS, `${role}.md`), "utf8").trim();
+  const roleText = pruneRoleText({ role, key, ctx, text: fs.readFileSync(path.join(AGENTS, `${role}.md`), "utf8").trim(), treatments: exists(R(run, "story", "treatments.json")) || exists(R(run, "story", "jury.json")), hasMedium: !!chosenMedium(run) }).text;
   const checkCmd = `node "${path.join(SKILL_DIR, "scripts", "crew.mjs")}" check --run "${ctx.RUN}" --role ${role}${key ? ` --key ${key}` : ""}${ctx.project ? ` --project "${ctx.project}"` : ""}`;
   const fmtVal = (v) => (typeof v === "object" ? "`" + JSON.stringify(v) + "`" : String(v));
   const lines = [
