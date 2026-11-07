@@ -167,7 +167,7 @@ if (cmd === "init") {
     const cr = referenceStills(run, { skillDir: SKILL_DIR });
     for (const st of cr.stills) if (!R.stills.some((x) => x.image === st.image)) { R.stills.push(st); R.by_origin["creative-reference"] = (R.by_origin["creative-reference"] || 0) + 1; }
     const sel = readJ(path.join(run, "creative", "references.json"));
-    creative = { selected: ((sel && sel.selected) || []).map((x) => x.id), evidence: (sel && sel.evidenceLevel) || "none", images_added: cr.stills.length, skipped: cr.skipped, limitation: cr.stills.length ? "pictures are reference-only: learn the principle, never copy the scene, logo or media" : "no lawful reference image is available for the selected references: they are text descriptions, which teach a principle and cannot certify visual parity" };
+    creative = { selected: ((sel && sel.selected) || []).map((x) => x.id), evidence: (sel && sel.evidenceLevel) || "none", images_added: cr.stills.length, skipped: cr.skipped, user_reference_stills: R.stills.filter((x) => x.origin === "reference").length, limitation: cr.stills.length ? "pictures are reference-only: learn the principle, never copy the scene, logo or media" : R.stills.some((x) => x.origin === "reference") ? "the selected library references are text descriptions, but the person's own reference films are ingested (origin \"reference\", refs/<id>/bar-frames): judge and draw against those stills; they are for looking only, never copied into a render" : "no lawful reference image is available for the selected references: they are text descriptions, which teach a principle and cannot certify visual parity" };
   }
   const file = path.join(run, "frames", "refs.json");
   fs.mkdirSync(path.dirname(file), { recursive: true });

@@ -358,6 +358,11 @@ const arcSpecProblems = (a) => {
 let arcGate = false;
 if (!silentArgs()) {
   if (arcDerived) { const am = arcFromManifest(eventsInput); if (am) { arc = { ...arc, ...am }; arcDerived = false; notes.push("arc taken from the film-event manifest's music cues"); } }
+  // a doc-shaped arc ({drop_at, payoff_at, button_at}) has no break: default the breath just before the payoff (1.2 s, never before the drop) and say so
+  if (!arcDerived && shapeOf(arc.shape).gate.includes("break") && !(Array.isArray(arc.break) && arc.break[1] > arc.break[0]) && arc.drop_at > 0 && arc.payoff_at > arc.drop_at && arc.button_at > arc.payoff_at) {
+    const b1 = arc.payoff_at, b0 = Math.max(arc.drop_at + 0.3, b1 - 1.2);
+    if (b1 > b0) { arc = { ...arc, break: [Math.round(b0 * 100) / 100, b1] }; notes.push(`arc had no break: defaulted to [${arc.break[0]}, ${arc.break[1]}] (the breath before the payoff); pass "break":[from,to] to place it`); }
+  }
   const missing = [];
   if (!fs.existsSync(path.join(path.resolve(String(args.run)), "story", "chosen.json"))) missing.push("the chosen story (<run>/story/chosen.json): pick the music after the person chooses the script, never while they are still reading");
   if (arcDerived && SHAPE0.gate.length) missing.push("the story's event map: no music_arc (--arc or motion/score.json) and no music cues in motion/events.json");

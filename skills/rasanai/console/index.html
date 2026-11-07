@@ -1578,10 +1578,18 @@
   }
   function filmsScreen(d, mode) {
     var look = mode === "look";
-    var body = h("div", null, [h("p", { class: "qsub", text: d.context || (look ? "Three design systems made for your story, each drawn live on its own first line. The first is my pick." : "Three films I could make. Each is a complete style and a story angle; the first is my pick.") })]);
+    var qsubEl = h("p", { class: "qsub", text: "" });
+    var body = h("div", null, [qsubEl]);
     // a look is a style: the films screen draws it the same way, keyed by the style id
     // a look is a bespoke design system the design desk made for this story: its recipe travels with it (no library to browse)
     var films = look ? (d.styles || []).map(function (s) { return { id: s.id || s.preset, preset: s.preset || s.id, style: s.style || null, specimen: s.specimen || "", poster: s.poster || "", title: s.name || s.preset || s.id, angle: s.label || (s.rare ? "Unusual" : ""), logline: s.blend || "", refs: (s.references || []).map(function (r) { return String(r).replace(/-/g, " "); }).join(" · "), why: s.why, hook: d.hook, music: "", frames: (s.frames || []).map(function (x) { return typeof x === "string" ? x : x.image; }).filter(Boolean), beats: (s.frames || []).map(function (x) { return typeof x === "string" ? "" : ({ open: "Open", peak: "Peak", end: "End" })[x.id] || x.id; }) }; }) : (d.films || []);
+    // the pick sentence names the recommended one (it is the outlined tile, not necessarily the first)
+    var recIdx = -1; films.forEach(function (x, i) { if (x.id === d.recommended) recIdx = i; });
+    var pickWords = recIdx < 0 ? "" : recIdx === 0 ? "the first is my pick" : "my pick is " + ["", "the second", "the third"][recIdx] + (films[recIdx].title ? ", \u201c" + films[recIdx].title + "\u201d" : "") + ", outlined";
+    qsubEl.textContent = d.context || (look ? "Three design systems made for your story, each drawn live on its own first line." + (pickWords ? " " + pickWords.charAt(0).toUpperCase() + pickWords.slice(1) + "." : "") : "Three films I could make. Each is a complete style and a story angle" + (pickWords ? "; " + pickWords : "") + ".");
+    // the person's tile choice survives a reload (kept in the page's own storage, which is per console port, so per run)
+    var selKey = "rasa-film-sel-" + (look ? "look" : "film");
+    if (!local.filmSel) { try { local.filmSel = localStorage.getItem(selKey) || ""; } catch (e) {} }
     if (!local.filmSel || !films.some(function (x) { return x.id === local.filmSel; })) local.filmSel = d.recommended || (films[0] || {}).id;
     var grid = h("div", { class: "films" });
     // the chosen system, big: its own page at near full size (plays on hover and once when it changes)
@@ -1622,7 +1630,7 @@
           if (!look) tile.appendChild(h("div", { class: "style-name", text: (p && p.name ? p.name : "") + (fm.music ? " · " + fm.music : "") }));
           else if (fm.refs) tile.appendChild(h("div", { class: "style-name", text: "Blended from " + fm.refs }));
           if (fm.why && (look || local.filmSel === fm.id || i === 0)) tile.appendChild(h("div", { class: "why", text: fm.why }));
-          tile.addEventListener("click", function () { local.filmSel = fm.id; [].forEach.call(grid.children, function (c, k) { c.classList.toggle("on", films[k].id === fm.id); }); primaryLabel(); drawStage(); });
+          tile.addEventListener("click", function () { local.filmSel = fm.id; try { localStorage.setItem(selKey, fm.id); } catch (e) {} [].forEach.call(grid.children, function (c, k) { c.classList.toggle("on", films[k].id === fm.id); }); primaryLabel(); drawStage(); });
           tile.addEventListener("dblclick", function () { send(S.current, "choose", fm.id); });
           grid.appendChild(tile);
           if (!(look && fm.specimen)) requestAnimationFrame(function () { var st = box.querySelector(".rp-stage"); if (st) { var fit = function () { st.style.transform = "scale(" + box.clientWidth / 1600 + ")"; }; fit(); if (window.ResizeObserver) new ResizeObserver(fit).observe(box); if (box._p) box._h3 = mount3d(st, box._p, box._o); loopSpecimen(box); } });
