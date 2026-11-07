@@ -20,7 +20,7 @@
 //          and the music that follows L (L to L + x, x = 0.25 to 0.5 s, default 0.35) is mixed under the head with an equal-power
 //          (quarter-sine) fade, so the tail runs into the head in the same bar phase and the audio seam is clean. The loop is L long:
 //          set the film's loop length to loop_s. Reported as {loop: {loop_s, cut_at_bar, xfade_s, ...}}
-//   node sound.mjs sfx-plan --scenes scenes.json|timeline.json [--events events.json] [--narrated]
+//   node sound.mjs sfx-plan --scenes scenes.json|timeline.json | --run <run> (defaults --scenes to <run>/scenes.json) [--events events.json] [--narrated]
 //        (--events also takes the derived film-event manifest from events.mjs export: its picture hits are the cues, stale ones are refused)
 //        [--format reel] [--bed bed.wav] [--plan plan.json] [--words audio_meta.json] [--project <dir>]
 //        [--pack glass|minimal|studio|soft|cinematic|scifi] [--no-library] [--library <dir>]
@@ -329,7 +329,11 @@ function eventRows(file, cuesOnly = false) {
 }
 
 function sfxPlan() {
-  const sc = readScenes(need("scenes", "<scenes.json|timeline.json>"));
+  if ((args.scenes == null || args.scenes === true) && args.run && args.run !== true) { // --run alone: the run's own scenes (scenes.json, else plan/timeline.json)
+    const R = path.resolve(String(args.run)), f = [path.join(R, "scenes.json"), path.join(R, "plan", "timeline.json"), path.join(R, "timeline.json")].find((x) => fs.existsSync(x));
+    if (f) args.scenes = f;
+  }
+  const sc = readScenes(need("scenes", "<scenes.json|timeline.json> (or --run <run> with a scenes.json in it)"));
   const plan = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
   const narrated = args.narrated ? true : args["no-narration"] ? false : sc.narrated;
   const mode = sfxMode({ format: args.format, narrated });
@@ -754,7 +758,10 @@ function check() {
   if (L.lra != null && L.lra > 11) warnings.push(`loudness range ${L.lra} LU is wide for a short film (target 4-9 LU): compress the VO or tame the loudest section`);
   if (first_audible != null && first_audible > 0.3) P("silent head", `${r1(first_audible)} s of silence`, "sound by 0.3 s", "start the bed at frame 0 (a strong phrase, 'already playing'); trim the file's lead silence");
   if (first_second_db < body - 8) P("quiet opening", `first second ${r1(first_second_db)} dB vs body ${r1(body)} dB`, "within 8 dB of the body", "start the music on a strong section, not its intro (sound.mjs fit picks one); premium styles may open soft on purpose: say so");
-  if (last_audible != null && dur - last_audible > 1.5) P("dead air at the end", `${r1(dur - last_audible)} s of silence`, "<= 1.5 s", "backtime the music so its ending (or a button hit's tail) lands on the last frame, or trim the film");
+  // the end card: music.mjs rings the take out under it by default (lib/music-edit.mjs); a score that asks for a quiet end card (music_arc.end_card "silence" / ring_out false, or --silent-card) makes that silence intended
+  const silentCard = !!args["silent-card"] || (() => { try { const cand = [args.score && args.score !== true ? path.resolve(String(args.score)) : null, args.plan && args.plan !== true ? path.resolve(String(args.plan)) : null, args.run && args.run !== true ? path.join(path.resolve(String(args.run)), "motion", "score.json") : null].filter(Boolean); for (const f of cand) { if (!fs.existsSync(f)) continue; const j = readJSON(f), a = j.music_arc || j.score?.music_arc; if (a && (a.end_card === "silence" || a.ring_out === false)) return true; } } catch {} return false; })();
+  if (last_audible != null && dur - last_audible > 1.5 && silentCard) warnings.push(`quiet end card: ${r1(dur - last_audible)} s of silence at the end is declared (music_arc.end_card "silence"), so it is not dead air`);
+  else if (last_audible != null && dur - last_audible > 1.5) P("dead air at the end", `${r1(dur - last_audible)} s of silence`, "<= 1.5 s", "let the music ring out under the end card to the last frame (music.mjs does by default), or declare a quiet end card (music_arc.end_card \"silence\"), or trim the film");
   if (last_30ms_db > -40) P("abrupt ending", `last 30 ms at ${r1(last_30ms_db)} dBFS`, "< -40 dBFS (faded)", "end on the track's own ending or a button, with a 20-50 ms final fade to silence");
   // dropouts: silence >= 0.4 s inside the film
   const gaps = [];
@@ -814,7 +821,9 @@ function check() {
       }
       measures.logo_at = r3(logoT);
       measures.music_last_audible = musicLast == null ? null : r3(musicLast);
-      if (musicLast != null && musicLast - logoT > 1.0) warnings.push(`ring-out-ending: the music is still audible ${r1(musicLast - logoT)} s after the logo / cta at ${r1(logoT)} s (button endings preferred: a hard stop on the logo, sound.mjs fit --logo with the track's own ending or a button)`);
+      const cardRing = !silentCard && dur - logoT <= 8 && win(dur - 0.4, dur - 0.1) < body - 15; // the take rings out under the end card and fades before the last frame: the default, not the tell
+      measures.end_card_ring_out = cardRing;
+      if (musicLast != null && musicLast - logoT > 1.0 && !cardRing) warnings.push(`ring-out-ending: the music is still audible ${r1(musicLast - logoT)} s after the logo / cta at ${r1(logoT)} s (button endings preferred: a hard stop on the logo, sound.mjs fit --logo with the track's own ending or a button)`);
     }
   }
   // the payoff lands: silence (or a dip) before it, loudest on it. Measured in 100 ms windows on the music stem (--music) or the mix.
