@@ -117,7 +117,8 @@ Everything a frame worker must honour is written **inside** its `## Frame N — 
 ## Build-time commands
 
 ```bash
-node $SKILL_DIR/scripts/video.mjs inject --project-dir videos/<name> --run "$RUN"                  # after frame-packets.mjs
+node $SKILL_DIR/scripts/video.mjs packets --project-dir videos/<name>                              # stage-assets.mjs + frame-packets.mjs with cwd = the project
+node $SKILL_DIR/scripts/video.mjs inject --project-dir videos/<name> --run "$RUN"                  # after packets
 node $SKILL_DIR/scripts/video.mjs audio-lock --project-dir videos/<name> --music videos/<name>/assets/music-bed.<ext>   # after fetch-sfx
 node $SKILL_DIR/scripts/obey.mjs --project videos/<name>                                              # after verify, before render
 node $SKILL_DIR/scripts/finish.mjs all --project videos/<name> --out <final.mp4>                      # the delivery render only: film-wide motion blur + one grade (references/finish.md); drafts use the workflow's render
@@ -125,6 +126,7 @@ node $SKILL_DIR/scripts/finish.mjs all --project videos/<name> --out <final.mp4>
 
 The finish replaces the workflow's own delivery render for the final: it renders the project itself (oversampled), so run it after the gates. Rasan3D scenes then set `motionBlur: false` (a whip-speed 3D move keeps shutter 0.25): `references/3d.md` §4.
 
+- The workflow's `stage-assets.mjs` and `frame-packets.mjs` resolve their paths from the **current directory**: run them from inside the project folder (`cd videos/<name>`), or use `video.mjs packets`, which does that. If `frame-packets.mjs` ends with `ENOENT ... frame-worker-core.md` (the installed hyperframes skill lacks it), `packets` reports a warning once the packets exist, and `inject` writes a fallback `_role.md`.
 - `inject` upserts the contract into every `.hyperframes/frame-packets/NN.md` (not `_*`), refusing any packet that would pass the workflow's 48,000-byte cap. Re-running is safe.
 - `audio-lock` copies the track to `assets/music-bed.<ext>` and points the `bgm` entry of `audio_meta.json` / `audio_engine_meta.json` at it (volume 0.12 under narration, 0.9 without), clearing `bgm_pending`.
 - `obey` checks every file in `compositions/frames/`; the assembled `index.html` and `compositions/captions.html` are reported as `skipped` (the workflow owns them). Exit 0 clean · 2 violations · 1 could not run.

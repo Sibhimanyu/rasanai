@@ -36,7 +36,7 @@ export function frameFonts(frameText) {
 }
 
 // write frame.md from a DESIGN.md (converted) or a ready frame spec, stage its fonts, add @font-face
-export async function installLook(dir, { designMd = null, mode = undefined, frame = null, presetDir = null } = {}) {
+export async function installLook(dir, { designMd = null, mode = undefined, frame = null, presetDir = null, source = null } = {}) {
   const notes = [];
   let frameText;
   let brand = null;
@@ -44,7 +44,7 @@ export async function installLook(dir, { designMd = null, mode = undefined, fram
     brand = readDesignMd(designMd, { mode });
     frameText = toFrameMd(brand, { assets: findBrandManifest(designMd) });
     writeFile(path.join(dir, "capture", "extracted", "tokens.json"), JSON.stringify(toTokensJson(brand), null, 2) + "\n");
-    notes.push(`frame.md converted from the project's brand reference ${path.basename(designMd)} (${brand.format}); capture/extracted/tokens.json written for build-frame.mjs remixes`);
+    notes.push(`frame.md converted from ${source === "look" ? "the chosen look's" : "the project's brand reference"} ${source === "look" ? path.join(path.basename(path.dirname(designMd)), path.basename(designMd)) : path.basename(designMd)} (${brand.format}); capture/extracted/tokens.json written for build-frame.mjs remixes`);
     notes.push(...brand.warnings);
   } else if (frame) {
     frameText = fs.readFileSync(frame, "utf8");
