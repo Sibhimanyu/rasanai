@@ -64,17 +64,43 @@ export function preflight(run, video) {
   return problems;
 }
 
+// The failing findings as the Final shows them: {id, step, name, reason, waivable}. Derived from `blocked` (one string per finding: "<step>: <why>" or "<step> (<check>): <why>").
+// NEVER waivable, whoever asks (references/workflows/final-and-delivery.md): the run's own structure (preflight, a missing/draft render, a different render than the one gated),
+// the words on screen (text-qa: a typo or a false claim ships on every play) and anything about photosensitivity (flashing) or the claim being true. Everything else is a quality finding the person may waive.
+const HARD_STEP = /^(preflight|--video|--project|text-qa|final-gate)\b/i;
+const HARD_TEXT = /photosens|flash(ing|es)?\b|seizure|strobe|claim.?(truth|scope)|unsourced|fabricat|not true|false claim|product.?truth|rights|licen[cs]e|permission/i;
+export function gateFindings(g) {
+  if (!g) return [];
+  const rows = Array.isArray(g.findings) && g.findings.length ? g.findings : (g.blocked || []).map((b) => ({ text: String(b) }));
+  return rows.map((f) => {
+    const text = String(f.text || [f.name, f.reason].filter(Boolean).join(": "));
+    const m = text.match(/^([\w./-]+)(?:\s*\(([^)]*)\))?\s*:\s*([\s\S]*)$/);
+    const step = f.step || (m ? m[1] : "gate"), check = m && m[2] ? m[2] : "";
+    const reason = String(f.reason || (m ? m[3] : text)).replace(/\s+/g, " ").replace(/\(exit \d+\)\s*/g, "").replace(/^(failed|could not run \(never a pass\))\s*:?\s*/i, "").trim().slice(0, 180);
+    const name = f.name || (check ? `${step}: ${check}` : step);
+    const id = f.id || `${String(step).replace(/[^\w]+/g, "-")}-${crypto.createHash("sha1").update(text).digest("hex").slice(0, 6)}`;
+    return { id, step, name, reason, waivable: f.waivable !== undefined ? !!f.waivable : !(HARD_STEP.test(step) || HARD_TEXT.test(text)) };
+  });
+}
+
 // what console.mjs push calls before a film reaches the person: {ok, why[]}
-export function verifyHandover(run, video) {
+// { allowGateFailed: true } (push --waiver-payload) lets a render whose final-gate FAILED reach the Final, but only when every failing finding is waivable: the Final then shows them
+// ({gate_failed, findings}) and the film stays "not passed" until the person fixes or waives each one. A hard finding, a different render, an open round or a draft still refuse.
+export function verifyHandover(run, video, { allowGateFailed = false } = {}) {
   const why = [...preflight(run, video)];
   const g = jr(path.join(run, "final-gate.json"));
+  let gateFailed = null;
   if (!video || !ex(video)) why.push("no final render to hand over");
   else if (!g) why.push("final-gate.mjs has not run (node crew.mjs final-gate --run <run> --project <dir> --video <render>)");
   else {
-    if (g.ok !== true) why.push(`final-gate did not pass: ${(g.blocked || []).slice(0, 4).join("; ")}`);
+    if (g.ok !== true) {
+      const fs_ = gateFindings(g), hard = fs_.filter((f) => !f.waivable);
+      if (allowGateFailed && fs_.length && !hard.length && g.video_sha === sha(video)) gateFailed = fs_;
+      else why.push(`final-gate did not pass: ${(g.blocked || []).slice(0, 4).join("; ")}${allowGateFailed && hard.length ? ` (never waivable: ${hard.map((f) => f.name).join(", ")}; fix ${hard.length > 1 ? "these" : "this"})` : ""}`);
+    }
     if (g.video_sha !== sha(video)) why.push("final-gate passed a different render than this one: run it again on this file");
   }
-  return { ok: why.length === 0, why, warnings: (g && g.warnings) || [], needs_you: (g && g.needs_you) || [] };
+  return { ok: why.length === 0, why, gate_failed: why.length === 0 ? gateFailed : null, warnings: (g && g.warnings) || [], needs_you: (g && g.needs_you) || [] };
 }
 
 // the film's markup: index.html plus every sub-composition it mounts (data-composition-src) and the files in compositions/: a film built from
@@ -202,6 +228,7 @@ export function main(args) {
     } catch (e) { steps.push({ step: "earshot-tech", ok: true, optional: true, warnings: [], note: `could not run (${String(e.message).slice(0, 120)}); skipped` }); }
   }
   const res = { ok: blocked.length === 0, t: new Date().toISOString(), video: video || null, video_sha: video && ex(video) ? sha(video) : null, project, steps, blocked, warnings, needs_you };
+  res.findings = gateFindings({ blocked });
   try { fs.writeFileSync(path.join(run, "final-gate.json"), JSON.stringify(res, null, 2)); } catch {}
   return res;
 }

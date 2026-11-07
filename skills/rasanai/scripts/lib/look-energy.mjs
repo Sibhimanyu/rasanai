@@ -272,6 +272,15 @@ export async function applyEnergy(run, label, { preview = true } = {}) {
   return done;
 }
 
+// the sentence posted to the person: plain words, no px values, file names or timeline percentages (the engineering `changes` line stays in the payload)
+function plainEnergyReply(styles, label, st) {
+  const lv = [];
+  for (const s of styles) { const e = st[s.label]; if (e && e.last && (!label || label === s.label)) lv.push(e.last.level); }
+  const level = lv.length ? lv[lv.length - 1] : 0;
+  const body = level > 0 ? "Bigger, bolder headline; stronger accent" : level < 0 ? "Quieter headline, more breathing room; softer accent" : "Back to the original look";
+  return `Redrawn: ${body}. The pictures and preview are new.`;
+}
+
 // project the recorded versions into a look payload: new poster / specimen / representative frame / preview paths and a concrete `changes` line
 export function applyEnergyToPayload(run, pl, { label } = {}) {
   const st = readJ(stateFile(run), {});
@@ -290,7 +299,7 @@ export function applyEnergyToPayload(run, pl, { label } = {}) {
   if (lines.length) {
     pl.changes = lines.join(" ");
     // the sentence the director posts in chat: the changes line verbatim, nothing added or invented
-    pl.reply_text = `Redrawn: ${pl.changes}`;
+    pl.reply_text = plainEnergyReply(pl.styles || [], label, st);
   }
   return pl;
 }

@@ -1185,6 +1185,14 @@ export function renderPlan(plan, out, { lufs = -14, tp = -1.5 } = {}) {
   const tmp = path.join(os.tmpdir(), `rasa-bed-${process.pid}-${Date.now()}.wav`);
   const graph = planFilter(plan);
   execFileSync("ffmpeg", ["-y", "-v", "error", "-i", plan.track, "-filter_complex", graph, "-map", "[out]", "-ar", "48000", "-c:a", "pcm_f32le", tmp]);
+  // a bed that ends on its own ring-out can still end short of the picture: pad it with silence to the exact film length, so the audio never stops
+  // before the last frame and the bed is never shorter than the film (slop music-loop). A hard stop is not rescued by this: the ending shape is the plan's.
+  const want = Number(plan.film_duration);
+  if (want > 0 && probeDuration(tmp) < want - 0.02) {
+    const padded = tmp.replace(/\.wav$/, "-pad.wav");
+    execFileSync("ffmpeg", ["-y", "-v", "error", "-i", tmp, "-af", `apad=whole_dur=${want.toFixed(3)}`, "-c:a", "pcm_f32le", padded]);
+    fs.renameSync(padded, tmp);
+  }
   const m = masterFile(tmp, out, { lufs, tp });
   fs.rmSync(tmp, { force: true });
   const post = m;

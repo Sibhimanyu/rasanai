@@ -39,7 +39,7 @@
 //          with no library sample, no media-use file and the user's own RASANAI_ELEVENLABS_API_KEY, a sample is generated (cached under assets/sfx/gen/),
 //          else the cue has no file and a downgrade is logged
 //   node sound.mjs check (--video <mp4> | --audio <file>) [--film <s>] [--vo <stem>] [--music <stem>]
-//        [--sfx <sfx-plan.json|index.html>] [--silent-by-choice "<reason>"] [--plan plan.json] [--events events.json]
+//        [--sfx <sfx-plan.json|index.html>] [--sfx-plan <crew/sfx-plan.json>: cues mixed outside index.html still count] [--silent-by-choice "<reason>"] [--plan plan.json] [--events events.json]
 //        [--narrated] [--lufs -14] [--payoff <s>] [--score score.json]
 //       -> measured loudness, true peak, head/tail, dropouts, loops, VO gap, SFX density; with --sfx, error
 //          no-sfx when a film of 15 s or more has zero SFX cues (unless --silent-by-choice; without --sfx it is a warning);
@@ -956,10 +956,16 @@ function check() {
   }
   // SFX density
   // SFX are counted from --sfx, else from the cues baked into this mix (<file>.mix.json written by `sound.mjs mix`), else <run>/crew/sfx-plan.json: both paths are valid
-  const sfxSrc = args.sfx && args.sfx !== true ? String(args.sfx) : (() => {
-    const mj = file.replace(/\.[^.]+$/, "") + ".mix.json", rp = args.run && args.run !== true ? path.join(path.resolve(String(args.run)), "crew", "sfx-plan.json") : null;
-    for (const c of [mj, rp]) if (c && fs.existsSync(c)) { try { if (sfxTimes(c).length) { measures.sfx_source = path.basename(c); return c; } } catch {} }
-    return null;
+  // the first source that actually holds cues wins: --sfx-plan, --sfx (an index.html with no mounted cues does not hide a plan mixed outside it), the mix manifest, then the run's / project's crew/sfx-plan.json
+  const sfxSrc = (() => {
+    const mj = file.replace(/\.[^.]+$/, "") + ".mix.json";
+    const cand = [];
+    if (args["sfx-plan"] && args["sfx-plan"] !== true) cand.push(path.resolve(String(args["sfx-plan"])));
+    if (args.sfx && args.sfx !== true) cand.push(String(args.sfx));
+    cand.push(mj);
+    for (const k of ["run", "project"]) if (args[k] && args[k] !== true) cand.push(path.join(path.resolve(String(args[k])), "crew", "sfx-plan.json"));
+    for (const c of cand) if (c && fs.existsSync(c)) { try { if (sfxTimes(c).length) { if (c !== String(args.sfx)) measures.sfx_source = path.basename(c); return c; } } catch {} }
+    return args.sfx && args.sfx !== true ? String(args.sfx) : null;
   })();
   if (sfxSrc) {
     const cues = sfxTimes(sfxSrc).sort((a, b) => a.t - b.t);

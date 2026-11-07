@@ -5,6 +5,7 @@
 // customize() takes a CLOSED schema of edits, classifies each one (safe / character-altering / fundamentally different), refuses
 // unknown properties and brand-lock conflicts, and always writes a NEW style; the base is never touched. bindSnapshot() copies a
 // style's DESIGN.md, grammar and revision into a run so later edits never change an approved film. Zero dependencies.
+import { resolveBrandPath, runBrandFile } from "./run-brand.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -116,7 +117,7 @@ export function createFromRun(lib, runArg, nameArg, { label, brand } = {}) {
   const gv = validateGrammar(readJ(gsrc));
   if (gv.errors.length) throw new Error(`the run's grammar is invalid: ${gv.errors[0]}`);
   const B = readDesignMd(path.join(src, "DESIGN.md"));
-  const brandFile = brand && brand !== true ? path.resolve(String(brand)) : dec.brand && dec.use_brand !== false && exists(path.resolve(String(dec.brand))) ? path.resolve(String(dec.brand)) : null;
+  const brandFile = brand && brand !== true ? path.resolve(String(brand)) : runBrandFile(run, dec);
   let brand_lock = null;
   if (brandFile) {
     const BR = readDesignMd(brandFile);

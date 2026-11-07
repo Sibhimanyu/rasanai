@@ -10,6 +10,7 @@
 //   design/<label>/specimen.png   rendered by the gate (the Look's poster)
 //   design/<label>/blend.json   { name, one_line, why_for_story, references: [{id, traits[], why}], subject_world[],
 //                                 stack: {"visual-style": [...], "motion-language": "..."}, motion_contract?: {...} }
+import { resolveBrandPath, runBrandFile } from "./run-brand.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -599,7 +600,7 @@ export function visualBibleInputs(run, { label, dir, blend, recipe, decisions, m
   const D = decisions || readJ(path.join(run, "decisions.json")) || {};
   const out = path.join(run, "look");
   const sys = dir || path.join(run, "design", label || (D.look && D.look.system) || "");
-  const brandMd = D.use_brand === false || !D.brand ? null : path.resolve(String(D.brand));
+  const brandMd = runBrandFile(run, D);
   const brief = readJ(path.join(run, "brief.json")) || {};
   const assets = brandMd ? readJ(path.join(path.dirname(brandMd), "assets", "brand-assets.json")) || readJ(path.join(run, "research", "brand", "assets", "brand-assets.json")) : null;
   return {
