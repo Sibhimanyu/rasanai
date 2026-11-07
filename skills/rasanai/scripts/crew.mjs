@@ -4236,6 +4236,15 @@ if (cmd === "plan") {
     const miss = ["moves", "moves-jury", "score", "ab-review"].filter((x) => std.some((ph) => ph.phase === x) && !have.has(x));
     if (miss.length) die(`fast pace dropped ${miss.join(", ")}: pace fast may only cut revision rounds (whatever the Moves pass, score.json and the A/B juror do at standard stays). Planner bug: STOP and report it.`);
   }
+  { // the model each member is dispatched on (lib/models.mjs allocate: the one table), additive on plan.json
+    const mp = modelOf(p), tally = {};
+    for (const ph of p.phases) for (const x of ph.dispatch || []) {
+      const a = allocate({ role: x.role, profile: mp, policy: p.policy });
+      x.model = a.model || null; x.effort = a.effort || null;
+      if (!x.conditional) { const k = a.model || "session"; tally[k] = (tally[k] || 0) + 1; }
+    }
+    p.models = tally;
+  }
   p.estimate = estimateFor(p, p.phases);
   for (const ph of p.phases) ph.est_tokens = (ph.dispatch || []).reduce((a, x) => a + tokensFor(x.role, x.key), 0);
   writeFile(R(run, "crew", "plan.json"), JSON.stringify(p, null, 2));
@@ -4254,7 +4263,7 @@ if (cmd === "plan") {
   writeFile(R(run, "crew", "budget.json"), JSON.stringify({ budget: { level: p.budget, label: BUDGETS[p.budget].label, summary: BUDGETS[p.budget].summary, fix_rounds: p.estimate.fix_rounds, total: p.estimate.total, total_label: p.estimate.total_label, phases: p.estimate.phases.map((r) => ({ phase: r.phase, tokens: r.tokens, label: kTok(r.tokens) })), levels } }, null, 2));
   const count = p.phases.reduce((a, ph) => a + (ph.dispatch || []).length, 0);
   const prof = modelOf(p);
-  out({ ok: true, ...(seqMotifs ? { sequence_motifs: seqMotifs } : {}), plan: rel(R(run, "crew", "plan.json")), model: p.model, harness: prof.harness, budget: p.budget, estimate: { total: p.estimate.total_label, fix_rounds: p.estimate.fix_rounds, by_phase: Object.fromEntries(p.estimate.phases.map((r) => [r.phase, kTok(r.tokens)])), fix_rounds_tokens: kTok(p.estimate.fix_rounds_tokens), levels: levels.map((l) => `${l.level} ${l.total_label}`) }, show_on_brief: "node scripts/console.mjs push --run <run> --step brief --merge --file <run>/crew/budget.json  (the Brief call shows the level and the three totals; the user may change it, then re-plan with --budget)", dispatches: count, phases: p.phases.map((ph) => ({ phase: ph.phase, when: ph.when, tokens: ph.est_tokens ? kTok(ph.est_tokens) : undefined, members: (ph.dispatch || []).map((x) => `${x.role}${x.key ? ":" + x.key : ""} (${x.tier})`), then: ph.then })), next: "For each member: crew.mjs brief, then dispatch it in the background with the prompt file; accept it with crew.mjs check." });
+  out({ ok: true, ...(seqMotifs ? { sequence_motifs: seqMotifs } : {}), plan: rel(R(run, "crew", "plan.json")), model: p.model, harness: prof.harness, budget: p.budget, estimate: { total: p.estimate.total_label, fix_rounds: p.estimate.fix_rounds, by_phase: Object.fromEntries(p.estimate.phases.map((r) => [r.phase, kTok(r.tokens)])), fix_rounds_tokens: kTok(p.estimate.fix_rounds_tokens), levels: levels.map((l) => `${l.level} ${l.total_label}`) }, show_on_brief: "node scripts/console.mjs push --run <run> --step brief --merge --file <run>/crew/budget.json  (the Brief call shows the level and the three totals; the user may change it, then re-plan with --budget)", dispatches: count, models: Object.entries(p.models || {}).map(([k, n]) => `${n} ${k}`).join(", "), phases: p.phases.map((ph) => ({ phase: ph.phase, when: ph.when, tokens: ph.est_tokens ? kTok(ph.est_tokens) : undefined, members: (ph.dispatch || []).map((x) => `${x.role}${x.key ? ":" + x.key : ""} (${x.tier})${x.model ? ` [model: "${x.model}"]` : ""}`), then: ph.then })), next: "For each member: crew.mjs brief, then dispatch it in the background with the prompt file, on the model its line names (never the session default); accept it with crew.mjs check." });
 } else if (cmd === "brief") {
   const run = runDir();
   const role = str(args.role);

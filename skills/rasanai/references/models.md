@@ -21,7 +21,7 @@ A profile also carries `delegation` (`agent-tool`, `codex-exec`, `none`), `latit
 
 ### Roles by tier
 
-Gathering roles (`product-researcher`, `brand-researcher`, `screens-researcher`, `local-scout`) may run on a fast tier: a smaller Claude (`sonnet`), or under Codex the same model at `low` reasoning effort. Every other role (the researchers that judge, the writers, the editor, the Motion Director, frame designers, scene animators, critics) is **never below strong**; the creative and judging ones prefer frontier. `tierFor(role, profile)` returns `{ min, prefer, ok, fast, model, effort }`; if `ok` is false the Director runs that role on the session's model, or reports it.
+Gathering roles (`product-researcher`, `brand-researcher`, `screens-researcher`, `local-scout`) may run on a fast tier: a smaller Claude (`sonnet`), or under Codex the same model at `low` reasoning effort. Every other role (the researchers that judge, the writers, the editor, the Motion Director, frame designers, scene animators, critics) is **never below strong**; the creative and judging ones prefer frontier. The role -> model table lives in code, not here: `roleModelTable()` in `scripts/lib/models.mjs` (creative and judging roles `opus` at high effort, builders `sonnet`, gatherers `sonnet`, mechanical roles `haiku`; an unlisted role is `opus`). `crew.mjs plan` and `brief` print and dispatch with that model (`model: "..."` on every `Agent(...)` line) and write it to `crew/plan.json` (`model`, `effort` per member, `models` tally); a Director must dispatch on the model the line names. `tierFor(role, profile)` returns `{ min, prefer, ok, fast, model, effort }`; if `ok` is false the Director runs that role on the session's model, or reports it.
 
 ## Detection
 
