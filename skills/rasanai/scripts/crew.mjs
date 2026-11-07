@@ -2280,7 +2280,10 @@ function checkScore(run) {
     const dirDoc = readDirection(run).direction, sfxNone = !!dirDoc && sfxExpectation(dirDoc).required === false;
     if (Array.isArray(score.audio_cues) && score.audio_cues.length) {
       const dc = deriveCues(score, { silence: dirDoc ? silenceWindows(dirDoc, eventsFromScore(score).events).windows : [] });
-      for (const it of dc.issues) (it.severity === "error" ? P : W).push(`${it.check}: ${it.message}`);
+      const noSrc = dc.issues.filter((it) => it.check === "cue-no-source");
+      for (const it of dc.issues) if (it.check !== "cue-no-source") (it.severity === "error" ? P : W).push(`${it.check}: ${it.message}`);
+      // SFX files do not exist at score time: say it once as a note, not as a warning per cue
+      if (noSrc.length) console.error(`note: ${noSrc.length} audio cue(s) have no source file yet; SFX are sourced at the sound step`);
     }
     if (!sfxNone && moving.length && quiet.length / moving.length > 0.5) W.push(`seam-unsounded: ${quiet.length} of ${moving.length} seams with motion have no sound event (seam.sound, or an event with a sound at the seam: whoosh on a move through space, hit on a landing, impact on the reveal): ${quiet.slice(0, 4).map(({ sm }) => `${sm.from}>${sm.to}`).join(", ")}`);
     // the derived film-event manifest (events.mjs export), only when the run has one: a stale or invalid one, and a picture hit / foley / spoken word that are not within a frame, warn

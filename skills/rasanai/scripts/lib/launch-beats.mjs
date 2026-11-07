@@ -268,6 +268,9 @@ export const moveNamesOf = (s) => {
 };
 
 // AI-cliche and move-variety checks (all warnings; references/launch-moves.md). Reads the score's own fields, so a render is not needed.
+// a typed line = a typing MOVE (a move name, entrance, kind or target), not the word "type" in a move name like persistent-type-over-cuts or in prose notes
+const TYPED_MOVE = /\b(typed|typing|typewriter|type[-_ ]?on|type[-_ ]?in)\b|\bcaret\b/i;
+const typedText = (b, names, recs) => [b.line_build, b.entrance, b.emphasis && typeof b.emphasis === "object" ? b.emphasis.kind : b.emphasis].concat(names, recs.flatMap((m) => [m.entrance, m.kind, m.effect, m.element, m.target])).filter((v) => v != null).map(String).join(" ");
 export function clicheFindings(plan, rows, see = "references/launch-moves.md") {
   const F = [], sc = plan && Array.isArray(plan.scenes) ? plan.scenes : plan && Array.isArray(plan.beats) ? plan.beats : [];
   const w = (check, message, fix) => F.push({ severity: "warning", check, message, fix: `${fix}; ${see}`, basis: "score" });
@@ -275,7 +278,7 @@ export function clicheFindings(plan, rows, see = "references/launch-moves.md") {
     const names = moveNamesOf(b), recs = Array.isArray(b.moves) ? b.moves.filter((m) => m && typeof m === "object") : [];
     const text = [emphText(b.emphasis), b.line_build, b.entrance, b.move_note].concat(names).filter((v) => v != null).map(String).join(" ");
     const recText = recs.map((m) => [m.entrance, m.kind, m.effect, m.layer, m.element, m.target, m.what].filter((v) => v != null).join(" ")).join(" ");
-    return { id: String(b.id != null ? b.id : b.n != null ? b.n : i + 1), names, text, recs, recText, typed: b.typed === true || /^typed?$/i.test(String(b.line_build || "")) || CLICHE.typed.test(text) };
+    return { id: String(b.id != null ? b.id : b.n != null ? b.n : i + 1), names, text, recs, recText, typed: b.typed === true || /^typed?$/i.test(String(b.line_build || "")) || TYPED_MOVE.test(typedText(b, names, recs)) };
   });
   const ids = (a) => a.map((p) => p.id).slice(0, 6).join(", ");
   // 1. banned: a highlighted word that nudges or pulses as the emphasis, glow pulses, bokeh, particles
@@ -633,7 +636,7 @@ export function craftResearchFindings(plan, rows) {
       if (set.length && !pay.some((p) => p.i >= Math.floor(rows.length * 0.6))) w("payoff-late-missing", "no pays_off lands in the last third: the film builds and never cashes in", "land a payoff in the last beats", "references/launch-moves.md \"AI cliches\""); }
     const pat = B.map((x, i) => { const recs = Array.isArray(x.s.moves) ? x.s.moves.filter((m) => m && typeof m === "object") : [], en = lc(x.s.entrance || (recs.find((m) => m.entrance) || {}).entrance), ex = lc(x.s.exit || (recs.find((m) => m.exit && typeof m.exit === "string") || {}).exit || (rows[i + 1] ? transitionFamily(rows[i + 1].transition) : "")); return en || ex ? `${en}>${ex}` : null; }).filter(Boolean);
     if (pat.length >= 5) { const n = {}; pat.forEach((p) => { n[p] = (n[p] || 0) + 1; }); const [top, c] = Object.entries(n).sort((a, b) => b[1] - a[1])[0]; if (c / pat.length >= 0.7) w("same-entrance-exit", `${c} of ${pat.length} beats share one entrance and exit pattern (${top.replace(">", " then ")}): every shot is enter, wait, exit`, "plan a sequence of actions, carried states and purposeful cuts; vary how beats arrive and leave", "references/launch-moves.md \"AI cliches\""); }
-    const moves = B.flatMap((x) => (Array.isArray(x.s.moves) ? x.s.moves.filter((m) => m && typeof m === "object").map((m) => ({ ...m, _b: x.id })) : [])), ex = moves.filter((m) => m.ease && easeExtreme(m.ease, m.dur));
+    const moves = B.flatMap((x) => (Array.isArray(x.s.moves) ? x.s.moves.filter((m) => m && typeof m === "object").map((m) => ({ ...m, _b: x.id })) : [])), sigE = String(plan.signature_ease || (plan.motion && plan.motion.signature_ease) || "").replace(/^rasan:/i, "").toLowerCase().trim(), ex = moves.filter((m) => m.ease && !(sigE && String(m.ease).replace(/^rasan:/i, "").toLowerCase().trim() === sigE) && easeExtreme(m.ease, m.dur));
     if (ex.length) w("easing-extreme", `${ex.length} move(s) use an ease so steep the action cannot be read (beats ${[...new Set(ex.map((m) => m._b))].slice(0, 6).join(", ")}: ${[...new Set(ex.map((m) => m.ease))].slice(0, 3).join(", ")})`, "soften the curve or give the action more time: the viewer must see what moved and where it landed", "references/launch-moves.md \"AI cliches\"");
     const br = B.flatMap((x) => (Array.isArray(x.s.line_breaks) ? [{ x, br: x.s.line_breaks.map(S) }] : [])).map(({ x, br: b }) => ({ x, hit: b.slice(0, -1).filter((t) => FUNCTION_WORD.test((t.split(/\s+/).pop() || ""))).concat(b.slice(1).filter((t) => t && t.split(/\s+/).length === 1 && FUNCTION_WORD.test(t))) })).filter((o) => o.hit.length);
     if (br.length) w("type-break", `large type breaks after or apart from a function word in beat(s) ${br.map((o) => o.x.id).slice(0, 6).join(", ")} ("${br[0].hit[0]}")`, "break at grammatical units (keep the article with its noun, the preposition with its phrase): art-direct the actual words", "references/craft.md \"Craft research\"");

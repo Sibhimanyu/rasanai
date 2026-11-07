@@ -106,6 +106,28 @@ if (cmd === "init") {
   console.log(JSON.stringify({ ok: true, capture: cap, title: tokens.title || "", colors: (tokens.colors || []).length, fonts: tokens.fonts || [], screenshots: shots.slice(0, 8).map((s) => path.relative(process.cwd(), s)) }, null, 2));
 } else if (cmd === "write") {
   await write();
+} else if (cmd === "packets") {
+  // runs the workflow's stage-assets.mjs and frame-packets.mjs with cwd = the project (they resolve paths from the cwd); a missing frame-worker-core.md in the installed hyperframes skill is a warning once the packets exist
+  const dir = projectDir();
+  let route = String(args.route || "");
+  if (!route) { const bm = fs.existsSync(path.join(dir, "BRIEF.md")) ? fs.readFileSync(path.join(dir, "BRIEF.md"), "utf8").match(/^workflow:\s*(\S+)/m) : null; route = bm ? bm[1] : "product-launch-video"; }
+  const wd = findSkill(HF_ALIAS[route] || route);
+  if (!wd) die(`workflow skill ${route} not found (install the HyperFrames workflow)`);
+  const warnings = [];
+  for (const [script, extra] of [["stage-assets.mjs", ["--hyperframes", "."]], ["frame-packets.mjs", ["--project", "."]]]) {
+    const sp = path.join(wd, "scripts", script);
+    if (!fs.existsSync(sp)) { if (script === "stage-assets.mjs") { warnings.push(`${script} not found in the workflow; skipped`); continue; } die(`${script} not found at ${sp}`); }
+    try { run("node", [sp, ...extra], { cwd: dir }); }
+    catch (e) {
+      const err = String(e.stderr || e.message);
+      const pk = path.join(dir, ".hyperframes", "frame-packets");
+      const written = fs.existsSync(pk) && fs.readdirSync(pk).some((f) => /^\d.*\.md$/.test(f));
+      if (script === "frame-packets.mjs" && /ENOENT/.test(err) && /frame-worker-core/.test(err) && written) warnings.push("frame-packets.mjs could not read the hyperframes skill's references/frame-worker-core.md (not installed); the frame packets were written, and video.mjs inject adds a fallback _role.md");
+      else die(`${script} failed:\n${err}`);
+    }
+  }
+  for (const w of warnings) console.error(`warning: ${w}`);
+  console.log(JSON.stringify({ ok: true, project_dir: dir, packets: path.join(dir, ".hyperframes", "frame-packets"), warnings }));
 } else if (cmd === "inject") {
   const dir = projectDir();
   const M = readFrontmatterDoc(fs.readFileSync(path.join(dir, "motion.md"), "utf8")).fields;
@@ -403,7 +425,7 @@ async function write() {
       put("frame.md", fs.readFileSync(resolvePreset(preset), "utf8"));
       stepTwo = `The brand step's preset copy is done: frame.md is the \`${preset}\` preset.`;
     } else if (designMd) {
-      const r = await installLook(dir, { designMd, mode: D.look.mode });
+      const r = await installLook(dir, { designMd, mode: D.look.mode, source: D.brand && path.resolve(rel(D.brand)) === path.resolve(designMd) ? "brand" : "look" }); // frame.md comes from decisions look.design_md (the chosen look); the brand DESIGN.md only when that is all there is
       wrote.push("frame.md", "capture/extracted/tokens.json");
       lookNotes.push(...r.notes);
       fontDowngrades(r);
