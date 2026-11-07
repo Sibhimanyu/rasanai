@@ -107,7 +107,8 @@ if (cmd === "local-find") {
   // the distinctive tokens: "RasanAI Studio" must find a repo named "rasanai" (the suffix word is generic), so each token that is not a generic suffix is tried too
   const GENERIC = new Set(["studio", "app", "apps", "pro", "ai", "labs", "lab", "hq", "inc", "co", "the", "official", "desktop", "mobile", "web", "cloud", "io", "dev"]);
   const wants = [...new Set([want, ...String(name).split(/[^A-Za-z0-9]+/).map((t) => slug(t)).filter((t) => t.length >= 3 && !GENERIC.has(t))])];
-  const hit = (str) => !!str && wants.some((w) => slug(str).includes(w));
+  // the full name matches as a substring; a lone distinctive token only when it IS the project's name or the repo's last path segment ("Notes App" must not match every repo with "notes" in it)
+  const hit = (str) => { if (!str) return false; const sl = slug(str); if (sl.includes(want)) return true; const last = slug(String(str).replace(/\.git$/, "").split(/[\/:]/).filter(Boolean).pop() || ""); return wants.some((w) => w !== want && (sl === w || last === w)); };
   const domain = args.domain && args.domain !== true ? String(args.domain).replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase() : null;
   const defaults = [process.cwd(), "code", "Code", "dev", "Developer", "Projects", "projects", "src", "repos", "work", "Work", "Documents/GitHub", "GitHub", "git", "conductor/repos", "Sites", "Desktop", "Documents"].map((r) => (path.isAbsolute(r) ? r : path.join(home, r)));
   const roots = (args.roots && args.roots !== true ? String(args.roots).split(",").map((s) => path.resolve(s.trim().replace(/^~(?=\/|$)/, home))) : defaults).filter((r) => fs.existsSync(r));
