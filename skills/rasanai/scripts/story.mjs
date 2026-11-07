@@ -871,6 +871,15 @@ function storyPayload() {
   }
   if (plates.state === "unavailable") warnings.push(`story plates unavailable (${plates.reason || "image generation"}): the boards show the type template`);
   const noteRows = Array.isArray(notes.treatments) ? notes.treatments : Array.isArray(notes.pitches) ? notes.pitches : [];
+  // "for whom" is the brief's / truth sheet's audience, never a treatment's perspective (that is a camera description)
+  const audienceText = (() => {
+    const bf = rd(path.join(run, "brief.json")), bfa = bf && bf.fields && (bf.fields.audience || (bf.fields.clarity && bf.fields.clarity.audience));
+    if (bfa && typeof bfa === "string") return cleanText(bfa);
+    const tf = args.truth && args.truth !== true ? path.resolve(String(args.truth)) : [path.join(sdir, "truth.md"), path.join(sdir, "truth.json")].find((f) => fs.existsSync(f));
+    try { if (tf && fs.existsSync(tf)) { const tr = /\.json$/i.test(tf) ? JSON.parse(fs.readFileSync(tf, "utf8")) : parseTruthMd(fs.readFileSync(tf, "utf8")); if (tr && typeof tr.audience === "string" && tr.audience.trim()) return headline(cleanText(tr.audience), 40); } } catch { /* no sheet */ }
+    return "";
+  })();
+  if (!audienceText) warnings.push("no audience in brief.json or story/truth.md: 'For whom' is left empty");
   const stories = [], boards = [];
   list.forEach((t, i) => {
     const id = t.tag || TAGS_ORDER[i] || t.id || `T${i + 1}`;
@@ -890,7 +899,7 @@ function storyPayload() {
     const first_watch = cleanText(note.first_watch || t.first_watch);
     const story = {
       id, angle: id, title: cleanText(t.treatment_title) || id,
-      aim: { takeaway, feel: cleanText(t.feel ?? (t.emotional_arc && (t.emotional_arc.movement || t.emotional_arc)) ?? ""), action, audience: cleanText(t.audience ?? t.perspective ?? "") },
+      aim: { takeaway, feel: cleanText(t.feel ?? (t.emotional_arc && (t.emotional_arc.movement || t.emotional_arc)) ?? ""), action, audience: audienceText },
       approach: cleanText(t.premise), logline: headline(t.logline || t.premise, 18),
       tempo: { ideas: t.beats.length, change_every_s: t.beats.length ? Math.round((total / t.beats.length) * 10) / 10 : 0, source: "this treatment's beats" },
       device: cleanText(t.device ?? t.organizing_mechanism ?? t.concept_kind ?? t.communication_kind ?? ""),
@@ -906,6 +915,8 @@ function storyPayload() {
       let img = sh.image && fs.existsSync(path.resolve(run, sh.image)) ? sh.image : "";
       if (!img) { const pr = plateRec.find((x) => x.shot === sid); if (pr && pr.image && fs.existsSync(path.resolve(run, pr.image))) img = pr.image; }
       if (!img && fs.existsSync(path.join(pdir, `${sid}.png`))) img = path.join(pdir, `${sid}.png`);
+      // an image outside the run folder (a writer's absolute path from another worktree) cannot be served: the run's own plate for that shot wins
+      if (img && rel(img).startsWith("..") && fs.existsSync(path.join(pdir, `${sid}.png`))) img = path.join(pdir, `${sid}.png`);
       return { id: sid, t: Number(sh.t) || 0, ...(img ? { image: rel(img) } : {}), words: cleanText(sh.words), move: cleanText(typeof sh.move === "object" ? sh.move.id : sh.move), carrier_state: cleanText(sh.carrier_state), transition: cleanText(sh.transition) };
     });
     if (shots.length) {
@@ -921,10 +932,14 @@ function storyPayload() {
   const rec = args.recommended && args.recommended !== true ? String(args.recommended) : null;
   const sf = path.join(sdir, "treatments.json");
   const recommendation = rec ? { recommended: rec } : (() => { const v = (() => { try { return validateTreatmentSet(list, {}); } catch { return { results: [], comparison: {} }; } })(); return recommendTreatments(list, v, sf); })();
-  const payload = { stories, recommended: recommendation.recommended, ...(recommendation.why ? { recommended_why: cleanText(recommendation.why) } : {}), boards, warnings };
+  const takes = stories.map((x) => x.aim.takeaway.toLowerCase());
+  if (stories.length > 1 && new Set(takes).size < takes.length) warnings.push("identical takeaways across treatments: the card headline uses each story's own logline/title, but have the writer give each treatment its own takeaway");
+  // warnings go to the director (stdout and stderr), never into the payload the person's page renders
+  const payload = { stories, recommended: recommendation.recommended, ...(recommendation.why ? { recommended_why: cleanText(recommendation.why) } : {}), boards };
+  for (const w of warnings) console.error(`story payload: ${w}`);
   const of = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(sdir, "stories.json");
   writeFile(of, JSON.stringify(payload, null, 2) + "\n");
-  out({ ok: true, file: of, stories: stories.map((x) => x.id), boards: boards.map((b) => ({ concept: b.concept, shots: b.shots.length, with_images: b.shots.filter((x) => x.image).length })), recommended: payload.recommended, warnings, next: "moves.mjs payload --run <run> --stories story/stories.json (adds carrier + moves), then console.mjs push --step story --file <that output> (stories, recommended, boards)" });
+  out({ ok: true, file: of, stories: stories.map((x) => x.id), boards: boards.map((b) => ({ concept: b.concept, shots: b.shots.length, with_images: b.shots.filter((x) => x.image).length })), recommended: payload.recommended, warnings, next: "moves.mjs payload --run <run> --stories story/stories.json (adds carrier + moves into that same object and writes it back), then console.mjs push --step story --file story/stories.json" });
 }
 
 if (cmd === "truth") {
@@ -1225,10 +1240,21 @@ if (cmd === "truth") {
     // the tag falls back to the slot order only for the card's secondary label; the treatment_title is what a person chooses by
     if (args.split) {
       const dir = path.dirname(sf);
+      // product + ui_labels come from the truth sheet (the real product name and its native words), so moves.mjs check can test a product film against real UI
+      let splitProduct = "", splitLabels = [];
+      try {
+        const tf = args.truth && args.truth !== true ? path.resolve(String(args.truth)) : [path.join(dir, "truth.md"), path.join(dir, "truth.json")].find((f) => fs.existsSync(f));
+        const tr = tf ? loadTruth(tf) : null;
+        if (tr) {
+          splitProduct = String((tr.product && tr.product.name) || "").trim();
+          splitLabels = [...new Set((tr.words || []).flatMap((w) => String(w).replace(/\s*\((?:[cl]\d+[,\s]*)+\)\s*$/i, "").split(/\s+·\s+/)).map((w) => w.replace(/^["“”']+|["“”']+$/g, "").trim()).filter((w) => w.length >= 2))];
+        }
+      } catch { /* no sheet: the fields stay empty and moves.mjs check reports the product test as unverified */ }
       list.forEach((t, i) => {
         const label = t.tag || TAGS_ORDER[i] || `T${i + 1}`;
         const full = { ...t, tag: t.tag || TAGS_ORDER[i] || null };
-        writeFile(path.join(dir, `pitch-${label}.json`), JSON.stringify({ ...toLegacyPitch(full, { label }), ...(ctx.concept === true ? { concept_card: conceptCard(full) } : {}), treatment: full }, null, 2));
+        const prodFields = { ...(splitProduct ? { product: splitProduct } : {}), ...(splitLabels.length ? { ui_labels: splitLabels } : {}) };
+        writeFile(path.join(dir, `pitch-${label}.json`), JSON.stringify({ ...toLegacyPitch(full, { label }), ...prodFields, ...(ctx.concept === true ? { concept_card: conceptCard(full) } : {}), treatment: full }, null, 2));
         writeFile(path.join(dir, `intent-${label}.json`), JSON.stringify(toIntent(full, {}), null, 2));
       });
       v.split = list.map((t, i) => `pitch-${t.tag || TAGS_ORDER[i] || `T${i + 1}`}.json`);

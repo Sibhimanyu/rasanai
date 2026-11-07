@@ -281,6 +281,7 @@ export function validateMoves(obj, opts = {}) {
       const labels = arr(opts.uiLabels).map(str).filter((l) => l.length >= 2);
       const product = str(opts.productName);
       if (!r) E(`hero ${h}: a move that carries a claim needs resolves_to (the real product surface or mark the transformation lands on)`);
+      else if (!labels.length && !product) W(`hero ${h}: unverified: product fields missing (the pitch has no ui_labels or product name), so resolves_to "${r.slice(0, 70)}" was NOT checked against real UI; re-run story.mjs treatments --split with the truth sheet beside it, never invent a landing to pass`);
       else {
         const hit = labels.some((l) => r.toLowerCase().includes(l.toLowerCase())) || (product && r.toLowerCase().includes(product.toLowerCase())) || /\b(brand|logo|mark|cursor|caret|composer)\b/i.test(r);
         if (!hit) E(`hero ${h}: on a product film resolves_to must be a real UI label from the pitch's ui_labels, the product name, or the brand / logo / mark / cursor / caret / composer (resolves_to: "${r.slice(0, 70)}")`);
