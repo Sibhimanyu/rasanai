@@ -1588,7 +1588,7 @@
     var pickWords = recIdx < 0 ? "" : recIdx === 0 ? "the first is my pick" : "my pick is " + ["", "the second", "the third"][recIdx] + (films[recIdx].title ? ", \u201c" + films[recIdx].title + "\u201d" : "") + ", outlined";
     qsubEl.textContent = d.context || (look ? "Three design systems made for your story, each drawn live on its own first line." + (pickWords ? " " + pickWords.charAt(0).toUpperCase() + pickWords.slice(1) + "." : "") : "Three films I could make. Each is a complete style and a story angle" + (pickWords ? "; " + pickWords : "") + ".");
     // the person's tile choice survives a reload (kept in the page's own storage, which is per console port, so per run)
-    var selKey = "rasa-film-sel-" + (look ? "look" : "film");
+    var selKey = "rasa-film-sel-" + (look ? "look" : "film") + ":" + films.map(function (x) { return x.id; }).join("|"); // keyed by this run's own option ids, so another run on a reused port never inherits it
     if (!local.filmSel) { try { local.filmSel = localStorage.getItem(selKey) || ""; } catch (e) {} }
     if (!local.filmSel || !films.some(function (x) { return x.id === local.filmSel; })) local.filmSel = d.recommended || (films[0] || {}).id;
     var grid = h("div", { class: "films" });
