@@ -164,7 +164,7 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   const t0 = Date.now();
   const SH = shapeOf(arc.shape), E = SH.edit || shapeOf("drop").edit, BPB = meterBeats(meter ?? arc.meter);
   const bed = !E.land, cold = E.land === "start", noBuild = bed || cold, noFinal = E.end !== "hit", tailEnd = E.end === "tail";
-  const F = Number(film), B = arc.button_at;
+  const F = Number(film), B = arc.button_at, silentCardArc = arc.end_card === "silence" || arc.ring_out === false;
   const D = E.land === "start" ? 0 : bed ? 0 : Number(arc[E.land] ?? arc.drop_at); // where the loud body lands (0 = nothing lands)
   const I = E.intro ? Math.max(1, Math.min(arc.intro_until ?? D * 0.7, D)) : 0;
   const brk = E.brk && Array.isArray(arc.break) && arc.break.length === 2 ? [Number(arc.break[0]), Number(arc.break[1])] : null;
@@ -314,7 +314,33 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
       oL[n] += S.L[si] * g; oR[n] += S.R[si] * g;
     }
   });
-  // end of the last piece: a source shorter than the film simply ends (its own tail), faded in the last few ms
+  // end of the last piece: a source shorter than the film ends (its own tail). By default the take RINGS OUT under the end card: the last bar of the source is looped
+  // (crossfaded) to the film's end and faded over the last ~1.5 s, so the end card is never dead air. arc.end_card "silence" (or ring_out false) asks for the quiet end card: no fill.
+  let ringTail = null;
+  const silentCard = arc.end_card === "silence" || arc.ring_out === false;
+  res.end_card = silentCard ? "silence (declared)" : "ring-out";
+  if (!silentCard && !noFinal && pieces.length) {
+    const lp = pieces[pieces.length - 1], offL = Math.round(lp.src0 * SRATE) - Math.round(lp.out0 * SRATE); let nEnd = Math.min(N, S.n - offL);
+    { let si = S.n - 1; while (si > 0 && Math.abs(S.L[si]) < 0.003 && Math.abs(S.R[si]) < 0.003) si--; nEnd = Math.min(nEnd, si + 1 + Math.round(0.25 * SRATE) - offL); } // the take's last audible sample (-50 dBFS), not the file's end: a take with its own silent tail rings on from where it stopped
+    let Lr = Math.min(Math.round(barS * SRATE), nEnd - Math.max(0, Math.round(lp.out0 * SRATE)));
+    if (nEnd < N - 0.25 * SRATE && Lr > 0.4 * SRATE) {
+      // the loop bar is the loudest bar-long window among the last few bars of the take (its decayed tail is too quiet to hold a ring-out)
+      const nS = nEnd + offL; let loopA = Math.max(0, nS - Lr), bestE = -1;
+      for (let a = Math.max(0, nS - Lr); a >= Math.max(0, nS - 6 * Lr); a -= Math.round(Lr / 4)) { let e = 0; for (let i = a; i < a + Lr; i += 8) e += S.L[i] * S.L[i] + S.R[i] * S.R[i]; if (e > bestE * 1.05) { bestE = e; loopA = a; } }
+      const X = Math.min(Math.round(0.12 * SRATE), Math.floor(Lr / 3)), hop = Lr - X;
+      for (let n = nEnd - X; n < nEnd; n++) { const g = Math.cos(((n - (nEnd - X)) / X) * Math.PI / 2); oL[n] *= g; oR[n] *= g; }
+      for (let k = 0, p0 = nEnd - X; p0 < N; k++, p0 += hop) {
+        for (let j = 0; j < Lr; j++) {
+          const n = p0 + j; if (n >= N) break;
+          const si = loopA + j, w = Math.min(Math.sin(Math.min(1, j / X) * Math.PI / 2), Math.cos(Math.max(0, (j - (Lr - X)) / X) * Math.PI / 2));
+          oL[n] += S.L[si] * w; oR[n] += S.R[si] * w;
+        }
+      }
+      res.ring_out = { from_s: r3(nEnd / SRATE), looped_bar_s: r3(Lr / SRATE) };
+      const t0 = Math.max(B + 0.12, nEnd / SRATE - 0.2);
+      ringTail = [[t0, btn.natural ? -6 : 0], [Math.max(t0 + 0.1, F - 1.5), btn.natural ? -9 : -5], [F - 0.05, -38], [F, -70]];
+    }
+  }
 
   // --- shaping + measurement loop (sparse intro, a lift into the drop, a break that is really quiet)
   const P = { gi: 0, gp: 0, gd: 0, gk: 0, gl: 0, introFilter: false, breakFilter: false };
@@ -322,7 +348,8 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   // the end: a hit-final ending as before; a stinger's hit decays from just after it; a bed or loop holds to the last phrase boundary (else bar line) it can and fades there
   const phraseS = 4 * barS, tF = bed ? [Math.floor((F - 0.5) / phraseS) * phraseS, Math.floor((F - 0.5) / barS) * barS].find((t) => t > F * 0.4 && F - t <= 6) ?? F - Math.min(2.5, F * 0.2) : tailEnd ? Math.min(F - 0.6, Math.max(D + 0.5, D + (F - D) * 0.3)) : B;
   if (bed) res.fade_from_s = r3(tF);
-  const tailPts = noFinal ? [[tF, 0], [F - 0.05, -34], [F, -70]] : btn.natural ? [] : [[B + 0.12, 0], [F - 0.05, -38], [F, -70]];
+  let tailPts = noFinal ? [[tF, 0], [F - 0.05, -34], [F, -70]] : btn.natural ? [] : (silentCardArc ? [[B + 0.12, 0], [F - 0.05, -38], [F, -70]] : [[B + 0.12, 0], [Math.max(B + 0.2, F - 1.5), -3], [F - 0.05, -38], [F, -70]]); // a ring-out holds a musical level under the end card and fades over the last ~1.5 s; a declared quiet card keeps the long decay
+  if (ringTail) tailPts = ringTail;
   const tmp = work + ".tmp.wav";
   const shape = () => {
     const gains = [], hz = [];
