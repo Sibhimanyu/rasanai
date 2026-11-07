@@ -87,7 +87,18 @@ const cmd = args._[0];
 // `push style-frames` is the per-concept style-frames review (references/console.md, `styleframes` row): the same step as `--step styleframes`
 if (cmd === "push" && args._[1] === "style-frames" && !args.step) args.step = "styleframes";
 if (!args.run) die("--run <run dir> is required (the .rasanai/<run> scratch dir)");
-const RUN = path.resolve(String(args.run));
+// A relative --run (".rasanai/<run>") from the wrong cwd (a run folder, a subfolder of the project) is resolved by walking up to the project that already has it, never created fresh in cwd; and a run is never created inside another run folder (a nested .rasanai).
+const RUN = (() => {
+  let r = path.resolve(String(args.run));
+  if (!fs.existsSync(r) && !path.isAbsolute(String(args.run))) {
+    for (let d = path.dirname(process.cwd()), prev = ""; d !== prev; prev = d, d = path.dirname(d)) {
+      const c = path.resolve(d, String(args.run));
+      if (fs.existsSync(c)) { r = c; break; }
+    }
+  }
+  if (!fs.existsSync(r) && r.split(path.sep).filter((x) => x === ".rasanai").length > 1) die(`refusing to create ${r}: it sits inside an existing run folder (a nested .rasanai). Run from the project folder or pass --run <the project>/.rasanai/<run>`);
+  return r;
+})();
 fs.mkdirSync(RUN, { recursive: true });
 const F = {
   session: path.join(RUN, "session.json"),

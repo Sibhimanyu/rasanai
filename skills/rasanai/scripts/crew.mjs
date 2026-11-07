@@ -870,6 +870,31 @@ function knownEvidenceIds(run) {
   return ids;
 }
 function proofContractsOf(run) { const j = jsonMaybe(R(run, "story", "proof-contracts.json")); return Array.isArray(j) ? j : Array.isArray(j && j.contracts) ? j.contracts : j === null ? null : []; }
+// contracts that no longer match the chosen script: a shot id the script lacks, or a quoted output ('Export MP4') found in none of the contract's shots' lines
+function staleProofContracts(run) {
+  const list = proofContractsOf(run), ch = jsonMaybe(R(run, "story", "chosen.json"));
+  if (!Array.isArray(list) || !list.length || !ch || !Array.isArray(ch.shots) || !ch.shots.length) return [];
+  const norm = (x) => String(x || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const byId = new Map(ch.shots.map((s) => [String(s && s.id), norm(JSON.stringify(s))]));
+  const beatText = new Map((Array.isArray(ch.beats) ? ch.beats : []).map((b) => [String(b && b.id), norm(JSON.stringify(b))]));
+  const out = [];
+  for (const k of list) {
+    if (!k || typeof k !== "object") continue;
+    const ids = Array.isArray(k.shot_ids) ? k.shot_ids.map(String) : [];
+    const gone = ids.filter((i) => !byId.has(i));
+    if (gone.length) { out.push(`${k.id || "?"}: shot ${gone.join(", ")} is not in the chosen script`); continue; }
+    const hay = [...ids.map((i) => byId.get(i)), beatText.get(String(k.beat_id)) || ""].join(" ");
+    if (!hay.trim()) continue;
+    for (const o of Array.isArray(k.supported_outputs) ? k.supported_outputs : []) {
+      const t = String((o && o.text) || "");
+      for (const m of t.matchAll(/(?<![\p{L}\p{N}])'([^']{3,}?)'(?![\p{L}\p{N}])|"([^"]{3,}?)"/gu)) {
+        const q = norm(m[1] || m[2]);
+        if (q && !hay.includes(q)) out.push(`${k.id || "?"}: requires "${m[1] || m[2]}" but shot ${ids.join(", ") || k.beat_id} no longer says it`);
+      }
+    }
+  }
+  return out;
+}
 // -> { contracts, mechanical:[{contract, ...error}], reviewInputs:[...] } (validateProofContract is the mechanical half; meaning is the editor's job)
 function proofState(run) {
   const list = proofContractsOf(run);
@@ -1503,6 +1528,7 @@ function contextFor(run, role, key, plan) {
       const fjs = path.join(SKILL_DIR, "scripts", "frames.mjs");
       Object.assign(ctx, { round: Number(String(key || "frames-1").split("-").pop()) || 1, aspect: B.aspect, refs_cmd: `node "${fjs}" refs --run ${rel(run)} --sheet`, sheet_cmd: `node "${fjs}" sheet --ours ${rel(R(run, "frames"))}/<id>.png --refs <1 to 3 stills of its kind> --out ${rel(R(run, "frames", "sheets"))}/<id>.png --title "<id> · <beat>"`, set_cmd: `node "${fjs}" sheet --ours ${rel(R(run, "frames"))} --out ${rel(R(run, "frames", "sheet.png"))} --title "the set"` });
       if (exists(path.join(SKILL_DIR, "scripts", "frame-gate.mjs"))) ctx.gate_cmd = `node "${fjs}" gate --run ${rel(run)}`;
+      ctx.verdict_rule = "one verdict per shot; each frames[] entry carries \"sheet\": \"frames/sheets/<id>.png\", that shot's OWN side-by-side sheet, which you opened (never the whole-set or a reduced sheet): crew.mjs check FAILS a verdict without it";
       if (ctx.round > 1) ctx.rejudge = "judge only the frames the designer redid since frames/verdict.json; keep the earlier verdicts for the rest (bump round)";
       for (const [l, p] of [["the boards (frames/<id>.png) and the shot list", R(run, "frames")], ["shot list", R(run, "frames", "shots.json")], ["the designer's notes and revisions", R(run, "frames", "FRAMES.md")], ["reference stills (refs_cmd writes it)", R(run, "frames", "refs.json")], ["the previous verdict (round 2)", R(run, "frames", "verdict.json")], ["the brand's film frames", R(run, "brand-film")], ["the user's reference clip", research(path.join("films", "reference"))], ["reference moments", R(run, "references", "moments")], ["the showcase films in words (no stills: judge against these)", path.join(SKILL_DIR, "library", "showcases")], ["the bar", path.join(SKILL_DIR, "references", "styleframes", "x1-compare.jpg")], ["the stage (verdict format)", path.join(SKILL_DIR, "references", "styleframes.md")]]) I(l, p);
       O(R(run, "frames", "verdict.json")); O(`${rel(R(run, "frames", "sheets"))}/<id>.png`); O(R(run, "frames", "sheet.png"));
@@ -3290,6 +3316,14 @@ async function checkRole(run, role, key) {
       }
       const r = checkVerdict(v === undefined ? null : v, doc, { refsAvailable: nRefs, ...creativeOpts });
       P.push(...r.errors); W.push(...r.warnings);
+      // one verdict per shot, each citing that shot's OWN side-by-side sheet (frames/sheets/<id>.png) that exists: a verdict judged from a reduced set sheet fails, it does not warn
+      if (v && Array.isArray(v.frames)) for (const f of v.frames) {
+        if (!f || f.id == null) continue;
+        const id = String(f.id), sh = String(f.sheet || "").trim();
+        if (!sh) P.push(`verdict: frame ${id} has no "sheet": cite the path of that shot's own side-by-side sheet (frames/sheets/${id}.png), opened and looked at, never the reduced set sheet`);
+        else if (path.basename(sh) !== `${id}.png` || !/(^|\/)sheets\//.test(sh)) P.push(`verdict: frame ${id} cites "${sh}", which is not its own sheet (frames/sheets/${id}.png)`);
+        else if (![path.resolve(sh), R(run, sh), R(run, "frames", "sheets", `${id}.png`)].some(exists)) P.push(`verdict: frame ${id} cites ${sh}, which does not exist: draw it with frames.mjs sheet --ours frames/${id}.png --out frames/sheets/${id}.png`);
+      }
       if (CP) {
         if (r.creative) CHECK_EXTRA = { ...(CHECK_EXTRA || {}), creative_review: { stage: "storyboard", result: r.creative.result, state: r.creative.state, note: "revise / needs_user routes through the existing review notes; ready needs observed images; a clean schema is not aesthetic acceptance" } };
         else CHECK_EXTRA = { ...(CHECK_EXTRA || {}), creative_review: { stage: "storyboard", result: "not_reviewed", state: "not_reviewed" } };
@@ -3549,6 +3583,8 @@ async function checkRole(run, role, key) {
         else if (!a.ok && !String(a.fix || "").trim()) P.push(`answers.${q} fails with no exact fix`);
       }
       if (c.verdict === "fix" && !Q.some((q) => c.answers && c.answers[q] && c.answers[q].ok === false)) P.push("a fix verdict needs at least one failed answer");
+      // stale proof contracts: a concept fix that edits shots or lines leaves story/proof-contracts.json asking for text the script no longer has
+      for (const m of staleProofContracts(run)) P.push(`story/proof-contracts.json ${m}: the script changed after the contracts were written; rerun the proof-contract step (script-editor) or edit the contract to match, then re-run this check`);
       break;
     }
     case "critic": {

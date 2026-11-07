@@ -1097,12 +1097,15 @@ if (cmd === "analyze") {
   // same fit / render / check, never re-cut on bar lines (that would move its hits off the picture)
   const side = readSidecar(f);
   const exact = side && Math.abs(side.duration_s - film) <= 0.05 ? side : null;
-  const A = exact ? null : analyzeTrack(f, { quick: true });
-  const plan = exact ? { ...identityPlan(f, { duration_s: film, ending: exact.ending, hits: exact.hits }), track_summary: `original procedural score (${exact.key}, ${exact.bpm} BPM, seed ${exact.seed}), ${exact.sections.length} sections`, license: exact.license } : fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
-  if (!exact) plan.track_summary = summarize(A);
+  // a take already within 1.5 s of the film (music.mjs makes every option film length, edited to the picture): never re-edited, never refused as "too short". Trim to the exact length with a short fade, or pad with silence after its own ending.
+  const tdur = exact ? null : probeDuration(f);
+  const near = !exact && Number.isFinite(tdur) && Math.abs(tdur - film) <= 1.5 && !args["re-edit"] ? tdur : null;
+  const A = exact || near != null ? null : analyzeTrack(f, { quick: true });
+  const plan = near != null ? { track: path.resolve(f), shape: "edited-to-picture", film_duration: film, segments: [{ src_in: 0, src_out: Math.min(near, film), film_start: 0, film_end: Math.min(near, film) }], joins: [], ...(near > film + 0.05 ? { end_fade_s: 0.6 } : {}), why: `the take is ${near.toFixed(2)} s for a ${film} s film (music.mjs already cut it to the picture): ${near > film + 0.05 ? `trimmed ${(near - film).toFixed(2)} s with a 0.6 s fade` : near < film - 0.05 ? `padded ${(film - near).toFixed(2)} s with silence after its own ending` : "used as it is"}, never re-edited`, origin: "edited", cost: 0, needs_longer: false, track_summary: `already film length (${near.toFixed(2)} s)`, ...(reveal != null || logo != null ? { moments: { ...(reveal != null ? { reveal: { t: reveal } } : {}), ...(logo != null ? { logo: { t: logo } } : {}) } } : {}) } : exact ? { ...identityPlan(f, { duration_s: film, ending: exact.ending, hits: exact.hits }), track_summary: `original procedural score (${exact.key}, ${exact.bpm} BPM, seed ${exact.seed}), ${exact.sections.length} sections`, license: exact.license } : fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
+  if (!exact && A) plan.track_summary = summarize(A);
   // Plan 07 A3: label what is estimated, and refuse what is not a fit: a track too short for the film (no endless loop), a repeat nobody declared, and a trim of a music-led film nobody authorized (an exact original score is already the film's length)
-  plan.estimates = exact ? [] : labelEstimates(A);
-  plan.guard = exact ? { ok: true, errors: [], warnings: [], repeats: [], material_s: film, film_s: film } : fitGuard(plan, A, { music_led: !!args["music-led"], trim_authorized: !!args["trim-authorized"], loop_declared: !!args.loop || plan.loop === true, film_s: film, user_track: !!args["user-track"] });
+  plan.estimates = exact || !A ? [] : labelEstimates(A);
+  plan.guard = exact || !A ? { ok: true, errors: [], warnings: [], repeats: [], material_s: film, film_s: film } : fitGuard(plan, A, { music_led: !!args["music-led"], trim_authorized: !!args["trim-authorized"], loop_declared: !!args.loop || plan.loop === true, film_s: film, user_track: !!args["user-track"] });
   // revision 2: the arrangement (sections, permitted edits, ending, genuine stems) and the bus plan the routes will read. Both are records; nothing is rendered here.
   if (args.run && args.run !== true && mixRevisionOf(path.resolve(String(args.run))) >= 2) {
     try {

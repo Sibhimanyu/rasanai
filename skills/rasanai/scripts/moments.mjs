@@ -5,6 +5,7 @@
 // The public manifest is fetched at run time and cached; bundles are downloaded only for the user's own film, verified
 // by sha256 and kept read-only in the run. Nothing is vendored into the skill and nothing from a moment ships in a film.
 //
+//   node moments.mjs tags [--query <word>]   -> every valid --mechanic tag with its moment count (exact tags: kinetic_type, grid_build, ...; an empty search prints the nearest)
 //   node moments.mjs list   [--role hook|proof|turn|cta] [--place opening|between|peak|ending|anywhere] [--mechanic <tag>[,<tag>]] [--query "<words>"] [--limit 20] [--no-network]
 //   node moments.mjs search (same flags as list)
 //        -> rows: id, role, name, mechanic[], swapSlot[], why, duration, clip, still, credit {handle, name, url}
@@ -155,14 +156,36 @@ export function creditLine(credits) {
   return `Motion references (technique only, nothing shipped): ${credits.moments.map((c) => `${c.handle || c.name || "unknown"}${c.film ? ` ("${c.film}")` : ""}${c.source_url ? ` ${c.source_url}` : ""}`).join("; ")}.`;
 }
 
-if (cmd === "list" || cmd === "search") {
+if (cmd === "tags") {
+  const m = await manifest({ noNetwork: offline() });
+  const count = new Map();
+  for (const r of m.rows) for (const t of r.mechanic || []) { const k = String(t).toLowerCase(); count.set(k, (count.get(k) || 0) + 1); }
+  const q = String(args.query && args.query !== true ? args.query : args.q && args.q !== true ? args.q : "").toLowerCase();
+  const tags = [...count].filter(([k]) => !q || k.includes(q)).sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1)).map(([tag, n]) => ({ tag, moments: n }));
+  out({ ok: true, source: m.source, count: tags.length, tags, note: "--mechanic wants an exact tag (comma = all of them); a partial word like grid matches nothing: use grid_build, grid_layout, ..." });
+} else if (cmd === "list" || cmd === "search") {
   const m = await manifest({ noNetwork: offline() });
   const role = args.role && args.role !== true ? String(args.role) : null;
   const place = args.place && args.place !== true ? String(args.place).toLowerCase() : null;
   if (place && !PLACES.includes(place)) die(`--place must be one of ${PLACES.join(", ")}`);
   if (role && !ROLES.includes(role)) die(`--role must be one of ${ROLES.join(", ")}`);
   const rows = filterRows(m.rows, { role, place, mechanic: args.mechanic !== true ? args.mechanic : null, query: args.query !== true ? args.query || args.q : null }).slice(0, Number(args.limit) || 20).map((r) => rowOut(r, m.base));
-  out({ ok: true, source: m.source, count: rows.length, total: m.rows.length, note: m.note || undefined, fallback: m.rows.length ? undefined : FALLBACK, use: USE_NOTE, rows });
+  // an empty result for a tag no moment carries (--mechanic grid): say which tags exist and the nearest ones, instead of nothing
+  let tagHelp = null;
+  const asked = args.mechanic !== true && args.mechanic ? String(args.mechanic).split(",").map((x) => x.trim().toLowerCase()).filter(Boolean) : [];
+  if (asked.length && m.rows.length) {
+    const count = new Map();
+    for (const r of m.rows) for (const t of r.mechanic || []) { const k = String(t).toLowerCase(); count.set(k, (count.get(k) || 0) + 1); }
+    const valid = [...count.keys()].sort();
+    const unknown = asked.filter((t) => !count.has(t));
+    if (unknown.length || !rows.length) {
+      const lev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
+      const near = (t) => valid.map((v) => ({ v, s: (v.includes(t) || t.includes(v) ? 0 : 1) + (v.split("_").some((p) => p === t || (p.length > 3 && t.includes(p))) ? 0 : 1) * 2 + lev(t, v) / Math.max(t.length, v.length) })).sort((x, y) => x.s - y.s).slice(0, 3).map((x) => x.v);
+      tagHelp = { unknown_tags: unknown, did_you_mean: Object.fromEntries((unknown.length ? unknown : asked).map((t) => [t, near(t)])), most_used_tags: [...count].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1)).slice(0, 40).map(([v, n]) => `${v} (${n})`), all_tags: `node moments.mjs tags (${valid.length} tags; filter with --query <word>)` };
+      if (!rows.length) console.error(`moments.mjs: no moment carries ${unknown.length ? "the tag(s) " + unknown.join(", ") : "all of " + asked.join("+")}; nearest: ${Object.entries(tagHelp.did_you_mean).map(([t, n]) => `${t} -> ${n.join(" | ")}`).join("; ")}. Most used: ${tagHelp.most_used_tags.slice(0, 15).map((x) => x.split(" ")[0]).join(", ")}; all ${valid.length}: moments.mjs tags`);
+    }
+  }
+  out({ ok: true, source: m.source, count: rows.length, total: m.rows.length, ...(tagHelp && !rows.length ? { mechanic_help: tagHelp } : {}), note: m.note || undefined, fallback: m.rows.length ? undefined : FALLBACK, use: USE_NOTE, rows });
 } else if (cmd === "fetch") {
   const id = args._[1] ? String(args._[1]) : die("usage: moments.mjs fetch <id> --run <run>");
   if (!args.run || args.run === true) die("--run <run dir> required");
