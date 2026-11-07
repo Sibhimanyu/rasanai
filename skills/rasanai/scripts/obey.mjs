@@ -275,7 +275,7 @@ try {
   for (const f of doctrineFindings({ motionFields: M, plan: sc, project, run: args.run && args.run !== true ? args.run : null, planned: null, planPath: sp, kind: args.kind && args.kind !== true ? String(args.kind) : null })) add({ file: motionPath, ...f });
 } catch { /* advisory */ }
 
-if (unknownBans.length) add({ severity: "error", rule: "unknown-ban", file: motionPath, message: `motion.md bans ${unknownBans.join(", ")} but no machine signature exists for them`, fix: "remove them or add a signature in scripts/lib/signatures.mjs + motion-md-contract.md" });
+if (unknownBans.length) add({ severity: "warning", rule: "unknown-ban", file: motionPath, message: `note: motion.md bans ${unknownBans.join(", ")} but no checker can test them: they stay in the contract as a rule for the builder and the critic, never as a failure`, fix: "none needed: keep the ban (deleting it fails the builder check as contract-weakened); add a signature in scripts/lib/signatures.mjs only to make it testable" });
 
 // dead tweens (warnings): a tween that never plays inside its composition, or that animates nothing
 const sameV = (a, b) => { if (a === b) return true; const x = Number(a), y = Number(b); if (Number.isFinite(x) && Number.isFinite(y)) return Math.abs(x - y) <= 1e-6 * Math.max(1, Math.abs(x)); return String(a) === String(b); };

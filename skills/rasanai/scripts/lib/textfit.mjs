@@ -810,3 +810,42 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
   res.hook = hookOf(res.texts, visualTimes);
   return res;
 }
+
+// Styleframe boards (frames/<id>.html, one still each): the same safe-area rule the motion gate applies to the film, measured on the board,
+// so a board that puts type inside the 6% edge fails at shots-check and not after the build copies it. Reads TEXT_FIT.safe and the same skips
+// (data-text-fit="ignore", min font, hidden/transparent text); data-text-fit="bleed" passes when its cap height is bleed_cap of H or more.
+// Returns { findings: [{board, text, side, x, limit}], could_not_run: [] }. W,H in px.
+export async function boardSafeArea(files, W, H, { safe = TEXT_FIT.safe } = {}) {
+  const res = { findings: [], could_not_run: [] };
+  const list = files.filter((f) => f && fs.existsSync(f.html));
+  if (!list.length) return res;
+  { const realExit = process.exit; process.exit = () => { throw new Error("no Chrome found"); };
+    try { chromePath(); } catch (e) { res.could_not_run.push(`board safe-area: ${e.message}`); return res; } finally { process.exit = realExit; } }
+  const js = `(function(){var W=${W},H=${H},sx=W*${safe},sy=H*${safe},out=[],wk=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
+    while((n=wk.nextNode())){var txt=String(n.nodeValue||'').replace(/\\s+/g,' ').trim();if(!txt)continue;var el=n.parentElement;
+      if(!el||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TITLE)$/.test(el.tagName)||el.closest('[data-text-fit="ignore"]'))continue;
+      var cs=getComputedStyle(el);if(cs.display==='none'||cs.visibility==='hidden'||!(parseFloat(cs.fontSize)>=${TEXT_FIT.min_font_px})||parseFloat(cs.opacity)<0.05)continue;
+      var rg=document.createRange();rg.selectNodeContents(n);var r=rg.getBoundingClientRect();if(!(r.width>0&&r.height>0))continue;
+      var side=null;if(r.left<sx-1)side='left';else if(r.right>W-sx+1)side='right';else if(r.top<sy-1)side='top';else if(r.bottom>H-sy+1)side='bottom';
+      if(!side)continue;
+      if(el.closest('[data-text-fit="bleed"]')&&0.72*parseFloat(cs.fontSize)/H>=${TEXT_FIT.bleed_cap})continue;
+      out.push({text:txt.slice(0,40),side:side,l:Math.round(r.left),r:Math.round(r.right),t:Math.round(r.top),b:Math.round(r.bottom)});}
+    return out;})()`;
+  let b;
+  try {
+    b = await launch({ width: W, height: H, timeoutMs: 120000 });
+    for (const f of list) {
+      try {
+        await b.open("file://" + path.resolve(f.html), { waitMs: 30000 });
+        await b.eval("document.fonts && document.fonts.ready ? document.fonts.ready.then(function(){return true;}) : true", { await: true });
+        for (const h of (await b.eval(js)) || []) {
+          const x = h.side === "left" ? h.l : h.side === "right" ? W - h.r : h.side === "top" ? h.t : H - h.b;
+          const limit = Math.round((h.side === "left" || h.side === "right" ? W : H) * safe);
+          res.findings.push({ board: f.id, text: h.text, side: h.side, x, limit });
+        }
+      } catch (e) { res.could_not_run.push(`board safe-area: ${f.id}: ${e.message}`); }
+    }
+  } catch (e) { res.could_not_run.push(`board safe-area: ${e.message}`); }
+  finally { if (b) await b.close(); }
+  return res;
+}

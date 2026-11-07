@@ -19,7 +19,7 @@ Three writers each write one script (for a song with fixed lyrics, three treatme
 A Motion Director scores how the whole film moves, every shot and every seam, in 2D and in real 3D (where depth goes, the lens, the light, the seams between flat and deep).
 On a short film (45 s or less, or a single-feature launch) **one film builder** writes the whole film from that plan in one pass, so objects carry across the cuts;
 on a long film frame designers draw key frames, a lead builder builds the objects that cross the cuts and one scene animator builds each scene, all at the same time.
-Critics with fresh eyes judge the result. You talk to the user, make the calls and accept each member's work only when `crew.mjs check` passes. The crew never talks to the user.
+Critics with fresh eyes judge the result. You talk to the user, make the calls and accept each member's work only when `crew.mjs check` passes (status `ok`; `unverified`, exit 5, means a required gate could not run and is never a pass). A member's check accepts that member's outputs only: the FILM is accepted by `final-gate.mjs`, so a passing builder check is not a finished film. The crew never talks to the user.
 **Push them to show off** (`references/crew.md`): Claude's unpushed default is competent and forgettable, so every creative prompt ends on that ask, the score names its showreel moments, and the critics fail work that plays it safe.
 When you do a member's job yourself, hold yourself to the same ask.
 
