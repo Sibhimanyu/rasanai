@@ -416,6 +416,9 @@
   .boards { margin: 0 0 22px; display: grid; gap: 14px; }
   .board-img { display: block; width: 100%; max-height: 200px; object-fit: contain; border-radius: 12px; border: 1px solid var(--line); background: #000; cursor: zoom-in; }
   .board-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+  .sb-boards .board-strip { flex-wrap: wrap; overflow: visible; gap: 14px; }
+  .sb-boards .board-shot { flex: 0 0 min(100%, 280px); }
+  .sb-boards .board-shot img, .sb-boards .board-shot .bs-text { width: 100%; }
   .board-shot { flex: 0 0 168px; margin: 0; display: flex; flex-direction: column; gap: 5px; }
   .board-shot img { width: 168px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: #000; cursor: zoom-in; display: block; }
   .board-shot .bs-text { width: 168px; aspect-ratio: 16 / 9; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); padding: 8px; font-size: 12.5px; color: var(--ink-2); overflow: hidden; }
@@ -1284,9 +1287,19 @@
         })));
         kids.push(h("div", { class: "tl-meta", text: (T.scenes || []).length + " scenes · " + T.total_s + "s · " + (T.narrated ? "narrated" : "no narration") + " · music: " + T.music }));
       }
+      // the boards themselves: from d.boards (Story-call shape), d.frames [{id, beat, title, image, caption, t}] or d.images + d.captions; same tiles, click to enlarge, safe relative paths only (boardSrc)
+      var sbBoards = Array.isArray(d.boards) ? d.boards.filter(function (b) { return b && typeof b === "object"; }) : [];
+      var sbFrames = Array.isArray(d.frames) ? d.frames : (Array.isArray(d.images) ? d.images.map(function (im, i) { return { image: im, caption: (d.captions || [])[i] }; }) : []);
+      var sbShots = sbFrames.filter(function (f) { return f && (typeof f === "string" || typeof f === "object"); }).map(function (f, i) {
+        if (typeof f === "string") return { image: f, caption: "Frame " + (i + 1) };
+        return { image: f.image, t: f.t != null ? f.t : f.start, caption: txt(f.caption || f.title || f.beat || f.id || "Frame " + (i + 1)) };
+      });
+      var hasBoards = sbBoards.length || sbShots.length;
+      if (sbShots.length) sbBoards.push({ shots: sbShots });
+      if (hasBoards) kids.push(h("div", { class: "sb-boards" }, [boardsNode(sbBoards, function (n) { return Number(n).toFixed(1) + "s"; })]));
       if (d.sheet) kids.push(scaledFrame(d.sheet, d.sheet_width || 1600, d.sheet_height || 1400, 1100));
-      else kids.push(empty("The storyboard sheet (every scene's layout, drawn in your look) appears here once the workflow sketches it."));
-      if (d.sheet) kids.push(h("div", { class: "toolbar" }, [h("button", { class: "btn primary", onclick: function () { send("storyboard", "approve", null); }, text: "Approve the storyboard" })]));
+      else if (!hasBoards) kids.push(empty("The storyboard sheet (every scene's layout, drawn in your look) appears here once the workflow sketches it."));
+      if (d.sheet || hasBoards) kids.push(h("div", { class: "toolbar" }, [h("button", { class: "btn primary", onclick: function () { send("storyboard", "approve", null); }, text: "Approve the storyboard" })]));
       return kids;
     },
     keyframes: function (d) {

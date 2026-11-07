@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Build-stage friction fixes.** `video.mjs write` lists every missing decision (message, motion, storyboard_dir) in one error and the guide says which are required; `video.mjs inject` writes a fallback `_role.md` (one warning) when the workflow's frame-packets.mjs could not; an `asset_candidates: none` beat no longer reads as a missing asset; on the direct path the film builder no longer waits for a Storyboard approval (the draft is the animatic); the console Storyboard panel renders the boards from `frames`/`boards`/`images` (tiles, click to enlarge, safe relative paths).
+
 - **Board layouts are declared, not guessed.** The styleframe designer writes a `layout` per shot from a small enum (`headline-left-ui-right`, `ui-full`, `side-label`, `type-only-center`, `type-over-ui`, `collage`, `image-full`, `diagram`, `split`, `other`); `shots-check` warns `layout-missing` / `layout-unknown`, and `layout-repeat` now fires on declared layouts. A `beat-ref` error now lists the story's beat ids and the file they came from.
 
 - **Treatments flow handoff fixes.** `moves.mjs choose` writes `story/intent.json` from the chosen `intent-<Label>.json` and cuts `story/proof-contracts.json` to the chosen treatment (full set kept as `proof-contracts.all.json`); new `scenes.mjs from-treatment --run` maps treatment roles to scene types and fills `message`; the music step documents `--arc` / score order (it already refuses with exit 2); the concept critic treats `frames/` as if-present; `shots-check` warns `layout-repeat` for 3+ neighbouring boards with one layout; the Look page button reads "Make it with <look>".
