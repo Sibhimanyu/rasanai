@@ -1388,6 +1388,8 @@ function serve() {
         // story payloads (plates, boards) write run-relative paths ("story/plates/..."): fall back to the run folder
         try {
           real = u.pathname.startsWith("/fs/rel/") ? fs.realpathSync(path.join(RUN, rest)) : "";
+          const runReal = fs.realpathSync(RUN);
+          if (real && real !== runReal && !real.startsWith(runReal + path.sep)) real = ""; // run-relative fallback: inside the run folder only (no .. or symlink escape)
         } catch {
           real = "";
         }
