@@ -11,7 +11,7 @@ Match `current-studio-home.png`, or better, screenshot the real app (`apps/macos
 - **Left sidebar**: RasanAI logo mark + "RasanAI"; Films, All films, Needs review (count badge), Brands, Series,
   Inspiration, Queue; a "Recent" list of films with status icons (green check = done, orange eye = needs review);
   Settings at the bottom.
-- **Toolbar**: back/forward arrows; a centered **dot stepper**: Describe · Setup · Brief · Story · Look · Preview · Final;
+- **Toolbar**: back/forward arrows; a centered **dot stepper**: Describe · Brief · Story · Look · Storyboard · Final (six dots);
   "Search films" field on the right.
 - **Home**: "What would you like to make?" / "An idea, a link, or a few words is enough." The crew characters
   (smooth-clay lineup, see `docs/brand/crew`) stand on top of a large dark prompt box ("Describe your video, or paste a
@@ -22,4 +22,4 @@ Match `current-studio-home.png`, or better, screenshot the real app (`apps/macos
 
 Light window with a checkmark stepper (Brief · Story · Look · Animatic · Final), "Watch the first cut." headline,
 scene thumbnail strip, "Your turn · review the animatic" footer, "Apply N notes" button. The old step names
-(Animatic, five steps) are retired too: the current flow is Describe, Setup, Brief, Story, Look, Preview, Final.
+(Animatic, five steps) are retired too: the current flow is Describe, Brief, Story, Look, Storyboard, Final.
