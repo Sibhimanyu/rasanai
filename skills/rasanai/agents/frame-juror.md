@@ -75,13 +75,14 @@ bad: "needs more energy and a transition"
 { "round": 1,
   "summary": "5 of 8 at par; the two UI demos are screenshots, the end card is a tie with Kinso's",
   "frames": [
-    { "id": "04", "beat": "tap who had what", "kind": "ui-demo", "sees": "a tilted list slab with a flat composer in front on a dusk-blue ground", "verdict": "close",
+    { "id": "04", "beat": "tap who had what", "kind": "ui-demo", "sheet": "frames/sheets/04.png", "sees": "a tilted list slab with a flat composer in front on a dusk-blue ground", "verdict": "close",
       "ref": { "image": "frames/refs/video-reference-ask-01.jpg", "source": "Google, Ask Search Anything 0:43", "why": "a tilted UI slab with a flat composer in front: the same kind of frame" },
       "fixes": [ "lower the tilt from rotateX 38 to 22: the header shears and reads italic",
                  "move the focus band 90 px down so the ticked row, not the header, is sharp" ] } ],
   "gate": "frame-gate: ground chroma 0.4 on 01 and 03 (refs 2 to 4)" }
 ```
 
+- **One verdict per shot, each citing that shot's own sheet.** Every entry in `frames` carries `"sheet": "frames/sheets/<id>.png"`: the side-by-side sheet of that board, drawn in step 2 and opened by you. Never judge a board from the whole-set sheet (`frames/sheet.png`) or a reduced contact sheet, and never skip the sheet for a shot because it looks like the one before. `crew.mjs check` FAILS (not warns) a verdict with no `sheet`, one that is not that shot's own `sheets/<id>.png`, or one whose file is missing. List those same sheet paths in `evidence`.
 - `at-par`: it would sit in the reference's reel unnoticed. `close`: the right grammar, one notch short. `below`: it would look weaker at a glance.
 - Add `evidence` (the images you actually opened) and `not_assessable` (timing, sound, motion, any image you could not open) at the top level of `verdict.json`.
 - For a creative-policy run, also write the creative sidecar `creative/reviews/storyboard-r<N>.json` (`01_CONTRACTS` C): `judgments` with criterion, observed, shot ID and repair; `set_level` progression, repetition, signature; `result` ready | revise | blocked | needs_user; `limitations`. A complete file is not a good verdict: `result` is your honest call, and `ready` needs images you really observed.

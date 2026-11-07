@@ -122,9 +122,16 @@ if (cmd === "init") {
     const b = readJ(path.join(run, "brief.json")) || {};
     const aspect = str(args.aspect) || (b.fields || b).aspect || "16:9";
     let t = 0;
-    const shots = beats.map((x, i) => {
-      const d = Number(x.duration_s) || 0, mid = Math.round((t + d * 0.65) * 100) / 100; t += d;
-      return { id: frameId(i), beat: x.name || `beat ${i + 1}`, t: mid, line: x.on_screen || "", kind: "", size: "", hero: "", hero_pct: null, angle: "", focus: { sharp: "", soft: "" }, light: { key: "", color: "" }, ground: { tint: "", falloff: "" }, type: x.on_screen ? [{ text: x.on_screen, pct: null }] : [], crop: "", device: "", anchor: "" };
+    // the story's own shot ids and count (story/intent.json "shots", else the chosen treatment's shots) so the proof contracts and the designers never rename; no shot list = the beats as before
+    const sh0 = [readJ(path.join(run, "story", "intent.json")), ch].map((j) => (j && Array.isArray(j.shots) ? j.shots : [])).find((l) => l.length && l.every((x) => x && x.id)) || [];
+    const total = beats.reduce((a, x) => a + (Number(x.duration_s) || 0), 0);
+    const units = sh0.length ? sh0.map((x, i) => {
+      const t0 = Number(x.t), nx = Number(sh0[i + 1] && sh0[i + 1].t), end = Number.isFinite(nx) ? nx : total || t0;
+      return { id: String(x.id), name: x.beat || x.name || (() => { let c = 0; for (const bt of beats) { c += Number(bt.duration_s) || 0; if (Number.isFinite(t0) && t0 < c - 1e-6) return bt.name || ""; } return ""; })(), duration_s: Number.isFinite(t0) ? Math.max(0, end - t0) : 0, on_screen: x.words || x.on_screen || "", start: Number.isFinite(t0) ? t0 : null };
+    }) : beats.map((x, i) => ({ ...x, id: frameId(i), name: x.name || "" }));
+    const shots = units.map((x, i) => {
+      const d = Number(x.duration_s) || 0, mid = Math.round(((x.start != null ? x.start : t) + d * 0.65) * 100) / 100; t += d;
+      return { id: x.id, beat: x.name || `beat ${i + 1}`, t: mid, line: x.on_screen || "", kind: "", size: "", hero: "", hero_pct: null, angle: "", focus: { sharp: "", soft: "" }, light: { key: "", color: "" }, ground: { tint: "", falloff: "" }, type: x.on_screen ? [{ text: x.on_screen, pct: null }] : [], crop: "", device: "", anchor: "" };
     });
     let n = shots.length;
     // --heroes (the Look call): only the story's open, peak and end, with those ids
