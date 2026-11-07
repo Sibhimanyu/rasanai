@@ -17,6 +17,7 @@
 //  10 vo-scratch (WARNING + needs_you, never silent: the voice is the macOS `say` scratch track from vo.mjs)
 //   9 earshot-tech (OPTIONAL, only when earshot is installed, see lib/earshot.mjs): critique's technical findings as WARNINGS only (true peak over -1 dBTP, dead air at the end, silent cuts, cuts missing accents); its verdict and score are never read; never blocks; a failure to run is a note
 // Writes <run>/final-gate.json {ok, video, video_sha, steps}; exit 0 pass, 2 blocked. `verifyHandover(run, video)` is what console.mjs push calls.
+import { openCraftNotes } from "./lib/answers.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -227,7 +228,10 @@ export function main(args) {
       steps.push({ step: "earshot-tech", ok: true, optional: true, warnings });
     } catch (e) { steps.push({ step: "earshot-tech", ok: true, optional: true, warnings: [], note: `could not run (${String(e.message).slice(0, 120)}); skipped` }); }
   }
-  const res = { ok: blocked.length === 0, t: new Date().toISOString(), video: video || null, video_sha: video && ex(video) ? sha(video) : null, project, steps, blocked, warnings, needs_you };
+  // open craft notes: grammar and craft warnings the builder neither fixed nor answered in 2 rounds (crew.mjs answers). Not errors, no waiver needed: the Final shows them.
+  let open_craft_notes = [];
+  try { open_craft_notes = openCraftNotes(run); for (const n of open_craft_notes) warnings.push(`open craft note (${n.rule}): ${n.note}`); } catch { /* none */ }
+  const res = { ok: blocked.length === 0, t: new Date().toISOString(), video: video || null, video_sha: video && ex(video) ? sha(video) : null, project, steps, blocked, warnings, needs_you, ...(open_craft_notes.length ? { open_craft_notes } : {}) };
   res.findings = gateFindings({ blocked });
   try { fs.writeFileSync(path.join(run, "final-gate.json"), JSON.stringify(res, null, 2)); } catch {}
   return res;

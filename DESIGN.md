@@ -18,7 +18,7 @@ colors:
   on-indigo: "#EEF0FF"      # text on indigo
   on-indigo-2: "#C3C7EC"    # quiet text on indigo
   blue-lift: "#7C83F5"      # RasanAI Blue as text in the app's dark mode
-  charcoal: "#1E1E1E"       # the Mac app's window in dark mode
+  charcoal: "#181A1E"       # the Mac app's window in dark mode
 typography:
   display:
     fontFamily: Anek Latin
@@ -171,7 +171,7 @@ Allowed: indigo on rice (primary), rice on indigo (reverse), indigo on turmeric,
 | On Indigo | #EEF0FF | Text on indigo |
 | On Indigo 2 | #C3C7EC | Quiet text on indigo |
 | Blue Lift | #7C83F5 | RasanAI Blue as text in dark mode (fills stay #2A31A8) |
-| Charcoal | #1E1E1E | The Mac app's window in dark mode |
+| Charcoal | #181A1E | The Mac app's window in dark mode |
 
 The Mac app otherwise uses system colours (window background, separators, `systemGreen/Orange/Red` for status) so it feels native in light and dark mode.
 

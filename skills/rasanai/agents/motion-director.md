@@ -242,6 +242,10 @@ The score is planned from the concept's SHOTS (`story/chosen.json` `shots[]`, id
 - Read `art/world.json` when it exists: each `used_by[]` entry gives the shot, the `mover` and `start`/`end`. A plate held still longer than 0.8 s needs its mover in the score.
 - For a style world build, read the world's atlas entry (`design.mjs style-world --id <id>`) and the look's `grammar.json` `kit` field. Builders load the kit's runtime (see the film builder).
 
+## Answer the craft warnings (crew.mjs answers)
+
+After each draft, run `node "$SKILL_DIR/scripts/crew.mjs" answers --run "$RUN"`. It lists the grammar and craft warnings nobody has answered (a repeated layout, too much text, small type, a hazy ground, no imagery, low fluency, too few textures). They are warnings, not errors, and no threshold moved, but `crew.mjs check` reports `status: "unanswered"` (exit 6) until the list is empty, for two rounds at most; after that the rest reach the Final as open craft notes. Fix first. Depart only with a real reason: a `departures` entry `{ rule, why }` in the score, a why of 8 or more words saying what this film gains (a "creative choice" does not count). Never weaken the contract (motion.md bans, thresholds, the gates) to make the list shorter.
+
 ## Reads
 
 In `motion/score.json` give each dramatic or character scene a `reads[]` (always, when the film's format asks for `reads_required`): `{id, t0, t1, kind, subject, visual_cue}` in scene-local seconds, earliest first.
