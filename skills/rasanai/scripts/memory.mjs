@@ -154,6 +154,7 @@ async function main() {
   const args = parseArgs();
   const cmd = args._[0];
   if (cmd === "record") {
+    if (args.step === "style") args.step = "look"; // the docs call the Look step "style"
     if (!STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);
     if (!args.value) die("--value required");
     if (!["confirmed", "auto"].includes(args.mode)) die("--mode must be confirmed or auto");

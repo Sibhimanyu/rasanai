@@ -33,7 +33,7 @@ Notes that change a plate's idea go back to its idea in `chosen-treatment.json` 
    node $SKILL_DIR/scripts/sound.mjs render --plan "$RUN/music/plan.json" --out "$RUN/bed.wav"
    ```
 
-   `music.mjs` refuses (prints `{refused, missing}` and exits 2) until the story's arc exists, so run this step AFTER the score has written `motion/score.json` (its `music_arc`) or pass the chosen treatment's arc yourself: `--arc '{"drop_at":<s>,"payoff_at":<s>,"button_at":<s>}'` with the times of the turn, payoff and end-card scenes from `scenes.json`. A refusal is a stop, not a pass: fix the arc and re-run (`--unplanned "<reason>"` is the one logged escape).
+   `music.mjs` refuses (prints `{refused, missing}` and exits 2) until the story's arc exists, so run this step AFTER the score has written `motion/score.json` (its `music_arc`) or pass the chosen treatment's arc yourself: `--arc '{"drop_at":<s>,"payoff_at":<s>,"button_at":<s>,"break":[<from>,<to>]}'` (`break` is optional: left out, music.mjs defaults it to the 1.2 s before `payoff_at` and says so in its notes) with the times of the turn, payoff and end-card scenes from `scenes.json`. A refusal is a stop, not a pass: fix the arc and re-run (`--unplanned "<reason>"` is the one logged escape).
 
    Once local ACE-Step is installed (`music.mjs local-setup`) that install IS the consent: `music.mjs` generates takes to the film's arc, in the concept's music arc shape and style world, with no `--allow-generation` (paid vendors still need it; opt out of generation with `--no-generation`).
    Every fallback to catalog or the original score is logged (`downgrades.jsonl`, the drawer's "Working without"). A song-lyric film needs `audio/lyrics.txt` first (the `lyricist` role).

@@ -2,7 +2,7 @@
 // Root cause it fixes: the director only edited motion params (eases, durations) in DESIGN.md / specimen.html and re-pushed the same specimen.png and
 // frames/representative.png, so the owner saw an identical picture and a cached one at that. An energy redraw now:
 //   (a) re-renders the specimen poster and the representative frame to NEW versioned names (specimen-v2.png, frames/representative-v2.png),
-//   (b) draws the energy INTO the still (bigger type-scale contrast, motion-smear echoes of the headline, streak and ticker layers made from the page's own words,
+//   (b) draws the energy INTO the still (bigger type-scale contrast, an edge ticker made from the page's own words,
 //       a mid-move parking time for more energy; calmer = smaller headline, wider leading, softer contrast, parked settled),
 //   (c) renders a 3.5 s motion preview (specimen-loop-vN.mp4, deterministic seek of the paused timeline + ffmpeg) carried as the style's `preview`,
 //   (d) records every request: a request that arrives while one is applying is queued as "push further" (level + 1 / - 1 again), never dropped.
@@ -116,20 +116,13 @@ E.init=function(){
   f.layers.push((L>0?"camera push-in x":"camera pulled back x")+f.camera);}
  /* layers: all of them live in one stage that is masked around the product UI each frame */
  if(L>0){
-  var as=0.1+0.05*L;layer("inset:0;background:repeating-linear-gradient(104deg,transparent 0 46px,"+css(ac,as)+" 46px 50px);","streak");f.layers.push("diagonal streak layer");
-  var bx=(fx/W*100).toFixed(1)+"%",by=(fy/H*100).toFixed(1)+"%";
-  layer("inset:0;background:radial-gradient(circle at "+bx+" "+by+","+css(ac,0.38)+" 0,transparent 52%),repeating-conic-gradient(from 8deg at "+bx+" "+by+","+css(ac,0.2)+" 0 4deg,transparent 4deg 16deg);","burst");f.bursts++;
-  if(L>=2){layer("inset:0;background:repeating-conic-gradient(from 3deg at "+(100-parseFloat(bx)).toFixed(1)+"% "+(100-parseFloat(by)).toFixed(1)+"%,"+css(ac,0.16)+" 0 3deg,transparent 3deg 14deg);","burst");f.bursts++;}
-  if(f.bursts)f.layers.push(f.bursts+" accent burst"+(f.bursts>1?"s":"")+" behind the headline");
+  /* punchier = bigger type contrast, a stronger accent, a tighter camera and faster motion: never rays, bursts, glows or ghost copies of the headline */
+  var bx=(fx/W*100).toFixed(1)+"%";
   var words=[];smalls.forEach(function(t){if(words.indexOf(t.text)<0&&t.text.length<48)words.push(t.text);});
   if(words.length){var line=words.slice(0,8).join("   /   ").toUpperCase()+"   /   ";
    [["bottom:16px"]].concat(L>=2?[["top:16px"]]:[]).forEach(function(pos,idx){var b=layer("left:0;right:0;"+pos[0]+";overflow:hidden;white-space:nowrap;font:700 "+(14+4*L)+"px/1 "+(heads[0]?heads[0].cs.fontFamily:"sans-serif")+";letter-spacing:.22em;color:"+css(ac,0.8)+";","ticker");
     var s=doc.createElement("span");s.style.display="inline-block";s.textContent=new Array(8).join(line);b.appendChild(s);E["band"+idx]={el:b,span:s,w:s.scrollWidth/7,dir:idx?1:-1};});
    f.layers.push("edge ticker set in the page's own words");}
-  var n=Math.min(6,2*L+2);
-  if(E.head)for(var i=1;i<=n;i++){var g=E.head.cloneNode(true);g.setAttribute("data-energy","ghost");[].forEach.call(g.querySelectorAll("[id]"),function(x){x.removeAttribute("id");});g.removeAttribute("id");
-   g.style.cssText+=";position:absolute;margin:0;pointer-events:none;color:transparent;-webkit-text-stroke:2px "+css(ac,Math.max(0.25,0.8-i*0.1))+";filter:blur("+(i*1.6)+"px);white-space:nowrap;transform:none;scale:1;translate:0 0;";box.appendChild(g);E.ghosts.push({el:g,k:i});}
-  f.ghosts=E.ghosts.length;if(f.ghosts)f.layers.push(f.ghosts+" strong motion-smear echoes of the headline");
  }else if(L<0){
   var hid=0;[].forEach.call(doc.body.querySelectorAll("div,span,i,b"),function(n){if(n.children.length||(n.textContent||"").trim()||isProd(n)||n.closest("[data-energy]")||(hero&&(n===hero||n.contains(hero))))return;var cs=getComputedStyle(n);if(cs.position!=="absolute"&&cs.position!=="fixed")return;var r=n.getBoundingClientRect();if(r.width*r.height>W*H*0.25)return;if(L<=-2||hid%2===0){n.style.visibility="hidden";}hid++;});
   if(hid)f.layers.push(Math.ceil(L<=-2?hid:hid/2)+" decorative layers removed");

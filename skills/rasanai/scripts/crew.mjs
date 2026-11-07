@@ -1233,7 +1233,7 @@ function contextFor(run, role, key, plan) {
       if (treat) ctx.treatment_label = key;
       ctx.library = `node "${path.join(SKILL_DIR, "scripts", "library.mjs")}" search --q "<words>" [--space 3d] | show <id> --full`;
       ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "design.mjs")}" check-system --dir ${rel(R(run, "design", key))}`;
-      O(R(run, "design", key, "DESIGN.md")); O(R(run, "design", key, "recipe.json")); O(R(run, "design", key, "blend.json"));
+      O(R(run, "design", key, "DESIGN.md")); O(R(run, "design", key, "recipe.json")); O(R(run, "design", key, "blend.json")); O(R(run, "design", key, "specimen.html")); // the gate (design.mjs check-system) requires it, so it is a writable output
       if (hasGrammarLibrary()) {
         // each look = a design system + ONE motion grammar; the three looks use three different grammars
         const gm = `node "${path.join(SKILL_DIR, "scripts", "grammar.mjs")}"`;
@@ -1462,7 +1462,7 @@ function contextFor(run, role, key, plan) {
       break;
     case "styleframe-designer": {
       // the film as pictures (references/styleframes.md): key frames (a direct film: shot list, 3 heroes, every board),
-      // heroes (a long film: the shot list and the 3 heroes), heroes-<Label> (the Look call: one system's open, peak, end)
+      // heroes (a long film: the shot list and the 3 heroes), heroes-<Label> (the Look call: one system's representative frame)
       const k = String(key || "frames");
       const look = k.startsWith("heroes-") ? k.slice(7) : null;
       if (look && !MOVE_LABELS.includes(look)) die("styleframe-designer key heroes-<Sure|Bold|Wild>");
@@ -1478,7 +1478,7 @@ function contextFor(run, role, key, plan) {
       if (exists(path.join(SKILL_DIR, "scripts", "frame-gate.mjs"))) ctx.gate_cmd = `node "${fjs}" gate --run ${rel(run)}${look ? ` --dir ${rel(dir)}` : ""}`;
       ctx.camera = exists(path.join(SKILL_DIR, "scripts", "camera.mjs")) ? "RasanCamera is in this skill: init_cmd installs it into the frames folder (assets/rasan-camera/); read references/cinematography.md and use it" : "RasanCamera is not in this skill yet: use the frame kit init_cmd writes (kit/frame-kit.css, kit/frame-kit.js) and CSS 3D";
       for (const [l, p] of [["THE BAR: the pipeline (left) vs one picture-first designer (right), same script and brand (look at it first)", path.join(SKILL_DIR, "references", "styleframes", "x1-compare.jpg")], ["the x1 set (8 frames, 3 at the reference level)", path.join(SKILL_DIR, "references", "styleframes", "x1-contact.jpg")], ["the stage (formats, rules, the console)", path.join(SKILL_DIR, "references", "styleframes.md")], ["reference stills of this run (refs_cmd writes it)", R(run, "frames", "refs.json")], ["chosen script (beats, on-screen lines, shows)", R(run, "story", "chosen.json")], ["the moves (carrier and hero moves: the device and the peaks)", R(run, "story", "moves.json")], ["scenes (when the music fit already ran)", R(run, "scenes.json")], ["design system (palette, type, components)", look ? R(run, "design", look, "DESIGN.md") : R(run, "look", "DESIGN.md")], ["frame.md (font loading)", look ? null : lookFrame(run)], ["motion grammar (the frame device)", look ? R(run, "design", look, "grammar.json") : R(run, "look", "grammar.json")], ["direction", R(run, "direction", "DIRECTION.md")], ["real screens", research("screens.json")], ["ui kit (measured components)", research("screens.md")], ["asset kit", research("assets.json")], ["art assets (the film's own pictures)", R(run, "art", "assets.json")], ["art sheet", R(run, "art", "sheet.png")], ["logo files (the only logo you may place)", research("brand/assets")], ["brand DESIGN.md", research("brand/DESIGN.md")], ["the brand's film frames", R(run, "brand-film")], ["the user's reference clip", research(path.join("films", "reference"))], ["reference moments", R(run, "references", "moments")], ["cinematography recipes (RasanCamera calls with numbers)", path.join(SKILL_DIR, "references", "cinematography.md")], ["3D playbook (beats in real 3D)", path.join(SKILL_DIR, "references", "3d.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")]]) I(l, p);
-      if (look) { O(path.join(dir, "shots.json")); for (const n of ["open", "peak", "end"]) { O(path.join(dir, `${n}.html`)); O(path.join(dir, `${n}.png`)); } }
+      if (look) { O(path.join(dir, "shots.json")); O(path.join(dir, "representative.html")); O(path.join(dir, "representative.png")); } // the check wants one representative frame (a legacy look with open/peak/end still passes)
       else { O(R(run, "frames", "shots.json")); O(`${rel(R(run, "frames"))}/<id>.html + <id>.png (${k === "heroes" ? "the 3 heroes" : "every shot"})`); O(R(run, "frames", "FRAMES.md")); }
       break;
     }
