@@ -174,7 +174,7 @@ The Dispatch context lists exact paths (`crew.mjs` builds them for `--key <label
 | `brand-film/FILM-STYLE.md`, `brand-film/grammar.json`, `references/launch-film.md` (`brand_film`) | the brand's own film as a reference card, never the look (unless strict) |
 | `references/design-desk.md` | the exact file formats and a worked example (`references/design-desk-example/Sure/specimen.html`) |
 | `references/vocabulary.md`, `references/craft.md`, `references/3d.md` | the motion and camera terms the animators build from |
-| `references/launch-grammar.md` (launch films) | the launch grammar and its three-looks rules; read all of it |
+| `references/launch-grammar.md` (launch films) | the launch grammar and its three-looks rules; read the sections its Inputs row names (the Contents lists the rest) |
 | `references/product-first.md` | the product-first rules |
 | `library/` (`scripts/library.mjs search --q ... [--space 3d]`, `show <id> --full`), `library/styles/`, `library/grammars/` | references, style files and motion grammars to blend from |
 | `scripts/lib/vocab.mjs` | the specimen renderer's vocabulary (what recipe.json may say) |

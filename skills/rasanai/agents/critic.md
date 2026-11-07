@@ -244,7 +244,7 @@ The Dispatch context lists exact paths. By lens (`key` is `<lens>-<round>`; `rou
 | `references/3d.md` | the bar for 3D camera, light and material |
 | `research/precedent.md` (when it ran) | the bar the brand set itself |
 | `direction/DIRECTION.md` | the creative direction the film was built to |
-| `references/launch-grammar.md` (launch films) | the arc, scene variety, scale and the critic checklist; read all of it |
+| `references/launch-grammar.md` (launch films) | the arc, scene variety, scale and the critic checklist; read the sections its Inputs row names (the Contents lists the rest) |
 | `references/product-first.md` | the product-first rules (when `product_first`) |
 | `frames/`, `scenes.json`, `motion/score.md`, `research/screens.json` (`frames`) | the key frames, the scene list, the plan in words, the real screens |
 | `crew/motion-gate.json` (`motion`, `film`) | the motion gate's report on the draft (freezes, coverage, seams, carriers, fluency, per-beat `one-curve`); read it first |
