@@ -28,6 +28,7 @@ import { readLogos, scanLogos } from "./lib/logos.mjs";
 import { textFit, unknownNumbers, knownNumbers } from "./lib/textfit.mjs";
 import { chromeLint } from "./lib/chrome-lint.mjs";
 import { readTime, wordCount } from "./lib/reading.mjs";
+import { holdRanges, holdCovering } from "./lib/holds.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
 import { decodeGrey, findCuts } from "./lib/carry.mjs";
 import { sfxMode, sfxLimit, sfxOver, SFX_BUDGET } from "./lib/audio.mjs";
@@ -304,7 +305,8 @@ if (args.video && fs.existsSync(String(args.video))) {
   const fr = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-vf", "freezedetect=n=0.003:d=0.8", "-map", "0:v:0", "-f", "null", "-"], { encoding: "utf8" });
   const starts = [...(fr.stderr || "").matchAll(/freeze_start: ([\d.]+)/g)].map((m) => Number(m[1])), ends = [...(fr.stderr || "").matchAll(/freeze_end: ([\d.]+)/g)].map((m) => Number(m[1]));
   const dur = probe(v);
-  starts.forEach((s, i) => { const e = ends[i] ?? dur; if (e < dur - 3.2 && e - s >= 0.8) add("dead-air", steppedProfile ? "warn" : "error", `still frame ${s.toFixed(1)}–${e.toFixed(1)} s`, "A still stretch of 0.8 s or more mid-film reads as dead air (motion-gate.mjs measures the same).", "Stage something meaningful in that stretch (a reveal, a move, UI life, a line's carry) or cut it: holds are reading time and still carry secondary motion."); });
+  const holdsDecl = (() => { try { const rd = args.run && args.run !== true ? path.resolve(String(args.run)) : null, sf = args.score ? path.resolve(String(args.score)) : rd && path.join(rd, "motion", "score.json"); return sf && fs.existsSync(sf) ? holdRanges(JSON.parse(fs.readFileSync(sf, "utf8"))) : []; } catch { return []; } })();
+  starts.forEach((s, i) => { const e = ends[i] ?? dur; if (e < dur - 3.2 && e - s >= 0.8) add("dead-air", holdCovering(holdsDecl, s, e) ? "info" : steppedProfile ? "warn" : "error", `still frame ${s.toFixed(1)}–${e.toFixed(1)} s`, "A still stretch of 0.8 s or more mid-film reads as dead air (motion-gate.mjs measures the same).", "Stage something meaningful in that stretch (a reveal, a move, UI life, a line's carry) or cut it: holds are reading time and still carry secondary motion."); });
   // the render's own rhythm: shot lengths between hard cuts (lib/carry.mjs findCuts)
   try {
     const cuts = findCuts(decodeGrey(v));

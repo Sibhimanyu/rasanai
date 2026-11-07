@@ -22,6 +22,7 @@ import { grammarReadout } from "./grammar-readout.mjs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { grammarWaivers } from "./gate-profile.mjs";
+import { holdRanges, holdCovering, holdNote } from "./holds.mjs";
 import { readableExposure } from "./readable-exposure.mjs";
 
 export const LAUNCH_GATE = {
@@ -184,6 +185,8 @@ export async function launchGates({ video, project = null, score = null, textRow
   const add = (check, severity, message) => findings.push({ check, severity, message });
   const dec = decode(path.resolve(video), G), dur = dec.n / G.fps;
   const sc = typeof score === "string" ? jr(score) : score, beats = beatsOf(sc), dep = grammarWaivers(sc || {}).waived;
+  const holds = holdRanges(sc); // declared holds (lib/holds.mjs): a stillness finding inside one is a note
+  if (holds.length) measured.holds = holds;
   const accentHex = sc && ((sc.style && sc.style.palette && sc.style.palette.accent) || (sc.accent && sc.accent.colour) || (sc.accent && sc.accent.color) || null);
   const ac = hexRgb(accentHex), accentHue = ac ? hueOf(...ac)[0] : null;
   let { rows, autoHue } = pixelMeasures(dec, G, accentHue);
@@ -241,11 +244,13 @@ export async function launchGates({ video, project = null, score = null, textRow
   const longest = runs.reduce((m, r) => (r.s > m.s ? r : m), { s: 0, at: 0 });
   measured.longest_unchanged_s = longest.s; measured.longest_unchanged_at_s = longest.at; measured.unchanged_runs_ge_1s = runs.filter((r) => r.s >= 1);
   measured.unchanged_share = r2(runs.filter((r) => r.s >= 1).reduce((s, r) => s + r.s, 0) / dur); measured.tail_still_s = tail_s;
-  if (longest.s > G.still_error_s) add("meaningful-stillness", "error", `${longest.s} s from ${longest.at} s has no meaningful change (only drift, blur or creep; ${G.still_error_s} s at most): give that beat a real event (a new element, a word swap, a camera move)`);
+  const lh = holdCovering(holds, longest.at, longest.at + longest.s);
+  if (lh && longest.s > G.still_warn_s) add("meaningful-stillness", "note", `note: ${longest.s} s from ${longest.at} s has no meaningful change, ${holdNote(lh)}`);
+  else if (longest.s > G.still_error_s) add("meaningful-stillness", "error", `${longest.s} s from ${longest.at} s has no meaningful change (only drift, blur or creep; ${G.still_error_s} s at most): give that beat a real event (a new element, a word swap, a camera move)`);
   else if (longest.s > G.still_warn_s) add("meaningful-stillness", "warning", `${longest.s} s from ${longest.at} s has no meaningful change (${G.still_warn_s} s is the comfortable limit)`);
   { const amb = tail_s > 0 ? tailAmbient(dec, G, G.fps, tail_s) : 0; measured.tail_ambient = amb;
     const okLit = tail_s <= G.tail_lit_max_s + 1 / G.fps && amb >= G.tail_ambient_min; // a settled end frame of 2 to 4 s is the starting value (more for a URL or several calls to action)
-    if (tail_s > endHold + 1 / G.fps && !okLit) add("meaningful-stillness-tail", "warning", `the film is unchanged for its last ${tail_s} s (an end-card hold is ${endHold} s at most, about ${G.tail_lit_max_s} s when ambient light keeps moving)`); }
+    if (tail_s > endHold + 1 / G.fps && !okLit) add("meaningful-stillness-tail", holdCovering(holds, dur - tail_s, dur) ? "note" : "warning", `the film is unchanged for its last ${tail_s} s (an end-card hold is ${endHold} s at most, about ${G.tail_lit_max_s} s when ambient light keeps moving)`); }
 
   // 3b texture: a readout, with two warnings. Stepped motion is never a stillness failure (its holds are <= 3 frames; the 0.5 s novelty lag above sees the jumps).
   try {

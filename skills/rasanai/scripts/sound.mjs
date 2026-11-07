@@ -68,6 +68,7 @@
 //   offset_s (the intended lead or lag of its accent, default +0.010 s); --profile <rasanai-house|ebu-r128|atsc-a85> sets the loudness target and true-peak limit
 //   (lib/mix-receipt.mjs PROFILES; --lufs still wins; the house profile is the old -14 LUFS / -1.5 dBTP). The records live in soundplan.mjs (references/sound.md "Sound direction").
 //   node sound.mjs probe <sfx files...>        -> sync point, lead silence, audible end, harshness
+//   node sound.mjs mux --run <run> --video <draft.mp4> [--out <x.mp4>] [--bed f] [--vo f --words f] [--platform web]   the direct path's sound step: bed + crew/sfx-plan.json cues + VO, mixed (mixFilm), mastered, muxed
 //   node sound.mjs mix --spec <mix.json> --out <mix.wav> [--stems <dir>]   the layered stem mix (lib/mix.mjs mixFilm: music + VO + SFX stems, 150-300 Hz carve, no duck by default (spec.duck_db 0-9 only when measured masking needs it)
 //       and 3 dB under key SFX, SFX snapped to hit points and the beat grid, master to --platform web -14 | keynote -16 | broadcast -23 LUFS); spec fields are in lib/mix.mjs
 //   node sound.mjs sfx-synth --kind riser|impact|whoosh|stinger|subdrop|tick --out <wav> [--dur s] [--f hz] [--root hz] [--dir lr|rl]   one synthesised effect (ffmpeg only)
@@ -1174,6 +1175,43 @@ if (cmd === "analyze") {
   if (args.mode && args.mode !== true) spec.mode = String(args.mode);
   const { mixFilm } = await import("./lib/audio.mjs");
   out(await mixFilm(spec, path.resolve(need("out", "<mix.wav>")), { workDir: args.stems && args.stems !== true ? path.resolve(String(args.stems)) : undefined }));
+} else if (cmd === "mux") {
+  // The direct path's sound step (the workflow's audio_meta + assemble-index never run there): the bed, the planned SFX cues and the voice if any,
+  // mixed by lib/mix.mjs mixFilm (carve, master) and muxed onto the draft's picture. Run after `sound.mjs sfx-plan --run <run>`.
+  track("Mixing the bed, effects and voice onto the draft", "Draft has sound");
+  const run = path.resolve(need("run", "<run dir>"));
+  const video = path.resolve(exists(path.resolve(need("video", "<draft.mp4>")), "video"));
+  const { probeDuration } = await import("./lib/audio.mjs");
+  const dur = probeDuration(video);
+  if (!dur) die(`cannot read the length of ${video}`);
+  const pick = (...c) => c.filter(Boolean).map((p) => path.resolve(String(p))).find((p) => fs.existsSync(p)) || null;
+  const bed = pick(args.bed && args.bed !== true ? args.bed : null, path.join(run, "bed.wav"), path.join(run, "music", "bed.wav"));
+  if (!bed) die(`no bed: pass --bed <file>, or render it first (sound.mjs render --plan ${path.join(run, "music", "plan.json")} --out ${path.join(run, "bed.wav")})`);
+  const vo = pick(args.vo && args.vo !== true ? args.vo : null, path.join(run, "audio", "vo.wav"), path.join(run, "vo", "vo.wav"), path.join(run, "voice", "vo.wav"));
+  const words = pick(args.words && args.words !== true ? args.words : null, path.join(run, "audio", "words.json"), path.join(run, "voice", "words.json"));
+  const planFile = path.join(run, "crew", "sfx-plan.json");
+  const plan = fs.existsSync(planFile) ? readJSON(planFile) : null;
+  const notes = [];
+  if (!plan) notes.push("no crew/sfx-plan.json: the draft gets the bed only (run sound.mjs sfx-plan --run <run> first; sound.mjs check errors no-sfx on a film of 15 s or more)");
+  const kinds = new Set(["tick", "whoosh", "riser", "impact", "stinger", "subdrop", "foley", "hit"]);
+  const sfx = [];
+  for (const c of (plan && plan.cues) || []) {
+    if (!c.file || !fs.existsSync(c.file) || !Number.isFinite(Number(c.t)) || Number(c.t) >= dur) continue;
+    const k = c.class === "whoosh" || c.class === "riser" ? c.class : null;
+    sfx.push({ file: c.file, at: Number(c.t), ...(k && kinds.has(k) ? { kind: k } : {}), ...(c.sync_point != null ? { sync_point_s: Number(c.sync_point) } : {}) });
+  }
+  if (plan && !sfx.length) notes.push("the sfx plan has no cue with a file that exists: effects were not mounted (check the SFX library)");
+  const hitsF = pick(path.join(run, "music", "hits.json"));
+  const spec = { duration: dur, platform: args.platform && args.platform !== true ? String(args.platform) : "web", music: { file: bed }, vo: vo ? { file: vo, ...(words ? { words } : {}) } : null, sfx, ...(hitsF ? { hits: readJSON(hitsF).hits || readJSON(hitsF) } : {}) };
+  if (args.mode && args.mode !== true) spec.mode = String(args.mode);
+  const outVideo = path.resolve(args.out && args.out !== true ? String(args.out) : video.replace(/\.(mp4|mov)$/i, "") + ".sound.mp4");
+  const work = path.join(run, "audio", "mux");
+  fs.mkdirSync(work, { recursive: true });
+  const wav = path.join(work, "mix.wav");
+  const { mixFilm } = await import("./lib/audio.mjs");
+  const mix = await mixFilm(spec, wav, { workDir: work });
+  try { execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-nostdin", "-i", video, "-i", wav, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-t", String(dur), outVideo], { stdio: "pipe" }); } catch (e) { die(`ffmpeg could not mux: ${String(e.stderr || e.message).trim().split("\n").pop()}`); }
+  out({ ok: true, video: outVideo, mix: wav, bed, vo, sfx_cues: sfx.length, measures: mix.measures, targets: mix.targets, mode: mix.mode, notes: [...notes, ...(mix.notes || [])], next: `sound.mjs check --video ${outVideo} --run ${run}; the delivery render mounts the same bed and cues` });
 } else if (cmd === "sfx-synth") {
   const { synth } = await import("./lib/sfx-synth.mjs");
   const p = {};

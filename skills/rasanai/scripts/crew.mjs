@@ -114,6 +114,7 @@ import { checkLog, checkSelects, checkPaper } from "./lib/footage-lib.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
 import { readRunGrammar, hasGrammarLibrary, checkScoreGrammar, techniquesNamed } from "./lib/grammar-lib.mjs";
 import { pitchShape, validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
+import { snapshotContract, contractWeakened } from "./lib/contract-guard.mjs";
 import { readShots, checkShots, boardFiles, checkVerdict, checkCreativeReview, collectRefs, boardFor, heroesAgree } from "./lib/frames-lib.mjs";
 import { loadIntent, validateIntent, applyEdits, applyToScript, readSeconds } from "./lib/intent.mjs";
 import { validateReview } from "./lib/treatment.mjs";
@@ -1808,7 +1809,7 @@ function promptFor(run, role, key, plan) {
       } catch {}
     }
   }
-  if (role === "motion-director" && key !== "seams") extra += "\n\n## What the score must name (checked by crew.mjs check)\n\n- `style_world` at the top: the film's style world as an atlas id string (the chosen concept's; optional `style` {palette, font}); `carrier` as {what, kind} (kind: dot | word-line | icon-set | palette-dither | card-field | ui-plane | object | mark): the one thing that travels through the film (on a LAUNCH film the carrier is optional and local: 40% of beats at most); `signature_moment` as {what, shot}; each scene's `shot` id (s01...); and `music_arc` {intro_until, drop_at, break, payoff_at, button_at}.\n- `move` on EVERY scene: the id of the library/moves/ move that beat adapts (`node scripts/moves.mjs list`), or `none: <why>` for a held beat. The carrier may be any named subject of the idea (an object, a character, a world), not only a UI label.\n- Run at high effort: this score decides how the whole film moves.";
+  if (role === "motion-director" && key !== "seams") extra += "\n\n## What the score must name (checked by crew.mjs check)\n\n- `style_world` at the top: the film's style world as an atlas id string (the chosen concept's; optional `style` {palette, font}); `carrier` as {what, kind} (kind: dot | word-line | icon-set | palette-dither | card-field | ui-plane | object | mark): the one thing that travels through the film (on a LAUNCH film the carrier is optional and local: 40% of beats at most); `signature_moment` as {what, shot}; each scene's `shot` id (s01...); and `music_arc` {intro_until, drop_at, break, payoff_at, button_at}.\n- `move` on EVERY scene: the id of the library/moves/ move that beat adapts (`node scripts/moves.mjs list`), or `none: <why>` for a held beat. The carrier may be any named subject of the idea (an object, a character, a world), not only a UI label.\n- Text load: at most about 60 characters on a settled screen and one thought per beat (the reference films hold 12 to 60; frame-gate warns `text-load` on a higher median).\n- A pause the user asked for (\"calmer\", \"let it breathe\") or the craft wants is declared as `hold: {s, reason: \"user-note\"|\"craft\"}` on that beat (references/score.md): at most 3 s, 4 s on the end card; the freeze, dead-air and end-hold findings in that range become notes.\n- Run at high effort: this score decides how the whole film moves.";
   if (role === "film-builder" || role === "scene-animator") {
     const gj = jsonMaybe(R(run, "look", "grammar.json")) || jsonMaybe(R(run, "design", ((jsonMaybe(R(run, "decisions.json")) || {}).design_system || {}).label || "sure", "grammar.json")) || {};
     const kit = Array.isArray(gj.kit) ? gj.kit : [];
@@ -1867,6 +1868,7 @@ function promptFor(run, role, key, plan) {
     }
   }
   if (role === "film-builder") {
+    extra += "\n\n## Rules that no check will tell you\n\n- **Never edit the contract to pass a check.** motion.md's bans are frozen at the approved copy (`motion.approved.md` in the run): removing one fails `crew.mjs check --role film-builder` as `contract-weakened`. A ban the checkers cannot test is a note, not a failure: leave it and obey it by hand.\n- **Text load: at most about 60 characters on a settled screen, one thought per beat.** The reference films hold 12 to 60; a median of 120 fails frame-gate (`text-load`).\n- **Holds.** A pause the score declares (`hold: {s, reason}` on a beat, references/score.md) is allowed up to 3 s (4 s on the end card); an undeclared hold over 0.8 s is a freeze.\n- **Your check accepts your outputs only.** `crew.mjs check` is `unverified` (exit 5) when a required gate could not run; the film is accepted by `final-gate.mjs`, never by this check. Run `motion-gate.mjs` on your draft yourself.";
     const sc0 = jsonMaybe(R(run, "motion", "score.json"));
     extra += grammarBlock(run, sc0 && Array.isArray(sc0.scenes) ? sc0.scenes : []);
   }
@@ -2600,8 +2602,10 @@ function creativeFinalReviewProblems(run, round, c, P, W) {
   }
 }
 
+let UNVERIFIED = []; // required gates a check could not run: the result is status "unverified" (exit 5), never a pass
 async function checkRole(run, role, key) {
   const P = [], W = [];
+  UNVERIFIED = [];
   const CP = creativeOn(jsonMaybe(R(run, "crew", "plan.json")) || {}); // the new creative policy (a legacy plan: every creative check below is skipped)
   const research = (f) => R(run, "research", f);
   const pj = projectDir(run);
@@ -3472,7 +3476,7 @@ async function checkRole(run, role, key) {
       const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "obey.mjs"), "--project", pj, "--run", run, "--json"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
       let j = null;
       try { j = JSON.parse(r.stdout); } catch {}
-      if (!j) W.push("obey.mjs could not run");
+      if (!j) UNVERIFIED.push("obey.mjs could not run on the project");
       else {
         const errs = (j.findings || []).filter((x) => x.severity === "error");
         if (errs.length) P.push(`obey.mjs: ${errs.length} violations (first: ${errs[0].file} ${errs[0].rule}${errs[0].target ? " on " + errs[0].target : ""})`);
@@ -3481,15 +3485,18 @@ async function checkRole(run, role, key) {
       if (evidenceFilm(run, null)) {
         const ev = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "evidence.mjs"), "check", "--run", run, "--strict", "--json"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, timeout: 120000 });
         let ej = null; try { ej = JSON.parse(ev.stdout); } catch {}
-        if (!ej) W.push("evidence.mjs could not run: the film cannot be called grounded");
+        if (!ej) UNVERIFIED.push("evidence.mjs could not run: the film cannot be called grounded");
         else for (const d of ej.errors || []) P.push(`evidence.mjs check --strict: ${d.code} [${d.where}] ${d.message} (fix: ${d.fix})`);
       }
+      // the contract is frozen at the builder's brief (motion.approved.md): a ban removed from the build's motion.md is a weakened contract
+      { const cw = contractWeakened(run, path.join(pj, "motion.md")); if (cw.missing) UNVERIFIED.push("motion.approved.md is missing from the run (it is written when the builder is briefed): the contract cannot be compared, re-brief the builder"); if (cw.removed.length) P.push(`contract-weakened: the project's motion.md dropped ${cw.removed.length} ban(s) the approved contract has (${cw.removed.join(", ")}): put them back. A ban the checkers cannot test is a note, never a failure: never edit the contract to pass a check`); }
       const gateScript = path.join(SKILL_DIR, "scripts", "motion-gate.mjs");
-      if (exists(gateScript) && exists(R(run, "motion", "score.json"))) {
+      if (!exists(gateScript) || !exists(R(run, "motion", "score.json"))) UNVERIFIED.push(`motion-gate.mjs was not run (${!exists(gateScript) ? "the script is missing" : "motion/score.json is missing"}): the builder is not accepted without the code half of the motion gate`);
+      else {
         const g = spawnSync(process.execPath, [gateScript, "--project", pj, "--plan", R(run, "motion", "score.json"), "--json", ...(mediumFileFor(run) ? ["--medium", mediumFileFor(run)] : [])], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, timeout: 300000 });
         let gj = null;
         try { gj = JSON.parse(g.stdout); } catch {}
-        if (!gj) W.push("motion-gate.mjs could not run on the project");
+        if (!gj) UNVERIFIED.push("motion-gate.mjs could not run on the project: the code half of the motion gate is required, the builder is not accepted without it");
         else { const ge = (gj.findings || []).filter((x) => x.severity === "error"); if (ge.length) P.push(`motion-gate.mjs: ${ge.length} finding(s) in the code (first: ${ge[0].check}${ge[0].at != null ? " at " + ge[0].at + " s" : ""}: ${ge[0].message})`); }
       }
       break;
@@ -4268,6 +4275,7 @@ if (cmd === "plan") {
   const prior = readLedger(run).filter((r) => r.role === role && (r.key || null) === key);
   const lastFail = prior.length && prior[prior.length - 1].event === "fail" ? prior[prior.length - 1] : null;
   const alloc = allocate({ role, profile: prof, policy: plan.policy || null, ...(args["requested-model"] && args["requested-model"] !== true ? { requested: String(args["requested-model"]) } : {}), attempt: prior.filter((r) => r.event === "brief").length + 1, failed: lastFail ? { reason: (lastFail.problems || [])[0] || "the check failed" } : null });
+  if (role === "film-builder" || role === "scene-animator") { try { snapshotContract(run); } catch { /* the check then has nothing to compare */ } } // freeze motion.md as the approved contract
   ledger(run, { event: "brief", role, key, ...(packet ? { packet: packet.digest } : {}), ...(alloc.escalation ? { escalation: alloc.escalation } : {}) });
   // Plan 09 P1: where this member sits in the dependency graph (advisory; RASANAI_STRICT_SCHEDULE=1 refuses a member that is not ready). A revision round may legitimately re-brief a finished member.
   let sched = null;
@@ -4418,7 +4426,7 @@ if (cmd === "plan") {
     const mine = Jobs.listJobs(run).filter((j) => j.role === role && (j.key || null) === key && Jobs.ACTIVE.has(j.state));
     for (const j of mine) {
       const lease = { generation: Number(args.generation), token: str(args.token) };
-      if (!P.length) {
+      if (!P.length && !UNVERIFIED.length) {
         if (!lease.token || !Number.isFinite(lease.generation)) W.push(`job ${j.job_id} holds a lease but --generation/--token were not passed: this acceptance is not fenced against a replaced attempt`);
         else { const cid = j.continuity && j.continuity.identity_digest && creativeOn(jsonMaybe(R(run, "crew", "plan.json")) || {}) ? (() => { const g = continuityPlanFor(run, jsonMaybe(R(run, "crew", "plan.json")) || {}, { write: false }).groups.find((x) => x.id === j.continuity.group_id); return g ? g.identity_digest : "group-missing"; })() : undefined; // W11/W06: the group's object/event/score identity now vs when the job was created
           const r = Jobs.accept(run, j.job_id, lease, { current_input_digest: jobInputDigest(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] }), ...(cid !== undefined ? { current_identity_digest: cid } : {}) }); if (!r.ok) P.push(`stale attempt refused (${r.reason}): the job was superseded, cancelled or its inputs moved; this attempt's files are not accepted (its log is kept in crew/jobs/attempts/)`); }
@@ -4426,7 +4434,9 @@ if (cmd === "plan") {
     }
     for (const j of Jobs.listJobs(run).filter((x) => x.role === role && (x.key || null) === key)) { const u = usage ? usage.total_reported ?? (usage.output !== null && usage.output !== undefined ? (usage.input_uncached || 0) + usage.output : null) : null; Jobs.reconcileBudget(run, j.job_id, { actual: u, failed: P.length > 0 }); }
   } catch (e) { W.push(`job bookkeeping skipped: ${e.message}`); }
-  ledger(run, { event: P.length ? "fail" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, ...(usage ? { usage } : {}), problems: P.length ? P.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
+  ledger(run, { event: P.length ? "fail" : UNVERIFIED.length ? "unverified" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, ...(usage ? { usage } : {}), problems: P.length ? P.slice(0, 20) : UNVERIFIED.length ? UNVERIFIED.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
+  // unverified: a required gate could not run, so nothing is proven. Not a pass (ok false, exit 5, distinct from failed = 2 and running = 4); the builder's check accepts the builder's outputs only, the FILM is accepted by final-gate.mjs
+  if (!P.length && UNVERIFIED.length) out({ ok: false, status: "unverified", role, key, unverified: UNVERIFIED, problems: P, warnings: W, note: "a required gate could not run, so this is not a pass: run it (or fix why it cannot run) and check again. This check accepts the builder's outputs only; the film is accepted by final-gate.mjs", ...(CHECK_EXTRA || {}) }, 5);
   out({ ok: !P.length, status: P.length ? "failed" : "ok", role, key, problems: P, warnings: W, ...(CHECK_EXTRA || {}) }, P.length ? 2 : 0);
 } else if (cmd === "eta") {
   // minutes until the next call the person is waiting for (the Story call): the sum of the typical durations of the phases before it that are not accepted yet.
