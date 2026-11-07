@@ -1240,7 +1240,7 @@ function serve() {
 
   const token = /^[a-f0-9]{24}$/.test(String(args.token || "")) ? String(args.token) : crypto.randomBytes(12).toString("hex");
   // files the console may serve: the workspace, installed skills (frame-preset showcases), and this skill
-  const allowed = [root, SKILL_DIR, path.join(os.homedir(), ".claude", "skills"), path.join(os.homedir(), ".agents", "skills")]
+  const allowed = [root, RUN, SKILL_DIR, path.join(os.homedir(), ".claude", "skills"), path.join(os.homedir(), ".agents", "skills")]
     .filter((p) => fs.existsSync(p))
     .map((p) => fs.realpathSync(p));
   const UI = path.join(SKILL_DIR, "console", "index.html");
@@ -1385,7 +1385,15 @@ function serve() {
       try {
         real = fs.realpathSync(p);
       } catch {
-        return send(404, "not found", "text/plain");
+        // story payloads (plates, boards) write run-relative paths ("story/plates/..."): fall back to the run folder
+        try {
+          real = u.pathname.startsWith("/fs/rel/") ? fs.realpathSync(path.join(RUN, rest)) : "";
+          const runReal = fs.realpathSync(RUN);
+          if (real && real !== runReal && !real.startsWith(runReal + path.sep)) real = ""; // run-relative fallback: inside the run folder only (no .. or symlink escape)
+        } catch {
+          real = "";
+        }
+        if (!real) return send(404, "not found", "text/plain");
       }
       if (!allowed.some((a) => real === a || real.startsWith(a + path.sep))) return send(403, "outside the allowed roots", "text/plain");
       if (isPrivate(real)) return send(403, "private", "text/plain");

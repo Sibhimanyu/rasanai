@@ -15,7 +15,7 @@
 //           It also carries family (one of glyph|component|line|object|mark|data, a different one for each label of the run,
 //           drawn from hash(run basename + seed): family "<id>", family_description, family_examples, family_rule), and brand_motif when the brand film card or the
 //           brand DESIGN.md names a motif (allowed as a secondary element in any script; only glyph or mark may carry it; an optional accent that never overrides the chosen world's motion grammar).
-//   node moves.mjs check --file <run>/story/moves-<label>.json --pitch <run>/story/pitch-<label>.json [--product-first]
+//   node moves.mjs check --file <run>/story/moves-<label>.json --pitch <run>/story/pitch-<label>.json [--product-first | --no-product-first]  (default: the pack's product_first, which pack derives from the route / brief kind / truth format)
 //        -> {ok, errors, warnings}; exit 0 ok, 2 errors (the move-inventor's gate), 1 could not read. The pitch gives the
 //           beats, ui_labels and product name. Every card needs scale (full-frame|large|detail); with --product-first every
 //           hero needs resolves_to; error ids no-full-frame-hero, chain-sparse (chain[] under ceil(film s / 1.5)), chain-gap
@@ -176,6 +176,22 @@ function pitchBeatsOf(pitchFile, label) {
   const list = Array.isArray(j) ? j : Array.isArray(j.pitches) ? j.pitches : [j];
   return list.find((p) => p && String(p.label || "").toLowerCase() === String(label || "").toLowerCase()) || list[0] || {};
 }
+// One source for "is this film product-first": the route, else the brief's kind, else the truth sheet's format (the same inputs crew.mjs reads for the inventor's brief).
+// --product-first / --no-product-first override. The pack records it and check reads it back from the pack, so the pack and the brief never disagree.
+function productFirstOf(run, packFile) {
+  if (args["no-product-first"]) return false;
+  if (args["product-first"]) return true;
+  const pk = packFile && jsonMaybe(packFile);
+  if (pk && typeof pk === "object" && typeof pk.product_first === "boolean") return pk.product_first;
+  if (!run) return false;
+  const dec = jsonMaybe(path.join(run, "decisions.json")) || {};
+  if (dec.route === "product-launch-video") return true;
+  const bj = jsonMaybe(path.join(run, "brief.json")) || {};
+  const kind = String(((bj.fields || bj).kind) || "");
+  if (/launch|promo|product|demo|reveal|feature|\bad\b|advert|announce/i.test(kind) && !/lyric|music video|presenter|talking/i.test(kind)) return true;
+  try { const m = fs.readFileSync(path.join(run, "story", "truth.md"), "utf8").match(/^\s*format:\s*(\w+)/im); if (m && /^(launch|promo|product)$/i.test(m[1])) return true; } catch { /* no sheet */ }
+  return false;
+}
 const verdictOf = (run) => jsonMaybe(path.join(run, "story", "moves-verdict.json"));
 // the card ids to show for one label: the verdict's ranking, else the file's own heroes
 function rankedIds(verdict, label, mv) {
@@ -304,7 +320,7 @@ if (cmd === "pack") {
   const label = labelOf(args.label);
   const seed = args.seed == null || args.seed === true ? 1 : Number(args.seed);
   if (!Number.isFinite(seed)) die("--seed must be a number");
-  const pf = !!args["product-first"];
+  const pf = productFirstOf(run, null);
   const rnd = prng(fnv1a(`${path.basename(run)}|${label}|${seed}`));
   const refRaw = jsonMaybe(path.join(run, "research", "reference-moves.json"));
   const refs = (Array.isArray(refRaw) ? refRaw : refRaw && Array.isArray(refRaw.moves) ? refRaw.moves : []).filter((m) => m && typeof m === "object").slice(0, 3).map((m) => ({ ...m, source: "reference" }));
@@ -347,7 +363,7 @@ if (cmd === "pack") {
       if (MW.isMediumContract(c)) mediumSkip = [...MW.scopedSkips(c, ["handoff-continuity"]).skip];
     }
   } catch { mediumSkip = []; }
-  const r = validateMoves(obj, { beats: pitch.beats, productFirst: !!args["product-first"], shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack, ...(mediumSkip.length ? { mediumSkip } : {}) });
+  const r = validateMoves(obj, { beats: pitch.beats, productFirst: productFirstOf(args.run && args.run !== true ? path.resolve(String(args.run)) : path.basename(path.dirname(f)) === "story" ? path.dirname(path.dirname(f)) : null, path.join(path.dirname(f), `moves-pack-${label}.json`)), shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack, ...(mediumSkip.length ? { mediumSkip } : {}) });
   out({ ok: !r.errors.length, errors: r.errors, warnings: r.warnings }, r.errors.length ? 2 : 0);
 } else if (cmd === "check-verdict") {
   const run = runDir();
@@ -506,7 +522,12 @@ if (cmd === "pack") {
     return { ...s, ...(sb.length ? { beats } : {}), ...(Object.keys(storyline).length && !s.storyline ? { storyline } : {}) };
   };
   const result = stories.map((s) => withStoryline(withMoves(s)));
-  console.log(JSON.stringify(result, null, 2));
+  // keep the whole object (recommended, recommended_why, boards ...) and write it back: story.mjs payload is the base, this adds carrier + moves to it
+  const full = Array.isArray(sj) ? result : { ...sj, stories: result };
+  if (!Array.isArray(sj) && !Array.isArray(sj.stories)) delete full.pitches;
+  const outFile = args.out && args.out !== true ? path.resolve(String(args.out)) : sf;
+  writeFile(outFile, JSON.stringify(full, null, 2) + "\n");
+  console.log(JSON.stringify(full, null, 2));
 } else if (cmd === "choose") {
   const run = runDir();
   const label = labelOf(args.label);

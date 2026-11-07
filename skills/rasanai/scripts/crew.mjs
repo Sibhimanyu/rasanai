@@ -1363,9 +1363,9 @@ function contextFor(run, role, key, plan) {
       const mjs = path.join(SKILL_DIR, "scripts", "moves.mjs");
       ctx.label = key;
       ctx.aspect = B.aspect;
-      ctx.pack_cmd = `node "${mjs}" pack --run ${rel(run)} --label ${key}`; // no --product-first: moves follow the concept (references/moves.md section 6); resolves_to is required only on a move that carries a claim
+      ctx.pack_cmd = `node "${mjs}" pack --run ${rel(run)} --label ${key} ${pf ? "--product-first" : "--no-product-first"}`; // the flag is the same productFirst() the brief's product_first line comes from; resolves_to is required only on a move that carries a claim
       ctx.pack_note = "the Director runs pack_cmd BEFORE briefing you (the pack is your exemplars, the 20 generators, one stimulus and the banned list); read the pack, never re-roll it";
-      ctx.check_cmd = `node "${mjs}" check --file ${rel(R(run, "story", `moves-${key}.json`))} --pitch ${rel(R(run, "story", `pitch-${key}.json`))}`;
+      ctx.check_cmd = `node "${mjs}" check --file ${rel(R(run, "story", `moves-${key}.json`))} --pitch ${rel(R(run, "story", `pitch-${key}.json`))} ${pf ? "--product-first" : "--no-product-first"}`;
       const vd = jsonMaybe(R(run, "story", "moves-verdict.json"));
       const den = vd && vd.pitches && vd.pitches[key] && vd.pitches[key].denial;
       if (Array.isArray(den) && den.includes(key)) ctx.denial_round = `yes: the juror failed too many of your cards. Read story/moves-verdict.json (pitches.${key}.cards[].fails and evidence), add those failures to your banned list, and write story/moves-${key}.json again`;
@@ -4473,12 +4473,12 @@ if (cmd === "plan") {
   out({ ok: true, status: r.open.length ? "unanswered" : "clear", unanswered: r.open, answered: r.answered.map((w) => ({ rule: w.rule, check: w.check, why: w.why })), rounds_used: st ? st.rounds : 0, of: 2, open_craft_notes: openCraftNotes(run), rule: "fix first; depart only with a real reason (score.departures [{ rule, why }], why 8+ words, not generic); never weaken the contract" }, 0);
 } else if (cmd === "eta") {
   // minutes until the next call the person is waiting for (the Story call): the sum of the typical durations of the phases before it that are not accepted yet.
-  // Measured on a real run: research desk ~8, research lead ~4, concept writers ~12, jury ~3, script writer + plates ~12, editor ~4, revision ~4. The Moves pass is not measured yet (estimates, flagged).
+  // Measured on a real run: research desk ~8, research lead ~4, concept writers ~12, jury ~3, script writer + plates ~12, editor ~4, revision ~4. The Moves pass (inventors ~11, juror ~7, sketchers ~4), the editor (~7) and the revise round (~4) are measured on film 2.
   const run = runDir();
   const plan = jsonMaybe(R(run, "crew", "plan.json"));
   if (!plan || !Array.isArray(plan.phases)) die(`no crew/plan.json in ${rel(run)}: run crew.mjs plan first`);
-  const TYPICAL = { research: 8, "research-lead": 4, concepts: 12, "concept-jury": 3, story: 12, moves: 6, "moves-jury": 3, "moves-roughs": 4, "story-edit": 4, "story-revise": 4 };
-  const ESTIMATED = new Set(["moves", "moves-jury", "moves-roughs"]);
+  const TYPICAL = { research: 8, "research-lead": 4, concepts: 12, "concept-jury": 3, story: 12, moves: 11, "moves-jury": 7, "moves-roughs": 4, "story-edit": 7, "story-revise": 4 };
+  const ESTIMATED = new Set(); // all measured on film 2 (2026-11-07): inventors ~11, juror ~7, sketchers ~4, editor ~7, revise ~4; a Story call took 88 min from Start
   const L = readLedger(run), last = new Map(), firstBrief = new Map();
   for (const r of L) { const k = `${r.role}|${r.key || ""}`; last.set(k, r); if (r.event === "brief" && !firstBrief.has(k)) firstBrief.set(k, Date.parse(r.t)); }
   const editNotes = jsonMaybe(R(run, "story", "edit-notes.json")), back = editBack(editNotes);

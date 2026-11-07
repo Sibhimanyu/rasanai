@@ -191,6 +191,28 @@ export function checkBrief(run, { stage = "proposal", expectPins = false } = {})
 // a NEW revision (never a silent rewrite): the previous brief and selection are kept in creative/revisions/, references re-picked with the Story / Look now known,
 // pins taken from what the user really confirmed. mode: story | look | build.
 const NEED = { story: ["story"], look: ["story", "look"], build: ["story", "look", "storyboard"] };
+// signature events whose beat_ids are empty: bind each to the chosen treatment's beat it names (its id or name) or, failing that, the beat that shares the most words with it.
+// Events that already carry beat_ids / shot_ids are never touched; an event nothing matches stays empty (the check then names it).
+const WORDS = (t) => new Set(String(t || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 3));
+export function mapEventBeats(run, events) {
+  const beats = beatsOf(run).filter((b) => b && b.id != null);
+  if (!beats.length) return { events, mapped: [] };
+  const mapped = [];
+  const out = arr(events).map((e) => {
+    if (!isObj(e) || arr(e.beat_ids).length || arr(e.shot_ids).length) return e;
+    const text = [e.id, e.what, e.explains, e.before, e.change, e.after, e.why_motion].filter(Boolean).join(" ").toLowerCase();
+    let hit = beats.filter((b) => text.includes(String(b.id).toLowerCase()) || (b.name && String(b.name).length > 4 && text.includes(String(b.name).toLowerCase())));
+    if (!hit.length) {
+      const ew = WORDS(text);
+      const scored = beats.map((b) => { const bw = WORDS([b.name, b.on_screen, b.visual, b.picture, b.buys, b.viewer_takeaway, b.viewer_before, b.viewer_after].filter(Boolean).join(" ")); return { b, n: [...ew].filter((w) => bw.has(w)).length }; }).sort((x, y) => y.n - x.n);
+      if (scored[0] && scored[0].n >= 2) hit = scored.filter((x) => x.n === scored[0].n).slice(0, 2).map((x) => x.b);
+    }
+    if (!hit.length) return e;
+    mapped.push({ event: e.id, beat_ids: hit.map((b) => String(b.id)) });
+    return { ...e, beat_ids: hit.map((b) => String(b.id)) };
+  });
+  return { events: out, mapped };
+}
 export function reviseCreative(run, { skillDir, mode = "story" } = {}) {
   if (!NEED[mode]) return { ok: false, reason: `mode is one of ${Object.keys(NEED).join(", ")}` };
   const f = P(run, "creative", "brief.json");
@@ -206,10 +228,11 @@ export function reviseCreative(run, { skillDir, mode = "story" } = {}) {
   const rf = P(run, "creative", "references.json");
   if (has(rf) && !has(path.join(rdir, `references-r${rev}.json`))) fs.copyFileSync(rf, path.join(rdir, `references-r${rev}.json`));
   const refs = prepareReferences(run, { skillDir, stage: mode, force: true });
-  const next = { ...b, revision: rev + 1, mode, pins: { brief: toBriefPin(pins.brief), story: toBriefPin(pins.story), look: toBriefPin(pins.look), storyboard: toBriefPin(pins.storyboard) }, references: { selection_ref: "creative/references.json", digest: referencesDigest(run) } };
+  const em = mapEventBeats(run, b.signature_events);
+  const next = { ...b, ...(em.mapped.length ? { signature_events: em.events } : {}), revision: rev + 1, mode, pins: { brief: toBriefPin(pins.brief), story: toBriefPin(pins.story), look: toBriefPin(pins.look), storyboard: toBriefPin(pins.storyboard) }, references: { selection_ref: "creative/references.json", digest: referencesDigest(run) } };
   writeJson(f, next);
   const v = checkBrief(run, { stage: mode });
-  return { ok: true, revision: next.revision, mode, pins: Object.keys(pins), references: (refs.selection || {}).evidenceLevel || null, validation: { ok: v.ok, errors: v.errors, warnings: v.warnings } };
+  return { ok: true, revision: next.revision, mode, ...(em.mapped.length ? { beats_mapped: em.mapped } : {}), pins: Object.keys(pins), references: (refs.selection || {}).evidenceLevel || null, validation: { ok: v.ok, errors: v.errors, warnings: v.warnings } };
 }
 
 // ---- reference media for frames/refs.json --------------------------------------------------------------------------------------------------

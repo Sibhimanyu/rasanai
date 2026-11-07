@@ -1723,8 +1723,7 @@
     var body = h("div", null, [h("p", { class: "qsub", text: txt(d.context) || "Three stories I could tell, as scripts. Pick the one to make; the look comes next." })]);
     var tabs = h("div", { class: "story-tabs films" });
     var sheet = h("div", { class: "script" });
-    var warns = (Array.isArray(d.warnings) ? d.warnings : []).map(txt).filter(Boolean);
-    if (warns.length) body.appendChild(h("p", { class: "story-warn", title: warns.join("\n"), text: "Note: " + warns.join(" · ") }));
+    // engineering warnings (d.warnings) belong in the director's log and feed, never on the person's page
     body.appendChild(tabs); body.appendChild(sheet);
     function fmt(s) { return Math.floor(s / 60) + ":" + ("0" + Math.round(s % 60)).slice(-2); }
     function draw() {
@@ -1734,7 +1733,7 @@
        try {
         var on = st.id === local.storySel;
         var aim = st.aim && typeof st.aim === "object" ? st.aim : null;
-        var headline = txt(aim && aim.takeaway) || txt(st.logline) || txt(st.why) || txt(st.title);
+        var headline = txt(st.logline) || txt(st.title) || txt(aim && aim.takeaway) || txt(st.why);
         var b = h("button", { type: "button", class: "film story-tab" + (on ? " on" : ""), "aria-pressed": on ? "true" : "false" }, [
           h("div", { class: "st-angle" }, [h("b", { text: txt(st.angle).toUpperCase() }), h("span", { text: ANGLE_MEANING[txt(st.angle).toLowerCase()] || "" }), st.id === d.recommended ? h("i", { class: "st-pick", title: "Claude's pick", text: "✦" }) : null]),
           h("p", { class: "st-headline", title: headline, text: headline }),
