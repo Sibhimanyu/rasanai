@@ -31,6 +31,7 @@ import { spawnSync } from "node:child_process";
 import { parseArgs, die, chromeScreenshot, normalizeAspect, SKILL_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { readShots, checkShots, boardFiles, collectRefs, gridSheet, grey, ssim, boardFor, buildPayload, frameId, KIT_CSS, KIT_JS } from "./lib/frames-lib.mjs";
+import { boardSafeArea, TEXT_FIT } from "./lib/textfit.mjs";
 import { readStoryboard, temporalNotes } from "./lib/storyboard.mjs";
 import { runCreativeOn, lookStyleOf, creativeLookProfile, referenceStills } from "./lib/creative-run.mjs"; // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
 
@@ -149,6 +150,13 @@ if (cmd === "init") {
   const r = checkShots(doc, { duration: filmLength(run), creativePolicy: cp, ...(med && med.skip.length ? { mediumSkip: med.skip } : {}) });
   const boards = doc ? boardFiles(dir, doc) : [];
   const missing = boards.filter((b) => !b.has_png).map((b) => b.id);
+  // the motion gate's safe-area rule, applied to the boards: type inside the 6% edge on a board is copied into the build and fails there
+  if (!args["no-safe-area"] && boards.some((b) => b.has_html)) {
+    const wh = String(normalizeAspect(doc && doc.film && doc.film.aspect)).split("x").map(Number);
+    const sa = await boardSafeArea(boards, wh[0] || 1920, wh[1] || 1080);
+    for (const f of sa.findings) r.errors.push(`safe-area: board ${f.board} "${f.text}" sits ${f.x} px from the ${f.side} edge, inside the ${Math.round(TEXT_FIT.safe * 100)}% safe area (${f.limit} px): move it in, or mark deliberate oversized type data-text-fit="bleed" (the motion gate fails the same line as text-cropped)`);
+    for (const m of sa.could_not_run) r.warnings.push(`safe-area-unchecked: ${m}`);
+  }
   out({ ok: !r.errors.length, errors: r.errors, warnings: r.warnings, ...(r.review ? { review: r.review, review_note: "craft the selected look does not choose: evidence for the juror, not a failure" } : {}), ...(med && med.exceptions.length ? { medium_exceptions: med.exceptions } : {}), stats: r.stats, boards: { have: boards.filter((b) => b.has_png).map((b) => b.id), missing } }, r.errors.length ? 2 : 0);
 } else if (cmd === "refs") {
   const run = runDir();

@@ -65,6 +65,9 @@ Per beat (each `scenes[]` entry):
 | `hero_id` | DOM id | optional (`data-hero` on the element does the same with no score) | Lets `subject-lost` follow the hero. |
 | `hero_box` | `[x, y, w, h]`, 0..1 of the frame | every scene | Where the viewer must look at the beat's peak. |
 | `hero_box_end` | `[x, y, w, h]` | optional | The box at the scene's end; the focus follows it linearly. `finish.mjs grade\|all --focus-follow --run <run>` puts the soft field outside it; a scene without a box stays sharp. |
+| `hold` | `{ s, reason: "user-note"\|"craft", at? }` (or a list) | optional, per scene | A pause on purpose: the user asked ("calmer", "let it breathe") or the craft wants it. `s` seconds starting `at` seconds into the beat (default: the tail of the beat). Inside it, `motion-gate.mjs` (`freeze`, `end-hold`, `coverage`, `empty-frames`, `gap-between-beats`), `slop.mjs` (`dead-air`) and the launch gates (`meaningful-stillness`) report a note instead of an error. Caps: 3 s a hold, 4 s on the end card; the part past the cap is not covered. A hold with no `s` or no reason counts for nothing. `lib/holds.mjs`. |
+
+**Holds.** A user note asking for calm or a held beat is a `hold` on that scene (above), not a reason to loosen a gate. Say the note in `reason` terms: `user-note` when the user asked, `craft` when you chose it.
 
 ## 3. Field by field
 

@@ -125,7 +125,7 @@ Enter, exit and move tweens are the film's **gestures**. A staggered tween is on
 | `opaque-motion` | warning | a file whose motion lives in a `render(t)` function driven by one clock tween: obey cannot see it, the fluency gate on the draft judges it |
 | `banned:<name>` | error | the tween matches a banned signature (below) |
 | `non-gsap` | error | CSS `@keyframes`, anime.js, or WAAPI `animate([...])` in a composition file |
-| `unknown-ban` | error | motion.md bans a name that has no signature |
+| `unknown-ban` | warning (note) | motion.md bans a name that has no signature: it stays as a rule, untestable bans are notes and never failures; deleting one is `contract-weakened` at the builder check |
 
 The mix rules (dominant-ease through snap-and-die) are judged on the whole film once it has `mix.min_gestures` (12) gestures. A preview page whose root carries `data-obey-mix="off"` (the tasting swatches, which show one language's signature) is not judged. obey prints the mix it measured (`mix: N gestures, top curve %, top duration %, settles %, families`).
 

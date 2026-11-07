@@ -126,6 +126,7 @@ import { whiteFlashes, seamBlanks, holdDrift, decodeFrames } from "./lib/frame-g
 import { rgbToLab } from "./lib/pixels.mjs";
 import { loadManifest, wordsOf } from "./lib/film-events.mjs";
 import { grammarWaivers, parseWaiversArg, GATE_PROFILES } from "./lib/gate-profile.mjs";
+import { holdRanges, holdCovering, holdNote } from "./lib/holds.mjs";
 import { launchGrammarFindings, doctrineFindings, motionMdOrderFindings, isLaunchKind } from "./lib/launch-grammar.mjs";
 import { beatStats, busyChecks, energyArcChecks, resultHoldChecks } from "./lib/film-energy.mjs";
 
@@ -506,8 +507,13 @@ function codeChecks(file, html) {
 export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null, medium = null, kind = null, run = null, gateProfile = null, waivers = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+  let HOLDS = []; // the score's declared holds (lib/holds.mjs): a still stretch inside one is a note
   const add = (f) => {
     const g = { basis: "measured", ...f };
+    if (HOLDS.length && ["freeze", "end-hold", "coverage", "empty-frames", "gap-between-beats"].includes(g.check) && (g.severity === "error" || g.severity === "warning") && typeof g.at === "number") {
+      const h = holdCovering(HOLDS, g.at, g.to);
+      if (h) { g.message = `note: ${g.message} (${holdNote(h)})`; g.severity = "note"; g.fix = "none: the score declares this hold"; g.hold = h.reason; }
+    }
     // a launch-grammar rule the concept waived (with a stated why) is a note, never an error (lib/gate-profile.mjs WAIVABLE)
     const wk = { "hook-address": "hook-address", "hook-object": "hook-object", "hook-logo": "hook-logo" }[g.check];
     if (wk && g.severity === "error" && waived[wk]) { g.message = `waived by the concept (${waived[wk]}): ${g.message}`; g.severity = "note"; g.waived = true; g.fix = "none: the concept waived this launch-grammar rule"; }
@@ -516,6 +522,8 @@ export async function gate({ events = null, vo = null, video = null, project = n
   };
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
   if (P.error) could.push(P.error);
+  HOLDS = holdRanges(P.plan);
+  if (HOLDS.length) measured.holds = HOLDS.map((h) => ({ from: r2(h.from), to: r2(h.to), reason: h.reason, beat: h.beat, ...(h.capped ? { capped_from_s: h.declared_s } : {}) }));
   // launch-grammar waivers (the score's grammar_waivers, plus --waive from the final gate) and the gate profile (the chosen world's: pixel | stepped accept stepped motion)
   const waived = { ...grammarWaivers(P.plan).waived, ...(waivers || {}) };
   if (Object.keys(waived).length) measured.grammar_waivers = waived;
@@ -592,7 +600,7 @@ export async function gate({ events = null, vo = null, video = null, project = n
         for (let i = D.length - 1; i > 0 && !moving[i]; i--) tail++;
         const tailS = tail / fps;
         const lastMove = (D.length - 1 - tail) / fps;
-        if (tailS > holdMax + 1 / fps) add({ check: "end-hold", severity: "error", at: r2(lastMove), region: "whole frame", message: `the end card holds ${r2(tailS)} s still after its last move (${holdMax} s at most)`, fix: `land the end card's last element later (the CTA wipes in, the mark settles), or end the film ${r2(tailS - holdMax)} s sooner` });
+        if (tailS > holdMax + 1 / fps) add({ check: "end-hold", severity: "error", at: r2(lastMove), to: r2(lastMove + tailS), region: "whole frame", message: `the end card holds ${r2(tailS)} s still after its last move (${holdMax} s at most)`, fix: `land the end card's last element later (the CTA wipes in, the mark settles), or end the film ${r2(tailS - holdMax)} s sooner` });
         // the floor: a film that stops on its last move (or holds under the minimum) flashes its ending by; a warning, an error once the user taught it
         if (tailS < holdMin - 1 / fps - 1e-9) add({ check: "end-hold-short", severity: holdMinTaught && still === "error" ? "error" : "warning", at: r2(lastMove), region: "whole frame", message: `the film holds ${r2(tailS)} s still after its last move (${holdMin} s at least): the ending flashes by`, fix: `let the last move settle and hold the end card for ${holdMin} s or more: land the call to action earlier, or end the film ${r2(holdMin - tailS)} s later` });
         const exempt = Math.min(tail, Math.round(holdMax * fps));
@@ -623,7 +631,7 @@ export async function gate({ events = null, vo = null, video = null, project = n
             const inEnd = endStart != null && a / fps >= endStart;
             const wm = worldMovers.find((u) => u.mover !== "none" && Math.min(b / fps, u.end) - Math.max(a / fps, u.start) >= len / 2);
             if (wm) measured.world_mover_still = [...(measured.world_mover_still || []), { image: wm.image, shot: wm.shot, mover: wm.mover, at: tOf(a) }];
-            add({ check: "freeze", severity: still, at: tOf(a - 1 >= 0 ? a - 1 : a), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}${wm ? `; art/world.json says plate "${wm.image}" has mover "${wm.mover}" in shot ${wm.shot} (${wm.start} to ${wm.end} s): the mover is not running` : ""}: ${freezeS} s at most`, fix: "let the hold breathe instead of dying: a camera push on the world, a secondary that settles late, the next element starting early; or cut it shorter" });
+            add({ check: "freeze", severity: still, at: tOf(a - 1 >= 0 ? a - 1 : a), to: tOf(b), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}${wm ? `; art/world.json says plate "${wm.image}" has mover "${wm.mover}" in shot ${wm.shot} (${wm.start} to ${wm.end} s): the mover is not running` : ""}: ${freezeS} s at most`, fix: "let the hold breathe instead of dying: a camera push on the world, a secondary that settles late, the next element starting early; or cut it shorter" });
           }
         }
         // empty frames: near-empty = foreground under GATE.empty_fg (foregroundShare); the end hold and declared breaths are exempt
