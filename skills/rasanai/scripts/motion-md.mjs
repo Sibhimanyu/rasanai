@@ -5,7 +5,7 @@
 //
 // usage:
 //   node motion-md.mjs write --personality editorial-mask [--adjust slower,calmer] \
-//        --out <dir>/motion.md [--mode confirmed|auto (auto on a UI actor is written as confirmed; --actor object keeps auto)] [--reason "..."] [--emit-personality <file.json>]
+//        --out <dir>/motion.md [--mode confirmed|auto] [--reason "..."] [--emit-personality <file.json>]
 //   node motion-md.mjs write --language snappy --out <dir>/motion.md   (a motion-language term from the taxonomy)
 //   node motion-md.mjs write --design-system <run>/design/<label> --out <dir>/motion.md [--reason "..."]
 //        (a bespoke system: its blend.json motion_contract, on the nearest motion language, binds the film;
@@ -48,10 +48,6 @@ ${brandLocked ? "\nThe brand lock (logo, accent, claim face, real UI) wins; cut 
   return { dna, body };
 }
 
-// `--mode auto` is the autonomous path's spelling: for an object actor (--actor object|mascot|carrier) it is recorded as auto; for anything else (the product UI) the director's call IS the
-// decision, so it is recorded as confirmed (the launch gate fails decided_by: auto on a UI actor). One documented command, one accepted result.
-const objActor = (a) => /\b(object|mascot|carrier|character)\b/i.test(String(a === true ? "" : a || ""));
-const decidedMode = (a) => (String(a.mode || "confirmed") === "auto" && !objActor(a.actor) ? "confirmed" : String(a.mode || "confirmed"));
 function motionMd(p, { mode, reason }) {
   const fl = fluentFields(p);
   const fields = {
@@ -136,7 +132,7 @@ if (cmd === "write") {
   if (args["design-system"]) {
     const p = applyAdjustments(systemPersonality(String(args["design-system"])), String(args.adjust || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean));
     if (!args.out) die("--out required");
-    writeFile(args.out, motionMd(p, { mode: decidedMode(args), reason: args.reason }));
+    writeFile(args.out, motionMd(p, { mode: args.mode || "confirmed", reason: args.reason }));
     console.log(JSON.stringify({ wrote: args.out, personality: p.id, easing: p.easing, scale_ms: p.tempo.scale_ms, from: String(args["design-system"]) }, null, 2));
     process.exit(0);
   }
@@ -147,7 +143,7 @@ if (cmd === "write") {
   const p = applyAdjustments(getPersonality(args.personality), adj);
   // the doctrine: when the actor is the product UI the film uses the brand's easing; `auto` + `character` is blocked unless the actor is an object (--actor object|mascot|carrier)
   if ((p.language === "character" || /character/.test(String(p.id))) && String(args.mode || "confirmed") === "auto" && !/\b(object|mascot|carrier|character)\b/i.test(String(args.actor === true ? "" : args.actor || ""))) die("motion language \"character\" (back.out, elastic, squash) with --mode auto is blocked: it is for object actors (a carrier letter, a mascot; pass --actor object). A UI-led launch film uses the brand's own easing: use --design-system <run>/design/<label> or a brand-matched --language, and --mode confirmed.");
-  writeFile(args.out, motionMd(p, { mode: decidedMode(args), reason: args.reason }));
+  writeFile(args.out, motionMd(p, { mode: args.mode || "confirmed", reason: args.reason }));
   if (args["emit-personality"]) writeFile(args["emit-personality"], JSON.stringify(p, null, 2) + "\n");
   console.log(JSON.stringify({ wrote: args.out, personality: p.id, easing: p.easing, scale_ms: p.tempo.scale_ms, emitted: args["emit-personality"] || null }, null, 2));
 } else if (cmd === "adjectives") {

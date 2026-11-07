@@ -1093,6 +1093,7 @@ if (cmd === "push") {
       value = String(args.value);
     }
   }
+  if (["waive", "unwaive"].includes(String(args.type))) die("a waiver is the person's own click on the Final (a console action with its session); the director cannot record one, in chat or otherwise. Ask the person to waive it on the Final, or fix the finding and re-push.");
   const a = appendAction({ step: args.step, type: args.type || "choose", value, note: args.note || "", source: "chat" });
   if (!["comment", "apply"].includes(a.type)) tasteFrom(a); // a comment/apply goes through applyAction below, which records it
   // chat answers count as consumed: the agent already has them
