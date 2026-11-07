@@ -9,10 +9,11 @@ import { readFrontmatterDoc } from "./common.mjs";
 export const APPROVED_NAME = "motion.approved.md";
 export const approvedPath = (run) => path.join(run, APPROVED_NAME);
 
-// Copy <run>/motion.md (or the given file) to motion.approved.md once. Never overwrites: the first copy is the contract.
+// Copy <run>/motion.md (or the given file) to motion.approved.md. Called only when the director briefs a builder, so a re-brief after a
+// revision round (the user's notes changed motion.md) refreshes the snapshot: the user's change is not "weakening". The builder never calls it.
 export function snapshotContract(run, from = path.join(run, "motion.md")) {
   const to = approvedPath(run);
-  if (fs.existsSync(to) || !fs.existsSync(from)) return { written: false, file: to };
+  if (!fs.existsSync(from)) return { written: false, file: to };
   fs.copyFileSync(from, to);
   return { written: true, file: to };
 }
@@ -24,6 +25,7 @@ const bansOf = (file) => {
 // -> { checked: bool, removed: [ban ids] }  (checked false when there is no approved copy or either file cannot be read)
 export function contractWeakened(run, current) {
   const a = approvedPath(run);
+  if (!fs.existsSync(a) && fs.existsSync(path.join(run, "motion.md"))) return { checked: false, removed: [], missing: true }; // deleted after the brief: not a pass
   if (!fs.existsSync(a) || !current || !fs.existsSync(current)) return { checked: false, removed: [] };
   const was = bansOf(a), now = bansOf(current);
   if (!was || !now) return { checked: false, removed: [] };

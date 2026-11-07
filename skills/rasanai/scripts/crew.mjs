@@ -3488,7 +3488,7 @@ async function checkRole(run, role, key) {
         else for (const d of ej.errors || []) P.push(`evidence.mjs check --strict: ${d.code} [${d.where}] ${d.message} (fix: ${d.fix})`);
       }
       // the contract is frozen at the builder's brief (motion.approved.md): a ban removed from the build's motion.md is a weakened contract
-      { const cw = contractWeakened(run, path.join(pj, "motion.md")); if (cw.removed.length) P.push(`contract-weakened: the project's motion.md dropped ${cw.removed.length} ban(s) the approved contract has (${cw.removed.join(", ")}): put them back. A ban the checkers cannot test is a note, never a failure: never edit the contract to pass a check`); }
+      { const cw = contractWeakened(run, path.join(pj, "motion.md")); if (cw.missing) UNVERIFIED.push("motion.approved.md is missing from the run (it is written when the builder is briefed): the contract cannot be compared, re-brief the builder"); if (cw.removed.length) P.push(`contract-weakened: the project's motion.md dropped ${cw.removed.length} ban(s) the approved contract has (${cw.removed.join(", ")}): put them back. A ban the checkers cannot test is a note, never a failure: never edit the contract to pass a check`); }
       const gateScript = path.join(SKILL_DIR, "scripts", "motion-gate.mjs");
       if (!exists(gateScript) || !exists(R(run, "motion", "score.json"))) UNVERIFIED.push(`motion-gate.mjs was not run (${!exists(gateScript) ? "the script is missing" : "motion/score.json is missing"}): the builder is not accepted without the code half of the motion gate`);
       else {

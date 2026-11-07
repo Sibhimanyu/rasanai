@@ -5,6 +5,7 @@
 // most 4 s; the part past the cap is NOT covered. Used by motion-gate.mjs, slop.mjs and lib/launch-gates.mjs.
 export const HOLD_MAX_S = 3;
 export const HOLD_END_MAX_S = 4;
+export const HOLD_SHARE = 0.25; // all declared holds together cover at most this share of the film (and never less than one hold)
 export const HOLD_REASONS = ["user-note", "craft"];
 
 const num = (v) => (v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
@@ -30,7 +31,11 @@ export function holdRanges(plan) {
       out.push({ from, to: from + len, reason: String(h.reason), beat: b.id || b.n || i + 1, declared_s: s, capped: s > cap });
     }
   });
-  return out;
+  // a film cannot be declared still: past the total budget the holds are not covered (the finding stays a failure)
+  const total = t, budget = Math.max(HOLD_MAX_S, HOLD_SHARE * total);
+  let used = 0;
+  for (const h of out) { const len = h.to - h.from, ok = Math.max(0, Math.min(len, budget - used)); used += ok; if (ok < len) { h.to = h.from + ok; h.capped = true; } }
+  return out.filter((h) => h.to > h.from);
 }
 
 // the finding's range [from, to] lies inside a declared hold (0.15 s of slack for frame sampling) -> the hold, else null
