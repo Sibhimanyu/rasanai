@@ -233,7 +233,7 @@ export function resolveSound(o = {}) {
     conflict("voice_vs_music_led", "Voiceover is on while your track leads the film (music-led: the track sets the schedule).", "Keep the voiceover and use the track as a bed under it, or keep the track leading and turn the voiceover off.", ["voiceover", "music_source"]);
   if (!silent && c.voiceover === "without" && contract && arr(contract.vo).length)
     conflict("no_voiceover_but_vo", "Voiceover is off, yet the audio contract still holds narration segments.", "Remove the narration from the contract (the script stays), or turn voiceover back on.", ["voiceover"]);
-  if (!silent && c.voiceover === "with" && brief.narration === false)
+  if (!silent && c.voiceover === "with" && (brief.narration === false || (typeof brief.narration === "string" && /^(none|no|false|off)\.?$/i.test(brief.narration.trim()))))
     conflict("voiceover_vs_brief", "Voiceover is on here, while the Brief says no narration.", "Use the Brief value you set last; the Voiceover control is the Brief's narration field.", ["voiceover"]);
   if (rec.preset && PRESETS.find((p) => p.id === rec.preset) && PRESETS.find((p) => p.id === rec.preset).choices.effects === "expressive" && eff === "minimal_none" && ex.has("effects"))
     conflict("effects_none_vs_preset", `Effects are Minimal/none while the starting preset (${rec.preset}) is expressive.`, "Your explicit Effects choice stays; the preset only suggested a starting value.", ["effects"]);

@@ -38,6 +38,7 @@
 //        Each look names its world: looks.json and the look payload carry `style_world` ({id, name, ...}); a bespoke system writes `style_world: "<atlas id>"` in design/<label>/blend.json.
 //   node design.mjs pick --looks <dir>/looks.json --id B --decisions <decisions.json>
 //        -> merges the look's terms (visual style, typography) into decisions.json and prints its frame.md
+import { resolveBrandPath, runBrandFile } from "./lib/run-brand.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, die, readJSON, writeFile, esc, normalizeAspect, chromeScreenshot, chromeDumpDom } from "./lib/common.mjs";
@@ -80,8 +81,7 @@ function runBrand(run) {
   try {
     const d = JSON.parse(fs.readFileSync(path.join(run, "decisions.json"), "utf8"));
     if (d.use_brand === false || !d.brand) return null;
-    const f = path.resolve(String(d.brand));
-    return fs.existsSync(f) ? f : null;
+    return resolveBrandPath(d.brand, run);
   } catch { return null; }
 }
 

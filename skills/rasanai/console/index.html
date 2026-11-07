@@ -1510,7 +1510,7 @@
       add(" for "); add(part("subject", f.subject || DEF.subject, null));
       add(", "); add(part("aspect", f.aspect || DEF.aspect, ch.aspect || [{ value: "16:9", label: "16:9 (widescreen)" }, { value: "9:16", label: "9:16 (vertical)" }, { value: "1:1", label: "1:1 (square)" }, { value: "4:5", label: "4:5 (feed)" }]));
       add(" for "); add(part("destination", f.destination || DEF.destination, ch.destination || ["the website", "X", "LinkedIn", "YouTube", "Instagram Reels", "TikTok", "a keynote"]));
-      add(", "); add(part("narration", f.narration === false ? "without voiceover" : "with voiceover", [{ value: true, label: "with voiceover" }, { value: false, label: "without voiceover" }]));
+      add(", "); add(part("narration", (f.narration === false || (typeof f.narration === "string" && /^\s*(none|no|false|off)\.?\s*$/i.test(f.narration))) ? "without voiceover" : "with voiceover", [{ value: true, label: "with voiceover" }, { value: false, label: "without voiceover" }]));
       if (f.brand_name) { add(", "); add(part("use_brand", f.use_brand === false ? "in a new look" : "in " + f.brand_name + "'s own colours and type", [{ value: true, label: "in " + f.brand_name + "'s own colours and type" }, { value: false, label: "in a new look" }])); }
       add(".");
     }
@@ -1964,6 +1964,16 @@
     player.addEventListener("click", function (e) { if (e.target === big) return; v.pause(); play.textContent = "▶"; var r = player.getBoundingClientRect(), t = v.currentTime; var sc = marks.filter(function (m) { return m.start <= t; }).slice(-1)[0] || {}; commentPop(step, e, { scene: sc.id, t: t, x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, label: (sc.title ? sc.title + " · " : "") + fmtT(t) }); });
     A = { toggle: toggle, seek: function (t) { v.currentTime = t; }, commentHere: function () { v.pause(); var r = player.getBoundingClientRect(); commentPop(step, { pageX: r.left + window.scrollX + 40, pageY: r.top + window.scrollY + 40 }, { t: v.currentTime, label: fmtT(v.currentTime) }); } };
     if ((d.changes || []).length) body.appendChild(h("div", { class: "changes" }, [h("b", { text: "Changed in v" + (d.version || "") + ": " }), d.changes.join(" · ")]));
+    // a render that did not pass every check: each failed check in plain words, a Waive control (only for checks that may be waived), and "Send back for a fix"
+    if (d.gate && (d.gate.findings || []).length) {
+      var gbox = h("div", { class: "notes" }, [h("div", { class: "note" }, [h("b", { text: d.gate.state === "waived" ? "Passed with your waivers" : "Not passed" }), h("span", { text: " " + (d.gate.summary || "") })])]);
+      d.gate.findings.forEach(function (f) {
+        gbox.appendChild(h("div", { class: "note" }, [h("b", { text: f.name + ": " }), h("span", { text: f.reason + " " }),
+          f.waivable === false ? h("span", { text: "(must be fixed)" }) : h("button", { class: "chip2", onclick: function () { send(step, f.waived ? "unwaive" : "waive", { ids: [f.id] }); }, text: f.waived ? "Waived (undo)" : "Waive" })]));
+      });
+      gbox.appendChild(h("div", { class: "note" }, [h("button", { class: "btn", onclick: function () { send(step, "send-back", {}); }, text: "Send back for a fix" })]));
+      body.appendChild(gbox);
+    }
     if ((d.versions || []).length > 1) body.appendChild(h("div", { class: "versions" }, ["Versions:"].concat(d.versions.map(function (x) { return h("button", { class: "chip2", onclick: function () { send(step, "version", { restore: x.v }); }, text: "v" + x.v + (x.when ? " · " + x.when : "") }); }))));
     var notes = openComments(step);
     if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text }), c.interpretation ? h("span", { class: "sub", text: " (" + (c.needs_confirmation ? "Is this what you mean? " : "Read as: ") + c.interpretation + ")" }) : null]); })));

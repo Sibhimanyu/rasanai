@@ -19,6 +19,7 @@
 //           DESIGN.md exists (--brand, or the run's decisions.json brand) its canvas / ink / accent replace the grammar's palette
 //   node grammar.mjs check --file <grammar.json>   -> the schema (exit 0, or 2 with the problems)
 // Zero dependencies; output is JSON.
+import { resolveBrandPath, runBrandFile } from "./lib/run-brand.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -107,7 +108,7 @@ if (cmd === "list") {
   const res = strip(g);
   // a brand's DESIGN.md wins over the grammar's palette; the devices stay
   let brandFile = args.brand && args.brand !== true ? path.resolve(String(args.brand)) : null;
-  if (!brandFile) { const d = readJ(path.join(run, "decisions.json")) || {}; if (d.brand && d.use_brand !== false && fs.existsSync(path.resolve(String(d.brand)))) brandFile = path.resolve(String(d.brand)); }
+  if (!brandFile) { const d = readJ(path.join(run, "decisions.json")) || {}; const bf = runBrandFile(run, d); if (bf) brandFile = bf; }
   let merged = null;
   if (brandFile) {
     try {

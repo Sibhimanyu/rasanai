@@ -17,6 +17,7 @@
 // decisions.json: { "subject": "...", "picks": { "<dimension>": "<id>"|["<id>"], "<dimension>:<facet>": "<id>" },
 //                   "decided_by": { "<dimension>": "user"|"agent"|"brand" }, "notes": { "<dimension>": "..." },
 //                   "brand": "<DESIGN.md path>", "avoid": ["..."] }
+import { resolveBrandPath } from "./lib/run-brand.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, die, readJSON, writeFile, readFrontmatterDoc } from "./lib/common.mjs";
@@ -44,8 +45,9 @@ if (cmd === "compile") {
   if (!entries.length) die("no decisions to compile");
   const avoid = [...(D.avoid || [])];
   let brandName = null;
-  if (D.brand && fs.existsSync(path.resolve(String(D.brand)))) {
-    const B = readDesignMd(path.resolve(String(D.brand)), { mode: D.brand_mode });
+  const brandFile = D.use_brand === false ? null : resolveBrandPath(D.brand, args.decisions ? path.dirname(path.resolve(String(args.decisions))) : null);
+  if (brandFile) {
+    const B = readDesignMd(brandFile, { mode: D.brand_mode });
     brandName = path.basename(D.brand);
     avoid.push(...B.donts.map((x) => `${x} (brand reference)`));
   }

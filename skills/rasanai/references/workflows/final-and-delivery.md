@@ -41,7 +41,9 @@ Unwaived gate findings go in `context`, and so does the motion-reference credit 
 Before you push the Final run `node $SKILL_DIR/scripts/crew.mjs creative gate --run "$RUN" --stage final`. `ready` means a current independent review of the render exists.
 Anything else (`not_reviewed`, `revise`, `needs_user`, `blocked`) is said plainly in the Final's `context` ("creative review: not assessed"), never as "checks passed".
 The film critic writes `creative/reviews/final-r<N>.json`; a ship verdict needs a ready result from images it opened.
-Factual, permission and mechanical failures are never waived; an aesthetic waiver needs the user's own consumed action and the reviewed artifact digest. The user's Final choice and the previous final are unchanged.
+Factual, permission and mechanical failures are never waived; an aesthetic waiver needs the user's own consumed action and the reviewed artifact digest.
+
+**A gate-failed render still reaches the Final.** When `final-gate` fails, fix it first. If the fix rounds are spent, push the render with `console.mjs push --step render --waiver-payload` (final-gate must have passed or failed on exactly this file; a draft, an open round or a different render still refuse). The Final then shows each failing check in plain words (name, one-line reason) with a per-check **Waive** and **Send back for a fix**; the film stays "not passed" until every check is fixed (re-gate, re-push) or waived by the person's own action (`waive` / `unwaive` / `send-back`; only a person's action waives, never the director). Findings that are never waivable and still block the push: the run's structure (preflight, draft, wrong render), `text-qa` (typos, false words on screen), photosensitivity or flashing, claim truth, rights and permissions. Waivers are logged in `final-waivers.json`; a send-back writes `crew/fix-request.json` with the open findings. The user's Final choice and the previous final are unchanged.
 
 ### Revision 2 (v3)
 

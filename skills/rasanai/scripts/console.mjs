@@ -253,6 +253,14 @@ function validateAction(a, getSession = null) {
 // the shapes an app may use for the same thing (a nested brief {fields, format}, a frame comment's {frame, text}) into Studio's.
 const EXTERNAL_SOURCES = new Set(["squeak", "squeak-phone"]);
 const BRIEF_FIELD_TYPES = { length_s: "number", kind: "string", subject: "string", aspect: "string", destination: "string", narration: "text", brand_name: "string", use_brand: "boolean", sound: "object" };
+// brief narration as a boolean when it is plainly a yes/no word; long free text (a script) is left as it is
+export function normNarration(v) {
+  if (typeof v !== "string") return v;
+  const t = v.trim().toLowerCase();
+  if (/^(none|no|false|off|n|without|no voice-?over|no narration|no vo)\.?$/.test(t)) return false;
+  if (/^(yes|true|on|y|with)\.?$/.test(t)) return true;
+  return v;
+}
 const ASPECTS = ["16:9", "9:16", "1:1"];
 const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
 const isText = (x, max = 4000) => typeof x === "string" && x.length <= max;
@@ -427,6 +435,42 @@ function storyboardHooks(s, action) {
 // Plan 06 V8: a Studio element edit (an actions.jsonl line with kind "motion-edit" and the contract-D object under `edit`) is recorded by lib/editor-patch in
 // motion/edits.jsonl, keyed to a stable element id. It never rewrites a scene here; a regeneration must carry or reconcile it (production.mjs overrides). Best effort:
 // an edit that cannot be recorded is shown in the feed, not thrown.
+// The Final of a gate-failed render: findings {id, name, reason, waivable, waived}, the state ("not_passed" until every finding is waived; a fixed finding is gone after the re-gate and re-push)
+function gateState(findings, sha) {
+  const open = findings.filter((f) => !f.waived);
+  const summary = open.length ? `Not passed: ${open.length} check${open.length > 1 ? "s" : ""} failed (${open.slice(0, 3).map((f) => f.name).join(", ")}${open.length > 3 ? ", ..." : ""}). Waive each one you accept, or send it back for a fix.` : "Passed with your waivers: every failed check was waived by you.";
+  return { passed: false, state: open.length ? "not_passed" : "waived", video_sha: sha || null, findings: findings.map(({ id, name, reason, waivable, waived, waived_at }) => ({ id, name, reason, waivable: waivable !== false, waived: !!waived, ...(waived_at ? { waived_at } : {}) })), summary };
+}
+// the person's own actions on that Final: waive {ids|id}, unwaive {ids|id}, send-back {note?}. Only a person's action waives (never a push, never the director); a non-waivable finding refuses.
+function gateWaiveHook(s, action) {
+  if (!action || !["waive", "unwaive", "send-back"].includes(action.type)) return false;
+  const step = ["render", "final"].find((k) => s.steps[k] && s.steps[k].gate && (action.step === k || !["render", "final"].includes(action.step))) || null;
+  const st = step ? s.steps[step] : null;
+  if (!st) { activity(s, "Nothing to waive: the Final has no failed checks", "warn", null); return true; }
+  const v = action.value, ids = v && Array.isArray(v.ids) ? v.ids.map(String) : v && v.id ? [String(v.id)] : typeof v === "string" && v !== "all" ? [v] : st.gate.findings.map((f) => f.id);
+  const you = youOf(action);
+  if (action.type === "send-back") {
+    const open = st.gate.findings.filter((f) => !f.waived);
+    const req = { t: now(), step, note: String((v && v.note) || action.note || "").slice(0, 500), findings: open.map((f) => ({ id: f.id, name: f.name, reason: f.reason })) };
+    writeJSON(path.join(RUN, "crew", "fix-request.json"), req);
+    s.send_back = req;
+    activity(s, `${you} sent the Final back for a fix: ${open.map((f) => f.name).join(", ") || "no open checks"}`, "you", "Claude is fixing the failed checks…");
+    return true;
+  }
+  const want = action.type === "waive";
+  const refused = [];
+  for (const f of st.gate.findings) {
+    if (!ids.includes(f.id)) continue;
+    if (want && f.waivable === false) { refused.push(f.name); continue; }
+    f.waived = want; if (want) f.waived_at = action.ts || now(); else delete f.waived_at;
+  }
+  st.gate = gateState(st.gate.findings, st.gate.video_sha);
+  st.note = st.gate.summary;
+  const wv = {}; for (const f of st.gate.findings) if (f.waived) wv[f.id] = { at: f.waived_at, name: f.name, reason: f.reason, by: "person" };
+  writeJSON(path.join(RUN, "final-waivers.json"), { video_sha: st.gate.video_sha, waived: wv });
+  activity(s, refused.length ? `${you} cannot waive ${refused.join(", ")}: it must be fixed` : `${you} ${want ? "waived" : "un-waived"} ${ids.length > 1 ? ids.length + " checks" : "a check"}${st.gate.state === "waived" ? ": every failed check is now waived" : ""}`, refused.length ? "warn" : "you", null);
+  return true;
+}
 function motionEditHook(s, action) {
   // Plan 10 U4: Studio's queue lines carry {step,type,value,note}, so the contract-D object may also arrive as value.edit (the same shape, one commit per drag)
   const edit = action && (action.edit || (action.value && typeof action.value === "object" && action.value.edit));
@@ -595,6 +639,7 @@ function applyAction(s, action) {
   if (motionEditHook(s, action)) return;
   if (soundHook(s, action)) return;
   if (soundDirectionHook(s, action)) return;
+  if (gateWaiveHook(s, action)) return;
   // Addendum 2: a Brief submit may carry the user's sound choices (fields.sound); they are recorded as theirs (explicit where decided). Best effort, never blocks the answer.
   if (action.step === "brief" && action.type === "submit" && isObj(action.value) && isObj(action.value.sound)) {
     try { const rec = normalizeChoices(action.value.sound); if (!rec.legacy) { const w = writeSoundChoices(RUN, rec); if (!w.ok) activity(s, `Sound choices not saved: ${(w.errors || []).join("; ")}`, "warn", null); } } catch (e) { activity(s, `Sound choices not saved: ${e.message}`, "warn", null); }
@@ -617,7 +662,7 @@ function applyAction(s, action) {
   const typoReply = typographyNoteHook(s, action);
   if (jobControlHook(s, action)) return;
   if (step === "*") s.decide_rest = { ts: action.ts };
-  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit", "motion-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
+  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit", "motion-edit", "waive", "unwaive", "send-back"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
   const you = youOf(action);
   // an answer to an `ask` card: record it on the question and clear it from the page
   if (action.type === "answer" && s.ask && !s.ask.answered) {
@@ -840,6 +885,8 @@ if (cmd === "push") {
   if (hist.length) next.decisions_history = hist;
   // the brief carries the "What are you making?" picker (library/formats.json) and the pre-selected pick, when the push has none
   if (args.step === "brief" && next.status === "awaiting") Object.assign(next, briefFormat(next));
+  // narration written as words ("none", "no", "off", "false") is no voiceover, not a truthy string
+  if (args.step === "brief" && next.fields && typeof next.fields.narration === "string") { const nv = normNarration(next.fields.narration); if (nv === false) next.fields = { ...next.fields, narration: false }; }
   // the brief shows what the film will cost: the token budget (level, total, per phase, the three levels), written by `crew.mjs plan` to <run>/crew/budget.json
   if (args.step === "brief") {
     const bud = next.budget && typeof next.budget === "object" ? next.budget : readJSON(path.join(RUN, "crew", "budget.json"), {}).budget;
@@ -891,8 +938,18 @@ if (cmd === "push") {
   if (["render", "final"].includes(args.step) && ["awaiting", "done"].includes(next.status) && fs.existsSync(path.join(RUN, "crew"))) {
     const nv = newestVideo(next), vf = nv ? payloadFile(nv) : null;
     const FG = await import("./final-gate.mjs");
-    const h = FG.verifyHandover(RUN, vf);
-    if (!h.ok) die("not handed over: " + h.why.slice(0, 5).join(" | ") + ". Fix it (or STOP and report); a draft, an open fix round or an ungated render never goes to the person.");
+    const h = FG.verifyHandover(RUN, vf, { allowGateFailed: !!args["waiver-payload"] });
+    if (!h.ok) die("not handed over: " + h.why.slice(0, 5).join(" | ") + ". Fix it (or STOP and report); a draft, an open fix round or an ungated render never goes to the person." + (args["waiver-payload"] ? "" : " A render whose final-gate failed on waivable findings only (not typos, claims, photosensitivity or the run's structure) may reach the Final with --waiver-payload: the person then sees each finding and waives it or sends it back."));
+    if (h.gate_failed) {
+      // the Final shows the failing findings plainly; the film stays "not passed" until each is fixed (re-gate and re-push) or waived by the person's own action
+      const gj = readJSON(path.join(RUN, "final-gate.json"), {});
+      const prevW = readJSON(path.join(RUN, "final-waivers.json"), {});
+      const kept = prevW && prevW.video_sha === gj.video_sha && isObj(prevW.waived) ? prevW.waived : {};
+      next.gate = gateState(h.gate_failed.map((f) => ({ ...f, waived: !!kept[f.id], ...(kept[f.id] ? { waived_at: kept[f.id].at } : {}) })), gj.video_sha);
+      if (next.gate.state === "not_passed") next.status = "awaiting"; // never closed as delivered while a finding is neither fixed nor waived
+      next.note = next.gate.summary;
+      activity(s, `Final: not passed, ${next.gate.findings.length} finding${next.gate.findings.length > 1 ? "s" : ""} for you to waive or send back`, "warn", null);
+    } else delete next.gate;
     for (const n of [...(h.needs_you || []), ...(h.warnings || [])]) console.error("final-gate warning: " + n); // scratch VO and other visible warnings: never shipped silently
   }
   // V3 W09 (policy revision >= 2 only; revision 1 and legacy runs are untouched): the render/final push states what the output truly is. The assessment rides in the existing note slot
@@ -1046,7 +1103,7 @@ if (cmd === "push") {
   };
   withLock(F.actionsLock, markConsumed);
   // a note or an Apply given in chat enters the notes rule like one clicked on the page (the page's own would be applied by the server or by `wait`)
-  if (["comment", "apply"].includes(a.type)) {
+  if (["comment", "apply", "waive", "unwaive", "send-back"].includes(a.type)) {
     if (a.type === "comment" && !a.note && !(value && value.quick)) die("record --type comment needs --note \"<the note>\"");
     withLock(F.sessionLock, () => {
       const s = session();
@@ -1055,7 +1112,7 @@ if (cmd === "push") {
     });
   }
   // a chat answer is the person's answer as much as a click: it must reach steps[step].sent (what push --status done reads to credit the person and not flag a Story / Look as unconfirmed), as the server does for a page action
-  if (!["comment", "apply", "knob", "cut-edit", "motion-edit"].includes(a.type)) {
+  if (!["comment", "apply", "knob", "cut-edit", "motion-edit", "waive", "unwaive", "send-back"].includes(a.type)) {
     withLock(F.sessionLock, () => {
       const s = session();
       if (a.step === "*") s.decide_rest = { ts: a.ts };

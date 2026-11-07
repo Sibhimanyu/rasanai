@@ -84,6 +84,7 @@
 //        (--crop: the third zoom, after the sheet and the strip: every frame cut to that region (pixels, or fractions of the frame when all four are 1 or less) and shown large, so a hand, a seam or a contact point can be read)
 //        -> a labelled contact strip of the motion at those times (+ the frames in <sheet>/), to look at;
 //           --phone draws each frame 360 px wide (the film on a phone held upright: can every line be read?)
+import { resolveBrandPath, runBrandFile } from "./lib/run-brand.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -2721,7 +2722,7 @@ async function checkRole(run, role, key) {
       if (!key) { P.push("design-system-designer needs --key"); break; }
       const dir = R(run, "design", key);
       const dec = jsonMaybe(R(run, "decisions.json")) || {};
-      const brandPath = dec.use_brand !== false && dec.brand && exists(path.resolve(String(dec.brand))) ? path.resolve(String(dec.brand)) : null;
+      const brandPath = runBrandFile(run, dec);
       const r = await checkSystemFull(dir, { hook: firstLine(run), libraryIds: libraryIds(), brand: brandPath, label: key, offline: !!process.env.RASANAI_OFFLINE });
       P.push(...r.P); W.push(...r.W);
       // launch film: the look writes treatment {ground, type_pairing, carrier, density} into blend.json (design.mjs look-payload requires it; references/launch-grammar.md)
