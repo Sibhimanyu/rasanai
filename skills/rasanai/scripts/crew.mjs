@@ -1718,7 +1718,11 @@ function contextFor(run, role, key, plan) {
     const i = kv.indexOf("=");
     if (i > 0 && !kv.startsWith("path=")) ctx[kv.slice(0, i)] = kv.slice(i + 1);
   }
-  return { ctx, inputs: inputs.map(([l, p]) => ({ label: l, path: p ? rel(p) : null, exists: exists(p) })), outputs: outputs.map((p) => (path.isAbsolute(p) ? rel(p) : p)) };
+  // an input is listed only if it exists or some phase of the plan produces it (a branded plan with no precedent researcher never lists precedent.md as missing)
+  const planned = (() => { const pl = jsonMaybe(R(run, "crew", "plan.json")); return pl && Array.isArray(pl.phases) ? new Set(pl.phases.flatMap((ph) => (ph.dispatch || []).map((x) => x.role))) : null; })();
+  const PRODUCER = { "precedent.md": "precedent-researcher", "screens.md": "screens-researcher", "screens.json": "screens-researcher", "assets.json": "screens-researcher", "product.md": "product-researcher", "product.claims.json": "product-researcher", "brand.md": "brand-researcher", "local.md": "local-scout", "local.claims.json": "local-scout", "design.md": "design-researcher", "design-refs.json": "design-researcher" };
+  const producedByPlan = (p) => { if (!planned || !p) return true; const m = path.relative(R(run, "research"), p); const role = m.startsWith("..") ? null : PRODUCER[m]; return !role || planned.has(role) || exists(p); };
+  return { ctx, inputs: inputs.filter(([, p]) => producedByPlan(p)).map(([l, p]) => ({ label: l, path: p ? rel(p) : null, exists: exists(p) })), outputs: outputs.map((p) => (path.isAbsolute(p) ? rel(p) : p)) };
 }
 
 // the vocabulary rows a scene's score names, plus the animation principles, inlined for the animator
@@ -4174,7 +4178,8 @@ if (cmd === "plan") {
   { const dj = jsonMaybe(R(run, "decisions.json")) || {}; p.strict_brand_film = dj.strict_brand_film === true || dj.film_style_strict === true || args["strict-brand"] === true; } // the one case that may show a single look
   // reference films the user loves (--refs "<path|url>,..." or the brief's reference_films): ingested by refs.mjs, read by the analysts, the concept writers, the jury and the style-frame juror
   {
-    const bj = jsonMaybe(p.prefs_file || R(run, "rasanai-brief.json")), bref = bj && bj.reference_films;
+    const bj = jsonMaybe(p.prefs_file || R(run, "rasanai-brief.json")), bjc = jsonMaybe(R(run, "brief.json")); // the console Brief's "Reference films" box lands in brief.json
+    const bref = (bj && bj.reference_films) || (bjc && ((bjc.fields && bjc.fields.reference_films) || bjc.reference_films));
     const list = (v) => (Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,\n]/) : []).map((x) => String(x).trim()).filter(Boolean);
     p.refs = args.refs && args.refs !== true ? list(String(args.refs)) : list(bref).length ? list(bref) : Array.isArray(prev.refs) ? prev.refs : [];
     const ri = jsonMaybe(R(run, "refs", "index.json"));
@@ -4263,10 +4268,11 @@ if (cmd === "plan") {
   writeFile(R(run, "crew", "budget.json"), JSON.stringify({ budget: { level: p.budget, label: BUDGETS[p.budget].label, summary: BUDGETS[p.budget].summary, fix_rounds: p.estimate.fix_rounds, total: p.estimate.total, total_label: p.estimate.total_label, phases: p.estimate.phases.map((r) => ({ phase: r.phase, tokens: r.tokens, label: kTok(r.tokens) })), levels } }, null, 2));
   const count = p.phases.reduce((a, ph) => a + (ph.dispatch || []).length, 0);
   const prof = modelOf(p);
-  out({ ok: true, ...(seqMotifs ? { sequence_motifs: seqMotifs } : {}), plan: rel(R(run, "crew", "plan.json")), model: p.model, harness: prof.harness, budget: p.budget, estimate: { total: p.estimate.total_label, fix_rounds: p.estimate.fix_rounds, by_phase: Object.fromEntries(p.estimate.phases.map((r) => [r.phase, kTok(r.tokens)])), fix_rounds_tokens: kTok(p.estimate.fix_rounds_tokens), levels: levels.map((l) => `${l.level} ${l.total_label}`) }, show_on_brief: "node scripts/console.mjs push --run <run> --step brief --merge --file <run>/crew/budget.json  (the Brief call shows the level and the three totals; the user may change it, then re-plan with --budget)", dispatches: count, models: Object.entries(p.models || {}).map(([k, n]) => `${n} ${k}`).join(", "), phases: p.phases.map((ph) => ({ phase: ph.phase, when: ph.when, tokens: ph.est_tokens ? kTok(ph.est_tokens) : undefined, members: (ph.dispatch || []).map((x) => `${x.role}${x.key ? ":" + x.key : ""} (${x.tier})${x.model ? ` [model: "${x.model}"]` : ""}`), then: ph.then })), next: "For each member: crew.mjs brief, then dispatch it in the background with the prompt file, on the model its line names (never the session default); accept it with crew.mjs check." });
+  out({ ok: true, ...(seqMotifs ? { sequence_motifs: seqMotifs } : {}), plan: rel(R(run, "crew", "plan.json")), model: p.model, harness: prof.harness, budget: p.budget, estimate: { total: p.estimate.total_label, fix_rounds: p.estimate.fix_rounds, by_phase: Object.fromEntries(p.estimate.phases.map((r) => [r.phase, kTok(r.tokens)])), fix_rounds_tokens: kTok(p.estimate.fix_rounds_tokens), levels: levels.map((l) => `${l.level} ${l.total_label}`) }, show_on_brief: "BEFORE the user presses Start: node scripts/console.mjs push --run <run> --step brief --merge --file <run>/crew/budget.json  (the Brief call shows the level and the three totals; the user may change it, then re-plan with --budget). AFTER Start the same merge is safe (it keeps the Brief submitted and writes the budget to the feed as one line), but the plan usually runs after Start: then just say it in the feed", dispatches: count, models: Object.entries(p.models || {}).map(([k, n]) => `${n} ${k}`).join(", "), phases: p.phases.map((ph) => ({ phase: ph.phase, when: ph.when, tokens: ph.est_tokens ? kTok(ph.est_tokens) : undefined, members: (ph.dispatch || []).map((x) => `${x.role}${x.key ? ":" + x.key : ""} (${x.tier})${x.model ? ` [model: "${x.model}"]` : ""}`), then: ph.then })), next: "For each member: crew.mjs brief, then dispatch it in the background with the prompt file, on the model its line names (never the session default); accept it with crew.mjs check." });
 } else if (cmd === "brief") {
   const run = runDir();
   const role = str(args.role);
+  const etaRefresh = () => { try { if (exists(R(run, "crew", "plan.json"))) spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "crew.mjs"), "eta", "--run", run, "--push"], { encoding: "utf8", timeout: 20000 }); } catch { /* the feed line is a courtesy, never blocks the brief */ } }; // same code as `eta --push`
   if (!ROLES[role]) die(`--role must be one of ${Object.keys(ROLES).join(", ")}`);
   const key = args.key && args.key !== true ? String(args.key) : null;
   const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
@@ -4304,6 +4310,7 @@ if (cmd === "plan") {
     if (nd) sched = { node: nd.id, state: nd.state, why: nd.why, barrier: nd.barrier, workers: nd.kind === "scene_group" ? sc.workers : undefined };
   } catch { sched = null; }
   if (sched && process.env.RASANAI_STRICT_SCHEDULE === "1" && ["waiting", "waiting_on_approval", "blocked"].includes(sched.state)) die(`${role}${key ? ":" + key : ""} is not ready: ${sched.why}`);
+  etaRefresh();
   out({
     ok: true, role, key, prompt: rel(f), bytes: Buffer.byteLength(text),
     ...(sched ? { schedule: sched, ...(["waiting", "waiting_on_approval", "blocked"].includes(sched.state) ? { schedule_warning: `the dependency graph says this member is ${sched.state}: ${sched.why}` } : {}) } : {}),
@@ -4457,6 +4464,8 @@ if (cmd === "plan") {
     for (const j of Jobs.listJobs(run).filter((x) => x.role === role && (x.key || null) === key)) { const u = usage ? usage.total_reported ?? (usage.output !== null && usage.output !== undefined ? (usage.input_uncached || 0) + usage.output : null) : null; Jobs.reconcileBudget(run, j.job_id, { actual: u, failed: P.length > 0 }); }
   } catch (e) { W.push(`job bookkeeping skipped: ${e.message}`); }
   ledger(run, { event: P.length ? "fail" : UNVERIFIED.length ? "unverified" : ANS.open.length ? "unanswered" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, ...(usage ? { usage } : {}), problems: P.length ? P.slice(0, 20) : UNVERIFIED.length ? UNVERIFIED.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
+  // an accepted member moves the Story-call ETA: refresh the feed line and status line (same code as `eta --push`; never blocks the check)
+  if (!P.length && !UNVERIFIED.length && !ANS.open.length) { try { spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "crew.mjs"), "eta", "--run", run, "--push"], { encoding: "utf8", timeout: 20000 }); } catch { /* a courtesy */ } }
   // unverified: a required gate could not run, so nothing is proven. Not a pass (ok false, exit 5, distinct from failed = 2 and running = 4); the builder's check accepts the builder's outputs only, the FILM is accepted by final-gate.mjs
   if (!P.length && UNVERIFIED.length) out({ ok: false, status: "unverified", role, key, unverified: UNVERIFIED, problems: P, warnings: W, note: "a required gate could not run, so this is not a pass: run it (or fix why it cannot run) and check again. This check accepts the builder's outputs only; the film is accepted by final-gate.mjs", ...(CHECK_EXTRA || {}) }, 5);
   // unanswered: the grammar and craft warnings are not errors, but each must be fixed in the next draft or answered with a departure (a why of 8+ words); exit 6, at most 2 rounds, then they go to the Final as open craft notes
@@ -4492,7 +4501,13 @@ if (cmd === "plan") {
   const minutes = rows.reduce((a, r) => a + r.left_min, 0);
   const msg = rows.length ? `About ${minutes} minute${minutes === 1 ? "" : "s"} until your Story call` : "Your Story call is ready";
   const res = { next_call: "story", minutes_left: minutes, phases: rows, message: msg, note: "typical durations from a measured run, not a promise; push the message into the feed (console.mjs activity) at each phase change, or pass --push" };
-  if (args.push) spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "console.mjs"), "activity", "--run", run, "--message", msg], { encoding: "utf8" });
+  if (args.push) {
+    // the status line names the newest running member (briefed, not yet accepted or failed), not the last activity verb
+    let running = null;
+    for (const r of last.values()) if (r.event === "brief" && (!running || Date.parse(r.t) > Date.parse(running.t))) running = r;
+    const wk = running ? `${running.role.replace(/-/g, " ")}${running.key ? " (" + running.key + ")" : ""} is working` : null;
+    spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "console.mjs"), "activity", "--run", run, "--message", msg, ...(wk ? ["--working", wk] : [])], { encoding: "utf8" });
+  }
   out(res);
 } else if (cmd === "status") {
   const run = runDir();

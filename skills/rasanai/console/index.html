@@ -336,7 +336,8 @@
   .source-box:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   .source-row { margin-top: 18px; }
   .brief-sentence { font: 500 34px/1.4 var(--display); letter-spacing: -.015em; max-width: 900px; margin: 18px 0 30px; color: var(--ink); }
-  .brief-sentence .pick { position: static; display: inline; background: none; box-shadow: none; padding: 0; border: 0; border-radius: 0; font: inherit; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 2px; text-underline-offset: 7px; cursor: pointer; }
+  .brief-sentence { text-align: left; overflow-wrap: anywhere; }
+  .brief-sentence .pick { text-align: left; position: static; display: inline; background: none; box-shadow: none; padding: 0; border: 0; border-radius: 0; font: inherit; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 2px; text-underline-offset: 7px; cursor: pointer; }
   .brief-sentence .pick:hover, .brief-sentence .pick.open { text-decoration-color: var(--accent); }
   /* "What are you making?": the format picker (library/formats.json via the brief's `formats`) */
   .fmt { max-width: 980px; margin: 0 0 22px; }
@@ -1482,7 +1483,9 @@
     }
     var sent = h("p", { class: "brief-sentence" });
     function part(key, label, opts, fmt) {
-      var b = h("button", { class: "pick", type: "button", text: label });
+      // a span, not a button: a button is always inline-block, so a long subject could not wrap as flowing text
+      var b = h("span", { class: "pick", role: "button", tabindex: "0", text: label });
+      b.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); b.click(); } });
       // with the picker on the page, the sentence's noun opens it (unless Claude narrowed the kind with choices.kind)
       if (key === "kind" && picker && !ch.kind) { b.addEventListener("click", function () { local.fmtOpen = true; local.fmtTile = f.format ? f.format.tile : null; drawPicker(); picker.scrollIntoView({ behavior: "smooth", block: "center" }); }); return b; }
       b.addEventListener("click", function () {
@@ -1508,15 +1511,21 @@
       // the noun is the picked format's kind (still sent as `kind`); the old six-item menu only when the brief came without a picker
       add(" "); add(part("kind", f.kind || (FT.length ? "film" : "launch film"), ch.kind ||["launch film", "explainer", "brand film", "feature reveal", "social teaser", "product demo"]));
       add(" for "); add(part("subject", f.subject || DEF.subject, null));
-      add(", "); add(part("aspect", f.aspect || DEF.aspect, ch.aspect || [{ value: "16:9", label: "16:9 (widescreen)" }, { value: "9:16", label: "9:16 (vertical)" }, { value: "1:1", label: "1:1 (square)" }, { value: "4:5", label: "4:5 (feed)" }]));
+      add("\u2060, "); add(part("aspect", f.aspect || DEF.aspect, ch.aspect || [{ value: "16:9", label: "16:9 (widescreen)" }, { value: "9:16", label: "9:16 (vertical)" }, { value: "1:1", label: "1:1 (square)" }, { value: "4:5", label: "4:5 (feed)" }]));
       add(" for "); add(part("destination", f.destination || DEF.destination, ch.destination || ["the website", "X", "LinkedIn", "YouTube", "Instagram Reels", "TikTok", "a keynote"]));
-      add(", "); add(part("narration", (f.narration === false || (typeof f.narration === "string" && /^\s*(none|no|false|off)\.?\s*$/i.test(f.narration))) ? "without voiceover" : "with voiceover", [{ value: true, label: "with voiceover" }, { value: false, label: "without voiceover" }]));
-      if (f.brand_name) { add(", "); add(part("use_brand", f.use_brand === false ? "in a new look" : "in " + f.brand_name + "'s own colours and type", [{ value: true, label: "in " + f.brand_name + "'s own colours and type" }, { value: false, label: "in a new look" }])); }
-      add(".");
+      add("\u2060, "); add(part("narration", (f.narration === false || (typeof f.narration === "string" && /^\s*(none|no|false|off)\.?\s*$/i.test(f.narration))) ? "without voiceover" : "with voiceover", [{ value: true, label: "with voiceover" }, { value: false, label: "without voiceover" }]));
+      if (f.brand_name) { add("\u2060, "); add(part("use_brand", f.use_brand === false ? "in a new look" : "in " + f.brand_name + "'s own colours and type", [{ value: true, label: "in " + f.brand_name + "'s own colours and type" }, { value: false, label: "in a new look" }])); }
+      add("\u2060.");
     }
     draw();
     drawPicker();
     body.appendChild(sent);
+    // optional: films the person loves (links or paths, one per line); the submit writes them to brief.json `reference_films` for refs.mjs and the reference analysts
+    var rf = h("textarea", { class: "source-box", rows: 2, placeholder: "Paste links, or file or folder paths, one per line (optional)" });
+    rf.value = Array.isArray(f.reference_films) ? f.reference_films.join("\n") : (f.reference_films || "");
+    rf.addEventListener("input", function () { f.reference_films = rf.value; });
+    body.appendChild(h("p", { class: "qsub", style: "margin-top:4px", text: "Reference films" }));
+    body.appendChild(rf);
     if ((d.findings || []).length) {
       body.appendChild(h("p", { class: "qsub", text: "What I found" }));
       body.appendChild(h("ul", { class: "findings" }, d.findings.slice(0, 6).map(function (x) { var src = x.source || ""; return h("li", null, [h("span", { text: x.text || String(x) }), /^https?:/.test(src) ? h("a", { href: src, target: "_blank", rel: "noopener", class: "src", text: src.replace(/^https?:\/\/(www\.)?/, "").split("/")[0] }) : src ? h("span", { class: "src", text: src }) : null]); })));
