@@ -104,6 +104,10 @@ if (cmd === "local-find") {
   const name = args.name && args.name !== true ? String(args.name) : die("--name <product> required");
   const want = slug(name);
   if (want.length < 2) die("--name is too short to match on");
+  // the distinctive tokens: "RasanAI Studio" must find a repo named "rasanai" (the suffix word is generic), so each token that is not a generic suffix is tried too
+  const GENERIC = new Set(["studio", "app", "apps", "pro", "ai", "labs", "lab", "hq", "inc", "co", "the", "official", "desktop", "mobile", "web", "cloud", "io", "dev"]);
+  const wants = [...new Set([want, ...String(name).split(/[^A-Za-z0-9]+/).map((t) => slug(t)).filter((t) => t.length >= 3 && !GENERIC.has(t))])];
+  const hit = (str) => !!str && wants.some((w) => slug(str).includes(w));
   const domain = args.domain && args.domain !== true ? String(args.domain).replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase() : null;
   const defaults = [process.cwd(), "code", "Code", "dev", "Developer", "Projects", "projects", "src", "repos", "work", "Work", "Documents/GitHub", "GitHub", "git", "conductor/repos", "Sites", "Desktop", "Documents"].map((r) => (path.isAbsolute(r) ? r : path.join(home, r)));
   const roots = (args.roots && args.roots !== true ? String(args.roots).split(",").map((s) => path.resolve(s.trim().replace(/^~(?=\/|$)/, home))) : defaults).filter((r) => fs.existsSync(r));
@@ -123,7 +127,7 @@ if (cmd === "local-find") {
     if (path.basename(dir) === "videos") {
       for (const e of entries) if (e.isDirectory() && fs.existsSync(path.join(dir, e.name, "hyperframes.json"))) {
         const s = slug(e.name);
-        if (s.includes(want)) videos.push({ dir: tilde(path.join(dir, e.name)), renders: fs.existsSync(path.join(dir, e.name, "renders")) ? fs.readdirSync(path.join(dir, e.name, "renders")).filter((f) => f.endsWith(".mp4")) : [] });
+        if (hit(e.name)) videos.push({ dir: tilde(path.join(dir, e.name)), renders: fs.existsSync(path.join(dir, e.name, "renders")) ? fs.readdirSync(path.join(dir, e.name, "renders")).filter((f) => f.endsWith(".mp4")) : [] });
       }
     }
     if (depth > 0) {
@@ -132,10 +136,10 @@ if (cmd === "local-find") {
       if (proj) {
         const m = projectMeta(dir);
         const why = [];
-        if (m.names.some((n) => slug(n).includes(want))) why.push("name");
-        if (m.title && slug(m.title).includes(want)) why.push("README title");
-        if (m.remote && slug(m.remote).includes(want)) why.push("git remote");
-        if (domain && ((m.homepage && m.homepage.toLowerCase().includes(domain)) || (m.remote && m.remote.toLowerCase().includes(domain.split(".")[0])))) why.push("domain");
+        if (m.names.some(hit)) why.push("name");
+        if (hit(m.title)) why.push("README title");
+        if (hit(m.remote)) why.push("git remote");
+        if (domain && ((m.homepage && m.homepage.toLowerCase().includes(domain)) || (!/(^|\.)(github\.io|gitlab\.io|pages\.dev|netlify\.app|vercel\.app)$/.test(domain) && m.remote && m.remote.toLowerCase().includes(domain.split(".")[0])))) why.push("domain");
         // a Conductor shell repo holds only its git folder: never offer it empty; offer its worktrees that have files instead
         let onlyGit = false;
         try { onlyGit = fs.readdirSync(dir).every((n) => n.startsWith(".")); } catch {} // only dot folders (.git, .conductor, .claude...)

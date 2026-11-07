@@ -649,6 +649,8 @@ function applyAction(s, action) {
     try {
       const v = action.value, flat = isObj(v.fields) ? { ...v.fields, ...(v.format !== undefined ? { format: v.format } : {}) } : { ...v };
       delete flat.sound; delete flat.source;
+      // the Brief's optional "Reference films" box (links or paths, one per line or comma-separated) becomes an array crew.mjs plan hands to refs.mjs ingest
+      if (flat.reference_films !== undefined) { const rl = (Array.isArray(flat.reference_films) ? flat.reference_films : String(flat.reference_films).split(/[\n,]/)).map((x) => String(x).trim()).filter(Boolean); if (rl.length) flat.reference_films = rl; else delete flat.reference_films; }
       const bp = path.join(RUN, "brief.json"); let b = {}; try { b = JSON.parse(fs.readFileSync(bp, "utf8")); } catch {}
       if (!isObj(b)) b = {};
       const tgt = isObj(b.fields) ? b.fields : b;
@@ -878,7 +880,9 @@ if (cmd === "push") {
   const onlyDecision = (args.status === "done" || data.status === "done") && Object.keys(data).every((k) => ["decision", "status"].includes(k));
   const base = args.merge || onlyDecision ? prev : {};
   const next = { ...base, ...data, status: args.status || data.status || (args.step === "build" ? "working" : "awaiting"), updated: now() };
-  delete next.sent;
+  // a --merge into a step the person already answered (the budget merged after Start) must not reopen it: keep its status and its "you sent" banner
+  const keepSubmitted = !!args.merge && !args.status && !data.status && (!!prev.sent || prev.status === "done") && prev.status !== "working";
+  if (keepSubmitted) { next.status = prev.status; if (prev.sent) next.sent = prev.sent; } else delete next.sent;
   // history survives every re-push of the step
   const hist = (prev.decisions_history || []).slice();
   if (swapped) hist.push({ decision: prev.decision, at: prev.updated || now(), replaced_by: String(data.decision), because });
@@ -891,6 +895,8 @@ if (cmd === "push") {
   if (args.step === "brief") {
     const bud = next.budget && typeof next.budget === "object" ? next.budget : readJSON(path.join(RUN, "crew", "budget.json"), {}).budget;
     if (bud && typeof bud === "object") next.budget = cleanBudget(bud);
+    // already submitted: the budget shows on the working screen's feed instead of the closed Brief
+    if (keepSubmitted && next.budget && next.budget.total_label && !(prev.budget && prev.budget.total_label === next.budget.total_label && prev.budget.level === next.budget.level)) { const w = s.working; activity(s, `Budget: ${next.budget.label || next.budget.level || "standard"}, about ${next.budget.total_label}`, "info", null); s.working = w; }
   }
   // closing a step the user answered keeps who made the call, so the Decisions drawer credits them, not Claude
   if (next.status === "done" && !data.by && prev.sent && !["decide", "decide-rest", "note"].includes(prev.sent.type)) {
@@ -982,9 +988,10 @@ if (cmd === "push") {
     if (old && JSON.stringify(old.files) === JSON.stringify(snap.files)) continue;
     s.locks = { ...(s.locks || {}), [layer]: snap };
   }
-  if (args.current || next.status === "awaiting" || (next.status === "working" && ["build", "render", "final"].includes(args.step))) s.current = args.step;
+  if (args.current || (next.status === "awaiting" && !keepSubmitted) || (next.status === "working" && ["build", "render", "final"].includes(args.step))) s.current = args.step;
   const label = LABELS[args.step] || args.step;
-  if (next.status === "awaiting") activity(s, `Ready for you: ${label}`, "ask");
+  if (keepSubmitted) { /* the merge adds data to an answered step: no "Ready for you", the status line stays */ }
+  else if (next.status === "awaiting") activity(s, `Ready for you: ${label}`, "ask");
   else if (next.status === "working") activity(s, data.question || `Working on ${label}`, "info", data.question || `Working on ${label}…`);
   else if (next.status === "done") activity(s, next.decision ? `Decided ${label}: ${next.decision}` : `Done: ${label}`, "ok", s.working && s.working.msg);
   mergeDowngrades(s);
@@ -1080,7 +1087,9 @@ if (cmd === "push") {
   // what Claude is doing right now, between questions ("Capturing tally.app", "Drawing style frame 2 of 3")
   if (!args.message) die("--message is required");
   const s = session();
-  activity(s, args.message, args.level || "info", args.done ? null : args.message);
+  // --working "<text>": the status line says this instead of the message (crew.mjs eta --push names the newest running member, not the last verb)
+  const wk = args.working && args.working !== true ? String(args.working) : null;
+  activity(s, args.message, args.level || "info", args.done ? null : wk || args.message);
   saveSession(s);
   console.log(JSON.stringify({ ok: true }));
 } else if (cmd === "record") {
