@@ -150,6 +150,7 @@ import { attentionPacket, compareAttention } from "./lib/blind-review.mjs";
 import { shapeOf, shapeId, shapeNamed } from "./lib/music-shapes.mjs"; // the named music arc shapes (drop, slow-burn, ambient-bed, cold-open, stinger, pulse-loop, lyric-song)
 import { grammarWaivers, worldSpreadProblems, isCalmWorld, launchSpreadProblems, launchJuryProblems, launchConceptProblems, launchConceptWarnings } from "./lib/gate-profile.mjs"; // the calm / bold world families and the pool's spread rule
 import { launchBeatFindings } from "./lib/launch-beats.mjs";
+import { ANSWER_ROLES, resolveAnswers, answerRound, openCraftNotes } from "./lib/answers.mjs"; // answerable craft warnings: fix or depart with a real why, 2 rounds
 import { styleWorldId, carrierOf, signatureOf, soundModeOf } from "./lib/concept-schema.mjs"; // the canonical concept reader (references/concept-schema.md)
 import { normalizeReads } from "./lib/storyboard.mjs"; // Plan 07: the audio direction (roles, intentional silence, a silent deliverable)
 import { deriveCues } from "./lib/cues.mjs"; // Plan 07 A2: cues reference stable event ids; their film time is derived from the score
@@ -4400,6 +4401,8 @@ if (cmd === "plan") {
   if (!ROLES[role]) die(`--role must be one of ${Object.keys(ROLES).join(", ")}`);
   const key = args.key && args.key !== true ? String(args.key) : null;
   const { P, W } = await checkRole(run, role, key);
+  const ANS = { open: [], answered: [], round: null }; // answerable craft warnings (builder roles only, once the check otherwise passes and the worker is done)
+  if (ANSWER_ROLES.has(role) && !P.length && !UNVERIFIED.length) { try { const r = resolveAnswers(run); ANS.answered = r.answered; if (r.open.length) { ANS.round = answerRound(run, r); if (ANS.round.status === "unanswered") ANS.open = r.open; else W.push(...r.open.map((w) => `open craft note (${w.rule}): ${w.message}`)); } else ANS.round = answerRound(run, r); } catch (e) { W.push(`answers skipped: ${String(e.message).slice(0, 120)}`); } }
   // still running vs failed: a member briefed and not yet checked, whose output files are missing or were written in the last 5 minutes, is still working. Report status "running"
   // (exit 4, no ledger row, no repair escalation) instead of a failure.
   if (P.length && !args.final) { // --final: the worker has reported done, so a failing check is a failure, never "running"
@@ -4426,7 +4429,7 @@ if (cmd === "plan") {
     const mine = Jobs.listJobs(run).filter((j) => j.role === role && (j.key || null) === key && Jobs.ACTIVE.has(j.state));
     for (const j of mine) {
       const lease = { generation: Number(args.generation), token: str(args.token) };
-      if (!P.length && !UNVERIFIED.length) {
+      if (!P.length && !UNVERIFIED.length && !ANS.open.length) {
         if (!lease.token || !Number.isFinite(lease.generation)) W.push(`job ${j.job_id} holds a lease but --generation/--token were not passed: this acceptance is not fenced against a replaced attempt`);
         else { const cid = j.continuity && j.continuity.identity_digest && creativeOn(jsonMaybe(R(run, "crew", "plan.json")) || {}) ? (() => { const g = continuityPlanFor(run, jsonMaybe(R(run, "crew", "plan.json")) || {}, { write: false }).groups.find((x) => x.id === j.continuity.group_id); return g ? g.identity_digest : "group-missing"; })() : undefined; // W11/W06: the group's object/event/score identity now vs when the job was created
           const r = Jobs.accept(run, j.job_id, lease, { current_input_digest: jobInputDigest(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] }), ...(cid !== undefined ? { current_identity_digest: cid } : {}) }); if (!r.ok) P.push(`stale attempt refused (${r.reason}): the job was superseded, cancelled or its inputs moved; this attempt's files are not accepted (its log is kept in crew/jobs/attempts/)`); }
@@ -4434,10 +4437,17 @@ if (cmd === "plan") {
     }
     for (const j of Jobs.listJobs(run).filter((x) => x.role === role && (x.key || null) === key)) { const u = usage ? usage.total_reported ?? (usage.output !== null && usage.output !== undefined ? (usage.input_uncached || 0) + usage.output : null) : null; Jobs.reconcileBudget(run, j.job_id, { actual: u, failed: P.length > 0 }); }
   } catch (e) { W.push(`job bookkeeping skipped: ${e.message}`); }
-  ledger(run, { event: P.length ? "fail" : UNVERIFIED.length ? "unverified" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, ...(usage ? { usage } : {}), problems: P.length ? P.slice(0, 20) : UNVERIFIED.length ? UNVERIFIED.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
+  ledger(run, { event: P.length ? "fail" : UNVERIFIED.length ? "unverified" : ANS.open.length ? "unanswered" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, ...(usage ? { usage } : {}), problems: P.length ? P.slice(0, 20) : UNVERIFIED.length ? UNVERIFIED.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
   // unverified: a required gate could not run, so nothing is proven. Not a pass (ok false, exit 5, distinct from failed = 2 and running = 4); the builder's check accepts the builder's outputs only, the FILM is accepted by final-gate.mjs
   if (!P.length && UNVERIFIED.length) out({ ok: false, status: "unverified", role, key, unverified: UNVERIFIED, problems: P, warnings: W, note: "a required gate could not run, so this is not a pass: run it (or fix why it cannot run) and check again. This check accepts the builder's outputs only; the film is accepted by final-gate.mjs", ...(CHECK_EXTRA || {}) }, 5);
-  out({ ok: !P.length, status: P.length ? "failed" : "ok", role, key, problems: P, warnings: W, ...(CHECK_EXTRA || {}) }, P.length ? 2 : 0);
+  // unanswered: the grammar and craft warnings are not errors, but each must be fixed in the next draft or answered with a departure (a why of 8+ words); exit 6, at most 2 rounds, then they go to the Final as open craft notes
+  if (!P.length && ANS.open.length) out({ ok: false, status: "unanswered", role, key, round: ANS.round.rounds, of: 2, unanswered: ANS.open, problems: P, warnings: W, note: "these warnings are not errors and no threshold changed: fix each in the next draft first; depart only with a real reason (score.departures: { rule, why } with a why of 8 or more words that says what this film gains; \"creative choice\" does not count). Never weaken the contract. Run crew.mjs answers --run to list them again. After round 2 the rest go to the Final as open craft notes", ...(CHECK_EXTRA || {}) }, 6);
+  out({ ok: !P.length, status: P.length ? "failed" : "ok", role, key, problems: P, warnings: W, ...(ANS.round && ANS.round.open_craft_notes.length ? { open_craft_notes: ANS.round.open_craft_notes } : {}), ...(CHECK_EXTRA || {}) }, P.length ? 2 : 0);
+} else if (cmd === "answers") {
+  // crew.mjs answers --run <run>: the craft warnings nobody has answered yet (fix them, or record a departure with a why of 8+ words); read it after each draft. Prints, never changes a round.
+  const run = runDir();
+  const r = resolveAnswers(run), st = (() => { try { return JSON.parse(fs.readFileSync(R(run, "crew", "answers.json"), "utf8")); } catch { return null; } })();
+  out({ ok: true, status: r.open.length ? "unanswered" : "clear", unanswered: r.open, answered: r.answered.map((w) => ({ rule: w.rule, check: w.check, why: w.why })), rounds_used: st ? st.rounds : 0, of: 2, open_craft_notes: openCraftNotes(run), rule: "fix first; depart only with a real reason (score.departures [{ rule, why }], why 8+ words, not generic); never weaken the contract" }, 0);
 } else if (cmd === "eta") {
   // minutes until the next call the person is waiting for (the Story call): the sum of the typical durations of the phases before it that are not accepted yet.
   // Measured on a real run: research desk ~8, research lead ~4, concept writers ~12, jury ~3, script writer + plates ~12, editor ~4, revision ~4. The Moves pass is not measured yet (estimates, flagged).

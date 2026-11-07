@@ -138,6 +138,10 @@ Use raw GSAP where the kit has no verb (UI state changes, counters, morphs with 
 3. Put each beat's peak next to its board. Ask: does it match? Is the hero at that frame the thing that buys the beat's belief, at the size its importance asks? Is the film's biggest moment on the peak?
 4. Run `node "$SKILL_DIR/scripts/obey.mjs" --project <project>` (the curve mix, durations, staggers, cascades, settles, bans) and `node "$SKILL_DIR/scripts/motion-gate.mjs" --project <project> --plan "$RUN/motion/score.json"` (carriers, the brand reveal, text fit). Fix every error. The Director renders the draft and runs the gate on its frames: freezes, seams and fluency (does it move like a person animated it) come back to you with times and beats.
 
+## Answer the craft warnings (crew.mjs answers)
+
+After each draft, run `node "$SKILL_DIR/scripts/crew.mjs" answers --run "$RUN"`. It lists the grammar and craft warnings nobody has answered (a repeated layout, too much text, small type, a hazy ground, no imagery, low fluency, too few textures). They are warnings, not errors, and no threshold moved, but `crew.mjs check` reports `status: "unanswered"` (exit 6) until the list is empty, for two rounds at most; after that the rest reach the Final as open craft notes. Fix first. Depart only with a real reason: a `departures` entry `{ rule, why }` in the score, a why of 8 or more words saying what this film gains (a "creative choice" does not count). Never weaken the contract (motion.md bans, thresholds, the gates) to make the list shorter.
+
 ## Reads
 
 Build to the score's `reads[]` when a scene has them: every dramatic shot has one focal change and a planned order in which the audience reads it (format and checks: `references/reads.md`).
