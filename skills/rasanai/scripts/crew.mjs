@@ -871,6 +871,13 @@ function knownEvidenceIds(run) {
 }
 function proofContractsOf(run) { const j = jsonMaybe(R(run, "story", "proof-contracts.json")); return Array.isArray(j) ? j : Array.isArray(j && j.contracts) ? j.contracts : j === null ? null : []; }
 // contracts that no longer match the chosen script: a shot id the script lacks, or a quoted output ('Export MP4') found in none of the contract's shots' lines
+// paraphrase-tolerant: 'Export MP4' is met by "export an MP4" (every content word of the quote appears, plural-insensitive)
+function allWordsIn(q, hay) {
+  const stop = new Set(["a", "an", "the", "to", "of", "and", "or", "in", "on", "it", "is", "as", "for", "your", "my"]);
+  const have = new Set(hay.split(" ").map((w) => w.replace(/s$/, "")));
+  const ws = q.split(" ").filter((w) => w && !stop.has(w));
+  return ws.length > 0 && ws.every((w) => have.has(w.replace(/s$/, "")));
+}
 function staleProofContracts(run) {
   const list = proofContractsOf(run), ch = jsonMaybe(R(run, "story", "chosen.json"));
   if (!Array.isArray(list) || !list.length || !ch || !Array.isArray(ch.shots) || !ch.shots.length) return [];
@@ -889,7 +896,7 @@ function staleProofContracts(run) {
       const t = String((o && o.text) || "");
       for (const m of t.matchAll(/(?<![\p{L}\p{N}])'([^']{3,}?)'(?![\p{L}\p{N}])|"([^"]{3,}?)"/gu)) {
         const q = norm(m[1] || m[2]);
-        if (q && !hay.includes(q)) out.push(`${k.id || "?"}: requires "${m[1] || m[2]}" but shot ${ids.join(", ") || k.beat_id} no longer says it`);
+        if (q && !hay.includes(q) && !allWordsIn(q, hay)) out.push(`${k.id || "?"}: requires "${m[1] || m[2]}" but shot ${ids.join(", ") || k.beat_id} no longer says it`);
       }
     }
   }
