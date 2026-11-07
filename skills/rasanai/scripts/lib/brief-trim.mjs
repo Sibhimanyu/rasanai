@@ -16,6 +16,7 @@ const LOOK = /^(design-system-designer|design-researcher|styleframe-designer|fra
 const RESEARCH = /^(product-researcher|brand-researcher|screens-researcher|precedent-researcher|local-scout|research-lead|brand-film-analyst|reference-analyst)$/;
 export function groupOf(role) {
   if (role === "motion-director") return "motion";
+  if (role === "critic") return "critic";
   if (role === "film-builder" || role === "scene-animator") return "build";
   if (WRITERS.test(role)) return "writer";
   if (JUDGES.test(role)) return "judge";
@@ -26,16 +27,21 @@ export function groupOf(role) {
 
 // file (under references/) -> role group -> heading prefixes (the text right after "## "). A group that is absent keeps the file as before.
 export const SLICES = {
+  // "Defaults you can leave" carries the departures rule and every rule id, so every role gets it; "Target and scope" is the aim of the film.
   "launch-grammar.md": {
-    writer: ["1.", "2.", "4.", "8."], judge: ["10.", "12.", "14.", "17."], look: ["3.", "9.", "11.", "12."], motion: ["1.", "6.", "7.", "15."], build: ["5.", "6.", "12."],
+    writer: ["Target and scope", "Defaults you can leave", "1.", "2.", "4.", "8.", "14.", "18."],
+    judge: ["Target and scope", "Defaults you can leave", "1.", "2.", "4.", "8.", "10.", "12.", "14.", "17."],
+    look: ["Target and scope", "Defaults you can leave", "2.", "3.", "4.", "5.", "9.", "11.", "12.", "18."],
+    motion: ["Target and scope", "Defaults you can leave", "1.", "2.", "4.", "5.", "6.", "7.", "8.", "11.", "12.", "14.", "15.", "17.", "18."],
+    build: ["Defaults you can leave", "2.", "4.", "5.", "6.", "7.", "12.", "14.", "15."],
     research: ["Target and scope", "3."],
   },
   "launch-film.md": { writer: ["1.", "5."], judge: ["5.", "6."], look: ["2.", "5."], motion: ["2.", "5."], research: ["3.", "4."] },
-  "craft.md": { writer: ["1.", "8."], judge: ["9.", "10."], look: ["5.", "6.", "9."], motion: ["1.", "2.", "9."] },
+  "craft.md": { writer: ["1.", "8."], judge: ["5.", "9.", "10."], critic: ["2.", "3.", "5.", "6.", "9.", "10."], look: ["5.", "6.", "9."], motion: ["1.", "2.", "3.", "4.", "5.", "6.", "9.", "10."] }, // 3. holds the motion laws and "Purpose, hero and exits"; 5. the text-fit and bleed rules; the builders get the whole file
   "3d.md": { look: ["1.", "Brand-flat 3D", "5."], motion: ["1.", "4.", "6.", "11."] },
   "story.md": { writer: ["0.", "1.", "4."], judge: ["0.", "7."] },
   "script.md": { writer: ["What you're given", "Pass 0", "The show column", "Lines:"], judge: ["Self-check", "The turn, the peak", "Rewrite moves"] },
-  "score.md": { motion: ["1.", "2.", "3.", "3b.", "4."] },
+  // score.md: the Motion Director writes every part of it (fields, shape, seam pass, lyric, storyboard timing), so it stays whole
   "vocabulary.md": { look: ["Start from the meaning", "3.", "4.", "9."] }, // the Motion Director and the builders keep the whole vocabulary: a score names techniques from it and the check refuses unknown ones
 };
 const MIN_SLICE_BYTES = 15000; // a file below this is cheaper to read whole than to slice
@@ -81,8 +87,9 @@ export function slimInputs({ role, inputs, skillDir, resolve }) {
     if (g && abs && abs.startsWith(refsDir) && r.exists) {
       const spec = SLICES[path.basename(abs)];
       let size = 0; try { size = fs.statSync(abs).size; } catch { /* keep */ }
-      if (spec && spec[g] && size >= MIN_SLICE_BYTES) {
-        const sl = sliceRanges(abs, spec[g]);
+      const want = spec && (spec[g] || (g === "critic" ? spec.judge : null));
+      if (want && size >= MIN_SLICE_BYTES) {
+        const sl = sliceRanges(abs, want);
         if (sl && sl.length) {
           const bytes = fs.readFileSync(abs, "utf8").split("\n"); // size of the slices, for the receipt
           const sliceBytes = sl.reduce((a, s) => a + bytes.slice(s.from - 1, s.to).join("\n").length, 0);

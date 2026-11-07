@@ -1787,7 +1787,7 @@ function promptFor(run, role, key, plan) {
   const slim = slimInputs({ role, inputs: ctx0.inputs, skillDir: SKILL_DIR, resolve: (p) => path.resolve(WS, p) });
   const inputs = slim.inputs, outputs = [...new Set(ctx0.outputs)];
   const shared = fs.readFileSync(path.join(AGENTS, "_crew.md"), "utf8").trim();
-  const roleText = pruneRoleText({ role, key, ctx, text: fs.readFileSync(path.join(AGENTS, `${role}.md`), "utf8").trim(), treatments: exists(R(run, "story", "treatments.json")) || exists(R(run, "story", "jury.json")), hasMedium: !!chosenMedium(run) }).text;
+  const roleText = pruneRoleText({ role, key, ctx, text: fs.readFileSync(path.join(AGENTS, `${role}.md`), "utf8").trim(), treatments: exists(R(run, "story", "treatments.json")) || exists(R(run, "story", "jury.json")), hasMedium: !!chosenMedium(run) || !!(ctx.medium && ctx.medium.state !== "not_assigned") }).text; // a Look still being cut has no chosen contract yet: its own assignment (ctx.medium) keeps the medium-native section
   const checkCmd = `node "${path.join(SKILL_DIR, "scripts", "crew.mjs")}" check --run "${ctx.RUN}" --role ${role}${key ? ` --key ${key}` : ""}${ctx.project ? ` --project "${ctx.project}"` : ""}`;
   const fmtVal = (v) => (typeof v === "object" ? "`" + JSON.stringify(v) + "`" : String(v));
   const lines = [
