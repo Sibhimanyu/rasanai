@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Craft warnings are answerable.** `crew.mjs answers --run` lists the grammar and craft warnings (launch-beats, the motion gate's texture and holds, text-load, shots-check layout-repeat) that the draft neither fixed nor answered with a `departures` entry (a why of 8 or more words, not generic). `crew.mjs check --role film-builder|scene-animator` reports `status: "unanswered"` (exit 6) until the list is empty, for 2 rounds at most; the rest reach the Final as open craft notes (not errors, no waiver). No threshold or severity changed; the film builder and motion director are briefed to fix first and never weaken the contract.
+
 ## 1.42.0 (2026-11-07): The Final is reachable with waivers, honest build gates, and a smoother story-to-build handoff
 
 - **The Final is reachable when a gate fails, and seven film-test friction fixes.** `console.mjs push --step render --waiver-payload` lets a render whose final-gate failed reach the Final when every failing finding is waivable: the Final lists each (name, one-line reason) with Waive and "Send back for a fix" (actions `waive`, `unwaive`, `send-back`; waivers in `final-waivers.json`), and the film stays "not passed" until every finding is waived; text-qa, preflight and photosensitivity/claim-truth/rights findings stay unwaivable and still block. `sound.mjs check` takes `--sfx-plan` and falls back to the mix manifest or `crew/sfx-plan.json` when index.html mounts no cues; `sound.mjs render` pads the bed with silence to the exact film length; `motion-md.mjs` never relabels `auto` (a UI actor takes `--mode confirmed`); a brief narration of "none"/"no"/"off" means no voiceover; decisions.json's `brand` path resolves from the run folder up (`lib/run-brand.mjs`), not the cwd; look-energy's chat reply is plain language with no px values or file names.
