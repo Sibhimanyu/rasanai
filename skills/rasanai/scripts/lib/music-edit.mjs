@@ -164,7 +164,7 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   const t0 = Date.now();
   const SH = shapeOf(arc.shape), E = SH.edit || shapeOf("drop").edit, BPB = meterBeats(meter ?? arc.meter);
   const bed = !E.land, cold = E.land === "start", noBuild = bed || cold, noFinal = E.end !== "hit", tailEnd = E.end === "tail";
-  const F = Number(film), B = arc.button_at;
+  const F = Number(film), B = arc.button_at, silentCardArc = arc.end_card === "silence" || arc.ring_out === false;
   const D = E.land === "start" ? 0 : bed ? 0 : Number(arc[E.land] ?? arc.drop_at); // where the loud body lands (0 = nothing lands)
   const I = E.intro ? Math.max(1, Math.min(arc.intro_until ?? D * 0.7, D)) : 0;
   const brk = E.brk && Array.isArray(arc.break) && arc.break.length === 2 ? [Number(arc.break[0]), Number(arc.break[1])] : null;
@@ -348,7 +348,7 @@ export function editToPicture({ file, arc, film, bpm = null, out, lyrics = "", h
   // the end: a hit-final ending as before; a stinger's hit decays from just after it; a bed or loop holds to the last phrase boundary (else bar line) it can and fades there
   const phraseS = 4 * barS, tF = bed ? [Math.floor((F - 0.5) / phraseS) * phraseS, Math.floor((F - 0.5) / barS) * barS].find((t) => t > F * 0.4 && F - t <= 6) ?? F - Math.min(2.5, F * 0.2) : tailEnd ? Math.min(F - 0.6, Math.max(D + 0.5, D + (F - D) * 0.3)) : B;
   if (bed) res.fade_from_s = r3(tF);
-  let tailPts = noFinal ? [[tF, 0], [F - 0.05, -34], [F, -70]] : btn.natural ? [] : [[B + 0.12, 0], [F - 0.05, -38], [F, -70]];
+  let tailPts = noFinal ? [[tF, 0], [F - 0.05, -34], [F, -70]] : btn.natural ? [] : (silentCardArc ? [[B + 0.12, 0], [F - 0.05, -38], [F, -70]] : [[B + 0.12, 0], [Math.max(B + 0.2, F - 1.5), -3], [F - 0.05, -38], [F, -70]]); // a ring-out holds a musical level under the end card and fades over the last ~1.5 s; a declared quiet card keeps the long decay
   if (ringTail) tailPts = ringTail;
   const tmp = work + ".tmp.wav";
   const shape = () => {
