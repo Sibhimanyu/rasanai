@@ -89,7 +89,10 @@ export function inputSig(run) {
 // status: "clear" | "unanswered" (rounds 1 and 2) | "open-craft-notes" (the third look at an unchanged-or-changed draft that still has them: they go to the Final)
 export function answerRound(run, res) {
   const st = J(stateFile(run)) || { rounds: 0, sig: null, status: "clear" };
-  if (!res.open.length) return { rounds: st.rounds, status: "clear", open_craft_notes: [] };
+  if (!res.open.length) { // clear: drop stale open_craft_notes (the Final must not show notes that were since answered); keep the rounds spent
+    if (st.status !== "clear") { try { fs.writeFileSync(stateFile(run), JSON.stringify({ rounds: st.rounds, sig: st.sig, status: "clear", updated: new Date().toISOString(), open_craft_notes: [] }, null, 2)); } catch { /* best effort */ } }
+    return { rounds: st.rounds, status: "clear", open_craft_notes: [] };
+  }
   const sig = inputSig(run);
   let rounds = st.rounds, capped;
   if (st.sig === sig) capped = st.status === "open-craft-notes";
