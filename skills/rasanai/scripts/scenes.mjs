@@ -165,7 +165,8 @@ const block = ({ n, sc, dur, tin, src }) => {
     kv("beat", sc.beat);
   }
   if (sc.blueprint) kv("blueprint", sc.blueprint);
-  kv("asset_candidates", sc.asset_candidates || (route === "product-launch-video" ? "none — pure typography beat" : ""));
+  // "none" / empty means no asset: write no asset_candidates line (the workflow's stage-assets would read "none" as a file name)
+  kv("asset_candidates", /^\s*(none|n\/a|no assets?|-|—)?\s*([—–-]\s.*)?$/i.test(String(sc.asset_candidates || "")) ? "" : sc.asset_candidates);
   if (sc.intensity) kv("motion_intensity", `${sc.intensity} (within motion.md; see frame.md "Motion contract")`);
   lines.push("");
   if (sc.on_screen) lines.push(`On-screen text (verbatim): ${q(sc.on_screen)}`, "");

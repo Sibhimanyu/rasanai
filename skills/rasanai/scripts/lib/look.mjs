@@ -272,7 +272,7 @@ const storyCommitted = (run) => has(path.join(path.resolve(String(run)), "story"
 // Strict ({ strict: true, contexts: { story, look, storyboard } } = per-stage inputs of resolveStageConsent) tells three tiers apart:
 //   "look-heroes"  styleframe-designer heroes-<Label> (the Look comparison itself): needs the Story consent only
 //   "storyboard"   per-beat boards, frame, art and motion roles: need Story and Look consent
-//   "build"        scene-animator, film-builder: also need the current Storyboard approval (Look approval alone never starts a build)
+//   "build"        scene-animator, film-builder: also need the current Storyboard approval (Look approval alone never starts a build; on a direct plan the film builder is exempt: the draft is the animatic)
 const BUILD_ROLES = new Set(["scene-animator", "film-builder"]);
 export function productionGate(run, role, key, plan = null, { strict = false, contexts = null } = {}) {
   const heroes = role === "styleframe-designer" && String(key || "").startsWith("heroes-"); // the Look comparison itself
@@ -282,7 +282,8 @@ export function productionGate(run, role, key, plan = null, { strict = false, co
   if (!p.look_gate && !strict) return { ok: true, legacy: true };
   if (strict) {
     const tier = heroes ? "look-heroes" : BUILD_ROLES.has(role) ? "build" : "storyboard";
-    const need = tier === "look-heroes" ? ["story"] : tier === "storyboard" ? ["story", "look"] : ["story", "look", "storyboard"];
+    // direct path (shared-contract): the first draft render IS the animatic, so the film builder starts on Story + Look consent; the Storyboard approval comes after the build
+    const need = tier === "look-heroes" ? ["story"] : tier === "storyboard" || (tier === "build" && p.direct && role === "film-builder") ? ["story", "look"] : ["story", "look", "storyboard"];
     const c = contexts || {};
     const reasons = {};
     const missing = need.filter((s) => { const x = resolveStageConsent({ ...(c[s] || {}), stage: s }); if (!x.confirmed) reasons[s] = x.reason; return !x.confirmed; });

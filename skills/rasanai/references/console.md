@@ -152,7 +152,7 @@ Other steps (Claude usually pushes these `--status done` with only a `decision`;
 | `transitions` | `menu`, `cells`, `recommended` (transition-menu.mjs) |
 | `voice` | `options: [{id, title, mood, file, source}]` (voice.mjs), `recommended`, `unavailable` |
 | `music` | `options: [{id, title, mood, duration, file, preview (the fitted edit; played instead of file), bpm, summary, ending, fit, license, attribution, source}]` (music.mjs), `unavailable` |
-| `storyboard` | `timeline` (timeline.json), `sheet` (the workflow's storyboard.html) |
+| `storyboard` | `timeline` (timeline.json), `sheet` (the workflow's storyboard.html), and/or the boards as tiles (click to enlarge): `frames: [{id, beat, title, image, caption, t?}]` or `boards` (Story shape); images are run-relative paths. Boards alone show the Approve button too |
 | `keyframes` | `board` (board.html), `issues` (single units' key poses) |
 | `plan` | `shape`, `stated`, `agent` |
 

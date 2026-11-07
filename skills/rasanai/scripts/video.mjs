@@ -125,6 +125,12 @@ if (cmd === "init") {
     done.push(f);
   }
   if (!done.length) die("no frame packets found to inject");
+  // the workflow's frame-packets.mjs writes _role.md last and crashes (ENOENT frame-worker-core.md) when the installed hyperframes skill lacks that file: write a pointer so the builder still has a role file
+  const roleF = path.join(pk, "_role.md");
+  if (!fs.existsSync(roleF)) {
+    console.error("warning: .hyperframes/frame-packets/_role.md is missing (the installed hyperframes skill has no references/frame-worker-core.md); wrote a fallback pointing at the hyperframes skill, DISPATCH.md and frame.md");
+    fs.writeFileSync(roleF, "# Frame worker role (fallback)\n\nThe workflow's frame-worker-core.md was not found in the installed hyperframes skill, so this is a pointer, not the full contract.\n\n- Read the hyperframes skill (SKILL.md and hyperframes-core: the composition contract, `data-*` timing, `class=\"clip\"`, deterministic seek-safe animation) before writing any frame.\n- Build exactly the file named in your frame packet; follow DISPATCH.md and frame.md (look, fonts, motion contract) in this project.\n- Validate with `hyperframes lint` / `validate` before reporting done.\n");
+  }
   // scenes the score puts in 3D get the Rasan3D runtime in the project (assets/three/)
   const sb = fs.existsSync(path.join(dir, "STORYBOARD.md")) ? fs.readFileSync(path.join(dir, "STORYBOARD.md"), "utf8") : "";
   let three = null;
@@ -307,9 +313,15 @@ async function write() {
   const rel = (p) => (p && !path.isAbsolute(p) ? [path.resolve(process.cwd(), p), path.resolve(base, p)].find((c) => fs.existsSync(c)) || path.resolve(process.cwd(), p) : p);
   const route = String(D.route || "");
   if (!ALL_ROUTES.includes(route)) die(`decisions.route must be one of ${ALL_ROUTES.join(", ")}`);
-  if (!D.message) die("decisions.message is required");
   const story = STORY_ROUTES.includes(route);
   const footage = ["talking-head-recut", "embedded-captions"].includes(route);
+  { // every missing required field in ONE error (one round trip, not one per field)
+    const miss = [];
+    if (!D.message) miss.push("message (the one-line message of the film)");
+    if (!footage && !(D.motion && fs.existsSync(rel(D.motion)))) miss.push(D.motion ? `motion (file not found: ${D.motion})` : "motion (path to motion.md)");
+    if (story) { const sd = D.storyboard_dir && rel(D.storyboard_dir); if (!sd || !fs.existsSync(path.join(sd, "STORYBOARD.md"))) miss.push(D.storyboard_dir ? `storyboard_dir (no STORYBOARD.md in ${D.storyboard_dir}; scenes.mjs writes it)` : "storyboard_dir (the folder holding STORYBOARD.md and timeline.json written by scenes.mjs)"); }
+    if (miss.length) die(`video-decisions.json is missing: ${miss.join("; ")}. Required: route, message${footage ? "" : ", motion"}${story ? ", storyboard_dir" : ""} (references/video.md, "video-decisions.json")`);
+  }
   if (!footage && !fs.existsSync(path.join(dir, "hyperframes.json"))) die(`${dir} is not an initialized project: run \`video.mjs init\` first`);
   const aspect = normalizeAspect(D.aspect || "16:9");
   const [W, H] = aspect.split("x").map(Number);
@@ -421,7 +433,8 @@ async function write() {
 
   // ---- the approved plan
   if (story) {
-    put("STORYBOARD.md", fs.readFileSync(path.join(sbDir, "STORYBOARD.md"), "utf8"));
+    // an `asset_candidates: none ...` line names no asset (stage-assets would treat "none" as a missing file)
+    put("STORYBOARD.md", fs.readFileSync(path.join(sbDir, "STORYBOARD.md"), "utf8").replace(/^([-*]\s*asset_candidates:)\s*(none|n\/a|no assets?)\b.*$/gim, "$1"));
     if (fs.existsSync(path.join(sbDir, "SCRIPT.md"))) put("SCRIPT.md", fs.readFileSync(path.join(sbDir, "SCRIPT.md"), "utf8"));
     else if (fs.existsSync(path.join(dir, "SCRIPT.md"))) fs.rmSync(path.join(dir, "SCRIPT.md"));
   }
