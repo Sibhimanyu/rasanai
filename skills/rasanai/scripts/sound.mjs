@@ -1210,9 +1210,9 @@ if (cmd === "analyze") {
   // asks for a pre-roll (music_arc.pre_roll / preroll true, or --preroll)
   const preRoll = !!args.preroll || (() => { try { const sc = path.join(run, "motion", "score.json"); if (!fs.existsSync(sc)) return false; const j = readJSON(sc), a = j.music_arc || j.score?.music_arc; return !!(a && (a.pre_roll || a.preroll)); } catch { return false; } })();
   if (!preRoll) {
-    const sd = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", bed, "-af", "silencedetect=n=-50dB:d=0.05", "-f", "null", "-"], { encoding: "utf8", maxBuffer: 1 << 26 });
+    const sd = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", bed, "-af", "silencedetect=n=-70dB:d=0.1", "-f", "null", "-"], { encoding: "utf8", maxBuffer: 1 << 26 });
     const m = /silence_start:\s*(-?[\d.]+)[\s\S]*?silence_end:\s*([\d.]+)/.exec(String(sd.stderr || ""));
-    if (m && Number(m[1]) <= 0.02 && Number(m[2]) > 0.05 && Number(m[2]) < 5) {
+    if (m && Number(m[1]) <= 0.02 && Number(m[2]) >= 0.1 && Number(m[2]) < 5) {
       const lead = Number(m[2]);
       const trimmed = path.join(run, "audio", "mux", "bed-t0.wav");
       fs.mkdirSync(path.dirname(trimmed), { recursive: true });
