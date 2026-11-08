@@ -12,6 +12,7 @@
 //   node video.mjs audio-lock --project-dir <dir> --music <file>   (after audio.mjs fetch-sfx, before assemble-index)
 //   node video.mjs carriers --project-dir <dir>   (after assemble-index: mounts compositions/carriers/*.html, the objects
 //        that cross a cut, as their own tracks in index.html; idempotent)
+//   node video.mjs animatic-payload --run <run> --video <draft.mp4> [--music <bed>] [--push]   (the direct path's Animatic call: the draft as the animatic. Reads motion/score.json, cuts a still per beat, writes <run>/animatic-payload.json: video + scenes + music chip; --push sends it to the console)
 //   node video.mjs deliver --run <run dir> --project <dir> [--out <dir, default <project>/deliver>] [--rerun]
 //        (the Final step: deliver/ = <name>.mp4 (the newest finished render), poster.jpg (the score's hero beat at its peak, else the
 //        biggest settled frame), <name>.srt (narrated films, from the VO word timings), CREDITS.txt (music licence, sfx packs, reference
@@ -314,6 +315,46 @@ if (cmd === "init") {
   }
   fs.writeFileSync(idx, t);
   console.log(JSON.stringify({ ok: true, carriers: files, tracks: hosts.length ? `3-${2 + hosts.length}` : null }, null, 2));
+} else if (cmd === "animatic-payload") {
+  // The direct path's Animatic call: the built draft IS the animatic. Reads the score's scenes (motion/score.json), cuts one still per beat (at its midpoint) from the
+  // draft, and writes the console's animatic step data: { video, scenes: [{id,title,line,visual,duration,start,thumb}], music: {title,file}, note }. Prints it;
+  // --push also pushes it (console.mjs push --step animatic --status awaiting). Paths are relative to the project root (the folder holding .rasanai/) when the run is in one.
+  if (!args.run || args.run === true) die("--run <run dir> is required");
+  if (!args.video || args.video === true) die("--video <draft.mp4> is required");
+  const runDir = path.resolve(String(args.run));
+  const video = path.resolve(String(args.video));
+  if (!fs.existsSync(video)) die(`video not found: ${video}`);
+  const scoreFile = [args.score && args.score !== true ? path.resolve(String(args.score)) : null, path.join(runDir, "motion", "score.json")].filter(Boolean).find((p) => fs.existsSync(p));
+  if (!scoreFile) die(`no motion/score.json in ${runDir}: the animatic's beats come from the score (--score <file> to point elsewhere)`);
+  const sj = readJSON(scoreFile);
+  const beats = (sj.scenes || sj.score?.scenes || []).filter((b) => b && Number.isFinite(Number(b.duration)));
+  if (!beats.length) die("the score has no scenes with a duration");
+  const root = path.basename(path.dirname(runDir)) === ".rasanai" ? path.dirname(path.dirname(runDir)) : null;
+  const rel = (p) => (root && p.startsWith(root + path.sep) ? path.relative(root, p) : p);
+  const tag = String(args.tag && args.tag !== true ? args.tag : "a" + (Date.now().toString(36)));
+  const thumbDir = path.join(runDir, "animatic", tag);
+  fs.mkdirSync(thumbDir, { recursive: true });
+  let at = 0;
+  const scenes = beats.map((b, i) => {
+    const start = Number.isFinite(Number(b.start)) ? Number(b.start) : at;
+    const dur = Number(b.duration);
+    at = start + dur;
+    const id = String(b.id || "beat-" + (i + 1));
+    const thumb = path.join(thumbDir, id + ".jpg");
+    const mid = Math.max(0, start + dur / 2);
+    let ok = true;
+    try { run("ffmpeg", ["-y", "-loglevel", "error", "-nostdin", "-ss", mid.toFixed(2), "-i", video, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "3", thumb]); } catch { ok = false; }
+    return { id, title: b.title || id, line: b.line || b.title || "", visual: b.picture || b.hero || b.verb || "", duration: dur, start, ...(ok && fs.existsSync(thumb) ? { thumb: rel(thumb) } : {}) };
+  });
+  const bedCand = [args.music && args.music !== true ? path.resolve(String(args.music)) : null, path.join(runDir, "bed.wav"), path.join(runDir, "music", "bed.wav")].filter(Boolean).find((p) => fs.existsSync(p));
+  const payload = { video: rel(video), scenes, ...(bedCand ? { music: { title: String(args["music-title"] && args["music-title"] !== true ? args["music-title"] : "The film's own music"), file: rel(bedCand) } } : {}), note: "The built draft with its real music and sound. Click any moment to leave a note." };
+  const outFile = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(runDir, "animatic-payload.json");
+  writeFile(outFile, JSON.stringify(payload, null, 2) + "\n");
+  let pushed = false;
+  if (args.push) {
+    try { run("node", [path.join(HERE, "console.mjs"), "push", "--run", runDir, "--step", "animatic", "--file", outFile, "--status", "awaiting", "--current"]); pushed = true; } catch (e) { downgrade({ what: "the animatic is pushed to the console", instead: "payload written, not pushed", why: String((e && e.stderr) || (e && e.message) || "console.mjs push failed").trim().split("\n")[0].slice(0, 160) }, runDir); }
+  }
+  console.log(JSON.stringify({ ok: true, payload: outFile, scenes: scenes.length, thumbs: scenes.filter((x) => x.thumb).length, video: payload.video, music: payload.music || null, pushed, downgrades, next: pushed ? "the Animatic call is on the page" : `node scripts/console.mjs push --run ${runDir} --step animatic --file ${outFile} --status awaiting --current` }, null, 2));
 } else if (cmd === "deliver") {
   if (!args.run || args.run === true) die("--run <run dir> is required");
   if (args.project && args.project !== true && !args["project-dir"]) args["project-dir"] = args.project; // deliver takes --project <dir> (or --project-dir)

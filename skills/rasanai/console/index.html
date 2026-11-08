@@ -321,6 +321,7 @@
   .q { font: 600 28px/1.2 var(--display); letter-spacing: -.015em; margin: 0 0 6px; }
   .qsub { color: var(--ink-3); margin: 0 0 22px; font-size: 15px; }
   .statusline { display: flex; align-items: center; gap: 14px; margin-top: 26px; min-height: 44px; }
+  .statusline.sticky { position: sticky; bottom: var(--bar-h, 150px); z-index: 20; padding: 10px 0; background: var(--bg); }
   .statusline .say { color: var(--ink-2); font-size: 15px; flex: 1; }
   .statusline .say b { color: var(--ink); font-weight: 600; }
   .statusline .say.needs b { color: var(--accent); }
@@ -1844,7 +1845,7 @@
 
   // --- Animatic: the whole film as a timed rough cut; click the frame to leave a note -----------------------
   var A = null; // the running player
-  function stopPlayer() { if (A) { A.playing = false; cancelAnimationFrame(A.raf); if (A.audio) A.audio.pause(); } }
+  function stopPlayer() { if (A) { A.playing = false; cancelAnimationFrame(A.raf); if (A.audio) A.audio.pause(); if (A.vid) { try { A.vid.pause(); } catch (_) {} } } }
   function commentPop(step, anchorEvt, info) {
     closeFloating();
     var p = h("div", { class: "pop", role: "dialog", "aria-label": "Add a note" });
@@ -1883,8 +1884,10 @@
     if (d.context) body.appendChild(h("p", { class: "qsub", text: d.context }));
     var player = h("div", { class: "player", title: "Click to leave a note on this moment" });
     var img = h("img", { alt: "" });
+    // the direct path: the real draft plays in the frame (d.video); every note then takes the VIDEO's own currentTime, never a page-side playhead
+    var vid = d.video ? h("video", { src: fsUrl(d.video), poster: scenes[0] && scenes[0].thumb ? fsUrl(scenes[0].thumb) : null, playsinline: true, preload: "metadata" }) : null;
     var big = h("button", { class: "bigplay", "aria-label": "Play" });
-    player.appendChild(img); player.appendChild(big);
+    player.appendChild(vid || img); player.appendChild(big);
     var time = h("span", { text: "0:00 / " + fmtT(total) });
     var play = h("button", { "aria-label": "Play or pause", text: "▶" });
     var strip = h("div", { class: "strip" });
@@ -1902,35 +1905,42 @@
     });
     starts.forEach(function (t0, i) { if (i) scrub.appendChild(h("div", { class: "tick", style: "left:" + (t0 / total * 100) + "%" })); });
     openComments(step).forEach(function (c) { if (c.t != null) scrub.appendChild(h("div", { class: "mk", style: "left:" + (c.t / total * 100) + "%", title: c.text })); if (c.x != null && c.t != null) { var pin = h("div", { class: "pin", style: "left:" + c.x * 100 + "%;top:" + c.y * 100 + "%;display:none", title: c.text }); pin._scene = c.scene; player.appendChild(pin); } });
-    var audioSrc = d.audio || (d.music && d.music.file);
+    var audioSrc = vid ? null : d.audio || (d.music && d.music.file);
     stopPlayer();
     A = { t: local.animT || 0, playing: false, raf: 0, audio: audioSrc ? new Audio(fsUrl(audioSrc)) : null, last: -1 };
+    A.vid = vid;
+    function curT() { return vid ? (vid.currentTime || 0) : A.t; }
+    function span() { return vid && vid.duration && isFinite(vid.duration) ? vid.duration : total; }
     function idxAt(t) { for (var i = scenes.length - 1; i >= 0; i--) if (t >= starts[i]) return i; return 0; }
     function paint() {
-      var i = idxAt(A.t), s = scenes[i] || {};
-      if (i !== A.last) { A.last = i; if (s.thumb) img.src = fsUrl(s.thumb); else img.removeAttribute("src"); line.innerHTML = ""; line.appendChild(document.createTextNode(s.line || s.title || "")); if (s.visual) line.appendChild(h("small", { text: s.title + " · " + s.visual })); [].forEach.call(strip.children, function (c, k) { c.classList.toggle("cur", k === i); }); [].forEach.call(player.querySelectorAll(".pin"), function (p) { p.style.display = p._scene === s.id ? "" : "none"; }); }
-      headEl.style.left = (A.t / total * 100) + "%";
-      time.textContent = fmtT(A.t) + " / " + fmtT(total);
-      local.animT = A.t;
+      var T = curT(), i = idxAt(T), s = scenes[i] || {};
+      if (i !== A.last) { A.last = i; if (vid) { /* the video is the picture */ } else if (s.thumb) img.src = fsUrl(s.thumb); else img.removeAttribute("src"); line.innerHTML = ""; line.appendChild(document.createTextNode(s.line || s.title || "")); if (s.visual) line.appendChild(h("small", { text: s.title + " · " + s.visual })); [].forEach.call(strip.children, function (c, k) { c.classList.toggle("cur", k === i); }); [].forEach.call(player.querySelectorAll(".pin"), function (p) { p.style.display = p._scene === s.id ? "" : "none"; }); }
+      headEl.style.left = (T / span() * 100) + "%";
+      time.textContent = fmtT(T) + " / " + fmtT(span());
+      if (vid) A.t = T;
+      local.animT = T;
     }
     function frame(ts) { if (!A.playing) return; if (A.prev) A.t += (ts - A.prev) / 1000; A.prev = ts; if (A.t >= total) { A.t = total; toggle(false); } paint(); A.raf = requestAnimationFrame(frame); }
     function toggle(on) {
+      if (vid) { var go = on == null ? vid.paused : on; if (go) vid.play(); else vid.pause(); play.textContent = go ? "❚❚" : "▶"; big.style.display = go ? "none" : ""; return; }
       A.playing = on == null ? !A.playing : on; A.prev = 0; play.textContent = A.playing ? "❚❚" : "▶"; big.style.display = A.playing ? "none" : "";
       if (A.playing) { if (A.t >= total) A.t = 0; if (A.audio) { try { A.audio.currentTime = (d.music && d.music.offset || 0) + A.t; A.audio.play(); } catch (_) {} } A.raf = requestAnimationFrame(frame); }
       else { cancelAnimationFrame(A.raf); if (A.audio) A.audio.pause(); }
     }
-    function seek(t) { A.t = Math.max(0, Math.min(total, t)); if (A.audio && A.playing) A.audio.currentTime = (d.music && d.music.offset || 0) + A.t; paint(); }
+    if (vid) { ["timeupdate", "seeked", "loadedmetadata"].forEach(function (ev) { vid.addEventListener(ev, paint); }); vid.addEventListener("ended", function () { play.textContent = "▶"; big.style.display = ""; }); }
+    function seek(t) { if (vid) { vid.currentTime = Math.max(0, Math.min(span(), t)); paint(); return; } A.t = Math.max(0, Math.min(total, t)); if (A.audio && A.playing) A.audio.currentTime = (d.music && d.music.offset || 0) + A.t; paint(); }
     A.toggle = toggle; A.seek = seek; A.scenes = scenes; A.starts = starts; A.total = total;
     play.addEventListener("click", function () { toggle(); });
     big.addEventListener("click", function (e) { e.stopPropagation(); toggle(true); });
-    scrub.addEventListener("click", function (e) { var r = scrub.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * total); });
+    scrub.addEventListener("click", function (e) { var r = scrub.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * span()); });
+    // a note at ANY time, anywhere in the frame: the time is the video's own currentTime and the scene is the one playing then (the nearest one past the last beat)
     player.addEventListener("click", function (e) {
       if (e.target === big) return;
       toggle(false);
-      var r = player.getBoundingClientRect(), i = idxAt(A.t), s = scenes[i] || {};
-      commentPop(step, e, { scene: s.id, t: A.t, x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, label: "Scene " + (i + 1) + " · " + (s.title || "") + " · " + fmtT(A.t) });
+      var T = curT(), r = player.getBoundingClientRect(), i = idxAt(T), s = scenes[i] || {};
+      commentPop(step, e, { scene: s.id, t: T, x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, label: "Scene " + (i + 1) + " · " + (s.title || "") + " · " + fmtT(T) });
     });
-    A.commentHere = function () { var i = idxAt(A.t), s = scenes[i] || {}; var r = player.getBoundingClientRect(); commentPop(step, { pageX: r.left + window.scrollX + 40, pageY: r.top + window.scrollY + 40 }, { scene: s.id, t: A.t, label: "Scene " + (i + 1) + " · " + (s.title || "") + " · " + fmtT(A.t) }); };
+    A.commentHere = function () { var T = curT(), i = idxAt(T), s = scenes[i] || {}; var r = player.getBoundingClientRect(); commentPop(step, { pageX: r.left + window.scrollX + 40, pageY: r.top + window.scrollY + 40 }, { scene: s.id, t: T, label: "Scene " + (i + 1) + " · " + (s.title || "") + " · " + fmtT(T) }); };
     requestAnimationFrame(paint);
     // chips: music, voice, another angle
     var chips = h("div", { class: "chips2" });
@@ -1944,7 +1954,7 @@
       body: body, q: d.question || "Here's the whole film, rough",
       primary: notes.length ? { label: "Apply " + notes.length + " note" + (notes.length > 1 ? "s" : ""), run: function () { send(step, "apply", { ids: notes.map(function (c) { return c.id; }) }); } } : { label: "Looks right, build it", run: function () { send(step, "approve", null); } },
       secondary: notes.length ? [{ label: "Build anyway", run: function () { send(step, "approve", null); } }] : [],
-      hint: "Click the frame to leave a note · Space to play"
+      hint: "Click the frame to leave a note · Space to play", sticky: true
     };
   }
   // --- Build: the film becoming real --------------------------------------------------------------------
@@ -2076,7 +2086,7 @@
   }
   function statusLine(res) {
     var Ak = asking();
-    var box = h("div", { class: "statusline" + (Ak ? " asking" : "") });
+    var box = h("div", { class: "statusline" + (Ak ? " asking" : "") + (!Ak && res.sticky ? " sticky" : "") });
     if (Ak) {
       local.askSel = local.askFor === Ak.id ? local.askSel : Ak.recommended || ((Ak.options || [])[0] || {}).id; local.askFor = Ak.id;
       var wrap = h("div", { class: "ask2", style: "flex:1" }, [h("div", { class: "say needs" }, [h("b", { text: "Needs you: " }), Ak.question]), Ak.context ? h("div", { class: "qsub", style: "margin:4px 0 0", text: Ak.context }) : null]);

@@ -81,7 +81,7 @@
 //       -> the sound mode (vo-kinetic | instrumental-arc | sfx-led | song-lyric) with its reason and the VO recommendation (lib/sound-mode.mjs)
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, readJSON, writeFile } from "./lib/common.mjs";
@@ -754,7 +754,9 @@ function check() {
 
   if (L.lufs == null || Math.abs(L.lufs - target) > 1) P("integrated loudness", `${L.lufs} LUFS`, `${target} LUFS +/-1`, `gain the master by ${r1(target - (L.lufs ?? target))} dB (static gain + a true-peak limiter at -1.5 dBTP; sound.mjs render does this for a bed)`);
   if (L.true_peak == null || L.true_peak > -1) P("true peak", `${L.true_peak} dBTP`, "<= -1.0 dBTP", "limit at -1.5 dBTP (4x oversampled) before AAC encoding, then re-check the encoded file");
-  if (L.lra != null && L.lra < 2.0) ARC(`flat-dynamics: loudness range ${L.lra} LU is under 2.0 LU: the bed never moves (a soft intro, a drop on the reveal, a break before the payoff: references/sound.md, the arc; score music_arc)`, "flat dynamics", `loudness range ${L.lra} LU`, ">= 2.0 LU", "give the bed a shape: quiet intro, a drop at the turn, a break before the end card (music.mjs --arc)");
+  // EBU LRA is a statistic of 3 s windows: on a short bed (under 60 s) or one with a designed shape (a measured break) a figure just under 2.0 LU is a warning, never a fail; only a truly flat bed (under 1.0 LU) fails
+  const lraArc = L.lra != null && L.lra < 2.0 && (dur >= 60 || L.lra < 1.0) ? ARC : (w) => warnings.push(w);
+  if (L.lra != null && L.lra < 2.0) lraArc(`flat-dynamics: loudness range ${L.lra} LU is under 2.0 LU: the bed never moves (a soft intro, a drop on the reveal, a break before the payoff: references/sound.md, the arc; score music_arc)`, "flat dynamics", `loudness range ${L.lra} LU`, ">= 2.0 LU", "give the bed a shape: quiet intro, a drop at the turn, a break before the end card (music.mjs --arc)");
   if (L.lra != null && L.lra > 11) warnings.push(`loudness range ${L.lra} LU is wide for a short film (target 4-9 LU): compress the VO or tame the loudest section`);
   if (first_audible != null && first_audible > 0.3) P("silent head", `${r1(first_audible)} s of silence`, "sound by 0.3 s", "start the bed at frame 0 (a strong phrase, 'already playing'); trim the file's lead silence");
   if (first_second_db < body - 8) P("quiet opening", `first second ${r1(first_second_db)} dB vs body ${r1(body)} dB`, "within 8 dB of the body", "start the music on a strong section, not its intro (sound.mjs fit picks one); premium styles may open soft on purpose: say so");
@@ -1197,13 +1199,26 @@ if (cmd === "analyze") {
   const dur = probeDuration(video);
   if (!dur) die(`cannot read the length of ${video}`);
   const pick = (...c) => c.filter(Boolean).map((p) => path.resolve(String(p))).find((p) => fs.existsSync(p)) || null;
-  const bed = pick(args.bed && args.bed !== true ? args.bed : null, path.join(run, "bed.wav"), path.join(run, "music", "bed.wav"));
+  let bed = pick(args.bed && args.bed !== true ? args.bed : null, path.join(run, "bed.wav"), path.join(run, "music", "bed.wav"));
   if (!bed) die(`no bed: pass --bed <file>, or render it first (sound.mjs render --plan ${path.join(run, "music", "plan.json")} --out ${path.join(run, "bed.wav")})`);
   const vo = pick(args.vo && args.vo !== true ? args.vo : null, path.join(run, "audio", "vo.wav"), path.join(run, "vo", "vo.wav"), path.join(run, "voice", "vo.wav"));
   const words = pick(args.words && args.words !== true ? args.words : null, path.join(run, "audio", "words.json"), path.join(run, "voice", "words.json"));
   const planFile = path.join(run, "crew", "sfx-plan.json");
   const plan = fs.existsSync(planFile) ? readJSON(planFile) : null;
   const notes = [];
+  // the bed starts at t=0: a lead of silence in the file (a take with its own intro gap) is cut off and the bed padded back to the film length, unless the score
+  // asks for a pre-roll (music_arc.pre_roll / preroll true, or --preroll)
+  const preRoll = !!args.preroll || (() => { try { const sc = path.join(run, "motion", "score.json"); if (!fs.existsSync(sc)) return false; const j = readJSON(sc), a = j.music_arc || j.score?.music_arc; return !!(a && (a.pre_roll || a.preroll)); } catch { return false; } })();
+  if (!preRoll) {
+    const sd = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", bed, "-af", "silencedetect=n=-70dB:d=0.1", "-f", "null", "-"], { encoding: "utf8", maxBuffer: 1 << 26 });
+    const m = /silence_start:\s*(-?[\d.]+)[\s\S]*?silence_end:\s*([\d.]+)/.exec(String(sd.stderr || ""));
+    if (m && Number(m[1]) <= 0.02 && Number(m[2]) >= 0.1 && Number(m[2]) < 5) {
+      const lead = Number(m[2]);
+      const trimmed = path.join(run, "audio", "mux", "bed-t0.wav");
+      fs.mkdirSync(path.dirname(trimmed), { recursive: true });
+      try { execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-nostdin", "-i", bed, "-af", `atrim=start=${lead.toFixed(3)},asetpts=PTS-STARTPTS,apad=whole_dur=${dur.toFixed(3)}`, "-c:a", "pcm_f32le", trimmed], { stdio: "pipe" }); notes.push(`the bed had ${lead.toFixed(2)} s of silence at its head: cut so the music starts at t=0 (pass --preroll, or music_arc.pre_roll in the score, to keep a pre-roll)`); bed = trimmed; } catch (e) { notes.push(`could not cut the bed's ${lead.toFixed(2)} s silent head: ${String(e.stderr || e.message).trim().split("\n").pop()}`); }
+    }
+  }
   if (!plan) notes.push("no crew/sfx-plan.json: the draft gets the bed only (run sound.mjs sfx-plan --run <run> first; sound.mjs check errors no-sfx on a film of 15 s or more)");
   const kinds = new Set(["tick", "whoosh", "riser", "impact", "stinger", "subdrop", "foley", "hit"]);
   const sfx = [];
@@ -1222,7 +1237,13 @@ if (cmd === "analyze") {
   const wav = path.join(work, "mix.wav");
   const { mixFilm } = await import("./lib/audio.mjs");
   const mix = await mixFilm(spec, wav, { workDir: work });
-  try { execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-nostdin", "-i", video, "-i", wav, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-t", String(dur), outVideo], { stdio: "pipe" }); } catch (e) { die(`ffmpeg could not mux: ${String(e.stderr || e.message).trim().split("\n").pop()}`); }
+  // the ENCODED audio is what the check measures: master the mix to an AAC file (masterFile re-measures the encode and lowers its limiter ceiling until the
+  // true-peak target holds), then mux that stream untouched
+  const tgt = (mix.measures && mix.measures.master) || {};
+  const aacFile = path.join(work, "mix.m4a");
+  let mastered = null;
+  try { mastered = masterFile(wav, aacFile, { lufs: Number.isFinite(Number(tgt.target_lufs)) ? Number(tgt.target_lufs) : targetLufs(), tp: Math.min(Number.isFinite(Number(tgt.target_tp)) ? Number(tgt.target_tp) : -1.5, -1.5) }); } catch (e) { notes.push(`final AAC master failed (${String(e.message).split("\n")[0]}): muxed the mix as it is`); }
+  try { execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-nostdin", "-i", video, "-i", mastered ? aacFile : wav, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", ...(mastered ? ["-c:a", "copy"] : ["-c:a", "aac", "-b:a", "256k"]), "-t", String(dur), outVideo], { stdio: "pipe" }); } catch (e) { die(`ffmpeg could not mux: ${String(e.stderr || e.message).trim().split("\n").pop()}`); }
   out({ ok: true, video: outVideo, mix: wav, bed, vo, sfx_cues: sfx.length, measures: mix.measures, targets: mix.targets, mode: mix.mode, notes: [...notes, ...(mix.notes || [])], next: `sound.mjs check --video ${outVideo} --run ${run}; the delivery render mounts the same bed and cues` });
 } else if (cmd === "sfx-synth") {
   const { synth } = await import("./lib/sfx-synth.mjs");
