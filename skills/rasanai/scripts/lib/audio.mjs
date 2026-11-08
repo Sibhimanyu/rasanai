@@ -1206,22 +1206,37 @@ export function masterFile(input, out, { lufs = -14, tp = -1.5 } = {}) {
   requireTools();
   const pre = loudness(input);
   if (pre.lufs == null) throw new Error(`could not measure the loudness of ${input} (silent?)`);
-  let gain = lufs - pre.lufs;
-  const lim = dbToLin(tp).toFixed(4);
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   const isVideo = /\.(mp4|mov|m4v|webm|mkv)$/i.test(out);
+  const encoded = isVideo || /\.(m4a|aac|mp3)$/i.test(out);
   const codec = isVideo ? ["-c:v", "copy", "-c:a", "aac", "-b:a", "256k"] : /\.wav$/i.test(out) ? ["-c:a", "pcm_s24le"] : /\.mp3$/i.test(out) ? ["-c:a", "libmp3lame", "-b:a", "320k"] : /\.(m4a|aac)$/i.test(out) ? ["-c:a", "aac", "-b:a", "256k"] : [];
-  // AAC can overshoot the limiter: encoded files get 0.5 dB more headroom
-  const ceiling = isVideo || /\.(m4a|aac|mp3)$/i.test(out) ? dbToLin(tp - 0.5).toFixed(4) : lim;
-  const run = () => execFileSync("ffmpeg", ["-y", "-v", "error", "-i", input, ...(isVideo ? ["-map", "0:v:0?", "-map", "0:a:0"] : []), "-af", `volume=${gain.toFixed(2)}dB,aresample=192000,alimiter=limit=${ceiling}:attack=1:release=50:level=disabled,aresample=48000`, "-ar", "48000", ...codec, out]);
+  // two-pass linear loudnorm: the first pass measures the file (integrated, true peak, LRA, threshold), the second applies ONE static gain computed from
+  // those numbers (linear=true keeps the dynamics, LRA included). A 4x-oversampled limiter at the ceiling follows as the safety, and the ENCODED file is measured
+  // and re-run with a lower ceiling until it holds the true-peak target (AAC overshoots, and a limiter alone never hit its number).
+  let m = null;
+  try {
+    const r = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", input, "-vn", "-af", `loudnorm=I=${lufs}:TP=${tp}:LRA=20:print_format=json`, "-f", "null", "-"], { encoding: "utf8", maxBuffer: 1 << 26 });
+    const j = JSON.parse(String(r.stderr).slice(String(r.stderr).lastIndexOf("{")));
+    if (Number.isFinite(Number(j.input_i)) && Number.isFinite(Number(j.input_tp))) m = j;
+  } catch { m = null; }
+  let ceilDb = tp - (encoded ? 0.5 : 0.1);
+  let gain = lufs - pre.lufs;
+  const run = () => {
+    const norm = m ? `loudnorm=I=${lufs}:TP=${Math.min(tp, ceilDb)}:LRA=20:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true,` : `volume=${gain.toFixed(2)}dB,`;
+    execFileSync("ffmpeg", ["-y", "-v", "error", "-i", input, ...(isVideo ? ["-map", "0:v:0?", "-map", "0:a:0"] : []), "-af", `${norm}aresample=192000,alimiter=limit=${dbToLin(ceilDb).toFixed(4)}:attack=1:release=50:level=disabled,aresample=48000`, "-ar", "48000", ...codec, out]);
+  };
   run();
   let post = loudness(out);
-  if (post.lufs != null && lufs - post.lufs > 0.4) {
-    gain += Math.min(3, lufs - post.lufs);
+  for (let i = 0; i < 4; i++) {
+    const tpOver = post.true_peak != null ? post.true_peak - tp : 0;
+    const lufsOff = post.lufs != null ? lufs - post.lufs : 0;
+    if (tpOver <= 0.05 && lufsOff <= 0.4) break;
+    if (tpOver > 0.05) ceilDb -= tpOver + 0.2;
+    if (lufsOff > 0.4 && !m) gain += Math.min(3, lufsOff);
     run();
     post = loudness(out);
   }
-  return { out: path.resolve(out), lufs: post.lufs, true_peak: post.true_peak, lra: post.lra, gain_db: r1(gain), input_lufs: pre.lufs, input_true_peak: pre.true_peak };
+  return { out: path.resolve(out), lufs: post.lufs, true_peak: post.true_peak, lra: post.lra, gain_db: r1(m ? lufs - pre.lufs : gain), input_lufs: pre.lufs, input_true_peak: pre.true_peak };
 }
 
 // ---------------------------------------------------------------- SFX probe
